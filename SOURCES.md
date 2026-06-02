@@ -56,6 +56,15 @@ Hardware-focused sub-list hosted on lists.alphalinux.org, distinct from axp-list
 Subset of HTML coverage (113 vs 249 messages); retained for the 2 messages
 not present in HTML. public-inbox deduplicates by Message-ID on import.
 
+## axp-software (separate list)
+
+### December 1999 – September 2001 (19 months, 116 messages)
+**Source:** Pipermail shtml files in `axp-software/`  
+**Script:** `html-to-mbox-hardware.py axp-software`  
+**Output:** `axp-software-mbox/YYYY-Month.mbox`  
+**Quality:** Good — all files have original Message-IDs.  
+No Wayback mbox capture exists for this list.
+
 ## Sources investigated, not used
 
 ### marc.info — axp-redhat list
@@ -97,3 +106,4 @@ gone unless someone retained personal copies.
 | pre-2002 | axp-kernel-list | Not found | — |
 | 2002-Apr – 2003-Sep | axp-kernel-list | Gmane | Good (full headers) |
 | 1999-Dec – 2001-Sep | axp-hardware | HTML → mbox + Wayback | Good |
+| 1999-Dec – 2001-Sep | axp-software | HTML → mbox | Good |

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Convert axp-hardware Pipermail shtml files to per-month mbox files."""
+"""Convert alphalinux.org Pipermail shtml files to per-month mbox files.
+
+Usage: html-to-mbox-hardware.py [html-source-dir [mbox-output-dir]]
+Defaults: axp-hardware  axp-hardware-mbox
+"""
 
 import re
 import html
@@ -7,8 +11,8 @@ import sys
 from pathlib import Path
 
 BASE = Path(__file__).parent
-HTML_BASE = BASE / 'axp-hardware'
-MBOX_DIR = BASE / 'axp-hardware-mbox'
+HTML_BASE = BASE / (sys.argv[1] if len(sys.argv) > 1 else 'axp-hardware')
+MBOX_DIR  = BASE / (sys.argv[2] if len(sys.argv) > 2 else (HTML_BASE.name + '-mbox'))
 
 MONTH_NAMES = {
     'january': 'January', 'february': 'February', 'march': 'March',
