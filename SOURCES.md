@@ -64,7 +64,10 @@ Not fetched.
 ### axp-kernel-list (Red Hat, pre-2002)
 Referenced in external archives by September 1998. Checked Wayback Machine
 (nothing), marc.info (not indexed), Gmane (starts April 2002 only). No
-pre-2002 archive found anywhere.
+pre-2002 archive found anywhere. Headers in the Gmane messages contain
+`List-Archive: <https://listman.redhat.com/mailman/private/axp-kernel-list/>`
+— it was a **private** Mailman list. Pre-2002 content is almost certainly
+gone unless someone retained personal copies.
 
 ## Coverage summary
 
