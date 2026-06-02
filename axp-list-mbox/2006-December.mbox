@@ -1,0 +1,2137 @@
+From oliver.heid at siemens.com  Fri Dec  1 10:37:53 2006
+From: oliver.heid at siemens.com (Heid, Oliver)
+Date: Fri, 1 Dec 2006 11:37:53 +0100
+Subject: weird printk timestamps
+In-Reply-To: <4559F5D8.8070809@solvo.ru>
+Message-ID: <1AB3B76EE8C0614FADF6C41157ABFB5405EC02B8@ERLM863A.ww001.siemens.net>
+
+Dear all,
+I've noticed that printk has weird timestamps in 2.6.1[78] kernels on
+all my UP2000+, PC164 and XP1000 boxes. It seems that some recent CPU
+jiffies changes have not been ported to the alpha tree. My quick fix
+(???) for the (otherwise nicely working - a big thanks!!) 2.6.17.1[13]
+kernels was
+
+************
+--- include/linux/jiffies.h~	2006-06-18 03:49:35.000000000 +0200
++++ include/linux/jiffies.h	2006-12-01 11:30:32.000000000 +0100
+@@ -119,7 +119,7 @@
+  * Have the 32 bit jiffies value wrap 5 minutes after boot
+  * so jiffies wrap bugs show up earlier.
+  */
+-#define INITIAL_JIFFIES ((unsigned long)(unsigned int) (-300*HZ))
++#define INITIAL_JIFFIES ((unsigned long)(unsigned int) (0*HZ))
+ 
+ /*
+  * Change timeval to jiffies, trying to avoid the
+************
+
+Any comments?!
+    Oliver
+
+
+
+From tsv at solvo.ru  Fri Dec  1 11:03:15 2006
+From: tsv at solvo.ru (Sergey Tikhonov)
+Date: Fri, 01 Dec 2006 14:03:15 +0300
+Subject: weird printk timestamps
+In-Reply-To: <1AB3B76EE8C0614FADF6C41157ABFB5405EC02B8@ERLM863A.ww001.siemens.net>
+References: <1AB3B76EE8C0614FADF6C41157ABFB5405EC02B8@ERLM863A.ww001.siemens.net>
+Message-ID: <45700BF3.5030607@solvo.ru>
+
+Hi,
+
+Heid, Oliver wrote:
+
+>Dear all,
+>I've noticed that printk has weird timestamps in 2.6.1[78] kernels on
+>all my UP2000+, PC164 and XP1000 boxes. It seems that some recent CPU
+>jiffies changes have not been ported to the alpha tree. My quick fix
+>(???) for the (otherwise nicely working - a big thanks!!) 2.6.17.1[13]
+>kernels was
+>
+>************
+>--- include/linux/jiffies.h~	2006-06-18 03:49:35.000000000 +0200
+>+++ include/linux/jiffies.h	2006-12-01 11:30:32.000000000 +0100
+>@@ -119,7 +119,7 @@
+>  * Have the 32 bit jiffies value wrap 5 minutes after boot
+>  * so jiffies wrap bugs show up earlier.
+>  */
+>-#define INITIAL_JIFFIES ((unsigned long)(unsigned int) (-300*HZ))
+>+#define INITIAL_JIFFIES ((unsigned long)(unsigned int) (0*HZ))
+> 
+> /*
+>  * Change timeval to jiffies, trying to avoid the
+>************
+>
+>Any comments?!
+>    Oliver
+>
+>_______________________________________________
+>axp-list mailing list
+>axp-list at redhat.com
+>https://www.redhat.com/mailman/listinfo/axp-list
+>
+>  
+>
+Could you post the sample program that shows the problem? I will check 
+it on my (AC3pre) kernel.
+
+Regards,
+
+-- 
+Sergey Tikhonov
+
+Solvo Ltd.
+Saint-Petersburg, Russia
+tsv at solvo.ru
+
+
+
+From oliver.heid at siemens.com  Fri Dec  1 11:23:41 2006
+From: oliver.heid at siemens.com (Heid, Oliver)
+Date: Fri, 1 Dec 2006 12:23:41 +0100
+Subject: weird printk timestamps
+In-Reply-To: <45700BF3.5030607@solvo.ru>
+Message-ID: <1AB3B76EE8C0614FADF6C41157ABFB5405EC03B4@ERLM863A.ww001.siemens.net>
+
+Hello Sergey,
+thanks a lot - that was quick! Just switch on the printk timestamp in
+kernel config, and take a look at dmesg. The time is (obviously)
+monotonous, but all times are larger than >4.000.000s. Its probably only
+a cosmetic thing. I'll prepare a sample dmesg output..
+Oliver
+
+-----Original Message-----
+From: axp-list-bounces at redhat.com [mailto:axp-list-bounces at redhat.com]
+On Behalf Of Sergey Tikhonov
+Sent: Friday, December 01, 2006 12:03
+To: Linux on Alpha processors
+Subject: Re: weird printk timestamps
+
+Hi,
+
+Heid, Oliver wrote:
+
+>Dear all,
+>I've noticed that printk has weird timestamps in 2.6.1[78] kernels on
+>all my UP2000+, PC164 and XP1000 boxes. It seems that some recent CPU
+>jiffies changes have not been ported to the alpha tree. My quick fix
+>(???) for the (otherwise nicely working - a big thanks!!) 2.6.17.1[13]
+>kernels was
+>
+>************
+>--- include/linux/jiffies.h~	2006-06-18 03:49:35.000000000 +0200
+>+++ include/linux/jiffies.h	2006-12-01 11:30:32.000000000 +0100
+>@@ -119,7 +119,7 @@
+>  * Have the 32 bit jiffies value wrap 5 minutes after boot
+>  * so jiffies wrap bugs show up earlier.
+>  */
+>-#define INITIAL_JIFFIES ((unsigned long)(unsigned int) (-300*HZ))
+>+#define INITIAL_JIFFIES ((unsigned long)(unsigned int) (0*HZ))
+> 
+> /*
+>  * Change timeval to jiffies, trying to avoid the
+>************
+>
+>Any comments?!
+>    Oliver
+>
+>_______________________________________________
+>axp-list mailing list
+>axp-list at redhat.com
+>https://www.redhat.com/mailman/listinfo/axp-list
+>
+>  
+>
+Could you post the sample program that shows the problem? I will check 
+it on my (AC3pre) kernel.
+
+Regards,
+
+-- 
+Sergey Tikhonov
+
+Solvo Ltd.
+Saint-Petersburg, Russia
+tsv at solvo.ru
+
+_______________________________________________
+axp-list mailing list
+axp-list at redhat.com
+https://www.redhat.com/mailman/listinfo/axp-list
+
+
+
+From gero at gkminix.han.de  Thu Dec  7 22:06:34 2006
+From: gero at gkminix.han.de (Gero Kuhlmann)
+Date: Thu, 07 Dec 2006 23:06:34 +0100
+Subject: Samsung CPU on a 164LX mainboard
+Message-ID: <pan.2006.12.07.22.06.34.617388@gkminix.han.de>
+
+Hello,
+
+I've recently seen a Samsung 21164P7-500 CPU on eBay. Would it
+be possible to run this CPU on my 164LX mainboard with the 466 MHz
+setting? The CPU should be a EV56 according to various web searches.
+
+Thanks in advance. Gero.
+
+-- 
+Gero Kuhlmann                                 Groote Gracht 33
+gero at gkminix.han.de                           26723 Emden
+gero at gkminix.de                               04921/997561
+
+
+
+From maurice at harddata.com  Fri Dec  8 00:46:28 2006
+From: maurice at harddata.com (Maurice Hilarius)
+Date: Thu, 07 Dec 2006 17:46:28 -0700
+Subject: Samsung CPU on a 164LX mainboard
+In-Reply-To: <pan.2006.12.07.22.06.34.617388@gkminix.han.de>
+References: <pan.2006.12.07.22.06.34.617388@gkminix.han.de>
+Message-ID: <4578B5E4.6080109@harddata.com>
+
+Gero Kuhlmann wrote:
+> Hello,
+>
+> I've recently seen a Samsung 21164P7-500 CPU on eBay. Would it
+> be possible to run this CPU on my 164LX mainboard with the 466 MHz
+> setting? The CPU should be a EV56 according to various web searches.
+>
+> Thanks in advance. Gero.
+>
+>   
+Should be OK.
+Make sure you have a heatsink and a fan with the proper, non-standard
+wiring too..
+
+
+-- 
+
+With our best regards,
+
+
+Maurice W. Hilarius        Telephone: 01-780-456-9771
+Hard Data Ltd.  FAX:       01-780-456-9772
+11060 - 166 Avenue         email:maurice at harddata.com
+Edmonton, AB, Canada       http://www.harddata.com/
+   T5X 1Y3
+
+
+
+From jmeyer at msg.ucsf.edu  Fri Dec  8 02:05:49 2006
+From: jmeyer at msg.ucsf.edu (Josh Meyer)
+Date: Thu, 7 Dec 2006 18:05:49 -0800
+Subject: current list of distos which support Alphas?
+Message-ID: <32306A2C-74F5-49FA-920C-BAC15A5E56ED@msg.ucsf.edu>
+
+
+I'd like to upgrade a DS10L which currently runs an old version of  
+RH.  I see that CentOS 4.3 and Debian 3.1 both support Alphas.   
+Unfortunately it appears there's no longer an Alpha version of Suse.   
+Do I have this all correct?  Are there other current distributions I  
+should look at?  I'll probably go with CentOS because I have no  
+experience with Debian.
+
+Josh
+
+
+
+From tsv at solvo.ru  Fri Dec  8 06:42:28 2006
+From: tsv at solvo.ru (Sergey Tikhonov)
+Date: Fri, 08 Dec 2006 09:42:28 +0300
+Subject: current list of distos which support Alphas?
+In-Reply-To: <32306A2C-74F5-49FA-920C-BAC15A5E56ED@msg.ucsf.edu>
+References: <32306A2C-74F5-49FA-920C-BAC15A5E56ED@msg.ucsf.edu>
+Message-ID: <45790954.2010009@solvo.ru>
+
+Hello,
+
+Josh Meyer wrote:
+
+>
+> I'd like to upgrade a DS10L which currently runs an old version of  
+> RH.  I see that CentOS 4.3 and Debian 3.1 both support Alphas.   
+> Unfortunately it appears there's no longer an Alpha version of Suse.   
+> Do I have this all correct?  Are there other current distributions I  
+> should look at?  I'll probably go with CentOS because I have no  
+> experience with Debian.
+
+There is AlphaCore2 (based on FC4) available. (http://alphacore.info)
+Preview version (not installable) of AC3 available at 
+ftp://alphalinux.rdsor.ro/pub/Linux/Distributions/AlphaLinux/core/3.0b/alpha/. 
+It is based on FC5.
+
+Regards,
+
+-- 
+Sergey Tikhonov
+
+Head, R&D department
+Solvo Ltd.
+Saint-Petersburg, Russia
+http://www.solvo.ru
+tsv at solvo.ru
+
+
+
+From hoover at sal.ksu.edu  Fri Dec  8 14:05:14 2006
+From: hoover at sal.ksu.edu (Hoover, Tony)
+Date: Fri, 8 Dec 2006 08:05:14 -0600 
+Subject: current list of distos which support Alphas?
+Message-ID: <3EC10C096A3E64489D7547B69A763AF7010C1453@postman.salina.k-state.edu>
+
+I believe that Gentoo also supports Alpha 
+
+
+---------------------------------------------------------------------------
+Tony Hoover, Network Administrator
+KSU - Salina, College of Technology and Aviation
+(785) 826-2660
+
+"Don't Blend in..."
+----------------------------------------------------------------------------
+ 
+-----Original Message-----
+From: axp-list-bounces at redhat.com [mailto:axp-list-bounces at redhat.com] On
+Behalf Of Sergey Tikhonov
+Sent: Friday, December 08, 2006 12:42 AM
+To: Linux on Alpha processors
+Subject: Re: current list of distos which support Alphas?
+
+Hello,
+
+Josh Meyer wrote:
+
+>
+> I'd like to upgrade a DS10L which currently runs an old version of  
+> RH.  I see that CentOS 4.3 and Debian 3.1 both support Alphas.   
+> Unfortunately it appears there's no longer an Alpha version of Suse.   
+> Do I have this all correct?  Are there other current distributions I 
+> should look at?  I'll probably go with CentOS because I have no 
+> experience with Debian.
+
+There is AlphaCore2 (based on FC4) available. (http://alphacore.info)
+Preview version (not installable) of AC3 available at
+ftp://alphalinux.rdsor.ro/pub/Linux/Distributions/AlphaLinux/core/3.0b/alpha
+/. 
+It is based on FC5.
+
+Regards,
+
+--
+Sergey Tikhonov
+
+Head, R&D department
+Solvo Ltd.
+Saint-Petersburg, Russia
+http://www.solvo.ru
+tsv at solvo.ru
+
+_______________________________________________
+axp-list mailing list
+axp-list at redhat.com
+https://www.redhat.com/mailman/listinfo/axp-list
+
+
+
+From jeff.donsbach at hp.com  Fri Dec  8 14:56:31 2006
+From: jeff.donsbach at hp.com (Donsbach, Jeff)
+Date: Fri, 8 Dec 2006 09:56:31 -0500
+Subject: current list of distos which support Alphas?
+In-Reply-To: <3EC10C096A3E64489D7547B69A763AF7010C1453@postman.salina.k-state.edu>
+Message-ID: <0E766B4D32E1BC4A877197B95A04A25AB8A0F2@tayexc14.americas.cpqcorp.net>
+
+
+Yes, it does. I've been running Gentoo on my Alphas for a couple of
+years now. Many ebuilds are marked "unstable" on alpha ("~alpha"), but
+only because they haven't been tested by many people. All of the ebuilds
+that I've had to manually unmask have built and run just fine.
+
+Debian is another choice and Josh said. Didn't I hear that CentOS
+droppped their Alpha build recently?
+
+Jeff D
+
+ 
+
+-----Original Message-----
+From: axp-list-bounces at redhat.com [mailto:axp-list-bounces at redhat.com]
+On Behalf Of Hoover, Tony
+Sent: Friday, December 08, 2006 9:05 AM
+To: Linux on Alpha processors
+Subject: RE: current list of distos which support Alphas?
+
+I believe that Gentoo also supports Alpha 
+
+
+------------------------------------------------------------------------
+---
+Tony Hoover, Network Administrator
+KSU - Salina, College of Technology and Aviation
+(785) 826-2660
+
+"Don't Blend in..."
+------------------------------------------------------------------------
+----
+ 
+-----Original Message-----
+From: axp-list-bounces at redhat.com [mailto:axp-list-bounces at redhat.com]
+On Behalf Of Sergey Tikhonov
+Sent: Friday, December 08, 2006 12:42 AM
+To: Linux on Alpha processors
+Subject: Re: current list of distos which support Alphas?
+
+Hello,
+
+Josh Meyer wrote:
+
+>
+> I'd like to upgrade a DS10L which currently runs an old version of  
+> RH.  I see that CentOS 4.3 and Debian 3.1 both support Alphas.   
+> Unfortunately it appears there's no longer an Alpha version of Suse.
+
+> Do I have this all correct?  Are there other current distributions I 
+> should look at?  I'll probably go with CentOS because I have no 
+> experience with Debian.
+
+There is AlphaCore2 (based on FC4) available. (http://alphacore.info)
+Preview version (not installable) of AC3 available at
+ftp://alphalinux.rdsor.ro/pub/Linux/Distributions/AlphaLinux/core/3.0b/a
+lpha
+/. 
+It is based on FC5.
+
+Regards,
+
+--
+Sergey Tikhonov
+
+Head, R&D department
+Solvo Ltd.
+Saint-Petersburg, Russia
+http://www.solvo.ru
+tsv at solvo.ru
+
+_______________________________________________
+axp-list mailing list
+axp-list at redhat.com
+https://www.redhat.com/mailman/listinfo/axp-list
+
+_______________________________________________
+axp-list mailing list
+axp-list at redhat.com
+https://www.redhat.com/mailman/listinfo/axp-list
+
+
+
+From herrold at owlriver.com  Fri Dec  8 15:33:09 2006
+From: herrold at owlriver.com (R P Herrold)
+Date: Fri, 8 Dec 2006 10:33:09 -0500 (EST)
+Subject: current list of distos which support Alphas?
+In-Reply-To: <0E766B4D32E1BC4A877197B95A04A25AB8A0F2@tayexc14.americas.cpqcorp.net>
+References: <0E766B4D32E1BC4A877197B95A04A25AB8A0F2@tayexc14.americas.cpqcorp.net>
+Message-ID: <Pine.LNX.4.64.0612081028100.1934@new.owlriver.com>
+
+On Fri, 8 Dec 2006, Donsbach, Jeff wrote:
+
+> Debian is another choice and Josh said. Didn't I hear that CentOS
+> droppped their Alpha build recently?
+
+if you heard it, you heard it from a non-authoritative source; 
+as one of the core CentOS developers, I have a dedicated Alpha 
+buildbox back at my office in a build network (along side the 
+other niche arch PPC and Sparc dedicated builders), with the 
+plan and hope that with the next upstream release, we can 
+track Alpha with each point release.
+
+--0-- Russ Herrold
+
+
+
+From jeff.donsbach at hp.com  Fri Dec  8 15:37:04 2006
+From: jeff.donsbach at hp.com (Donsbach, Jeff)
+Date: Fri, 8 Dec 2006 10:37:04 -0500
+Subject: Samsung CPU on a 164LX mainboard
+In-Reply-To: <4578B5E4.6080109@harddata.com>
+Message-ID: <0E766B4D32E1BC4A877197B95A04A25AB8A15A@tayexc14.americas.cpqcorp.net>
+
+
+Maurice Hilarius:
+>>Gero Kuhlmann wrote:
+>> Hello,
+>>
+>> I've recently seen a Samsung 21164P7-500 CPU on eBay. Would it be 
+>> possible to run this CPU on my 164LX mainboard with the 466 MHz 
+>> setting? The CPU should be a EV56 according to various web searches.
+>>
+>> Thanks in advance. Gero.
+>>
+>>   
+> Should be OK.
+> Make sure you have a heatsink and a fan with the proper, non-standard
+wiring too..
+
+You might also have to change some dip switch settings on the LX
+motherboard to get the higher clock speed. What those settings should
+be, I have no idea.
+
+
+
+
+From jeff.donsbach at hp.com  Fri Dec  8 15:39:01 2006
+From: jeff.donsbach at hp.com (Donsbach, Jeff)
+Date: Fri, 8 Dec 2006 10:39:01 -0500
+Subject: current list of distos which support Alphas?
+In-Reply-To: <Pine.LNX.4.64.0612081028100.1934@new.owlriver.com>
+Message-ID: <0E766B4D32E1BC4A877197B95A04A25AB8A15F@tayexc14.americas.cpqcorp.net>
+
+
+Thanks, Russ! I didn't intend to spread false rumors.
+
+-----Original Message-----
+From: axp-list-bounces at redhat.com [mailto:axp-list-bounces at redhat.com]
+On Behalf Of R P Herrold
+Sent: Friday, December 08, 2006 10:33 AM
+To: Linux on Alpha processors
+Subject: RE: current list of distos which support Alphas?
+
+On Fri, 8 Dec 2006, Donsbach, Jeff wrote:
+
+> Debian is another choice and Josh said. Didn't I hear that CentOS 
+> droppped their Alpha build recently?
+
+if you heard it, you heard it from a non-authoritative source; as one of
+the core CentOS developers, I have a dedicated Alpha buildbox back at my
+office in a build network (along side the other niche arch PPC and Sparc
+dedicated builders), with the plan and hope that with the next upstream
+release, we can track Alpha with each point release.
+
+--0-- Russ Herrold
+
+
+
+From herrold at owlriver.com  Fri Dec  8 15:42:17 2006
+From: herrold at owlriver.com (R P Herrold)
+Date: Fri, 8 Dec 2006 10:42:17 -0500 (EST)
+Subject: current list of distos which support Alphas?
+In-Reply-To: <0E766B4D32E1BC4A877197B95A04A25AB8A15F@tayexc14.americas.cpqcorp.net>
+References: <0E766B4D32E1BC4A877197B95A04A25AB8A15F@tayexc14.americas.cpqcorp.net>
+Message-ID: <Pine.LNX.4.64.0612081041080.10699@new.owlriver.com>
+
+On Fri, 8 Dec 2006, Donsbach, Jeff wrote:
+
+> Thanks, Russ! I didn't intend to spread false rumors.
+
+> dedicated builders), with the plan and hope that with the next upstream
+> release, we can track Alpha with each point release.
+
+no worries
+
+- R
+
+
+
+From gero at gkminix.han.de  Fri Dec  8 16:53:44 2006
+From: gero at gkminix.han.de (Gero Kuhlmann)
+Date: Fri, 08 Dec 2006 17:53:44 +0100
+Subject: Samsung CPU on a 164LX mainboard
+References: <4578B5E4.6080109@harddata.com>
+	<0E766B4D32E1BC4A877197B95A04A25AB8A15A@tayexc14.americas.cpqcorp.net>
+Message-ID: <pan.2006.12.08.16.53.44.214768@gkminix.han.de>
+
+Hello,
+
+On Fri, 08 Dec 2006 17:05:27 +0100, Donsbach, Jeff wrote:
+>>> I've recently seen a Samsung 21164P7-500 CPU on eBay. Would it be 
+>>> possible to run this CPU on my 164LX mainboard with the 466 MHz 
+>>> setting? The CPU should be a EV56 according to various web searches.
+>>>
+>>> Thanks in advance. Gero.
+>>>
+>>>   
+>> Should be OK.
+>> Make sure you have a heatsink and a fan with the proper, non-standard
+> wiring too..
+
+The CPU has been pulled from a PWS 500a according to the seller,
+and it has the original heatsink.
+
+> You might also have to change some dip switch settings on the LX
+> motherboard to get the higher clock speed. What those settings should
+> be, I have no idea.
+
+According to the DEC reference manual the board should be able
+to run the CPU at 433, 533 and 600 MHz. The jumper settings are
+published as well (sorry, I have mistaken the frequency).
+
+Thanks very much for all help.
+
+Gero.
+
+-- 
+Gero Kuhlmann                                 Groote Gracht 33
+gero at gkminix.han.de                           26723 Emden
+gero at gkminix.de                               04921/997561
+
+
+
+From Jay.Estabrook at hp.com  Fri Dec  8 18:20:20 2006
+From: Jay.Estabrook at hp.com (Jay Estabrook)
+Date: Fri, 8 Dec 2006 13:20:20 -0500
+Subject: Samsung CPU on a 164LX mainboard
+In-Reply-To: <pan.2006.12.08.16.53.44.214768@gkminix.han.de>
+References: <4578B5E4.6080109@harddata.com>
+	<0E766B4D32E1BC4A877197B95A04A25AB8A15A@tayexc14.americas.cpqcorp.net>
+	<pan.2006.12.08.16.53.44.214768@gkminix.han.de>
+Message-ID: <20061208182020.GA14008@zkxw.zko.hp.com>
+
+On Fri, Dec 08, 2006 at 05:53:44PM +0100, Gero Kuhlmann wrote:
+> Hello,
+> 
+> On Fri, 08 Dec 2006 17:05:27 +0100, Donsbach, Jeff wrote:
+> >>> I've recently seen a Samsung 21164P7-500 CPU on eBay. Would it be 
+> >>> possible to run this CPU on my 164LX mainboard with the 466 MHz 
+> >>> setting? The CPU should be a EV56 according to various web searches.
+> >>>
+> >>> Thanks in advance. Gero.
+> >>>
+> >>>   
+> >> Should be OK.
+> >> Make sure you have a heatsink and a fan with the proper, non-standard
+> > wiring too..
+> 
+> The CPU has been pulled from a PWS 500a according to the seller,
+> and it has the original heatsink.
+
+Yes, but those typically do NOT have the fan, which is built into
+the enclosure, and not part of the heatsink.
+
+So, you'll need to provide such, in some way...
+
+> > You might also have to change some dip switch settings on the LX
+> > motherboard to get the higher clock speed. What those settings should
+> > be, I have no idea.
+> 
+> According to the DEC reference manual the board should be able
+> to run the CPU at 433, 533 and 600 MHz. The jumper settings are
+> published as well (sorry, I have mistaken the frequency).
+
+PWS were ONLY rated at 433, 500, and 600.
+
+LX164, IIRC, can run at others as well, though those mentioned above
+are the standard set. On some platforms, I think LX164 is one of them,
+there's a PCI bus frequency dependency on the clockrate frequency of
+the CPU, so you may not be able to utilize all the available settings
+for the CPU on the LX164.
+
+Be careful out there...
+
+ --Jay++
+
+---------------------------------------------------------------
+Jay A Estabrook                            HPTC - XC I & B
+Hewlett-Packard Company - ZKO1-3/D-B.8     (603) 884-0301
+110 Spit Brook Road, Nashua NH 03062       Jay.Estabrook at hp.com
+---------------------------------------------------------------
+
+
+
+From sfmc68 at verizon.net  Fri Dec  8 22:58:03 2006
+From: sfmc68 at verizon.net (bob smith)
+Date: Fri, 08 Dec 2006 17:58:03 -0500
+Subject: Off-Topic -Re: Samsung CPU on a 164LX mainboard
+In-Reply-To: <20061208182020.GA14008@zkxw.zko.hp.com>
+References: <4578B5E4.6080109@harddata.com>
+	<0E766B4D32E1BC4A877197B95A04A25AB8A15A@tayexc14.americas.cpqcorp.net>
+	<pan.2006.12.08.16.53.44.214768@gkminix.han.de>
+	<20061208182020.GA14008@zkxw.zko.hp.com>
+Message-ID: <4579EDFB.1000703@verizon.net>
+
+Jay Estabrook wrote:
+.
+> 
+> PWS were ONLY rated at 433, 500, and 600.
+> 
+> LX164, IIRC, can run at others as well, though those mentioned above
+> are the standard set. On some platforms, I think LX164 is one of them,
+> there's a PCI bus frequency dependency on the clockrate frequency of
+> the CPU, so you may not be able to utilize all the available settings
+> for the CPU on the LX164.
+> 
+> Be careful out there...
+> 
+>  --Jay++
+> 
+With the concept of being careful, and off topic, is there a source for 
+DS10/XP900 powersupply specifications?  Specifically, the pinouts?
+I know Islandco has higher wattage replacement units.
+thanks
+bob
+-- 
+Why won't they show us the basement in the Alamo?
+
+
+
+From maurice at harddata.com  Fri Dec  8 23:18:31 2006
+From: maurice at harddata.com (Maurice Hilarius)
+Date: Fri, 08 Dec 2006 16:18:31 -0700
+Subject: Off-Topic -Re: Samsung CPU on a 164LX mainboard
+In-Reply-To: <4579EDFB.1000703@verizon.net>
+References: <4578B5E4.6080109@harddata.com>	<0E766B4D32E1BC4A877197B95A04A25AB8A15A@tayexc14.americas.cpqcorp.net>	<pan.2006.12.08.16.53.44.214768@gkminix.han.de>	<20061208182020.GA14008@zkxw.zko.hp.com>
+	<4579EDFB.1000703@verizon.net>
+Message-ID: <4579F2C7.8080000@harddata.com>
+
+bob smith wrote:
+> ..With the concept of being careful, and off topic, is there a source
+> for DS10/XP900 powersupply specifications?  Specifically, the pinouts?
+> I know Islandco has higher wattage replacement units.
+> thanks
+> bob
+Fortunately there is little that is "magic" in most of these.
+
+There are some extra power connectors on some of the boards, such as
+UP2000+ to deliver extra 12V lines to the CPU power circuits.
+
+
+-- 
+
+With our best regards,
+
+
+Maurice W. Hilarius        Telephone: 01-780-456-9771
+Hard Data Ltd.  FAX:       01-780-456-9772
+11060 - 166 Avenue         email:maurice at harddata.com
+Edmonton, AB, Canada       http://www.harddata.com/
+   T5X 1Y3
+
+
+
+From jmeyer at msg.ucsf.edu  Sat Dec  9 06:13:26 2006
+From: jmeyer at msg.ucsf.edu (Josh Meyer)
+Date: Fri, 8 Dec 2006 22:13:26 -0800
+Subject: current list of distos which support Alphas?
+In-Reply-To: <Pine.LNX.4.64.0612081028100.1934@new.owlriver.com>
+References: <0E766B4D32E1BC4A877197B95A04A25AB8A0F2@tayexc14.americas.cpqcorp.net>
+	<Pine.LNX.4.64.0612081028100.1934@new.owlriver.com>
+Message-ID: <46244E8F-8A16-4A12-8BE5-7522B3EC67DF@msg.ucsf.edu>
+
+
+Maybe this is what Jeff had in mind...
+
+http://lists.centos.org/pipermail/centos/2006-June/066437.html
+
+Russ, does this mean you're taking over?
+
+Josh
+
+On Dec 8, 2006, at 7:33 AM, R P Herrold wrote:
+
+> On Fri, 8 Dec 2006, Donsbach, Jeff wrote:
+>
+>> Debian is another choice and Josh said. Didn't I hear that CentOS
+>> droppped their Alpha build recently?
+>
+> if you heard it, you heard it from a non-authoritative source; as  
+> one of the core CentOS developers, I have a dedicated Alpha  
+> buildbox back at my office in a build network (along side the other  
+> niche arch PPC and Sparc dedicated builders), with the plan and  
+> hope that with the next upstream release, we can track Alpha with  
+> each point release.
+>
+> --0-- Russ Herrold
+>
+> _______________________________________________
+> axp-list mailing list
+> axp-list at redhat.com
+> https://www.redhat.com/mailman/listinfo/axp-list
+
+
+
+From herrold at owlriver.com  Sat Dec  9 19:21:24 2006
+From: herrold at owlriver.com (R P Herrold)
+Date: Sat, 9 Dec 2006 14:21:24 -0500 (EST)
+Subject: current list of distos which support Alphas?
+In-Reply-To: <46244E8F-8A16-4A12-8BE5-7522B3EC67DF@msg.ucsf.edu>
+References: <0E766B4D32E1BC4A877197B95A04A25AB8A0F2@tayexc14.americas.cpqcorp.net>
+	<Pine.LNX.4.64.0612081028100.1934@new.owlriver.com>
+	<46244E8F-8A16-4A12-8BE5-7522B3EC67DF@msg.ucsf.edu>
+Message-ID: <Pine.LNX.4.64.0612091405470.11733@new.owlriver.com>
+
+On Fri, 8 Dec 2006, Josh Meyer wrote:
+
+> http://lists.centos.org/pipermail/centos/2006-June/066437.html
+>
+> Russ, does this mean you're taking over?
+
+hmmm ... 'taking over' carries overtones I do not intend to 
+address in a public venue; I have of course been part of the 
+CentOS development team since its inception, and the builders 
+I set are for the benefit of the project.
+
+-- Russ Herrold
+
+
+
+From jmeyer at msg.ucsf.edu  Mon Dec 11 19:48:06 2006
+From: jmeyer at msg.ucsf.edu (Josh Meyer)
+Date: Mon, 11 Dec 2006 11:48:06 -0800
+Subject: CentOS 4.3 CD problems
+Message-ID: <E25D661A-5F0C-437D-9850-BF036D544B61@msg.ucsf.edu>
+
+
+Has anyone else had problems with the CentOS 4.3 CDs?  The MD5  
+checksums don't match for me, and the CDs give errors when trying to  
+install.
+
+Josh
+
+
+
+From macro at linux-mips.org  Wed Dec 13 17:10:30 2006
+From: macro at linux-mips.org (Maciej W. Rozycki)
+Date: Wed, 13 Dec 2006 17:10:30 +0000 (GMT)
+Subject: [PATCH 2.6.19 1/6] tgafb: Switch to framebuffer_alloc()
+Message-ID: <Pine.LNX.4.64N.0612131553430.24220@blysk.ds.pg.gda.pl>
+
+ This is a set of changes to update the driver to the framebuffer_alloc() 
+API.  Included, there is also a fix to a memory leak due to the colour map 
+allocation not being freed upon driver's removal.  Aside from the fix 
+there are no functional changes.
+
+Signed-off-by: Maciej W. Rozycki <macro at linux-mips.org>
+---
+
+ Please apply.
+
+  Maciej
+
+patch-mips-2.6.18-20060920-tgafb-alloc-4
+diff -up --recursive --new-file linux-mips-2.6.18-20060920.macro/drivers/video/tgafb.c linux-mips-2.6.18-20060920/drivers/video/tgafb.c
+--- linux-mips-2.6.18-20060920.macro/drivers/video/tgafb.c	2006-09-20 20:50:52.000000000 +0000
++++ linux-mips-2.6.18-20060920/drivers/video/tgafb.c	2006-12-12 23:13:57.000000000 +0000
+@@ -1376,14 +1376,10 @@ tgafb_pci_register(struct pci_dev *pdev,
+ 		TGA_24PLUSZ_FB_OFFSET
+ 	};
+ 
+-	struct all_info {
+-		struct fb_info info;
+-		struct tga_par par;
+-		u32 pseudo_palette[16];
+-	} *all;
+-
+ 	void __iomem *mem_base;
+ 	unsigned long bar0_start, bar0_len;
++	struct fb_info *info;
++	struct tga_par *par;
+ 	u8 tga_type;
+ 	int ret;
+ 
+@@ -1394,13 +1390,14 @@ tgafb_pci_register(struct pci_dev *pdev,
+ 	}
+ 
+ 	/* Allocate the fb and par structures.  */
+-	all = kmalloc(sizeof(*all), GFP_KERNEL);
+-	if (!all) {
++	info = framebuffer_alloc(sizeof(struct tga_par), &pdev->dev);
++	if (!info) {
+ 		printk(KERN_ERR "tgafb: Cannot allocate memory\n");
+ 		return -ENOMEM;
+ 	}
+-	memset(all, 0, sizeof(*all));
+-	pci_set_drvdata(pdev, all);
++
++	par = info->par;
++	pci_set_drvdata(pdev, info);
+ 
+ 	/* Request the mem regions.  */
+ 	bar0_start = pci_resource_start(pdev, 0);
+@@ -1420,25 +1417,23 @@ tgafb_pci_register(struct pci_dev *pdev,
+ 
+ 	/* Grab info about the card.  */
+ 	tga_type = (readl(mem_base) >> 12) & 0x0f;
+-	all->par.pdev = pdev;
+-	all->par.tga_mem_base = mem_base;
+-	all->par.tga_fb_base = mem_base + fb_offset_presets[tga_type];
+-	all->par.tga_regs_base = mem_base + TGA_REGS_OFFSET;
+-	all->par.tga_type = tga_type;
+-	pci_read_config_byte(pdev, PCI_REVISION_ID, &all->par.tga_chip_rev);
++	par->pdev = pdev;
++	par->tga_mem_base = mem_base;
++	par->tga_fb_base = mem_base + fb_offset_presets[tga_type];
++	par->tga_regs_base = mem_base + TGA_REGS_OFFSET;
++	par->tga_type = tga_type;
++	pci_read_config_byte(pdev, PCI_REVISION_ID, &par->tga_chip_rev);
+ 
+ 	/* Setup framebuffer.  */
+-	all->info.flags = FBINFO_DEFAULT | FBINFO_HWACCEL_COPYAREA |
+-                          FBINFO_HWACCEL_IMAGEBLIT | FBINFO_HWACCEL_FILLRECT;
+-	all->info.fbops = &tgafb_ops;
+-	all->info.screen_base = all->par.tga_fb_base;
+-	all->info.par = &all->par;
+-	all->info.pseudo_palette = all->pseudo_palette;
++	info->flags = FBINFO_DEFAULT | FBINFO_HWACCEL_COPYAREA |
++		      FBINFO_HWACCEL_IMAGEBLIT | FBINFO_HWACCEL_FILLRECT;
++	info->fbops = &tgafb_ops;
++	info->screen_base = par->tga_fb_base;
++	info->pseudo_palette = (void *)(par + 1);
+ 
+ 	/* This should give a reasonable default video mode.  */
+ 
+-	ret = fb_find_mode(&all->info.var, &all->info, mode_option,
+-			   NULL, 0, NULL,
++	ret = fb_find_mode(&info->var, info, mode_option, NULL, 0, NULL,
+ 			   tga_type == TGA_TYPE_8PLANE ? 8 : 32);
+ 	if (ret == 0 || ret == 4) {
+ 		printk(KERN_ERR "tgafb: Could not find valid video mode\n");
+@@ -1446,36 +1441,35 @@ tgafb_pci_register(struct pci_dev *pdev,
+ 		goto err1;
+ 	}
+ 
+-	if (fb_alloc_cmap(&all->info.cmap, 256, 0)) {
++	if (fb_alloc_cmap(&info->cmap, 256, 0)) {
+ 		printk(KERN_ERR "tgafb: Could not allocate color map\n");
+ 		ret = -ENOMEM;
+ 		goto err1;
+ 	}
+ 
+-	tgafb_set_par(&all->info);
+-	tgafb_init_fix(&all->info);
++	tgafb_set_par(info);
++	tgafb_init_fix(info);
+ 
+-	all->info.device = &pdev->dev;
+-	if (register_framebuffer(&all->info) < 0) {
++	if (register_framebuffer(info) < 0) {
+ 		printk(KERN_ERR "tgafb: Could not register framebuffer\n");
+ 		ret = -EINVAL;
+ 		goto err1;
+ 	}
+ 
+ 	printk(KERN_INFO "tgafb: DC21030 [TGA] detected, rev=0x%02x\n",
+-	       all->par.tga_chip_rev);
++	       par->tga_chip_rev);
+ 	printk(KERN_INFO "tgafb: at PCI bus %d, device %d, function %d\n",
+ 	       pdev->bus->number, PCI_SLOT(pdev->devfn),
+ 	       PCI_FUNC(pdev->devfn));
+ 	printk(KERN_INFO "fb%d: %s frame buffer device at 0x%lx\n",
+-	       all->info.node, all->info.fix.id, bar0_start);
++	       info->node, info->fix.id, bar0_start);
+ 
+ 	return 0;
+ 
+  err1:
+ 	release_mem_region(bar0_start, bar0_len);
+  err0:
+-	kfree(all);
++	framebuffer_release(info);
+ 	return ret;
+ }
+ 
+@@ -1488,10 +1482,11 @@ tgafb_pci_unregister(struct pci_dev *pde
+ 	if (!info)
+ 		return;
+ 	unregister_framebuffer(info);
++	fb_dealloc_cmap(&info->cmap);
+ 	iounmap(par->tga_mem_base);
+ 	release_mem_region(pci_resource_start(pdev, 0),
+ 			   pci_resource_len(pdev, 0));
+-	kfree(info);
++	framebuffer_release(info);
+ }
+ 
+ #ifdef MODULE
+
+
+
+From macro at linux-mips.org  Wed Dec 13 17:10:22 2006
+From: macro at linux-mips.org (Maciej W. Rozycki)
+Date: Wed, 13 Dec 2006 17:10:22 +0000 (GMT)
+Subject: [PATCH 2.6.19 0/6] tgafb: Various fixes
+Message-ID: <Pine.LNX.4.64N.0612131532320.24220@blysk.ds.pg.gda.pl>
+
+Hello,
+
+ In the course of adding support for the TURBOchannel bus to the tgafb 
+driver I discovered and fixed a few problems and did a few cleanups.  
+They form this series of patches.  I have tested them all successfully on 
+an 8-plane and a 32-plane board, but they are both TURBOchannel options 
+(ZLX-E1 and ZLX-E3, respectively).  I do not have any PCI TGA cards, so 
+please anybody who cares about them and have suitable hardware do a little 
+bit of testing.
+
+  Maciej
+
+
+
+From macro at linux-mips.org  Wed Dec 13 17:10:36 2006
+From: macro at linux-mips.org (Maciej W. Rozycki)
+Date: Wed, 13 Dec 2006 17:10:36 +0000 (GMT)
+Subject: [PATCH 2.6.19 2/6] tgafb: Fix copying overlapping areas
+Message-ID: <Pine.LNX.4.64N.0612131600360.24220@blysk.ds.pg.gda.pl>
+
+ The direction of copying in the copyarea functions is selected 
+incorrectly, resulting in corruption.  This is a fix.
+
+Signed-off-by: Maciej W. Rozycki <macro at linux-mips.org>
+---
+
+ It looks like these functions are not used by the console code as image 
+blitting is preferred for scrolling and hence the bug has escaped 
+unnoticed for so long.  Still it is not an excuse for these functions to 
+be wrong.
+
+ Please apply.
+
+  Maciej
+
+patch-mips-2.6.18-20060920-tgafb-copyarea-1
+diff -up --recursive --new-file linux-mips-2.6.18-20060920.macro/drivers/video/tgafb.c linux-mips-2.6.18-20060920/drivers/video/tgafb.c
+--- linux-mips-2.6.18-20060920.macro/drivers/video/tgafb.c	2006-09-20 20:50:52.000000000 +0000
++++ linux-mips-2.6.18-20060920/drivers/video/tgafb.c	2006-12-12 05:15:28.000000000 +0000
+@@ -919,7 +919,7 @@ copyarea_line_8bpp(struct fb_info *info,
+ 
+ 	n64 = (height * width) / 64;
+ 
+-	if (dy < sy) {
++	if (sy < dy) {
+ 		spos = (sy + height) * width;
+ 		dpos = (dy + height) * width;
+ 
+@@ -967,7 +967,7 @@ copyarea_line_32bpp(struct fb_info *info
+ 
+ 	n16 = (height * width) / 16;
+ 
+-	if (dy < sy) {
++	if (sy < dy) {
+ 		src = tga_fb + (sy + height) * width * 4;
+ 		dst = tga_fb + (dy + height) * width * 4;
+ 
+
+
+
+From macro at linux-mips.org  Wed Dec 13 17:10:43 2006
+From: macro at linux-mips.org (Maciej W. Rozycki)
+Date: Wed, 13 Dec 2006 17:10:43 +0000 (GMT)
+Subject: [PATCH 2.6.19 3/6] tgafb: Support the DirectColor visual
+Message-ID: <Pine.LNX.4.64N.0612131605320.24220@blysk.ds.pg.gda.pl>
+
+ The 32-plane variations of the TGA use the Bt463 RAMDAC and are therefore 
+DirectColor rather than TrueColor adapters.  This is a set of changes to 
+implement the necessary bits to support this model.  A couple of fixes to 
+fix accesses to the RAMDAC are included as a side-effect.
+
+Signed-off-by: Maciej W. Rozycki <macro at linux-mips.org>
+---
+
+ This is the most intrusive change in this set of patches.  It was tested 
+both with the console, including the bootstrap logo, and X11 to make sure 
+palette handling is correct.
+
+ Please apply.
+
+  Maciej
+
+patch-mips-2.6.18-20060920-tgafb-directcolor-1
+diff -up --recursive --new-file linux-mips-2.6.18-20060920.macro/drivers/video/tgafb.c linux-mips-2.6.18-20060920/drivers/video/tgafb.c
+--- linux-mips-2.6.18-20060920.macro/drivers/video/tgafb.c	2006-09-20 20:50:52.000000000 +0000
++++ linux-mips-2.6.18-20060920/drivers/video/tgafb.c	2006-12-12 14:28:22.000000000 +0000
+@@ -98,6 +98,12 @@ tgafb_check_var(struct fb_var_screeninfo
+ 		if (var->bits_per_pixel != 32)
+ 			return -EINVAL;
+ 	}
++	var->red.length = var->green.length = var->blue.length = 8;
++	if (var->bits_per_pixel == 32) {
++		var->red.offset = 16;
++		var->green.offset = 8;
++		var->blue.offset = 0;
++	}
+ 
+ 	if (var->xres_virtual != var->xres || var->yres_virtual != var->yres)
+ 		return -EINVAL;
+@@ -151,7 +157,7 @@ tgafb_set_par(struct fb_info *info)
+ 	struct tga_par *par = (struct tga_par *) info->par;
+ 	u32 htimings, vtimings, pll_freq;
+ 	u8 tga_type;
+-	int i, j;
++	int i;
+ 
+ 	/* Encode video timings.  */
+ 	htimings = (((info->var.xres/4) & TGA_HORIZ_ACT_LSB)
+@@ -226,8 +232,10 @@ tgafb_set_par(struct fb_info *info)
+ 		BT485_WRITE(par, 0x00, BT485_ADDR_PAL_WRITE);
+ 		TGA_WRITE_REG(par, BT485_DATA_PAL, TGA_RAMDAC_SETUP_REG);
+ 
++#ifdef CONFIG_HW_CONSOLE
+ 		for (i = 0; i < 16; i++) {
+-			j = color_table[i];
++			int j = color_table[i];
++
+ 			TGA_WRITE_REG(par, default_red[j]|(BT485_DATA_PAL<<8),
+ 				      TGA_RAMDAC_REG);
+ 			TGA_WRITE_REG(par, default_grn[j]|(BT485_DATA_PAL<<8),
+@@ -235,14 +243,17 @@ tgafb_set_par(struct fb_info *info)
+ 			TGA_WRITE_REG(par, default_blu[j]|(BT485_DATA_PAL<<8),
+ 				      TGA_RAMDAC_REG);
+ 		}
+-		for (i = 0; i < 240*3; i += 4) {
+-			TGA_WRITE_REG(par, 0x55|(BT485_DATA_PAL<<8),
++		for (i = 0; i < 240 * 3; i += 4) {
++#else
++		for (i = 0; i < 256 * 3; i += 4) {
++#endif
++			TGA_WRITE_REG(par, 0x55 | (BT485_DATA_PAL << 8),
+ 				      TGA_RAMDAC_REG);
+-			TGA_WRITE_REG(par, 0x00|(BT485_DATA_PAL<<8),
++			TGA_WRITE_REG(par, 0x00 | (BT485_DATA_PAL << 8),
+ 				      TGA_RAMDAC_REG);
+-			TGA_WRITE_REG(par, 0x00|(BT485_DATA_PAL<<8),
++			TGA_WRITE_REG(par, 0x00 | (BT485_DATA_PAL << 8),
+ 				      TGA_RAMDAC_REG);
+-			TGA_WRITE_REG(par, 0x00|(BT485_DATA_PAL<<8),
++			TGA_WRITE_REG(par, 0x00 | (BT485_DATA_PAL << 8),
+ 				      TGA_RAMDAC_REG);
+ 		}
+ 
+@@ -266,26 +277,24 @@ tgafb_set_par(struct fb_info *info)
+ 
+ 		/* Fill the palette.  */
+ 		BT463_LOAD_ADDR(par, 0x0000);
+-		TGA_WRITE_REG(par, BT463_PALETTE<<2, TGA_RAMDAC_REG);
++		TGA_WRITE_REG(par, BT463_PALETTE << 2, TGA_RAMDAC_SETUP_REG);
+ 
++#ifdef CONFIG_HW_CONSOLE
+ 		for (i = 0; i < 16; i++) {
+-			j = color_table[i];
+-			TGA_WRITE_REG(par, default_red[j]|(BT463_PALETTE<<10),
+-				      TGA_RAMDAC_REG);
+-			TGA_WRITE_REG(par, default_grn[j]|(BT463_PALETTE<<10),
+-				      TGA_RAMDAC_REG);
+-			TGA_WRITE_REG(par, default_blu[j]|(BT463_PALETTE<<10),
+-				      TGA_RAMDAC_REG);
+-		}
+-		for (i = 0; i < 512*3; i += 4) {
+-			TGA_WRITE_REG(par, 0x55|(BT463_PALETTE<<10),
+-				      TGA_RAMDAC_REG);
+-			TGA_WRITE_REG(par, 0x00|(BT463_PALETTE<<10),
+-				      TGA_RAMDAC_REG);
+-			TGA_WRITE_REG(par, 0x00|(BT463_PALETTE<<10),
+-				      TGA_RAMDAC_REG);
+-			TGA_WRITE_REG(par, 0x00|(BT463_PALETTE<<10),
+-				      TGA_RAMDAC_REG);
++			int j = color_table[i];
++
++			TGA_WRITE_REG(par, default_red[j], TGA_RAMDAC_REG);
++			TGA_WRITE_REG(par, default_grn[j], TGA_RAMDAC_REG);
++			TGA_WRITE_REG(par, default_blu[j], TGA_RAMDAC_REG);
++		}
++		for (i = 0; i < 512 * 3; i += 4) {
++#else
++		for (i = 0; i < 528 * 3; i += 4) {
++#endif
++			TGA_WRITE_REG(par, 0x55, TGA_RAMDAC_REG);
++			TGA_WRITE_REG(par, 0x00, TGA_RAMDAC_REG);
++			TGA_WRITE_REG(par, 0x00, TGA_RAMDAC_REG);
++			TGA_WRITE_REG(par, 0x00, TGA_RAMDAC_REG);
+ 		}
+ 
+ 		/* Fill window type table after start of vertical retrace.  */
+@@ -298,15 +307,12 @@ tgafb_set_par(struct fb_info *info)
+ 		TGA_WRITE_REG(par, 0x01, TGA_INTR_STAT_REG);
+ 
+ 		BT463_LOAD_ADDR(par, BT463_WINDOW_TYPE_BASE);
+-		TGA_WRITE_REG(par, BT463_REG_ACC<<2, TGA_RAMDAC_SETUP_REG);
++		TGA_WRITE_REG(par, BT463_REG_ACC << 2, TGA_RAMDAC_SETUP_REG);
+ 
+ 		for (i = 0; i < 16; i++) {
+-			TGA_WRITE_REG(par, 0x00|(BT463_REG_ACC<<10),
+-				      TGA_RAMDAC_REG);
+-			TGA_WRITE_REG(par, 0x01|(BT463_REG_ACC<<10),
+-				      TGA_RAMDAC_REG);
+-			TGA_WRITE_REG(par, 0x80|(BT463_REG_ACC<<10),
+-				      TGA_RAMDAC_REG);
++			TGA_WRITE_REG(par, 0x00, TGA_RAMDAC_REG);
++			TGA_WRITE_REG(par, 0x01, TGA_RAMDAC_REG);
++			TGA_WRITE_REG(par, 0x00, TGA_RAMDAC_REG);
+ 		}
+ 
+ 	}
+@@ -434,9 +440,16 @@ tgafb_setcolreg(unsigned regno, unsigned
+ 		TGA_WRITE_REG(par, red|(BT485_DATA_PAL<<8),TGA_RAMDAC_REG);
+ 		TGA_WRITE_REG(par, green|(BT485_DATA_PAL<<8),TGA_RAMDAC_REG);
+ 		TGA_WRITE_REG(par, blue|(BT485_DATA_PAL<<8),TGA_RAMDAC_REG);
+-	} else if (regno < 16) {
+-		u32 value = (red << 16) | (green << 8) | blue;
+-		((u32 *)info->pseudo_palette)[regno] = value;
++	} else {
++		if (regno < 16) {
++			u32 value = (regno << 16) | (regno << 8) | regno;
++			((u32 *)info->pseudo_palette)[regno] = value;
++		}
++		BT463_LOAD_ADDR(par, regno);
++		TGA_WRITE_REG(par, BT463_PALETTE << 2, TGA_RAMDAC_SETUP_REG);
++		TGA_WRITE_REG(par, red, TGA_RAMDAC_REG);
++		TGA_WRITE_REG(par, green, TGA_RAMDAC_REG);
++		TGA_WRITE_REG(par, blue, TGA_RAMDAC_REG);
+ 	}
+ 
+ 	return 0;
+@@ -1351,7 +1364,7 @@ tgafb_init_fix(struct fb_info *info)
+ 	info->fix.type_aux = 0;
+ 	info->fix.visual = (tga_type == TGA_TYPE_8PLANE
+ 			    ? FB_VISUAL_PSEUDOCOLOR
+-			    : FB_VISUAL_TRUECOLOR);
++			    : FB_VISUAL_DIRECTCOLOR);
+ 
+ 	info->fix.line_length = par->xres * (par->bits_per_pixel >> 3);
+ 	info->fix.smem_start = (size_t) par->tga_fb_base;
+
+
+
+From macro at linux-mips.org  Wed Dec 13 17:10:55 2006
+From: macro at linux-mips.org (Maciej W. Rozycki)
+Date: Wed, 13 Dec 2006 17:10:55 +0000 (GMT)
+Subject: [PATCH 2.6.19 5/6] tgafb: Module support fixes
+Message-ID: <Pine.LNX.4.64N.0612131619320.24220@blysk.ds.pg.gda.pl>
+
+ This is a set of clean-ups for the module support in the driver --
+__devinit and __devexit classifiers are now specified correctly, 
+initialization functions are marked static and a few unnecessary #ifdefs 
+are removed.
+
+Signed-off-by: Maciej W. Rozycki <macro at linux-mips.org>
+---
+
+ Please apply.
+
+  Maciej
+
+patch-mips-2.6.18-20060920-tgafb-module-1
+diff -up --recursive --new-file linux-mips-2.6.18-20060920.macro/drivers/video/tgafb.c linux-mips-2.6.18-20060920/drivers/video/tgafb.c
+--- linux-mips-2.6.18-20060920.macro/drivers/video/tgafb.c	2006-09-20 20:50:52.000000000 +0000
++++ linux-mips-2.6.18-20060920/drivers/video/tgafb.c	2006-12-12 19:00:06.000000000 +0000
+@@ -42,8 +42,9 @@ static void tgafb_imageblit(struct fb_in
+ static void tgafb_fillrect(struct fb_info *, const struct fb_fillrect *);
+ static void tgafb_copyarea(struct fb_info *, const struct fb_copyarea *);
+ 
+-static int tgafb_pci_register(struct pci_dev *, const struct pci_device_id *);
+-static void tgafb_pci_unregister(struct pci_dev *);
++static int __devinit tgafb_pci_register(struct pci_dev *,
++					const struct pci_device_id *);
++static void __devexit tgafb_pci_unregister(struct pci_dev *);
+ 
+ static const char *mode_option = "640x480 at 60";
+ 
+@@ -1479,7 +1480,7 @@ tgafb_pci_register(struct pci_dev *pdev,
+ 	return ret;
+ }
+ 
+-static void __exit
++static void __devexit
+ tgafb_pci_unregister(struct pci_dev *pdev)
+ {
+ 	struct fb_info *info = pci_get_drvdata(pdev);
+@@ -1494,16 +1495,14 @@ tgafb_pci_unregister(struct pci_dev *pde
+ 	kfree(info);
+ }
+ 
+-#ifdef MODULE
+-static void __exit
++static void __devexit
+ tgafb_exit(void)
+ {
+ 	pci_unregister_driver(&tgafb_driver);
+ }
+-#endif /* MODULE */
+ 
+ #ifndef MODULE
+-int __init
++static int __devinit
+ tgafb_setup(char *arg)
+ {
+ 	char *this_opt;
+@@ -1525,7 +1524,7 @@ tgafb_setup(char *arg)
+ }
+ #endif /* !MODULE */
+ 
+-int __init
++static int __devinit
+ tgafb_init(void)
+ {
+ #ifndef MODULE
+@@ -1543,10 +1542,7 @@ tgafb_init(void)
+  */
+ 
+ module_init(tgafb_init);
+-
+-#ifdef MODULE
+ module_exit(tgafb_exit);
+-#endif
+ 
+ MODULE_DESCRIPTION("framebuffer driver for TGA chipset");
+ MODULE_LICENSE("GPL");
+
+
+
+From macro at linux-mips.org  Wed Dec 13 17:10:50 2006
+From: macro at linux-mips.org (Maciej W. Rozycki)
+Date: Wed, 13 Dec 2006 17:10:50 +0000 (GMT)
+Subject: [PATCH 2.6.19 4/6] tgafb: Fix the mode register setting
+Message-ID: <Pine.LNX.4.64N.0612131613050.24220@blysk.ds.pg.gda.pl>
+
+ There is no need to set the GE bit (Win32 compatibility) in the mode 
+register; it shall get cleared with the next subsequent update to the 
+register anyway.
+
+Signed-off-by: Maciej W. Rozycki <macro at linux-mips.org>
+---
+
+ The driver uses a number of magic constants throughout.  The hardware is 
+fully documented, so my plan is to fix up them all and provide macros for 
+all the used bits and perhaps more once I have finished with updating the 
+driver.
+
+ Please apply.
+
+  Maciej
+
+patch-mips-2.6.18-20060920-tgafb-mode-1
+diff -up --recursive --new-file linux-mips-2.6.18-20060920.macro/drivers/video/tgafb.c linux-mips-2.6.18-20060920/drivers/video/tgafb.c
+--- linux-mips-2.6.18-20060920.macro/drivers/video/tgafb.c	2006-09-20 20:50:52.000000000 +0000
++++ linux-mips-2.6.18-20060920/drivers/video/tgafb.c	2006-12-12 05:15:28.000000000 +0000
+@@ -136,10 +136,10 @@ tgafb_set_par(struct fb_info *info)
+ 		0x00000303
+ 	};
+ 	static unsigned int const mode_presets[4] = {
+-		0x00002000,
+-		0x00002300,
++		0x00000000,
++		0x00000300,
+ 		0xffffffff,
+-		0x00002300
++		0x00000300
+ 	};
+ 	static unsigned int const base_addr_presets[4] = {
+ 		0x00000000,
+
+
+
+From macro at linux-mips.org  Wed Dec 13 17:10:59 2006
+From: macro at linux-mips.org (Maciej W. Rozycki)
+Date: Wed, 13 Dec 2006 17:10:59 +0000 (GMT)
+Subject: [PATCH 2.6.19 6/6] tgafb: Sync-on-green support fixes
+Message-ID: <Pine.LNX.4.64N.0612131623360.24220@blysk.ds.pg.gda.pl>
+
+ This sets up the deep register of the TGA ASIC as well as the blank 
+pedestal of the Bt463 RAMDAC correctly for the sync-on-green mode.
+
+Signed-off-by: Maciej W. Rozycki <macro at linux-mips.org>
+---
+
+ Please apply.
+
+  Maciej
+
+patch-mips-2.6.18-20060920-tgafb-sync_on_green-1
+diff -up --recursive --new-file linux-mips-2.6.18-20060920.macro/drivers/video/tgafb.c linux-mips-2.6.18-20060920/drivers/video/tgafb.c
+--- linux-mips-2.6.18-20060920.macro/drivers/video/tgafb.c	2006-09-20 20:50:52.000000000 +0000
++++ linux-mips-2.6.18-20060920/drivers/video/tgafb.c	2006-12-12 14:32:20.000000000 +0000
+@@ -189,7 +189,9 @@ tgafb_set_par(struct fb_info *info)
+ 	while (TGA_READ_REG(par, TGA_CMD_STAT_REG) & 1) /* wait for not busy */
+ 		continue;
+ 	mb();
+-	TGA_WRITE_REG(par, deep_presets[tga_type], TGA_DEEP_REG);
++	TGA_WRITE_REG(par, deep_presets[tga_type] |
++			   (par->sync_on_green ? 0x0 : 0x00010000),
++		      TGA_DEEP_REG);
+ 	while (TGA_READ_REG(par, TGA_CMD_STAT_REG) & 1) /* wait for not busy */
+ 		continue;
+ 	mb();
+@@ -248,11 +250,11 @@ tgafb_set_par(struct fb_info *info)
+ 
+ 	} else { /* 24-plane or 24plusZ */
+ 
+-		/* Init BT463 registers.  */
++		/* Init BT463 RAMDAC registers.  */
+ 		BT463_WRITE(par, BT463_REG_ACC, BT463_CMD_REG_0, 0x40);
+ 		BT463_WRITE(par, BT463_REG_ACC, BT463_CMD_REG_1, 0x08);
+ 		BT463_WRITE(par, BT463_REG_ACC, BT463_CMD_REG_2,
+-			    (par->sync_on_green ? 0x80 : 0x40));
++			    (par->sync_on_green ? 0xc0 : 0x40));
+ 
+ 		BT463_WRITE(par, BT463_REG_ACC, BT463_READ_MASK_0, 0xff);
+ 		BT463_WRITE(par, BT463_REG_ACC, BT463_READ_MASK_1, 0xff);
+
+
+
+From macro at linux-mips.org  Thu Dec 14 13:56:36 2006
+From: macro at linux-mips.org (Maciej W. Rozycki)
+Date: Thu, 14 Dec 2006 13:56:36 +0000 (GMT)
+Subject: [PATCH 2.6.19 7/6] tgafb: Fix the PCI ID table
+Message-ID: <Pine.LNX.4.64N.0612141349590.12201@blysk.ds.pg.gda.pl>
+
+ The end marker is missing from the driver's PCI ID table.  This set of 
+changes adds the marker, switches to using PCI_DEVICE() and records the 
+table for the use in a module.
+
+Signed-off-by: Maciej W. Rozycki <macro at linux-mips.org>
+---
+
+ Here's one more. ;-)
+
+ Please apply.
+
+  Maciej
+
+patch-mips-2.6.18-20060920-tgafb-pci_tbl-0
+diff -up --recursive --new-file linux-mips-2.6.18-20060920.macro/drivers/video/tgafb.c linux-mips-2.6.18-20060920/drivers/video/tgafb.c
+--- linux-mips-2.6.18-20060920.macro/drivers/video/tgafb.c	2006-09-20 20:50:52.000000000 +0000
++++ linux-mips-2.6.18-20060920/drivers/video/tgafb.c	2006-12-14 00:55:35.000000000 +0000
+@@ -69,9 +69,10 @@ static struct fb_ops tgafb_ops = {
+  */
+ 
+ static struct pci_device_id const tgafb_pci_table[] = {
+-	{ PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DEC_TGA, PCI_ANY_ID, PCI_ANY_ID,
+-	  0, 0, 0 }
++	{ PCI_DEVICE(PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DEC_TGA) },
++	{ }
+ };
++MODULE_DEVICE_TABLE(pci, tgafb_pci_table);
+ 
+ static struct pci_driver tgafb_driver = {
+ 	.name			= "tgafb",
+
+
+
+From mike at grouse.net.au  Sun Dec 17 07:28:46 2006
+From: mike at grouse.net.au (Mike Barnes)
+Date: Sun, 17 Dec 2006 18:28:46 +1100 (EST)
+Subject: Alpha Wiki
+Message-ID: <4335.203.31.199.87.1166340526.squirrel@receptacle.org>
+
+Since all the cool kids have a Wiki these days ...
+
+http://alphacore.info/wiki/
+
+I'm throwing this out as a last piece of thanks to the Alpha crew. I
+haven't switched on my DS10 for months, ever since I picked up an awfully
+cheap 64-bit Sempron system which I'm utterly astounded with,
+performance-wise, considering how much I paid for it.
+
+The big roaring blue box just doesn't have a place in my life right now. I
+guess I'm semi-retiring from Alpha development ... not that I've done much
+in the last year anyway; although I will keep the domain registered, and
+the sites up and hosted, by all means.
+
+The Wiki at least is a good solution to keep me from being solely
+responsible for doing updates in a timely manner. :)
+
+My initial goal is to pull most of the good stuff out of the spam-riddled
+Alpha Core Forums, and start from there. I'll put the entire thing under
+the GFDL so we can poach from Wikipedia's AXP info as a base, but we'll
+have the scope for things like giving each machine type its own article,
+which will never happen there.
+
+This isn't intended as an Alpha Core specific thing, either. Other OS
+pages are quite welcome.
+
+So, whether it lives and thrives, or just becomes another dusty and
+neglected site on the net, it's there. It's staying there. If anyone feels
+like playing, go for it.
+
+
+
+From thursday at allidaho.com  Sun Dec 17 21:45:39 2006
+From: thursday at allidaho.com (Jon_norstog)
+Date: Sun, 17 Dec 2006 14:45:39 -0700
+Subject: Alpha Wiki
+In-Reply-To: <4335.203.31.199.87.1166340526.squirrel@receptacle.org>
+References: <4335.203.31.199.87.1166340526.squirrel@receptacle.org>
+Message-ID: <1166391940.2458.4.camel@localhost.localdomain>
+
+Thanks, Mike!
+
+jn
+
+On Sun, 2006-12-17 at 18:28 +1100, Mike Barnes wrote:
+> Since all the cool kids have a Wiki these days ...
+> 
+> http://alphacore.info/wiki/
+> 
+> I'm throwing this out as a last piece of thanks to the Alpha crew. 
+
+
+
+From oliver at linux-kernel.at  Mon Dec 18 08:47:21 2006
+From: oliver at linux-kernel.at (Oliver Falk)
+Date: Mon, 18 Dec 2006 09:47:21 +0100
+Subject: Alpha Wiki
+In-Reply-To: <4335.203.31.199.87.1166340526.squirrel@receptacle.org>
+References: <4335.203.31.199.87.1166340526.squirrel@receptacle.org>
+Message-ID: <45865599.9090200@linux-kernel.at>
+
+On 12/17/2006 08:28 AM, Mike Barnes wrote:
+> Since all the cool kids have a Wiki these days ...
+> 
+> http://alphacore.info/wiki/
+
+Hohoho. Some x-mas present for the Alpha(Core) community. :-)
+
+> I'm throwing this out as a last piece of thanks to the Alpha crew. I
+> haven't switched on my DS10 for months, ever since I picked up an awfully
+> cheap 64-bit Sempron system which I'm utterly astounded with,
+> performance-wise, considering how much I paid for it.
+
+You could send me the memory from your DS10. I have a DS10 around 
+without memory and cannot even switch it one; I could but wouldn't this 
+be very senseless? But at least my AS1000A is still running (a mix of 
+AlphaCore and recompiled FC/FE development rpms) - I'm wondering this 
+beast will never die I expect. :-)
+
+> The big roaring blue box just doesn't have a place in my life right now. I
+> guess I'm semi-retiring from Alpha development ... not that I've done much
+> in the last year anyway;
+
+Seem most good ol' alpha boys give up their work on the blue (and grey) 
+boxes. However it's great that there's still CentOS and AlphaCore who 
+maintain a stable distribution.
+
+ > although I will keep the domain registered, and
+> the sites up and hosted, by all means.
+
+That's good enough! Thanks a lot Mike!
+
+> The Wiki at least is a good solution to keep me from being solely
+> responsible for doing updates in a timely manner. :)
+> 
+> My initial goal is to pull most of the good stuff out of the spam-riddled
+> Alpha Core Forums, and start from there. I'll put the entire thing under
+> the GFDL so we can poach from Wikipedia's AXP info as a base, but we'll
+> have the scope for things like giving each machine type its own article,
+> which will never happen there.
+
+Sounds good!
+
+> This isn't intended as an Alpha Core specific thing, either. Other OS
+> pages are quite welcome.
+
+I'm wondering if anyone is going to publish some Windows NT 3.51 page 
+:-) I don't expect there's still some machine running it!?
+
+> So, whether it lives and thrives, or just becomes another dusty and
+> neglected site on the net, it's there. It's staying there. If anyone feels
+> like playing, go for it.
+
+We'll see...
+
+Best,
+  Oliver
+
+
+
+From mike at grouse.net.au  Mon Dec 18 09:48:09 2006
+From: mike at grouse.net.au (Mike Barnes)
+Date: Mon, 18 Dec 2006 20:48:09 +1100
+Subject: Alpha Wiki
+In-Reply-To: <45865599.9090200@linux-kernel.at>
+References: <4335.203.31.199.87.1166340526.squirrel@receptacle.org>
+	<45865599.9090200@linux-kernel.at>
+Message-ID: <E9794ACA-792C-4352-90DF-24B254F0AE77@grouse.net.au>
+
+On 18/12/2006, at 7:47 PM, Oliver Falk wrote:
+> You could send me the memory from your DS10. I have a DS10 around  
+> without memory and cannot even switch it one; I could but wouldn't  
+> this be very senseless? But at least my AS1000A is still running (a  
+> mix of AlphaCore and recompiled FC/FE development rpms) - I'm  
+> wondering this beast will never die I expect. :-)
+
+Actually, I think I have a big bag of miscellaneous DS10 memory  
+around here somewhere. Some of it is probably bad, but I'm sure  
+there's some that's working. It'd get a machine booted, at the very  
+least.
+
+I'll see what I can find in my boxes of junk. I'll let you know.
+
+> I'm wondering if anyone is going to publish some Windows NT 3.51  
+> page :-) I don't expect there's still some machine running it!?
+
+I was going to put up at least the NT4 page myself. I actually  
+installed it on my old AS200 a couple of years ago, for the fun of  
+it. The Windows 2000 beta that was around for Alpha probably rates a  
+mention too. I remember some discussion of it on the net somewhere.  
+I'll go looking again before long.
+
+I've only ever had the installation CD for NT4, although I did  
+actually administer a couple of NT 3.51 Alpha domain controllers many  
+years ago (1996, maybe?). It was actually the first time I ever  
+touched an Alpha system. I remember I screwed them up totally at one  
+point, because I did the upgrade to NT4 without updating the console  
+firmware to the required version first. Ah, memories ...
+
+
+
+
+
+From oliver at linux-kernel.at  Mon Dec 18 09:54:09 2006
+From: oliver at linux-kernel.at (Oliver Falk)
+Date: Mon, 18 Dec 2006 10:54:09 +0100
+Subject: Alpha Wiki
+In-Reply-To: <E9794ACA-792C-4352-90DF-24B254F0AE77@grouse.net.au>
+References: <4335.203.31.199.87.1166340526.squirrel@receptacle.org>
+	<45865599.9090200@linux-kernel.at>
+	<E9794ACA-792C-4352-90DF-24B254F0AE77@grouse.net.au>
+Message-ID: <45866541.1010807@linux-kernel.at>
+
+On 12/18/2006 10:48 AM, Mike Barnes wrote:
+> On 18/12/2006, at 7:47 PM, Oliver Falk wrote:
+>> You could send me the memory from your DS10. I have a DS10 around 
+>> without memory and cannot even switch it one; I could but wouldn't 
+>> this be very senseless? But at least my AS1000A is still running (a 
+>> mix of AlphaCore and recompiled FC/FE development rpms) - I'm 
+>> wondering this beast will never die I expect. :-)
+> 
+> Actually, I think I have a big bag of miscellaneous DS10 memory around 
+> here somewhere. Some of it is probably bad, but I'm sure there's some 
+> that's working. It'd get a machine booted, at the very least.
+> 
+> I'll see what I can find in my boxes of junk. I'll let you know.
+
+Oh Mike, that would be great!!!
+
+>> I'm wondering if anyone is going to publish some Windows NT 3.51 page 
+>> :-) I don't expect there's still some machine running it!?
+> 
+> I was going to put up at least the NT4 page myself. I actually installed 
+> it on my old AS200 a couple of years ago, for the fun of it. The Windows 
+> 2000 beta that was around for Alpha probably rates a mention too. I 
+> remember some discussion of it on the net somewhere. I'll go looking 
+> again before long.
+
+Duh? There was a W2K Beta for Alpha and NT4 as well. Didn't know. 
+However, I would never install it. :-)
+
+> I've only ever had the installation CD for NT4, although I did actually 
+> administer a couple of NT 3.51 Alpha domain controllers many years ago 
+> (1996, maybe?). It was actually the first time I ever touched an Alpha 
+> system. I remember I screwed them up totally at one point, because I did 
+> the upgrade to NT4 without updating the console firmware to the required 
+> version first. Ah, memories ...
+
+And then you switched to Linux on those Alphas? :-P
+
+When I got my AS100A, it was installed with NT 3.51; Killed it as soon 
+as I downloaded and burned RHL (6.2 I believe) CDs. I used to use it as 
+workstation for some time... Now it's only for playing around...
+
+--
+Oliver
+
+
+
+From rreed at ops.sgp.arm.gov  Mon Dec 18 14:15:11 2006
+From: rreed at ops.sgp.arm.gov (Ronald Reed)
+Date: Mon, 18 Dec 2006 08:15:11 -0600
+Subject: Alpha Wiki
+In-Reply-To: <45865599.9090200@linux-kernel.at>
+References: <4335.203.31.199.87.1166340526.squirrel@receptacle.org>
+	<45865599.9090200@linux-kernel.at>
+Message-ID: <1166451311.5256.2.camel@ron>
+
+On Mon, 2006-12-18 at 02:47, Oliver Falk wrote:
+> 
+> I'm wondering if anyone is going to publish some Windows NT 3.51 page 
+> :-) I don't expect there's still some machine running it!?
+> 
+
+There are Alpha machines out there that still run NT. I host the website
+and ftp server for http://www.alphant.com. We still have a maillist that
+I see names from on this list a lot.
+
+The domain isn't mine and I don't maintain the content or anything, I
+just volunteer the hosting. :)
+
+Ron
+
+-- 
+Ronald Reed
+Manager of Computer Operations
+ARM SGP ACRF Site
+(580)388-4053 Ext. 114
+rreed at ops.sgp.arm.gov
+
+
+
+From mike at grouse.net.au  Mon Dec 18 15:38:26 2006
+From: mike at grouse.net.au (Mike Barnes)
+Date: Tue, 19 Dec 2006 02:38:26 +1100
+Subject: Alpha Wiki
+In-Reply-To: <1166451311.5256.2.camel@ron>
+References: <4335.203.31.199.87.1166340526.squirrel@receptacle.org>
+	<45865599.9090200@linux-kernel.at> <1166451311.5256.2.camel@ron>
+Message-ID: <2001EC1E-5373-42FC-BA6E-B7E822C3E547@grouse.net.au>
+
+On 19/12/2006, at 1:15 AM, Ronald Reed wrote:
+> There are Alpha machines out there that still run NT. I host the  
+> website
+> and ftp server for http://www.alphant.com. We still have a maillist  
+> that
+> I see names from on this list a lot.
+
+Thanks for that - I remember that site now. I think that's where I  
+picked up my (limited) knowledge of Win2k for the Alpha a while back.
+
+By the way, if anyone's looking for the actual AlphaNT mailing list  
+archives, the links on that site are dead. They're actually available  
+at:  http://lyris.sunbelt-software.com/read/?forum=alphant
+
+I'll get in touch in the next few days and see if anyone there wants  
+to contribute any information from the Windows side of things. Unless  
+there's someone on this list who's already signed up?
+
+For that matter, is anyone here on the Debian or NetBSD Alpha lists  
+who'd care to plug the wiki project over there? I haven't been a  
+subscriber to those lists for ages. There were some good people on  
+there.
+
+
+
+From oliver at linux-kernel.at  Mon Dec 18 16:11:33 2006
+From: oliver at linux-kernel.at (Oliver Falk)
+Date: Mon, 18 Dec 2006 17:11:33 +0100
+Subject: Alpha Wiki
+In-Reply-To: <1166451311.5256.2.camel@ron>
+References: <4335.203.31.199.87.1166340526.squirrel@receptacle.org>	<45865599.9090200@linux-kernel.at>
+	<1166451311.5256.2.camel@ron>
+Message-ID: <4586BDB5.9060407@linux-kernel.at>
+
+On 12/18/2006 03:15 PM, Ronald Reed wrote:
+> On Mon, 2006-12-18 at 02:47, Oliver Falk wrote:
+>> I'm wondering if anyone is going to publish some Windows NT 3.51 page 
+>> :-) I don't expect there's still some machine running it!?
+>>
+> 
+> There are Alpha machines out there that still run NT. I host the website
+> and ftp server for http://www.alphant.com. We still have a maillist that
+> I see names from on this list a lot.
+> 
+> The domain isn't mine and I don't maintain the content or anything, I
+> just volunteer the hosting. :)
+
+okok... :-)
+
+-of
+
+
+
+From tom at kednos.com  Mon Dec 18 16:54:51 2006
+From: tom at kednos.com (Tom Linden)
+Date: Mon, 18 Dec 2006 08:54:51 -0800
+Subject: Alpha Wiki
+In-Reply-To: <4586BDB5.9060407@linux-kernel.at>
+Message-ID: <000e01c722c5$3c180fa0$6700000a@Murphus>
+
+I may still have the 3.51 CDs if anyone is interested.
+Tom
+
+> -----Original Message-----
+> From: axp-list-bounces at redhat.com [mailto:axp-list-bounces at redhat.com] On
+> Behalf Of Oliver Falk
+> Sent: Monday, December 18, 2006 8:12 AM
+> To: Linux on Alpha processors
+> Subject: Re: Alpha Wiki
+> 
+> On 12/18/2006 03:15 PM, Ronald Reed wrote:
+> > On Mon, 2006-12-18 at 02:47, Oliver Falk wrote:
+> >> I'm wondering if anyone is going to publish some Windows NT 3.51 page
+> >> :-) I don't expect there's still some machine running it!?
+> >>
+> >
+> > There are Alpha machines out there that still run NT. I host the website
+> > and ftp server for http://www.alphant.com. We still have a maillist that
+> > I see names from on this list a lot.
+> >
+> > The domain isn't mine and I don't maintain the content or anything, I
+> > just volunteer the hosting. :)
+> 
+> okok... :-)
+> 
+> -of
+> 
+> _______________________________________________
+> axp-list mailing list
+> axp-list at redhat.com
+> https://www.redhat.com/mailman/listinfo/axp-list
+
+
+
+From marco at xssnet.com  Mon Dec 18 17:46:20 2006
+From: marco at xssnet.com (Marco Benton)
+Date: Mon, 18 Dec 2006 12:46:20 -0500
+Subject: Alpha Wiki
+In-Reply-To: <000e01c722c5$3c180fa0$6700000a@Murphus>
+References: <000e01c722c5$3c180fa0$6700000a@Murphus>
+Message-ID: <4586D3EC.6080600@xssnet.com>
+
+the 3.51 CD's are easy to find...  i ran into a NT 3.1 AXP CD recently 
+during some cleaning....  along with an RRD40.  i may still have my 
+Jenson buried somewhere.
+
+Tom Linden wrote:
+> I may still have the 3.51 CDs if anyone is interested.
+> Tom
+>
+>   
+>> -----Original Message-----
+>> From: axp-list-bounces at redhat.com [mailto:axp-list-bounces at redhat.com] On
+>> Behalf Of Oliver Falk
+>> Sent: Monday, December 18, 2006 8:12 AM
+>> To: Linux on Alpha processors
+>> Subject: Re: Alpha Wiki
+>>
+>> On 12/18/2006 03:15 PM, Ronald Reed wrote:
+>>     
+>>> On Mon, 2006-12-18 at 02:47, Oliver Falk wrote:
+>>>       
+>>>> I'm wondering if anyone is going to publish some Windows NT 3.51 page
+>>>> :-) I don't expect there's still some machine running it!?
+>>>>
+>>>>         
+>>> There are Alpha machines out there that still run NT. I host the website
+>>> and ftp server for http://www.alphant.com. We still have a maillist that
+>>> I see names from on this list a lot.
+>>>
+>>> The domain isn't mine and I don't maintain the content or anything, I
+>>> just volunteer the hosting. :)
+>>>       
+>> okok... :-)
+>>
+>> -of
+>>
+>> _______________________________________________
+>> axp-list mailing list
+>> axp-list at redhat.com
+>> https://www.redhat.com/mailman/listinfo/axp-list
+>>     
+>
+> _______________________________________________
+> axp-list mailing list
+> axp-list at redhat.com
+> https://www.redhat.com/mailman/listinfo/axp-list
+>
+>   
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <http://listman.redhat.com/archives/axp-list/attachments/20061218/dcd477e6/attachment.htm>
+
+From thursday at allidaho.com  Mon Dec 18 20:36:43 2006
+From: thursday at allidaho.com (Jon_norstog)
+Date: Mon, 18 Dec 2006 13:36:43 -0700
+Subject: Alpha Wiki
+In-Reply-To: <2001EC1E-5373-42FC-BA6E-B7E822C3E547@grouse.net.au>
+References: <4335.203.31.199.87.1166340526.squirrel@receptacle.org>
+	<45865599.9090200@linux-kernel.at> <1166451311.5256.2.camel@ron>
+	<2001EC1E-5373-42FC-BA6E-B7E822C3E547@grouse.net.au>
+Message-ID: <1166474203.2306.11.camel@localhost.localdomain>
+
+On Tue, 2006-12-19 at 02:38 +1100, Mike Barnes wrote:
+
+> I'll get in touch in the next few days and see if anyone there wants  
+> to contribute any information from the Windows side of things. Unless  
+> there's someone on this list who's already signed up?
+Dear Mike,
+
+I've run NT and W2K on Alpha for years and will be glad to contribute.  
+
+jn
+
+
+
+From rbyrnes at mailshack.com  Tue Dec 19 10:09:13 2006
+From: rbyrnes at mailshack.com (Rob B)
+Date: Tue, 19 Dec 2006 21:09:13 +1100
+Subject: Alpha Wiki
+In-Reply-To: <2001EC1E-5373-42FC-BA6E-B7E822C3E547@grouse.net.au>
+References: <4335.203.31.199.87.1166340526.squirrel@receptacle.org>
+	<45865599.9090200@linux-kernel.at> <1166451311.5256.2.camel@ron>
+	<2001EC1E-5373-42FC-BA6E-B7E822C3E547@grouse.net.au>
+Message-ID: <20061219100858.1FC08C83B4@karen.nerdshack.com>
+
+At 02:38 AM 19/12/2006, Mike Barnes wrote:
+
+>For that matter, is anyone here on the Debian or NetBSD Alpha lists
+>who'd care to plug the wiki project over there? I haven't been a
+>subscriber to those lists for ages. There were some good people on
+>there.
+
+I'm on the FreeBSD-Alpha list, I'll plug the wiki there
+
+Rob 
+
+
+
+
+From axp-list at lizardlogic.co.uk  Tue Dec 19 12:05:43 2006
+From: axp-list at lizardlogic.co.uk (Stig Telfer)
+Date: Tue, 19 Dec 2006 12:05:43 +0000
+Subject: Free to good home: Tsunami-compatible memory
+Message-ID: <24A09BA8-C696-440E-938F-16698B544153@lizardlogic.co.uk>
+
+I have five sets of four dimms, scrapped from various Tsunami-based  
+systems that have come my way over the years.  I believe that means  
+they are PC100 registered dimms, 256MB and 128MB.
+
+Nobody around here wants them, but I don't want to scrap them, can't  
+be bothered to sell them, so I am offering them free to a good home.   
+Priority assignment will be given to anyone who figures out a way of  
+getting me a beer in return :-)
+
+Any takers?
+
+Stig
+
+
+
+From jeff.donsbach at hp.com  Tue Dec 19 21:58:30 2006
+From: jeff.donsbach at hp.com (Donsbach, Jeff)
+Date: Tue, 19 Dec 2006 16:58:30 -0500
+Subject: Alpha Wiki
+In-Reply-To: <20061219100858.1FC08C83B4@karen.nerdshack.com>
+Message-ID: <0E766B4D32E1BC4A877197B95A04A25AC10384@tayexc14.americas.cpqcorp.net>
+
+
+I just sent Mike's original post to the Gentoo Alpha and Debian Alpha
+lists to plug it. 
+
+-----Original Message-----
+From: axp-list-bounces at redhat.com [mailto:axp-list-bounces at redhat.com]
+On Behalf Of Rob B
+Sent: Tuesday, December 19, 2006 5:09 AM
+To: Linux on Alpha processors
+Subject: Re: Alpha Wiki
+
+At 02:38 AM 19/12/2006, Mike Barnes wrote:
+
+>For that matter, is anyone here on the Debian or NetBSD Alpha lists 
+>who'd care to plug the wiki project over there? I haven't been a 
+>subscriber to those lists for ages. There were some good people on 
+>there.
+
+I'm on the FreeBSD-Alpha list, I'll plug the wiki there
+
+Rob 
+
+
+
+From mike at grouse.net.au  Tue Dec 19 23:10:36 2006
+From: mike at grouse.net.au (Mike Barnes)
+Date: Wed, 20 Dec 2006 10:10:36 +1100
+Subject: Alpha Wiki
+In-Reply-To: <0E766B4D32E1BC4A877197B95A04A25AC10384@tayexc14.americas.cpqcorp.net>
+References: <0E766B4D32E1BC4A877197B95A04A25AC10384@tayexc14.americas.cpqcorp.net>
+Message-ID: <4588716C.1070103@grouse.net.au>
+
+Donsbach, Jeff wrote:
+> I just sent Mike's original post to the Gentoo Alpha and Debian Alpha
+> lists to plug it. 
+
+Great, thanks for that!
+
+I've just re-joined the NetBSD port-alpha list myself, so I'll put 
+something up on there soon.
+
+The positive response to this project has been fantastic, and I'd like 
+to thank everyone so far. It looks like our chances of getting a 
+semi-definitive collection of Alpha history and information together are 
+pretty good.
+
+
+
+From lgemedia at terra.com.br  Thu Dec 21 14:56:40 2006
+From: lgemedia at terra.com.br (Luiz Guilherme Regis Emediato)
+Date: Thu, 21 Dec 2006 12:56:40 -0200
+Subject: Free to good home: Tsunami-compatible memory
+In-Reply-To: <24A09BA8-C696-440E-938F-16698B544153@lizardlogic.co.uk>
+References: <24A09BA8-C696-440E-938F-16698B544153@lizardlogic.co.uk>
+Message-ID: <458AA0A8.8050205@terra.com.br>
+
+Hi Stig,
+
+I am interested in having them to improve my Alpha.
+Would you happen to be bothered by shipping them overseas ?
+I will be happy to send to you a PayPal amount for a box of beer.
+
+thanks and cheers,
+Luiz Regis
+
+Stig Telfer wrote:
+
+> I have five sets of four dimms, scrapped from various Tsunami-based  
+> systems that have come my way over the years.  I believe that means  
+> they are PC100 registered dimms, 256MB and 128MB.
+>
+> Nobody around here wants them, but I don't want to scrap them, can't  
+> be bothered to sell them, so I am offering them free to a good home.   
+> Priority assignment will be given to anyone who figures out a way of  
+> getting me a beer in return :-)
+>
+> Any takers?
+>
+> Stig
+>
+> _______________________________________________
+> axp-list mailing list
+> axp-list at redhat.com
+> https://www.redhat.com/mailman/listinfo/axp-list
+>
+> Esta mensagem foi verificada pelo E-mail Protegido Terra.
+> Scan engine: McAfee VirusScan / Atualizado em 18/12/2006 / Vers?o: 
+> 4.4.00/4921
+> Proteja o seu e-mail Terra: http://mail.terra.com.br/
+>
+>
+
+
+
+From kreutzm at itp.uni-hannover.de  Thu Dec 21 18:58:09 2006
+From: kreutzm at itp.uni-hannover.de (Helge Kreutzmann)
+Date: Thu, 21 Dec 2006 19:58:09 +0100
+Subject: Alpha Wiki
+In-Reply-To: <2001EC1E-5373-42FC-BA6E-B7E822C3E547@grouse.net.au>
+References: <4335.203.31.199.87.1166340526.squirrel@receptacle.org>
+	<45865599.9090200@linux-kernel.at> <1166451311.5256.2.camel@ron>
+	<2001EC1E-5373-42FC-BA6E-B7E822C3E547@grouse.net.au>
+Message-ID: <20061221185809.GB16857@itp.uni-hannover.de>
+
+Hello,
+On Tue, Dec 19, 2006 at 02:38:26AM +1100, Mike Barnes wrote:
+> For that matter, is anyone here on the Debian or NetBSD Alpha lists  
+> who'd care to plug the wiki project over there? I haven't been a  
+> subscriber to those lists for ages. There were some good people on  
+> there.
+
+I added a link to it from the "links" section of the Debian ports
+page. It'll take a few hours until the link is present on the web page
+and probably a few days until all translations have picked it up.
+Please contact me at if you'll need a different text or if the domain
+changes (as announced on the wiki).
+
+Maybe you could introduce links back to the other projects as well?
+Having mutual links eases the pain of users looking for information
+(for example, we should have a fairly complete list of machine types
+right now, but I never came around looking for pages for each machine
+and providing links, patches welcome).
+
+Greetings
+
+            Helge
+
+P.S. Corrections on the Debian alpha ports page welcome.
+-- 
+Dr. Helge Kreutzmann, Dipl.-Phys.           Helge.Kreutzmann at itp.uni-hannover.de
+                       gpg signed mail preferred 
+    64bit GNU powered                  http://www.itp.uni-hannover.de/~kreutzm
+          Help keep free software "libre": http://www.ffii.de/
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 189 bytes
+Desc: Digital signature
+URL: <http://listman.redhat.com/archives/axp-list/attachments/20061221/a7b3143b/attachment.sig>
+
+From mike at grouse.net.au  Fri Dec 22 00:31:53 2006
+From: mike at grouse.net.au (Mike Barnes)
+Date: Fri, 22 Dec 2006 11:31:53 +1100
+Subject: Alpha Wiki
+In-Reply-To: <20061221185809.GB16857@itp.uni-hannover.de>
+References: <4335.203.31.199.87.1166340526.squirrel@receptacle.org>
+	<45865599.9090200@linux-kernel.at> <1166451311.5256.2.camel@ron>
+	<2001EC1E-5373-42FC-BA6E-B7E822C3E547@grouse.net.au>
+	<20061221185809.GB16857@itp.uni-hannover.de>
+Message-ID: <0471F92E-FF9C-4354-B69F-BB6B60692CB0@grouse.net.au>
+
+On 22/12/2006, at 5:58 AM, Helge Kreutzmann wrote:
+> I added a link to it from the "links" section of the Debian ports
+> page. It'll take a few hours until the link is present on the web page
+> and probably a few days until all translations have picked it up.
+> Please contact me at if you'll need a different text or if the domain
+> changes (as announced on the wiki).
+
+I'll get in touch when I complete the move over to the other domain  
+name. It'll be well after all the christmas chaos settles down. Early  
+January, maybe.
+
+Oh, if anyone hadn't seen the main page announcement, I registered  
+alphawiki.org so it doesn't appear so Alpha Core-centric at first  
+glance. I really do intend to be as inclusive as possible, but  
+personally I don't know as much about the other OS projects as I do  
+about AC, although I have worked with NetBSD/Alpha a fair bit.
+
+In the long-term, it'd be great to get an admin team together with  
+people from each of the other projects, but while it's small I'm  
+going to stick to "benevolent dictatorship". :)
+
+> Maybe you could introduce links back to the other projects as well?
+> Having mutual links eases the pain of users looking for information
+> (for example, we should have a fairly complete list of machine types
+> right now, but I never came around looking for pages for each machine
+> and providing links, patches welcome).
+
+I've already started building up the "Community Portal" page for a  
+links summary (offical sites and download mirrors). Beyond that, any  
+Wiki page for a given distribution will probably end up with a huge  
+pile of related links in it. A section for mailing lists and forums  
+would probably be a good idea, too, now that I think of it.
+
+See: http://alphacore.info/wiki/index.php/AlphaWiki:Community_Portal
+
+When I set it up, I put in a link directly to the Debian Alpha port  
+page. If there is another page that'd be more appropriate, feel free  
+to change it.
+
+
+
+From rysch at chaank.com  Tue Dec 26 00:05:29 2006
+From: rysch at chaank.com (Ryan Schaefer)
+Date: Mon, 25 Dec 2006 16:05:29 -0800
+Subject: Donations..
+Message-ID: <20061226000529.GA18433@chaank.com>
+
+Greetings all,
+
+I apologize if this has been covered recently, but I've fallen out of
+touch with my Alpha mailing lists.
+
+Does any of the current Alpha distros have a need for donated
+machines? I have two or three Alpha machines which are living in a
+closet right now and desperately need of a good home. I'd feel bad
+throwing them away and they're hardly worth selling anymore, so I
+thought I'd check here to see if one of the groups maintaining Alpha
+Core or CentOS on Alpha could use them. 
+
+They are: 
+
+AlphaStation 255 4/300
+UDB Multia 233 (with the run of the mill power issues)
+Ultimate Personal Workstation/AS1200 dual 5/533
+
+I'm offering these machines free of charge to whomever wants them
+under the following conditions. You must be able to demonstrate that
+you've contributed to supporting or developing Alpha Linux or an Alpha
+Linux distribution at some point past or present. And, you must be
+willing to come retrieve the machine(s) from Chicago, IL or make
+arrangements to have it shipped to you.
+
+None of the machines have been parted out, so they're pretty much
+ready to run (drives, nics, video and scsi are all still in
+them). They'll be provided as-is with no warranty or support.
+
+Please contact me off-list if you're interested.
+
+--
+Ryan Schaefer
+rysch at chaank.com
+
+
+

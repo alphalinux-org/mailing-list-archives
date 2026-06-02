@@ -1,0 +1,631 @@
+From rjh+axp at cita.utoronto.ca  Sun Aug 13 09:33:02 2006
+From: rjh+axp at cita.utoronto.ca (Robin Humble)
+Date: Sun, 13 Aug 2006 05:33:02 -0400
+Subject: CentOS on wildfire
+Message-ID: <20060813093302.GA454@lemming.cita.utoronto.ca>
+
+
+Hi,
+
+we're trying to get CentOS 4.3 up on our gs320 (32 ev67 731MHz,
+64G ram) but have been struggling a bit for several days now.
+are there any recent wildfire success stories out there? (apart from
+the one boot in 2000)
+
+non-SMP kernels seem more or less ok (+/- a few Oops's) under either
+CentOS's UP kernel (2.6.9-34.0.2.EC) or latest kernel.org (2.6.17.8).
+
+in SMP mode however, 2.6.9-34.0.2.ECsmp invariably stops after
+  Freeing unused kernel memory: 176k freed
+the next line should probably be one of:
+  Red Hat nash version 4.2.1.6 starting
+  atkbd.c: keyboard reset failed on isa0060/serio1
+but it's never seen...
+I've tried a bunch of wildfire specific and cut-down and tweaked
+.config variants of the CentOS 2.6.9 kernel for alpha but nothing seems
+to help here - it doesn't get past that line.
+
+2.6.17.8 SMP seems close to working though - except for a lost irq4 (see
+the boot log at the URL below) which (naively) seems to come from the
+serial handler.
+the serial console is also a bit screwed up at this stage with each key
+press being one behind what's visible on the serial console. the
+suggested 'irqpoll' boot option makes no obvious difference.
+
+however the good news is that once the machine is up in init 3 (and the
+below log is from the only time so far that I've got it that far) then
+the machine seems ok and usable over an ssh login. I have yet to stress
+test it in any way.
+
+below is some /proc info for 2.6.17.8. the serial boot log and the
+.config is at http://www.cita.utoronto.ca/~rjh/alpha/
+
+BTW, CentOS 4.3 (standard SMP kernel) works great so far on our es40s.
+CentOS 4.4's gcc4/gfortran (when it's built) has OpenMP which will make
+the machines just as useful as they were under Tru64.  whoo! :-) and as
+soon as we fix our es45 then we'll give CentOS a run on there too...
+
+but anyway, any hints from you alpha experts for wildfire tweaks for
+failing CentOS kernels or the irq4 problem in 2.6.17.8 would be very
+much appreciated.
+let me know if it's more generic or if I should be posting to lkml instead.
+
+this gs320 a non-production machine until it gets more stable (or Tru64
+licenses magically become cheaper), so any speculative patches or tweaks
+and many reboots are just fine...
+
+cheers,
+robin
+
+
+% cat /proc/cpuinfo
+cpu                     : Alpha
+cpu model               : EV67
+cpu variation           : 7
+cpu revision            : 0
+cpu serial number       : SM02603478
+system type             : Wildfire
+system variation        : 0
+system revision         : 0
+system serial number    : G2B24Y
+cycle frequency [Hz]    : 730782000
+timer frequency [Hz]    : 1000.00
+page size [bytes]       : 8192
+phys. address bits      : 44
+max. addr. space #      : 255
+BogoMIPS                : 1489.60
+kernel unaligned acc    : 0 (pc=0,va=0)
+user unaligned acc      : 0 (pc=0,va=0)
+platform string         : AlphaServer GS320 6/731
+cpus detected           : 32
+cpus active             : 32
+cpu active mask         : 00000000ffffffff
+L1 Icache               : 64K, 2-way, 64b line
+L1 Dcache               : 64K, 2-way, 64b line
+L2 cache                : 4096K, 1-way, 64b line
+L3 cache                : n/a
+
+% cat /proc/interrupts
+           CPU0       CPU1       CPU2       CPU3       CPU4       CPU5       CPU6       CPU7       CPU8       CPU9       CPU10       CPU11       CPU12       CPU13       CPU14       CPU15       CPU16       CPU17       CPU18       CPU19       CPU20       CPU21       CPU22       CPU23       CPU24       CPU25       CPU26       CPU27       CPU28       CPU29       CPU30       CPU31
+  2:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          XT-PIC   cascade
+  4:    1003926          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0        WILDFIRE   serial
+  8:    1042388    1035826    1035216    1034424    1033923    1033362    1032847    1032440    1031385    1031825    1031713    1031617    1031237    1031466    1031404    1031349    1031302    1031256    1031214    1031171    1031127    1031089    1031051    1031017    1030990    1030957    1030928    1030898    1030867    1030840    1030811    1030780             RTC  +timer
+ 14:          1          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0        WILDFIRE  +ide0
+ 36:      16916          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0        WILDFIRE   qla1280
+ 40:       4417          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0        WILDFIRE   eth0
+296:      22137          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0        WILDFIRE   qla1280
+IPI:       1275       1297       1361       1358       1387       1392       1398       1413       1403       1405       1413       1429       1418       1396       1401       1418       1395       1399       1406       1415       1406       1409       1418       1412       1417       1414       1418       1410       1400       1409       1416       1414
+ERR:          0
+
+% free
+             total       used       free     shared    buffers     cached
+Mem:      66467080     145960   66321120          0      16968      49072
+-/+ buffers/cache:      79920   66387160
+Swap:      4194264          0    4194264
+
+% lspci
+00:01.0 SCSI storage controller: QLogic Corp. ISP1020 Fast-wide SCSI (rev 05)
+00:02.0 PCI bridge: Digital Equipment Corporation DECchip 21154 (rev 02)
+00:07.0 ISA bridge: ALi Corporation M1533/M1535 PCI to ISA Bridge [Aladdin IV/V/V+] (rev c3)
+00:0f.0 IDE interface: ALi Corporation M5229 IDE (rev c1)
+00:13.0 USB Controller: ALi Corporation USB 1.1 Controller (rev 03)
+01:04.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 100] (rev 05)
+01:05.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 100] (rev 05)
+0002:03:01.0 PCI bridge: Digital Equipment Corporation DECchip 21154 (rev 05)
+0002:04:04.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 100] (rev 05)
+0002:04:05.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 100] (rev 05)
+0008:06:02.0 SCSI storage controller: QLogic Corp. ISP1020 Fast-wide SCSI (rev 05)
+0008:06:03.0 Fibre Channel: Emulex Corporation LP8000 Fibre Channel Host Adapter (rev 02)
+0009:07:07.0 SCSI storage controller: Adaptec AHA-3960D / AIC-7899A U160/m (rev 01)
+0009:07:07.1 SCSI storage controller: Adaptec AHA-3960D / AIC-7899A U160/m (rev 01)
+000a:08:01.0 Network controller: Digital Equipment Corporation: Unknown device 0018 (rev 24)
+
+
+
+From upi at centos.fi  Sun Aug 13 10:11:34 2006
+From: upi at centos.fi (Pasi Pirhonen)
+Date: Sun, 13 Aug 2006 13:11:34 +0300
+Subject: CentOS on wildfire
+In-Reply-To: <20060813093302.GA454@lemming.cita.utoronto.ca>
+References: <20060813093302.GA454@lemming.cita.utoronto.ca>
+Message-ID: <20060813101134.GX13508@centos.fi>
+
+Hi,
+
+
+On Sun, Aug 13, 2006 at 05:33:02AM -0400, Robin Humble wrote:
+> 
+> Hi,
+> 
+> we're trying to get CentOS 4.3 up on our gs320 (32 ev67 731MHz,
+> 64G ram) but have been struggling a bit for several days now.
+> are there any recent wildfire success stories out there? (apart from
+> the one boot in 2000)
+
+
+Actualluy i wouldn't try too hard as i've EOL'ed the CentOS-4/axp
+myself and i don't know if anyone is even going to continue mainatining
+it. If not, it's end of story in few weeks (August 2006).
+
+I am sorry, but it's how it is now.
+
+Then again, the GS320. I do have some kind of feeling i've seen
+something like CentOS-4/axp booting up on such hardware, but that's
+about all i remember about it. Maybe the AlphaCore list/AlphaCore later
+release would be more suitable? 
+
+
+
+-- 
+Pasi Pirhonen - upi at iki.fi - http://pasi.pirhonen.eu/
+Top-postings silently ignored
+
+
+
+From mike at grouse.net.au  Sun Aug 13 10:32:04 2006
+From: mike at grouse.net.au (Mike Barnes)
+Date: Sun, 13 Aug 2006 20:32:04 +1000 (EST)
+Subject: CentOS on wildfire
+In-Reply-To: <20060813101134.GX13508@centos.fi>
+References: <20060813093302.GA454@lemming.cita.utoronto.ca>
+	<20060813101134.GX13508@centos.fi>
+Message-ID: <27458.203.31.199.126.1155465124.squirrel@receptacle.org>
+
+> Actualluy i wouldn't try too hard as i've EOL'ed the CentOS-4/axp
+> myself and i don't know if anyone is even going to continue mainatining
+> it. If not, it's end of story in few weeks (August 2006).
+
+What's involved in keeping it maintained? I think it's a worthwhile
+project. I've been using CentOS/axp as a test machine for a bit, and it's
+nicely solid.
+
+I'm not sure how much time I've really got right now for side projects,
+but I'd certainly like to discuss keeping CentOS alive on the Alpha if
+anyone else is.
+
+And hey - how's life, Robin? Didn't expect to see your name pop up in my
+mail.
+
+
+
+From thursday at allidaho.com  Sun Aug 13 13:05:04 2006
+From: thursday at allidaho.com (Jon_norstog)
+Date: Sun, 13 Aug 2006 07:05:04 -0600
+Subject: CentOS on wildfire
+In-Reply-To: <27458.203.31.199.126.1155465124.squirrel@receptacle.org>
+References: <20060813093302.GA454@lemming.cita.utoronto.ca>
+	<20060813101134.GX13508@centos.fi>
+	<27458.203.31.199.126.1155465124.squirrel@receptacle.org>
+Message-ID: <1155474304.2306.6.camel@localhost.localdomain>
+
+On Sun, 2006-08-13 at 20:32 +1000, Mike Barnes wrote:
+> > Actualluy i wouldn't try too hard as i've EOL'ed the CentOS-4/axp
+> > myself and i don't know if anyone is even going to continue mainatining
+> > it. If not, it's end of story in few weeks (August 2006).
+> 
+> What's involved in keeping it maintained? I think it's a worthwhile
+> project. I've been using CentOS/axp as a test machine for a bit, and it's
+> nicely solid.
+> 
+> I'm not sure how much time I've really got right now for side projects,
+> but I'd certainly like to discuss keeping CentOS alive on the Alpha if
+> anyone else is.
+
+
+Mike, and list:
+
+Not much chatter on the AXP list lately.  I've been enjoying the speed
+and stability of AC2 on my 667 mhz XP machine and waiting for the 64-bit
+port of Open Office to be completed.
+
+My son was in town this summer to take a physics calss at the local
+state U.  He has a 64-bit AMD laptop with Windows .. he assumed my XP
+was a 2 Ghz machine and was surprised to learn that was "only" 667 mhz.
+
+I think there are a few years of life left in the old boxes and hope the
+user group will stay together.  We should all be working on it, instead
+of leaving the heavy lifting up to two or three guys.
+
+later
+
+jn
+
+
+
+From rjh+axp at cita.utoronto.ca  Mon Aug 14 03:27:19 2006
+From: rjh+axp at cita.utoronto.ca (Robin Humble)
+Date: Sun, 13 Aug 2006 23:27:19 -0400
+Subject: CentOS on wildfire
+In-Reply-To: <20060813101134.GX13508@centos.fi>
+References: <20060813093302.GA454@lemming.cita.utoronto.ca>
+	<20060813101134.GX13508@centos.fi>
+Message-ID: <20060814032719.GC3254@lemming.cita.utoronto.ca>
+
+On Sun, Aug 13, 2006 at 01:11:34PM +0300, Pasi Pirhonen wrote:
+>On Sun, Aug 13, 2006 at 05:33:02AM -0400, Robin Humble wrote:
+>> we're trying to get CentOS 4.3 up on our gs320 (32 ev67 731MHz,
+>> 64G ram) but have been struggling a bit for several days now.
+>> are there any recent wildfire success stories out there? (apart from
+>> the one boot in 2000)
+>Actualluy i wouldn't try too hard as i've EOL'ed the CentOS-4/axp
+>myself and i don't know if anyone is even going to continue mainatining
+>it. If not, it's end of story in few weeks (August 2006).
+
+oh, ok - I missed this:
+  http://lists.centos.org/pipermail/centos-devel/2006-June/002289.html
+
+>I am sorry, but it's how it is now.
+
+I'm sorry too.
+thanks very much for all your work on CentOS/alpha.
+
+Re: your alpha core suggestion:
+generally we run fedora on desktops and we run RHEL on servers. servers
+don't need sparkly new shiny gui bits but they do need the long support
+lifetimes. as we have no alpha desktops then CentOS is really the only
+thing we're interested in.
+
+as we really want the gcc openmp functionality available in RHEL U4,
+I'll probably start building the U4 rpms (CentOS 4.4) for our machines
+and putting them into a yum repo for myself. on a 32-way machine they
+should build fairly quickly :)
+if it's not much more trouble then I can find/apply CentOS patches to
+remove the RH references (where are these patches?) and then make the
+repos public if anyone is interested.
+if this happens it'd be nice to feed this work back into the general
+CentOS distro, but I have no idea how hard that would be...
+
+keeping up with new RHEL srpms for CentOS 4 shouldn't be too hard as
+long as there's no major patching involved. firefox and the kernel are
+the likely trouble spots - would that be a fair statement?
+I don't actually need those on a server running a kernel.org kernel so
+(as an individual) I'd be happy to skip them. but if a community is
+trying to maintain a full CentOS 4.4+ then obviously that's not good
+enough.
+
+I can't see myself having the time or inclination to tackle CentOS 5
+for alpha though... at least not for a few years until CentOS 4 is
+thoroughly obsolete.
+
+BTW, wildfire success/failure stories still welcome! :)
+
+cheers,
+robin
+
+
+
+From upi at centos.fi  Tue Aug 22 17:18:54 2006
+From: upi at centos.fi (Pasi Pirhonen)
+Date: Tue, 22 Aug 2006 20:18:54 +0300
+Subject: CentOS on wildfire
+In-Reply-To: <20060821191454.GB18887@lemming.cita.utoronto.ca>
+References: <20060813093302.GA454@lemming.cita.utoronto.ca>
+	<20060813101134.GX13508@centos.fi>
+	<20060821191454.GB18887@lemming.cita.utoronto.ca>
+Message-ID: <20060822171854.GT32266@centos.fi>
+
+Hi,
+
+
+On Mon, Aug 21, 2006 at 03:14:55PM -0400, Robin Humble wrote:
+> 
+> I've built almost all of the rpms from the 4.4 release now (everything
+> since ~Feb '06). I think only oprofile, ltrace, and tog-pegasus are
+> missing - the other 150 are patched where needed and rebuilt. some have
+> even been tested! :)
+> 
+> what's the procedure to get these into the CentOS distribution and
+> signed with the CentOS key etc?
+
+This is kind of wrong place for this kind of talk, but propably you
+should contaact Johnny Hughes if you're serious and able to maintain
+CentOS-4/axp.
+
+
+> 
+> BTW, does anyone have an es45 working?
+> we have a 'privateer' variant that doesn't seem to want to boot the
+> kernel.
+> 
+
+I did made the CentOS-4/axp on quad 1Ghz EV68EB ES45, so at least that
+hardware should work :)
+
+
+
+-- 
+Pasi Pirhonen - upi at iki.fi - http://pasi.pirhonen.eu/
+Top-postings silently ignored
+
+
+
+From rjh+axp at cita.utoronto.ca  Thu Aug 24 22:19:16 2006
+From: rjh+axp at cita.utoronto.ca (Robin Humble)
+Date: Thu, 24 Aug 2006 18:19:16 -0400
+Subject: CentOS on wildfire
+In-Reply-To: <20060822171854.GT32266@centos.fi>
+References: <20060813093302.GA454@lemming.cita.utoronto.ca>
+	<20060813101134.GX13508@centos.fi>
+	<20060821191454.GB18887@lemming.cita.utoronto.ca>
+	<20060822171854.GT32266@centos.fi>
+Message-ID: <20060824221916.GA5386@lemming.cita.utoronto.ca>
+
+On Tue, Aug 22, 2006 at 08:18:54PM +0300, Pasi Pirhonen wrote:
+>On Mon, Aug 21, 2006 at 03:14:55PM -0400, Robin Humble wrote:
+>> I've built almost all of the rpms from the 4.4 release now (everything
+>> since ~Feb '06). I think only oprofile, ltrace, and tog-pegasus are
+>> missing - the other 150 are patched where needed and rebuilt. some have
+>> even been tested! :)
+>> 
+>> what's the procedure to get these into the CentOS distribution and
+>> signed with the CentOS key etc?
+>This is kind of wrong place for this kind of talk, but propably you
+>should contaact Johnny Hughes if you're serious and able to maintain
+>CentOS-4/axp.
+
+I've built the update 4 rpms and it seems a shame to waste them by
+not pushing the effort back into CentOS somehow - contributing back to
+the community etc. ...  the rpms are far more useful if they're at
+CentOS's site than they are just sitting in a public repo of mine.
+
+I'm ok with keeping fairly up to date rebuilding RHEL 4 sources and I'm
+happy to keep on doing that. RHEL 5 would be a fair chunk of work and
+I'm not sure I'll have time for that (or indeed for how much longer I'll
+have access to alpha hardware).
+
+however, I don't have a clue about how to make a CentOS 4.4 iso from
+rpms, or how to seed a bittorrent, and am not all that keen to deal
+with lots of CentOS politics (if it exists) either.
+
+that's why I was asking here - for help with the above and for help
+keeping CentOS for alpha alive...
+
+cheers,
+robin
+
+
+
+From tsv at solvo.ru  Fri Aug 25 15:14:01 2006
+From: tsv at solvo.ru (Sergey Tikhonov)
+Date: Fri, 25 Aug 2006 19:14:01 +0400
+Subject: CentOS on wildfire
+In-Reply-To: <20060824221916.GA5386@lemming.cita.utoronto.ca>
+References: <20060813093302.GA454@lemming.cita.utoronto.ca>	<20060813101134.GX13508@centos.fi>	<20060821191454.GB18887@lemming.cita.utoronto.ca>	<20060822171854.GT32266@centos.fi>
+	<20060824221916.GA5386@lemming.cita.utoronto.ca>
+Message-ID: <44EF13B9.9000606@solvo.ru>
+
+Robin Humble wrote:
+
+>On Tue, Aug 22, 2006 at 08:18:54PM +0300, Pasi Pirhonen wrote:
+>  
+>
+>>On Mon, Aug 21, 2006 at 03:14:55PM -0400, Robin Humble wrote:
+>>    
+>>
+>>>I've built almost all of the rpms from the 4.4 release now (everything
+>>>since ~Feb '06). I think only oprofile, ltrace, and tog-pegasus are
+>>>missing - the other 150 are patched where needed and rebuilt. some have
+>>>even been tested! :)
+>>>
+>>>what's the procedure to get these into the CentOS distribution and
+>>>signed with the CentOS key etc?
+>>>      
+>>>
+>>This is kind of wrong place for this kind of talk, but propably you
+>>should contaact Johnny Hughes if you're serious and able to maintain
+>>CentOS-4/axp.
+>>    
+>>
+>
+>I've built the update 4 rpms and it seems a shame to waste them by
+>not pushing the effort back into CentOS somehow - contributing back to
+>the community etc. ...  the rpms are far more useful if they're at
+>CentOS's site than they are just sitting in a public repo of mine.
+>
+>I'm ok with keeping fairly up to date rebuilding RHEL 4 sources and I'm
+>happy to keep on doing that. RHEL 5 would be a fair chunk of work and
+>I'm not sure I'll have time for that (or indeed for how much longer I'll
+>have access to alpha hardware).
+>  
+>
+Surely, it might be a lot of work. :) I have almost all packages built 
+for AC3, but modular xorg doesn't work
+on my Radeon. :( I haven't had time to understand what could be wrong, 
+but all my attempts failed. I doubt
+that that AC3 could be usefull for workstations. :(
+
+>however, I don't have a clue about how to make a CentOS 4.4 iso from
+>rpms, or how to seed a bittorrent, and am not all that keen to deal
+>with lots of CentOS politics (if it exists) either.
+>  
+>
+If you like I could give you instructions how to build isos out of bunch 
+of packages. Hope it would work for CentOS too.
+
+>that's why I was asking here - for help with the above and for help
+>keeping CentOS for alpha alive...
+>  
+>
+PS. If it is interesting to someone - I was able to implement JIT for 
+Mono C# on Linux/Alpha. It is not even in beta version yet, but does pass
+a lot of internal tests and could print "Hello world!". :)
+
+Regards,
+
+-- 
+Sergey Tikhonov
+
+Solvo Ltd.
+Saint-Petersburg, Russia
+tsv at solvo.ru
+
+
+
+From thursday at allidaho.com  Fri Aug 25 15:45:46 2006
+From: thursday at allidaho.com (Dialup Jon Norstog)
+Date: Fri, 25 Aug 2006 09:45:46 -0600
+Subject: CentOS on wildfire
+In-Reply-To: <44EF13B9.9000606@solvo.ru>
+References: <20060813093302.GA454@lemming.cita.utoronto.ca>	<20060813101134.GX13508@centos.fi>	<20060821191454.GB18887@lemming.cita.utoronto.ca>	<20060822171854.GT32266@centos.fi>
+	<20060824221916.GA5386@lemming.cita.utoronto.ca>
+	<44EF13B9.9000606@solvo.ru>
+Message-ID: <20060825154135.M13248@allidaho.com>
+
+
+
+--
+Allidaho LLC (http://www.allidaho.com)
+
+
+---------- Original Message -----------
+From: Sergey Tikhonov <tsv at solvo.ru>
+To: Linux on Alpha processors <axp-list at redhat.com>
+Sent: Fri, 25 Aug 2006 19:14:01 +0400
+Subject: Re: CentOS on wildfire
+
+> Robin Humble wrote:
+> 
+>
+> >
+> >I've built the update 4 rpms and it seems a shame to waste them by
+> >not pushing t..........
+
+> Surely, it might be a lot of work. :) I have almost all packages 
+> built for AC3, but modular xorg doesn't work on my Radeon. :( I 
+> haven't had time to understand what could be wrong, but all my 
+> attempts failed. I doubt that that AC3 could be usefull for 
+> workstations. :(
+> 
+> >however, I don't have a clue about how to make a CentOS 4.4 iso from
+> >rpms, or how to seed a bittorrent, and am not all that keen to deal
+> >with lots of CentOS politics (if it exists) either.
+> >  
+> >
+> If you like I could give you instructions how to build isos out of 
+> bunch of packages. Hope it would work for CentOS too.
+> 
+> >that's why I was asking here - for help with the above and for help
+> >keeping CentOS for alpha alive...
+> >  
+> >
+> PS. If it is interesting to someone - I was able to implement JIT 
+> for Mono C# on Linux/Alpha. It is not even in beta version yet, but 
+> does pass a lot of internal tests and could print "Hello world!". :)
+> 
+> Regards,
+> 
+> -- 
+> Sergey Tikhonov
+> 
+> Solvo Ltd.
+> Saint-Petersburg, Russia
+> tsv at solvo.ru
+>
+
+Sergey!
+
+You're still on the case!  I thought, having distinguished yourself by putting
+together 3 distros, you had moved on to the mainstream Linux world.
+
+Glad to hear you're working on AC3.  Too bad about the Radeon, that's the most
+available high-power card for Alpha anymore.
+
+good luck
+
+jn
+
+
+
+From tsv at solvo.ru  Fri Aug 25 15:56:27 2006
+From: tsv at solvo.ru (Sergey Tikhonov)
+Date: Fri, 25 Aug 2006 19:56:27 +0400
+Subject: CentOS on wildfire
+In-Reply-To: <20060825154135.M13248@allidaho.com>
+References: <20060813093302.GA454@lemming.cita.utoronto.ca>	<20060813101134.GX13508@centos.fi>	<20060821191454.GB18887@lemming.cita.utoronto.ca>	<20060822171854.GT32266@centos.fi>	<20060824221916.GA5386@lemming.cita.utoronto.ca>	<44EF13B9.9000606@solvo.ru>
+	<20060825154135.M13248@allidaho.com>
+Message-ID: <44EF1DAB.9050201@solvo.ru>
+
+Dialup Jon Norstog wrote:
+
+>Sergey!
+>
+>You're still on the case!  I thought, having distinguished yourself by putting
+>together 3 distros, you had moved on to the mainstream Linux world.
+>  
+>
+:) Thanks. Not really, I have to do a lot at my work. :)
+
+>Glad to hear you're working on AC3.  Too bad about the Radeon, that's the most
+>available high-power card for Alpha anymore.
+>  
+>
+Oh, yes. I was hoping to release AC3 at the same time with FC5, but xorg 
+package really stopped me. :( I tried to build
+latest package from devel tree - it doesn't work well too. :( Good news 
+- radeon driver doesn't crash my alpha any more, but
+framebuffer driver does. :( I haven't tried simple vga driver yet, but I 
+suspect it might not work too. :(
+
+Any way, pre-AC3 is available via yum and I am running it on one of my 
+Alphas.
+
+I did take a look at OO about 3 months ago. Well, it is still 32-bits. 
+:( Like you said it requires to write some stub methods to work.
+After learning a lot of Alpha assembler during C# JIT compiler 
+implementation I guess I am ready to look at OO again. :)
+
+Regards,
+
+-- 
+Sergey Tikhonov
+
+Solvo Ltd.
+Saint-Petersburg, Russia
+tsv at solvo.ru
+
+
+
+From michal at ellpspace.math.ualberta.ca  Fri Aug 25 16:04:45 2006
+From: michal at ellpspace.math.ualberta.ca (Michal Jaegermann)
+Date: Fri, 25 Aug 2006 10:04:45 -0600
+Subject: CentOS on wildfire
+In-Reply-To: <44EF13B9.9000606@solvo.ru>
+References: <20060813093302.GA454@lemming.cita.utoronto.ca>
+	<20060813101134.GX13508@centos.fi>
+	<20060821191454.GB18887@lemming.cita.utoronto.ca>
+	<20060822171854.GT32266@centos.fi>
+	<20060824221916.GA5386@lemming.cita.utoronto.ca>
+	<44EF13B9.9000606@solvo.ru>
+Message-ID: <20060825160445.GA2026@ellpspace.math.ualberta.ca>
+
+On Fri, Aug 25, 2006 at 07:14:01PM +0400, Sergey Tikhonov wrote:
+> >
+> I have almost all packages built 
+> for AC3, but modular xorg doesn't work
+> on my Radeon. :( I haven't had time to understand what could be wrong, 
+> but all my attempts failed.
+
+I have a strong suspicion that this trouble you are seeing is really
+"generic" and not that much related to Alpha.  For one possible reason,
+and a possible workaround, see
+https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=194105
+
+Check also
+https://bugs.freedesktop.org/show_bug.cgi?id=5678
+https://bugs.freedesktop.org/show_bug.cgi?id=5133
+and related.
+
+Actually versions you can find in the current rawhide are definitely
+in a better shape than what is included in FC5.  Still a general
+advice not to use 'ati' wrapper for a driver but 'radeon' instead
+still holds and I still need an explicit configuration as described
+in bz 194105 or my machine with Radeon 9500 is dead in an instant.
+
+In any case searching at https://bugs.freedesktop.org/query.cgi
+for bugs in xorg "Product" and with "radeon" string in comments
+is producing quite impressive list. 1/2 :-)
+
+   Michal
+
+
+

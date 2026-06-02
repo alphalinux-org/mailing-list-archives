@@ -1,0 +1,574 @@
+From mcree at orcon.net.nz  Fri May  1 23:43:35 2009
+From: mcree at orcon.net.nz (Michael Cree)
+Date: Sat, 02 May 2009 11:43:35 +1200
+Subject: x-server will get some love on alpha
+In-Reply-To: <b4198de60904251154q1388cee2j537af377a455953@mail.gmail.com>
+References: <49D9BD6E.1000705@sbg.ac.at>
+	<b4198de60904251154q1388cee2j537af377a455953@mail.gmail.com>
+Message-ID: <49FB8927.30703@orcon.net.nz>
+
+Matt Turner wrote:
+> I've been playing around testing Radeon KMS, and the results differ
+> depending on whose tree I try. :\
+>
+> Dave Airlie's drm-rawhide tree yields a nice fbcon, but X won't start.
+> Jerome Glisse's drm-next-radeon tree, which is what will eventually be
+> moved upstream fails to start.
+
+I've just downloaded Glisse's tree and checked out the drm-next-radeon 
+branch.  I don't get as far as you as I get compilation errors:
+
+  CC      drivers/ide/ide-atapi.o
+drivers/ide/ide-atapi.c: In function 'ide_io_buffers':
+drivers/ide/ide-atapi.c:86: error: implicit declaration of function 
+'sg_page'
+drivers/ide/ide-atapi.c:86: warning: passing argument 1 of 'PageHighMem' 
+makes pointer from integer without a cast
+drivers/ide/ide-atapi.c:90: warning: passing argument 1 of 'kmap_atomic' 
+makes pointer from integer without a cast
+drivers/ide/ide-atapi.c:95: error: implicit declaration of function 
+'sg_virt'
+drivers/ide/ide-atapi.c:95: warning: assignment makes pointer from 
+integer without a cast
+drivers/ide/ide-atapi.c:106: error: implicit declaration of function 
+'sg_next'
+drivers/ide/ide-atapi.c:106: warning: assignment makes pointer from 
+integer without a cast
+
+(this is with a Compaq XP1000 running Debian testing.)
+
+I guess I could disable compilation of ide and atapi in the kernel 
+config, but the cdrom is the device I boot from!  Then again, would I be 
+correct in thinking that the boot device is actually only read by the 
+SRM for the kernel, and once the kernel starts booting the boot device 
+is not needed anymore (the root partition is on a SATA disc which the 
+SRM can't boot from) thus I could indeed remove ide/atapi support for 
+testing purposes?
+
+Cheers
+Michael.
+
+
+
+From mattst88 at gmail.com  Fri May 15 21:42:43 2009
+From: mattst88 at gmail.com (Matt Turner)
+Date: Fri, 15 May 2009 17:42:43 -0400
+Subject: Trouble booting UP2000+
+Message-ID: <b4198de60905151442i1540d870g9e313b698b11bae4@mail.gmail.com>
+
+Hi,
+
+I've got a UP2000+ that I can't get to boot. When powered on, I get
+nothing on the monitor or serial console. All LEDs on the board are
+green (Table 5-1 in the manual [0]). Speaker is connected, but I get
+no beep codes. Video card is installed in PCI Bus 0.
+
+The previous owner said (ignore DP264, he meant UP2000+)
+
+> The 264DP in the large black enclosure has a firmware problem. I always had
+> to boot it into the debug monitor (firmware, enabled via switch on the
+> motherboard), load the SRM firmware and then I was able to boot VMS. IIRC I
+> set the console to RS--232 (check). Maybe you find out how to fix the SRM
+> firmware. It's a great machine.
+
+I looked in the UP2000+ manual to find out what jumpers he was talking
+about, and evidently they are some combination of pins 1-2 and 15-16
+of J29. Jumpering 15-16 is supposed to "invoke the fail-safe boot
+recovery," and jumpering 1-2 is supposed to recover firmware. I've
+tried 1-2 set, 15-16 set, both set, I still get nothing on monitor or
+serial console. Is the RS-232 comment of any significance?
+
+I also read about the debug port (J43/J42) but I can't find any other
+information about how to use it. I checked the technical reference
+manual as well. [1]
+
+I'm pretty stumped. What should I try next?
+
+Matt Turner
+
+[0] http://www.alphalinux.org/firmware/api/UP2000plus/UP2000plus_user_manual.pdf
+[1] http://www.alphalinux.org/firmware/api/UP2000plus/UP2000plus_technical_reference_manual.pdf
+
+
+
+From ayoung at teleport.com  Sat May 16 18:38:30 2009
+From: ayoung at teleport.com (Alan Young)
+Date: Sat, 16 May 2009 11:38:30 -0700
+Subject: Trouble booting UP2000+
+In-Reply-To: <b4198de60905151442i1540d870g9e313b698b11bae4@mail.gmail.com>
+References: <b4198de60905151442i1540d870g9e313b698b11bae4@mail.gmail.com>
+Message-ID: <4A0F0826.7020905@teleport.com>
+
+Matt Turner wrote:
+> Hi,
+> 
+> I've got a UP2000+ that I can't get to boot. When powered on, I get
+> nothing on the monitor or serial console. All LEDs on the board are
+> green (Table 5-1 in the manual [0]). Speaker is connected, but I get
+> no beep codes. Video card is installed in PCI Bus 0.
+> 
+> The previous owner said (ignore DP264, he meant UP2000+)
+> 
+>> The 264DP in the large black enclosure has a firmware problem. I always had
+>> to boot it into the debug monitor (firmware, enabled via switch on the
+>> motherboard), load the SRM firmware and then I was able to boot VMS. IIRC I
+>> set the console to RS--232 (check). Maybe you find out how to fix the SRM
+>> firmware. It's a great machine.
+> 
+> I looked in the UP2000+ manual to find out what jumpers he was talking
+> about, and evidently they are some combination of pins 1-2 and 15-16
+> of J29. Jumpering 15-16 is supposed to "invoke the fail-safe boot
+> recovery," and jumpering 1-2 is supposed to recover firmware. I've
+> tried 1-2 set, 15-16 set, both set, I still get nothing on monitor or
+> serial console. Is the RS-232 comment of any significance?
+> 
+> I also read about the debug port (J43/J42) but I can't find any other
+> information about how to use it. I checked the technical reference
+> manual as well. [1]
+> 
+> I'm pretty stumped. What should I try next?
+> 
+> Matt Turner
+> 
+> [0] http://www.alphalinux.org/firmware/api/UP2000plus/UP2000plus_user_manual.pdf
+> [1] http://www.alphalinux.org/firmware/api/UP2000plus/UP2000plus_technical_reference_manual.pdf
+
+Hi,
+
+The docs don't appear to be very clear to me at a first look, but it 
+does reference a SROM connection.  AFAIK, SROM connectors are used on 
+many (all?) alpha systems to provide low level system diagnosis.  I have 
+a port on three on my systems of varying generations.
+
+The SROM connector is a female MMJ connector and it looks similar to a 
+ethernet or phone jack. It should be on the motherboard or each of the 
+CPU card(s).  To use it, you'll need build a cable to connect it to a 
+PC-style serial port.  For parts, you'll need a MMJ straight through 
+cable and a MMJ to DB9 or DB25 connector (depending on the serial port 
+that you have available on the other computer).  The pinout mapping I 
+found on the web, but I don't have my notes handy.  If you need them, 
+let me know and I'll dig them up.  Then when you connect it to a PC and 
+boot, you'll be able to access the SROM mini debugger via the PC serial 
+port and terminal emulation program.  You should be able to find some 
+documentation on the debugger with a search of "alpha srom debugger".
+
+HTH,
+Alan
+
+
+
+From maurice at harddata.com  Sat May 16 22:17:13 2009
+From: maurice at harddata.com (Maurice Hilarius)
+Date: Sat, 16 May 2009 16:17:13 -0600
+Subject: Trouble booting UP2000+
+In-Reply-To: <4A0F0826.7020905@teleport.com>
+References: <b4198de60905151442i1540d870g9e313b698b11bae4@mail.gmail.com>
+	<4A0F0826.7020905@teleport.com>
+Message-ID: <4A0F3B69.2050007@harddata.com>
+
+Alan Young wrote:
+> Matt Turner wrote:
+>> Hi,
+>>
+>> I've got a UP2000+ that I can't get to boot. When powered on, I get
+>> nothing on the monitor or serial console. All LEDs on the board are
+>> green (Table 5-1 in the manual [0]). Speaker is connected, but I get
+>> no beep codes. Video card is installed in PCI Bus 0.
+>>
+>> The previous owner said (ignore DP264, he meant UP2000+)
+>>
+>>> The 264DP in the large black enclosure has a firmware problem. I 
+>>> always had
+>>> to boot it into the debug monitor (firmware, enabled via switch on the
+>>> motherboard), load the SRM firmware and then I was able to boot VMS. 
+>>> IIRC I
+>>> set the console to RS--232 (check). Maybe you find out how to fix 
+>>> the SRM
+>>> firmware. It's a great machine.
+>>
+>> I looked in the UP2000+ manual to find out what jumpers he was talking
+>> about, and evidently they are some combination of pins 1-2 and 15-16
+>> of J29. Jumpering 15-16 is supposed to "invoke the fail-safe boot
+>> recovery," and jumpering 1-2 is supposed to recover firmware. I've
+>> tried 1-2 set, 15-16 set, both set, I still get nothing on monitor or
+>> serial console. Is the RS-232 comment of any significance?
+>>
+>> I also read about the debug port (J43/J42) but I can't find any other
+>> information about how to use it. I checked the technical reference
+>> manual as well. [1]
+>>
+>> I'm pretty stumped. What should I try next?
+>>
+>> Matt Turner
+>>
+>> [0] 
+>> http://www.alphalinux.org/firmware/api/UP2000plus/UP2000plus_user_manual.pdf 
+>>
+>> [1] 
+>> http://www.alphalinux.org/firmware/api/UP2000plus/UP2000plus_technical_reference_manual.pdf 
+>>
+>
+> Hi,
+>
+> The docs don't appear to be very clear to me at a first look, but it 
+> does reference a SROM connection.  AFAIK, SROM connectors are used on 
+> many (all?) alpha systems to provide low level system diagnosis.  I 
+> have a port on three on my systems of varying generations.
+>
+> The SROM connector is a female MMJ connector and it looks similar to a 
+> ethernet or phone jack. It should be on the motherboard or each of the 
+> CPU card(s).  To use it, you'll need build a cable to connect it to a 
+> PC-style serial port.  For parts, you'll need a MMJ straight through 
+> cable and a MMJ to DB9 or DB25 connector (depending on the serial port 
+> that you have available on the other computer).  The pinout mapping I 
+> found on the web, but I don't have my notes handy.  If you need them, 
+> let me know and I'll dig them up.  Then when you connect it to a PC 
+> and boot, you'll be able to access the SROM mini debugger via the PC 
+> serial port and terminal emulation program.  You should be able to 
+> find some documentation on the debugger with a search of "alpha srom 
+> debugger".
+>
+> HTH,
+> Alan
+>
+> _______________________________________________
+
+Indeed.
+And to make life a bit more complicated, it is the old DEC style "LAT" 
+RJ style connector, with the key on one end, rather than the middle.
+
+
+-- 
+With our best regards,
+
+/Maurice W. Hilarius         Telephone: 01-780-456-9771
+Hard Data Ltd.                FAX:          01-780-456-9772
+11060 - 166 Avenue         email:maurice at harddata.com 
+<mailto:email:maurice at harddata.com>
+Edmonton, AB, Canada      T5X 1Y3/
+
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <http://listman.redhat.com/archives/axp-list/attachments/20090516/c3c76962/attachment.htm>
+
+From mattst88 at gmail.com  Sun May 17 19:08:50 2009
+From: mattst88 at gmail.com (Matt Turner)
+Date: Sun, 17 May 2009 15:08:50 -0400
+Subject: Trouble booting UP2000+
+In-Reply-To: <b4198de60905151442i1540d870g9e313b698b11bae4@mail.gmail.com>
+References: <b4198de60905151442i1540d870g9e313b698b11bae4@mail.gmail.com>
+Message-ID: <b4198de60905171208u4c3329cem50e0a3cb58e7aaae@mail.gmail.com>
+
+Thanks for the responses.
+
+Peter Petrakis lent a hand and explained how to to reflash the SRM,
+the process being
+1) Created a debug cable
+2) Loading SROM
+3) Loading the debug monitor (in EBSDK) over the debug line
+4) Debug monitor (available on COM1) allows you to load SRM over the serial line
+5) Once in SRM, you can reflash the SRM onto the board from a floppy disk
+
+Thus far, I have created my cable and am able to get into SROM. Using
+the 'xm' and 'xb' commands (documented in the SROM mini-debugger guide
+[0]) I should be able to start the debug monitor.
+
+I do
+SROM> xm
+A> 300000  ! default address
+D> [size of the file in bytes in hex]
+and then transfer the file over the debug cable.
+
+In EBSDK there is ebsdk/ebboot/dp264/dp264dbm.{cmp,hex,img,rom,sr}. I
+have tried loading the .cmp, .rom, and .img files. The img file
+finishes transferring and the SROM> prompt returns, but with the rom
+and cmp files the SROM> prompt does not appear again, as if waiting
+for more input. (I try to use the .cmp file because it is shown being
+used twice in the SROM guide)
+
+With the rom and img files, I can send a break and get the SROM>
+prompt again. From here, regardless of which image I have loaded,
+running the 'xb' command it prints '.06' and hangs. I think further
+output is supposed to go over COM1, so I watch it on another serial
+cable, but nothing ever happens. I even tried the test programs like
+'hello', 'regtest', etc; None does anything other than printing '.06'
+to SROM.
+
+I'm waiting to receive an MMJ->serial adapter. Once I get it, I can
+try on my LX and see what should happen. The UP2000+ could be bad,
+after all.
+
+Again, I'm pretty stumped. What should I try next?
+
+Thanks,
+Matt
+
+
+
+From sfmc68 at verizon.net  Sun May 17 21:21:04 2009
+From: sfmc68 at verizon.net (bob smith)
+Date: Sun, 17 May 2009 17:21:04 -0400
+Subject: Trouble booting UP2000+
+In-Reply-To: <b4198de60905171208u4c3329cem50e0a3cb58e7aaae@mail.gmail.com>
+References: <b4198de60905151442i1540d870g9e313b698b11bae4@mail.gmail.com>
+	<b4198de60905171208u4c3329cem50e0a3cb58e7aaae@mail.gmail.com>
+Message-ID: <4A107FC0.1060802@verizon.net>
+
+I appreciate the work on this and am looking forward to the results.
+I have one enorex box that needs to have some work done (164 motherboard)
+and have not dared to try it. Have the cables, have the docs but waiting 
+to see what you
+do.
+thanks
+bob
+Matt Turner wrote:
+> Thanks for the responses.
+>
+> Peter Petrakis lent a hand and explained how to to reflash the SRM,
+> the process being
+> 1) Created a debug cable
+> 2) Loading SROM
+> 3) Loading the debug monitor (in EBSDK) over the debug line
+> 4) Debug monitor (available on COM1) allows you to load SRM over the serial line
+> 5) Once in SRM, you can reflash the SRM onto the board from a floppy disk
+>
+> Thus far, I have created my cable and am able to get into SROM. Using
+> the 'xm' and 'xb' commands (documented in the SROM mini-debugger guide
+> [0]) I should be able to start the debug monitor.
+>
+> I do
+> SROM> xm
+> A> 300000  ! default address
+> D> [size of the file in bytes in hex]
+> and then transfer the file over the debug cable.
+>
+> In EBSDK there is ebsdk/ebboot/dp264/dp264dbm.{cmp,hex,img,rom,sr}. I
+> have tried loading the .cmp, .rom, and .img files. The img file
+> finishes transferring and the SROM> prompt returns, but with the rom
+> and cmp files the SROM> prompt does not appear again, as if waiting
+> for more input. (I try to use the .cmp file because it is shown being
+> used twice in the SROM guide)
+>
+> With the rom and img files, I can send a break and get the SROM>
+> prompt again. From here, regardless of which image I have loaded,
+> running the 'xb' command it prints '.06' and hangs. I think further
+> output is supposed to go over COM1, so I watch it on another serial
+> cable, but nothing ever happens. I even tried the test programs like
+> 'hello', 'regtest', etc; None does anything other than printing '.06'
+> to SROM.
+>
+> I'm waiting to receive an MMJ->serial adapter. Once I get it, I can
+> try on my LX and see what should happen. The UP2000+ could be bad,
+> after all.
+>
+> Again, I'm pretty stumped. What should I try next?
+>
+> Thanks,
+> Matt
+>
+> _______________________________________________
+> axp-list mailing list
+> axp-list at redhat.com
+> https://www.redhat.com/mailman/listinfo/axp-list
+>
+>   
+
+
+-- 
+---
+This Sig Line Intentionally Left Blank
+
+
+
+From maurice at harddata.com  Mon May 18 03:20:26 2009
+From: maurice at harddata.com (Maurice Hilarius)
+Date: Sun, 17 May 2009 21:20:26 -0600
+Subject: Trouble booting UP2000+
+In-Reply-To: <b4198de60905171208u4c3329cem50e0a3cb58e7aaae@mail.gmail.com>
+References: <b4198de60905151442i1540d870g9e313b698b11bae4@mail.gmail.com>
+	<b4198de60905171208u4c3329cem50e0a3cb58e7aaae@mail.gmail.com>
+Message-ID: <4A10D3FA.9010601@harddata.com>
+
+Matt Turner wrote:
+> Thanks for the responses.
+>
+> Peter Petrakis lent a hand and explained how to to reflash the SRM,
+> the process being
+> 1) Created a debug cable
+> 2) Loading SROM
+> 3) Loading the debug monitor (in EBSDK) over the debug line
+> 4) Debug monitor (available on COM1) allows you to load SRM over the serial line
+> 5) Once in SRM, you can reflash the SRM onto the board from a floppy disk
+>
+> Thus far, I have created my cable and am able to get into SROM. Using
+> the 'xm' and 'xb' commands (documented in the SROM mini-debugger guide
+> [0]) I should be able to start the debug monitor.
+>
+> I do
+> SROM> xm
+> A> 300000  ! default address
+> D> [size of the file in bytes in hex]
+> and then transfer the file over the debug cable.
+>
+> In EBSDK there is ebsdk/ebboot/dp264/dp264dbm.{cmp,hex,img,rom,sr}. I
+> have tried loading the .cmp, .rom, and .img files. The img file
+> finishes transferring and the SROM> prompt returns, but with the rom
+> and cmp files the SROM> prompt does not appear again, as if waiting
+> for more input. (I try to use the .cmp file because it is shown being
+> used twice in the SROM guide)
+>
+> With the rom and img files, I can send a break and get the SROM>
+> prompt again. From here, regardless of which image I have loaded,
+> running the 'xb' command it prints '.06' and hangs. I think further
+> output is supposed to go over COM1, so I watch it on another serial
+> cable, but nothing ever happens. I even tried the test programs like
+> 'hello', 'regtest', etc; None does anything other than printing '.06'
+> to SROM.
+>
+> I'm waiting to receive an MMJ->serial adapter. Once I get it, I can
+> try on my LX and see what should happen. The UP2000+ could be bad,
+> after all.
+>
+> Again, I'm pretty stumped. What should I try next?
+>
+> Thanks,
+> Matt
+>
+> _______________________________________________
+>   
+Also hook up a term to the "regular" serial port on the back of the board.
+
+I seem to recall at some point the term interface "jumps" to the regular 
+tty, not the debug port.
+
+
+
+-- 
+With our best regards,
+
+/Maurice W. Hilarius         Telephone: 01-780-456-9771
+Hard Data Ltd.                FAX:          01-780-456-9772
+11060 - 166 Avenue         email:maurice at harddata.com 
+<mailto:email:maurice at harddata.com>
+Edmonton, AB, Canada      T5X 1Y3/
+
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <http://listman.redhat.com/archives/axp-list/attachments/20090517/1c8a9373/attachment.htm>
+
+From mattst88 at gmail.com  Mon May 18 04:33:06 2009
+From: mattst88 at gmail.com (Matt Turner)
+Date: Mon, 18 May 2009 00:33:06 -0400
+Subject: Trouble booting UP2000+
+In-Reply-To: <4A10D3FA.9010601@harddata.com>
+References: <b4198de60905151442i1540d870g9e313b698b11bae4@mail.gmail.com>
+	<b4198de60905171208u4c3329cem50e0a3cb58e7aaae@mail.gmail.com>
+	<4A10D3FA.9010601@harddata.com>
+Message-ID: <b4198de60905172133g6d541eaauf6848170482d549@mail.gmail.com>
+
+> Also hook up a term to the "regular" serial port on the back of the board.
+>
+> I seem to recall at some point the term interface "jumps" to the regular
+> tty, not the debug port.
+
+Yes, I've been watching for serial output while doing this. I expect
+to get something when I run xb to run the debug monitor, but I get
+nothing. No output even from example programs.
+
+Matt
+
+
+
+From peter.petrakis at gmail.com  Mon May 18 13:45:16 2009
+From: peter.petrakis at gmail.com (Peter Petrakis)
+Date: Mon, 18 May 2009 09:45:16 -0400
+Subject: Trouble booting UP2000+
+In-Reply-To: <b4198de60905171208u4c3329cem50e0a3cb58e7aaae@mail.gmail.com>
+References: <b4198de60905151442i1540d870g9e313b698b11bae4@mail.gmail.com>
+	<b4198de60905171208u4c3329cem50e0a3cb58e7aaae@mail.gmail.com>
+Message-ID: <a422b4da0905180645q606917bfte07b79476b5d7233@mail.gmail.com>
+
+You know you might just be able to load SRM directly from the SROM. I keep
+thinking about using DBM first because of the notion that I usually flashed the
+machine from there.
+
+I remember there's a shortcut to loading DBM if the the FSB
+is still installed, rename the file to resemble an SRM image for your machine
+type and place that on the dos floppy for FSB to use. It'll read and execute
+it just like it would anything else.
+
+If someone where to do this could you please relay to the list what the
+offsets are for the installed roms? I think SRM was @ 60000 and alphabios
+was at 120000 but I can't remember for sure. I suppose the SROM source
+code would have the offsets hard coded somewhere...
+
+BTW I posted the EBSDK on alphalinux.org, it's been on bitkeeper forever
+so why not...
+
+http://www.alphalinux.org/firmware/ebsdk/ebsdk-unix.tar
+
+http://www.alphalinux.org/firmware/ebsdk/ebsdk_expanded/
+
+for cherry picking
+
+Peter
+
+
+On Sun, May 17, 2009 at 3:08 PM, Matt Turner <mattst88 at gmail.com> wrote:
+> Thanks for the responses.
+>
+> Peter Petrakis lent a hand and explained how to to reflash the SRM,
+> the process being
+> 1) Created a debug cable
+> 2) Loading SROM
+> 3) Loading the debug monitor (in EBSDK) over the debug line
+> 4) Debug monitor (available on COM1) allows you to load SRM over the serial line
+> 5) Once in SRM, you can reflash the SRM onto the board from a floppy disk
+>
+> Thus far, I have created my cable and am able to get into SROM. Using
+> the 'xm' and 'xb' commands (documented in the SROM mini-debugger guide
+> [0]) I should be able to start the debug monitor.
+>
+> I do
+> SROM> xm
+> A> 300000 ?! default address
+> D> [size of the file in bytes in hex]
+> and then transfer the file over the debug cable.
+>
+> In EBSDK there is ebsdk/ebboot/dp264/dp264dbm.{cmp,hex,img,rom,sr}. I
+> have tried loading the .cmp, .rom, and .img files. The img file
+> finishes transferring and the SROM> prompt returns, but with the rom
+> and cmp files the SROM> prompt does not appear again, as if waiting
+> for more input. (I try to use the .cmp file because it is shown being
+> used twice in the SROM guide)
+>
+> With the rom and img files, I can send a break and get the SROM>
+> prompt again. From here, regardless of which image I have loaded,
+> running the 'xb' command it prints '.06' and hangs. I think further
+> output is supposed to go over COM1, so I watch it on another serial
+> cable, but nothing ever happens. I even tried the test programs like
+> 'hello', 'regtest', etc; None does anything other than printing '.06'
+> to SROM.
+>
+> I'm waiting to receive an MMJ->serial adapter. Once I get it, I can
+> try on my LX and see what should happen. The UP2000+ could be bad,
+> after all.
+>
+> Again, I'm pretty stumped. What should I try next?
+>
+> Thanks,
+> Matt
+>
+> _______________________________________________
+> axp-list mailing list
+> axp-list at redhat.com
+> https://www.redhat.com/mailman/listinfo/axp-list
+>
+
+
+
+-- 
+www.alphalinux.org
+
+
+

@@ -1,0 +1,1206 @@
+From oliver at linux-kernel.at  Mon Sep 17 20:10:03 2007
+From: oliver at linux-kernel.at (Oliver Falk)
+Date: Mon, 17 Sep 2007 22:10:03 +0200
+Subject: aboot fixes for 2.6.23
+In-Reply-To: <20070814180457.GA24179@twiddle.net>
+References: <20070814180457.GA24179@twiddle.net>
+Message-ID: <46EEDF1B.6040309@linux-kernel.at>
+
+Tested and it works fine!
+
+Thx Richard!
+
+-of
+
+Richard Henderson schrieb:
+> Recent build changes have added a PT_NOTE entry to the kernel's
+> ELF header.  A perfectly valid change, but Alpha's aboot loader
+> is none too bright about examining these headers.
+> 
+> The following patch to aboot-1.0_pre20040408.tar.bz2 makes it
+> so that only PT_LOAD entries are considered for loading, as well
+> as several other changes required to get the damned thing to
+> build again.
+> 
+> 
+> r~
+> 
+> 
+> diff -rup aboot-1.0_pre20040408/Makefile aboot-local/Makefile
+> --- aboot-1.0_pre20040408/Makefile	2004-04-08 08:19:01.000000000 -0700
+> +++ aboot-local/Makefile	2007-08-13 16:08:01.000000000 -0700
+> @@ -32,15 +32,15 @@ export
+>  #
+>  LOADADDR	= 20000000
+>  
+> -ABOOT_LDFLAGS = -static -N -Taboot.lds
+> +ABOOT_LDFLAGS = -static -N -Taboot.lds --relax
+>  
+>  CC		= gcc
+>  TOP		= $(shell pwd)
+>  ifeq ($(TESTING),)
+> -CPPFLAGS	= $(CFGDEFS) -I$(TOP)/include
+> -CFLAGS		= $(CPPFLAGS) -D__KERNEL__ -Os -Wall -fno-builtin -mno-fp-regs -ffixed-8
+> +CPPFLAGS	= $(CFGDEFS) -I$(TOP)/include -I$(KSRC)/include
+> +CFLAGS		= $(CPPFLAGS) -D__KERNEL__ -Os -Wall -fno-builtin -mno-fp-regs
+>  else
+> -CPPFLAGS	= -DTESTING $(CFGDEFS) -I$(TOP)/include
+> +CPPFLAGS	= -DTESTING $(CFGDEFS) -I$(TOP)/include -I$(KSRC)/include
+>  CFLAGS		= $(CPPFLAGS) -O -g3 -Wall -D__KERNEL__ -ffixed-8
+>  endif
+>  ASFLAGS		= $(CPPFLAGS)
+> diff -rup aboot-1.0_pre20040408/aboot.c aboot-local/aboot.c
+> --- aboot-1.0_pre20040408/aboot.c	2004-04-08 10:53:57.000000000 -0700
+> +++ aboot-local/aboot.c	2007-08-13 15:46:33.000000000 -0700
+> @@ -19,14 +19,13 @@
+>   * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+>   */
+>  
+> -#include <linux/elf.h>
+>  #include <linux/kernel.h>
+>  #include <linux/version.h>
+> -
+>  #include <asm/console.h>
+>  #include <asm/hwrpb.h>
+>  #include <asm/system.h>
+>  
+> +#include <elf.h>
+>  #include <alloca.h>
+>  #include <errno.h>
+>  
+> @@ -37,16 +36,6 @@
+>  #include "utils.h"
+>  #include "string.h"
+>  
+> -#ifndef elf_check_arch
+> -# define aboot_elf_check_arch(e)	1
+> -#else
+> -# if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
+> -#  define aboot_elf_check_arch(e)        elf_check_arch(e)
+> -# else
+> -#  define aboot_elf_check_arch(e)        elf_check_arch(e->e_machine)
+> -# endif
+> -#endif
+> -
+>  struct bootfs *	bfs = 0;		/* filesystem to boot from */
+>  char *		dest_addr = 0;
+>  jmp_buf		jump_buffer;
+> @@ -83,77 +72,86 @@ static unsigned long entry_addr = START_
+>  long
+>  first_block (const char *buf, long blocksize)
+>  {
+> -	struct elfhdr *elf;
+> -	struct elf_phdr *phdrs;
+> +	Elf64_Ehdr *elf;
+> +	Elf64_Phdr *phdrs;
+> +	int i, j;
+>  
+> -	elf  = (struct elfhdr *) buf;
+> +	elf  = (Elf64_Ehdr *) buf;
+>  	
+> -	if (elf->e_ident[0] == 0x7f
+> -	    && strncmp(elf->e_ident + 1, "ELF", 3) == 0)
+> -	{
+> -		int i;
+> -		/* looks like an ELF binary: */
+> -		if (elf->e_type != ET_EXEC) {
+> -			printf("aboot: not an executable ELF file\n");
+> -			return -1;
+> -		}
+> -		if (!aboot_elf_check_arch(elf)) {
+> -			printf("aboot: ELF executable not for this machine\n");
+> -			return -1;
+> -		}
+> -		if (elf->e_phoff + elf->e_phnum * sizeof(*phdrs) > (unsigned) blocksize) {
+> -			printf("aboot: "
+> -			       "ELF program headers not in first block (%ld)\n",
+> -			       (long) elf->e_phoff);
+> +	if (elf->e_ident[0] != 0x7f
+> +	    || elf->e_ident[1] != 'E'
+> +	    || elf->e_ident[2] != 'L'
+> +	    || elf->e_ident[3] != 'F') {
+> +		/* Fail silently, it might be a compressed file */
+> +		return -1;
+> +	}
+> +	if (elf->e_ident[EI_CLASS] != ELFCLASS64
+> +	    || elf->e_ident[EI_DATA] != ELFDATA2LSB
+> +	    || elf->e_machine != EM_ALPHA) {
+> +		printf("aboot: ELF executable not for this machine\n");
+> +		return -1;
+> +	}
+> +
+> +	/* Looks like an ELF binary. */
+> +	if (elf->e_type != ET_EXEC) {
+> +		printf("aboot: not an executable ELF file\n");
+> +		return -1;
+> +	}
+> +
+> +	if (elf->e_phoff + elf->e_phnum * sizeof(*phdrs)
+> +	    > (unsigned) blocksize) {
+> +		printf("aboot: ELF program headers not in first block (%ld)\n",
+> +		       (long) elf->e_phoff);
+> +		return -1;
+> +	}
+> +
+> +	phdrs = (struct elf_phdr *) (buf + elf->e_phoff);
+> +	chunks = malloc(sizeof(struct segment) * elf->e_phnum);
+> +	start_addr = phdrs[0].p_vaddr; /* assume they are sorted */
+> +	entry_addr = elf->e_entry;
+> +
+> +	for (i = j = 0; i < elf->e_phnum; ++i) {
+> +		int status;
+> +
+> +		if (phdrs[i].p_type != PT_LOAD)
+> +			continue;
+> +
+> +		chunks[j].addr   = phdrs[i].p_vaddr;
+> +		chunks[j].offset = phdrs[i].p_offset;
+> +		chunks[j].size   = phdrs[i].p_filesz;
+> +		printf("aboot: PHDR %d vaddr %#lx offset %#lx size %#lx\n",
+> +		       i, chunks[j].addr, chunks[j].offset, chunks[j].size);
+> +
+> +		status = check_memory(chunks[j].addr, chunks[j].size);
+> +		if (status) {
+> +			printf("aboot: Can't load kernel.\n"
+> +			       "  Memory at %lx - %lx (PHDR %i) "
+> +			         "is %s\n",
+> +			       chunks[j].addr,
+> +			       chunks[j].addr + chunks[j].size - 1,
+> +			       i,
+> +			       (status == -ENOMEM) ?
+> +			          "Not Found" :
+> +				  "Busy (Reserved)");
+>  			return -1;
+>  		}
+> -		phdrs = (struct elf_phdr *) (buf + elf->e_phoff);
+> -		chunks = malloc(sizeof(struct segment) * elf->e_phnum);
+> -		nchunks = elf->e_phnum;
+> -		start_addr = phdrs[0].p_vaddr; /* assume they are sorted */
+> -		entry_addr = elf->e_entry;
+> -#ifdef DEBUG
+> -		printf("aboot: %d program headers, start address %#lx, entry %#lx\n",
+> -		       nchunks, start_addr, entry_addr);
+> -#endif
+> -		for (i = 0; i < elf->e_phnum; ++i) {
+> -			int status;
+> -
+> -			chunks[i].addr   = phdrs[i].p_vaddr;
+> -			chunks[i].offset = phdrs[i].p_offset;
+> -			chunks[i].size   = phdrs[i].p_filesz;
+> -#ifdef DEBUG
+> -			printf("aboot: segment %d vaddr %#lx offset %#lx size %#lx\n",
+> -			       i, chunks[i].addr, chunks[i].offset, chunks[i].size);
+> -#endif
+> -
+> -#ifndef TESTING
+> -			status = check_memory(chunks[i].addr, chunks[i].size);
+> -			if (status) {
+> +
+> +		if (phdrs[i].p_memsz > phdrs[i].p_filesz) {
+> +			if (bss_size > 0) {
+>  				printf("aboot: Can't load kernel.\n"
+> -				       "  Memory at %lx - %lx (chunk %i) "
+> -				         "is %s\n",
+> -				       chunks[i].addr,
+> -				       chunks[i].addr + chunks[i].size - 1,
+> -				       i,
+> -				       (status == -ENOMEM) ?
+> -				          "Not Found" :
+> -					  "Busy (Reserved)");
+> +				       "  Multiple BSS segments"
+> +				       " (PHDR %d)\n", i);
+>  				return -1;
+>  			}
+> -#endif
+> +			bss_start = (char *) (phdrs[i].p_vaddr +
+> +					      phdrs[i].p_filesz);
+> +			bss_size = phdrs[i].p_memsz - phdrs[i].p_filesz;
+>  		}
+> -		bss_start = (char *) (phdrs[elf->e_phnum - 1].p_vaddr +
+> -				      phdrs[elf->e_phnum - 1].p_filesz);
+> -		bss_size = (phdrs[elf->e_phnum - 1].p_memsz -
+> -			    phdrs[elf->e_phnum - 1].p_filesz);
+> -#ifdef DEBUG
+> -		printf("aboot: bss at 0x%p, size %#lx\n", bss_start, bss_size);
+> -#endif
+> -	} else {
+> -		/* Fail silently, it might be a compressed file */
+> -		return -1;
+> +
+> +		j++;
+>  	}
+> +	nchunks = j;
+> +	printf("aboot: bss at 0x%p, size %#lx\n", bss_start, bss_size);
+>  
+>  	return 0;
+>  }
+> diff -rup aboot-1.0_pre20040408/aboot.lds aboot-local/aboot.lds
+> --- aboot-1.0_pre20040408/aboot.lds	2001-10-08 16:03:50.000000000 -0700
+> +++ aboot-local/aboot.lds	2007-08-13 15:59:46.000000000 -0700
+> @@ -1,22 +1,25 @@
+>  OUTPUT_FORMAT("elf64-alpha")
+>  ENTRY(__start)
+> +PHDRS { kernel PT_LOAD; }
+>  SECTIONS
+>  {
+>    . = 0x20000000;
+> -  .text : { *(.text) }
+> +  .text : { *(.text) } :kernel
+>    _etext = .;
+>    PROVIDE (etext = .);
+> -  .rodata : { *(.rodata) }
+> -  .data : { *(.data) CONSTRUCTORS }
+> -  .got : { *(.got) }
+> -  .sdata : { *(.sdata) }
+> +  .rodata : { *(.rodata*) } :kernel
+> +  .data : { *(.data*) } :kernel
+> +  .got : { *(.got) } :kernel
+> +  .sdata : { *(.sdata) } :kernel
+>    _edata = .;
+>    PROVIDE (edata = .);
+> -  .sbss : { *(.sbss) *(.scommon) }
+> -  .bss : { *(.bss) *(COMMON) }
+> +  .sbss : { *(.sbss) *(.scommon) } :kernel
+> +  .bss : { *(.bss) *(COMMON) } :kernel
+>    _end = . ;
+>    PROVIDE (end = .);
+>  
+> +  /DISCARD/ : { *(.eh_frame) } 
+> +
+>    .mdebug 0 : { *(.mdebug) }
+>    .note 0 : { *(.note) }
+>    .comment 0 : { *(.comment) }
+> diff -rup aboot-1.0_pre20040408/cons.c aboot-local/cons.c
+> --- aboot-1.0_pre20040408/cons.c	2003-11-30 19:56:34.000000000 -0800
+> +++ aboot-local/cons.c	2007-08-13 15:48:45.000000000 -0700
+> @@ -1,5 +1,3 @@
+> -#include <alloca.h>
+> -
+>  #include <linux/kernel.h>
+>  
+>  #include <asm/console.h>
+> @@ -20,7 +18,7 @@
+>  #endif
+>  
+>  long cons_dev;			/* console device */
+> -extern long int dispatch();	/* Need the full 64 bit return here...*/
+> +extern long int dispatch(long, ...);	/* Need the full 64 bit return here...*/
+>  
+>  long
+>  cons_puts(const char *str, long len)
+> @@ -82,7 +80,7 @@ cons_getenv(long index, char *envval, lo
+>  	 * allocated on the stack (which guaranteed to by 8 byte
+>  	 * aligned).
+>  	 */
+> -	char * tmp = alloca(maxlen);
+> +	char tmp[maxlen];
+>  	long len;
+>  
+>  	len = dispatch(CCB_GET_ENV, index, tmp, maxlen - 1);
+> diff -rup aboot-1.0_pre20040408/disk.c aboot-local/disk.c
+> --- aboot-1.0_pre20040408/disk.c	2004-04-08 11:14:06.000000000 -0700
+> +++ aboot-local/disk.c	2007-08-13 15:50:22.000000000 -0700
+> @@ -113,7 +113,7 @@ int
+>  load_uncompressed (int fd)
+>  {
+>  	long nread, nblocks;
+> -	unsigned char *buf;
+> +	char *buf;
+>  	int i;
+>  
+>  	buf = malloc(bfs->blocksize);
+> @@ -131,7 +131,7 @@ load_uncompressed (int fd)
+>  	
+>  		for(i = 0; i < 16; i++) {
+>  			for (j = 0; j < 16; j++)
+> -				printf("%02X ", buf[j+16*i]);
+> +				printf("%02X ", (unsigned char) buf[j+16*i]);
+>  			for(j = 0; j < 16; j++) {
+>  				c = buf[j+16*i];
+>  				printf("%c", (c >= ' ') ? c : ' ');
+> diff -rup aboot-1.0_pre20040408/head.S aboot-local/head.S
+> --- aboot-1.0_pre20040408/head.S	2001-10-08 16:03:51.000000000 -0700
+> +++ aboot-local/head.S	2007-08-13 16:03:57.000000000 -0700
+> @@ -19,8 +19,7 @@ __start:
+>  	.quad	0,0,0,0,0,0,0,0
+>  1:	br	$27,2f
+>  2:	ldgp	$29,0($27)
+> -	lda	$27,main_
+> -	jsr	$26,($27),main_
+> +	bsr	$26,main_	!samegp
+>  	call_pal PAL_halt
+>  	.end __start
+>  
+> @@ -170,4 +169,4 @@ run_kernel:
+>  	mov	$16,$27
+>  	mov	$17,$30
+>  	jmp	$31,($27)
+> -	.end run_kernel
+> \ No newline at end of file
+> +	.end run_kernel
+> 
+> _______________________________________________
+> axp-list mailing list
+> axp-list at redhat.com
+> https://www.redhat.com/mailman/listinfo/axp-list
+
+
+
+From oliver at linux-kernel.at  Mon Sep 17 20:33:07 2007
+From: oliver at linux-kernel.at (Oliver Falk)
+Date: Mon, 17 Sep 2007 22:33:07 +0200
+Subject: 2.6.23 alpha unistd.h changes
+Message-ID: <46EEE483.4020209@linux-kernel.at>
+
+Hi!
+
+At Alphacore we used to patch the kernel headers for a while now; We
+added syscalls __NR_openat (447) until __NR_tee (466).
+
+However, since 2.6.23 these syscall where added upstream, but with
+different syscall numbers; What happens is the following:
+
+* glibc 2.6.90 compiled with 2.6.23 headers installed
+* kernel 2.6.21 (our patched headers in place, different syscall
+'ordering'/numbers) installed
+
+[root at tyskie ~]# uname -r; touch x; rm -f x
+2.6.23-0.145.rc4.fc8
+rm: cannot remove `x': File exists
+
+:-( I don't want to live without rm :-P and chmod doesn't work as well...
+
+If I start 2.6.15, where these syscalls where not in place, it works
+just fine. If I install old glibc 2.6 (compiled against 2.6.21 headers)
+and kernel 2.6.21 also everything is fine.
+
+Final test was now:
+* Boot kernel 2.6.23 and glibc 2.6.90 (compiled against 2.6.23 headers),
+also everything seems to work.
+
+As these additions are quite new to upstream kernel, but at Alphacore we
+have patched it since a while now (I don't know about other Alpha ports;
+Debian folks may speak up now!), I would suggest to use the same
+'ordering' of the syscalls upstream and add the new syscalls that we had
+not in place, but are now upstream to the end of our 'old' list.
+
+I have attached our patch that we used for 2.6.21.
+
+
+Please let me know if that's fine everyone and keep me posted directly
+and only via m/l, as I might miss the mail then...
+
+Best,
+ Oliver
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: linux-2.6.21-alpha_missing_syscalls.patch
+Type: application/octet-stream
+Size: 2000 bytes
+Desc: not available
+URL: <http://listman.redhat.com/archives/axp-list/attachments/20070917/25e52f7d/attachment.obj>
+
+From oliver at linux-kernel.at  Mon Sep 17 20:51:13 2007
+From: oliver at linux-kernel.at (Oliver Falk)
+Date: Mon, 17 Sep 2007 22:51:13 +0200
+Subject: 2.6.23 alpha unistd.h changes
+In-Reply-To: <46EEE483.4020209@linux-kernel.at>
+References: <46EEE483.4020209@linux-kernel.at>
+Message-ID: <46EEE8C1.5040506@linux-kernel.at>
+
+Oliver Falk schrieb:
+> Hi!
+> 
+> At Alphacore we used to patch the kernel headers for a while now; We
+> added syscalls __NR_openat (447) until __NR_tee (466).
+> 
+> However, since 2.6.23 these syscall where added upstream, but with
+> different syscall numbers; What happens is the following:
+> 
+> * glibc 2.6.90 compiled with 2.6.23 headers installed
+> * kernel 2.6.21 (our patched headers in place, different syscall
+> 'ordering'/numbers) installed
+> 
+> [root at tyskie ~]# uname -r; touch x; rm -f x
+> 2.6.23-0.145.rc4.fc8
+> rm: cannot remove `x': File exists
+> 
+> :-( I don't want to live without rm :-P and chmod doesn't work as well...
+> 
+> If I start 2.6.15, where these syscalls where not in place, it works
+> just fine. If I install old glibc 2.6 (compiled against 2.6.21 headers)
+> and kernel 2.6.21 also everything is fine.
+> 
+> Final test was now:
+> * Boot kernel 2.6.23 and glibc 2.6.90 (compiled against 2.6.23 headers),
+> also everything seems to work.
+> 
+> As these additions are quite new to upstream kernel, but at Alphacore we
+> have patched it since a while now (I don't know about other Alpha ports;
+> Debian folks may speak up now!), I would suggest to use the same
+> 'ordering' of the syscalls upstream and add the new syscalls that we had
+> not in place, but are now upstream to the end of our 'old' list.
+> 
+> I have attached our patch that we used for 2.6.21.
+> 
+> 
+> Please let me know if that's fine everyone and keep me posted directly
+> and only via m/l, as I might miss the mail then...
+
+Attached patch should bring ordering back to what we had at AC.
+systbls.S should be ordered as well, but from functional perspective, I
+don't worry about that for now :-P
+
+-of
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: unistd.h.old_syscall_ordering.patch
+Type: application/octet-stream
+Size: 1753 bytes
+Desc: not available
+URL: <http://listman.redhat.com/archives/axp-list/attachments/20070917/bccf8b33/attachment.obj>
+
+From hpa at zytor.com  Mon Sep 17 21:15:03 2007
+From: hpa at zytor.com (H. Peter Anvin)
+Date: Mon, 17 Sep 2007 14:15:03 -0700
+Subject: 2.6.23 alpha unistd.h changes
+In-Reply-To: <46EEE483.4020209@linux-kernel.at>
+References: <46EEE483.4020209@linux-kernel.at>
+Message-ID: <46EEEE57.6010404@zytor.com>
+
+Oliver Falk wrote:
+> 
+> As these additions are quite new to upstream kernel, but at Alphacore we
+> have patched it since a while now (I don't know about other Alpha ports;
+> Debian folks may speak up now!), I would suggest to use the same
+> 'ordering' of the syscalls upstream and add the new syscalls that we had
+> not in place, but are now upstream to the end of our 'old' list.
+> 
+
+If you want to avoid that in the future, you may want to push your
+changes upstream.
+
+	-hpa
+
+
+
+From oliver at linux-kernel.at  Tue Sep 18 08:47:31 2007
+From: oliver at linux-kernel.at (Oliver Falk)
+Date: Tue, 18 Sep 2007 10:47:31 +0200
+Subject: 2.6.23 alpha unistd.h changes
+In-Reply-To: <20070917214107.GB27980@stusta.de>
+References: <46EEE483.4020209@linux-kernel.at>
+	<20070917214107.GB27980@stusta.de>
+Message-ID: <46EF90A3.2050109@linux-kernel.at>
+
+On 09/17/2007 11:41 PM, Adrian Bunk wrote:
+> On Mon, Sep 17, 2007 at 10:33:07PM +0200, Oliver Falk wrote:
+>> Hi!
+> 
+> Hi Oliver!
+> 
+>> ...
+>> As these additions are quite new to upstream kernel, but at Alphacore we
+>> have patched it since a while now (I don't know about other Alpha ports;
+>> Debian folks may speak up now!), I would suggest to use the same
+>> 'ordering' of the syscalls upstream and add the new syscalls that we had
+>> not in place, but are now upstream to the end of our 'old' list.
+>> ...
+> 
+> I just checked:
+> 
+> It seems Debian didn't patch them into the kernel at all, and since two 
+> months Debian unstable ships kernel 2.6.22 with the upstream syscall 
+> numbers.
+
+That's possible a problem. Right. Someone with contacts to Debian here?
+If Debian hasn't rebuilt glibc against the new headers, we could change
+it without problems.
+
+If not, we have a problem on AC... Anyone with a glibc that was compiled
+against our patched unistd.h (so including the new syscall numbers),
+will not be able to upgrade the kernel, but also needs to upgrade glibc
+and then *must* reboot :-(
+
+Best,
+ Oliver
+
+
+
+From oliver at linux-kernel.at  Tue Sep 18 08:49:07 2007
+From: oliver at linux-kernel.at (Oliver Falk)
+Date: Tue, 18 Sep 2007 10:49:07 +0200
+Subject: 2.6.23 alpha unistd.h changes
+In-Reply-To: <46EEEE57.6010404@zytor.com>
+References: <46EEE483.4020209@linux-kernel.at> <46EEEE57.6010404@zytor.com>
+Message-ID: <46EF9103.6050105@linux-kernel.at>
+
+On 09/17/2007 11:15 PM, H. Peter Anvin wrote:
+> Oliver Falk wrote:
+>> As these additions are quite new to upstream kernel, but at Alphacore we
+>> have patched it since a while now (I don't know about other Alpha ports;
+>> Debian folks may speak up now!), I would suggest to use the same
+>> 'ordering' of the syscalls upstream and add the new syscalls that we had
+>> not in place, but are now upstream to the end of our 'old' list.
+>>
+> 
+> If you want to avoid that in the future, you may want to push your
+> changes upstream.
+
+Sure, sure! I wasn't the one who actually did patch that, I just took
+what was there...
+
+I'll will submit any relevant patches to upstream from now on!
+
+Best,
+ Oliver
+
+
+
+From oliver at linux-kernel.at  Tue Sep 18 08:54:02 2007
+From: oliver at linux-kernel.at (Oliver Falk)
+Date: Tue, 18 Sep 2007 10:54:02 +0200
+Subject: 2.6.23 alpha unistd.h changes
+In-Reply-To: <20070917212257.GA27980@stusta.de>
+References: <46EEE483.4020209@linux-kernel.at>
+	<20070917212257.GA27980@stusta.de>
+Message-ID: <46EF922A.4030206@linux-kernel.at>
+
+On 09/17/2007 11:22 PM, Adrian Bunk wrote:
+> On Mon, Sep 17, 2007 at 10:33:07PM +0200, Oliver Falk wrote:
+>> At Alphacore we used to patch the kernel headers for a while now; We
+>> added syscalls __NR_openat (447) until __NR_tee (466).
+> 
+> Why did your numbers differ from the numbers that were used in the 
+> upstream kernel?
+
+Afaik, our patch was done a while ago and nobody every submitted it
+upstream - don't know why...
+
+At AC, we follow RH/Fedora packages and there we had glibc-kernheaders -
+where our patch originates. When the glibc/kernel packages changed and
+glibc-kernheaders died, I patched the syscalls into kernel headers; Not
+thinking that I better submit it upstream. :-(
+
+> The Alpha maintainers (Cc's added) might now better what happened here.
+> 
+>> However, since 2.6.23 these syscall where added upstream, but with
+>> different syscall numbers; What happens is the following:
+>> ...
+> 
+> These syscalls were added in 2.6.22, not 2.6.23, and are therefore in 
+> the officially released kernel since more than two months.
+
+Yes, 2.6.22, I've just encountered the problem with 2.6.23...
+
+> Changing a userspace ABI that has already been part of an officially 
+> released kernel because someone patched other syscall numbers into his 
+> private kernel doesn't sound like a good solution.
+
+As I wrote in my previous mail, that's true, but if Debian folks haven't
+recompiled glibc against the new headers we can change it without
+breaking something...
+
+-of
+
+
+
+From tsv at solvo.ru  Tue Sep 18 09:11:10 2007
+From: tsv at solvo.ru (Sergey Tikhonov)
+Date: Tue, 18 Sep 2007 13:11:10 +0400
+Subject: 2.6.23 alpha unistd.h changes
+In-Reply-To: <46EF922A.4030206@linux-kernel.at>
+References: <46EEE483.4020209@linux-kernel.at>	<20070917212257.GA27980@stusta.de>
+	<46EF922A.4030206@linux-kernel.at>
+Message-ID: <46EF962E.9010706@solvo.ru>
+
+Oliver Falk wrote:
+> On 09/17/2007 11:22 PM, Adrian Bunk wrote:
+>   
+>> On Mon, Sep 17, 2007 at 10:33:07PM +0200, Oliver Falk wrote:
+>>     
+>>> At Alphacore we used to patch the kernel headers for a while now; We
+>>> added syscalls __NR_openat (447) until __NR_tee (466).
+>>>       
+>> Why did your numbers differ from the numbers that were used in the 
+>> upstream kernel?
+>>     
+>
+> Afaik, our patch was done a while ago and nobody every submitted it
+> upstream - don't know why...
+>   
+Yes, it was done by me and I had no info how to push the updates to 
+upstream, sorry. (by that time,
+there were no latest "distribution" available with those changes).
+> At AC, we follow RH/Fedora packages and there we had glibc-kernheaders -
+> where our patch originates. When the glibc/kernel packages changed and
+> glibc-kernheaders died, I patched the syscalls into kernel headers; Not
+> thinking that I better submit it upstream. :-(
+>   
+Yea, now there is more interest and it is better to do it right. :)
+
+Regards,
+
+-- 
+Sergey Tikhonov
+
+Head, R&D department
+Solvo Ltd.
+Saint-Petersburg, Russia
+http://www.solvo.ru
+tsv at solvo.ru
+
+
+
+From oliver at linux-kernel.at  Tue Sep 18 12:20:56 2007
+From: oliver at linux-kernel.at (Oliver Falk)
+Date: Tue, 18 Sep 2007 14:20:56 +0200
+Subject: [AC-Admin] Re: 2.6.23 alpha unistd.h changes
+In-Reply-To: <46EF962E.9010706@solvo.ru>
+References: <46EEE483.4020209@linux-kernel.at>	<20070917212257.GA27980@stusta.de>	<46EF922A.4030206@linux-kernel.at>
+	<46EF962E.9010706@solvo.ru>
+Message-ID: <46EFC2A8.9070009@linux-kernel.at>
+
+On 09/18/2007 11:11 AM, Sergey Tikhonov wrote:
+> Oliver Falk wrote:
+>> On 09/17/2007 11:22 PM, Adrian Bunk wrote:
+>>  
+>>> On Mon, Sep 17, 2007 at 10:33:07PM +0200, Oliver Falk wrote:
+>>>    
+>>>> At Alphacore we used to patch the kernel headers for a while now; We
+>>>> added syscalls __NR_openat (447) until __NR_tee (466).
+>>>>       
+>>> Why did your numbers differ from the numbers that were used in the
+>>> upstream kernel?
+>>>     
+>>
+>> Afaik, our patch was done a while ago and nobody every submitted it
+>> upstream - don't know why...
+>>   
+> Yes, it was done by me and I had no info how to push the updates to
+> upstream, sorry. (by that time,
+> there were no latest "distribution" available with those changes).
+>> At AC, we follow RH/Fedora packages and there we had glibc-kernheaders -
+>> where our patch originates. When the glibc/kernel packages changed and
+>> glibc-kernheaders died, I patched the syscalls into kernel headers; Not
+>> thinking that I better submit it upstream. :-(
+>>   
+> Yea, now there is more interest and it is better to do it right. :)
+
+To make it easy for everyone....
+
+There should not be many AC users that run the latest versions of
+everything.
+
+I will keep the sorting of the syscalls as they are - no change required
+upstream.
+
+People who want new kernel or new glibc will then also need to update
+the other. DOT. POINT. END. :-)
+
+Kernel 2.6.23 will also require new aboot.... So many things....
+
+Since online upgrading from AC3 to FC8axp will not be supported anyway
+(because of various reasons and now 2 more of them), I can live with
+that decision finally.
+
+Thx everyone...
+
+Best,
+ Oliver
+
+
+
+From naghmeh.karimi at yale.edu  Tue Sep 18 15:31:16 2007
+From: naghmeh.karimi at yale.edu (naghmeh.karimi at yale.edu)
+Date: Tue, 18 Sep 2007 11:31:16 -0400
+Subject: I need a help for installing cross compiler for alpha
+Message-ID: <20070918113116.3k97rpv4ocwccgos@www.mail.yale.edu>
+
+Dear All,
+
+I need to produce OSF alpha binaries to use them by SimpleScalar. I downloaded
+crosstool from this website and tried to install gcc ,... as a cross compiler.
+I have FEDORA RELEASE 7 on my computer and my system is running gcc 4.1.2-12. I
+selected alpha-dec-osf3.2 and for the version of gcc and glibc I
+selected  gcc-2.95.3-glibc-2.2.5.dat but the process ended with the following
+error.
+
+alphadec-osf-lpha-dec-osf/home/naghmeh/simplescalar/crosstool-0.42/build/alpha-dec-osf3.2/gcc-2.95.3-glibc-2.2.5/binutils-2.15/bfd/coff-alpha.c:
+In function
+'alpha_relocate_section':
+/home/naghmeh/simplescalar/crosstool-0.42/build/alpha-dec-osf3.2/gcc-2.95.3-glibc-2.2.5/binutils-2.15/bfd/coff-alpha.c:1458:
+error: invalid lvalue in
+assignment
+make[3]: *** [coff-alpha.lo] Error 1
+make[3]: Leaving directory
+`/home/naghmeh/simplescalar/crosstool-0.42/build/alpha-dec-osf3.2/gcc-2.95.3-glibc-2.2.5/build-binutils/bfd'
+make[2]: *** [all-recursive] Error
+1
+make[2]: Leaving directory
+`/home/naghmeh/simplescalar/crosstool-0.42/build/alpha-dec-osf3.2/gcc-2.95.3-glibc-2.2.5/build-binutils/bfd'
+make[1]: *** [all-recursive-am] Error
+2
+make[1]: Leaving directory
+`/home/naghmeh/simplescalar/crosstool-0.42/build/alpha-dec-osf3.2/gcc-2.95.3-glibc-2.2.5/build-binutils/bfd'
+make: *** [all-bfd] Error
+2
+
+
+I also tried gcc-3.2.3-glibc-2.3.2 for alpha-dec-osf4. the same errors occured.
+Would you please help me with this problem.
+
+
+/home/naghmeh/simplescalar/crosstool-0.43/build/alpha-dec-osf4/gcc-3.2.3-glibc-2.3.2/binutils-2.15/bfd/coff-alpha.c:
+In function 'alpha_relocate_section':
+/home/naghmeh/simplescalar/crosstool-0.43/build/alpha-dec-osf4/gcc-3.2.3-glibc-2.3.2/binutils-2.15/bfd/coff-alpha.c:1458:
+error: invalid lvalue in assignment
+make[3]: *** [coff-alpha.lo] Error 1
+make[3]: Leaving directory
+`/home/naghmeh/simplescalar/crosstool-0.43/build/alpha-dec-osf4/gcc-3.2.3-glibc-2.3.2/build-binutils/bfd'
+make[2]: *** [all-recursive] Error 1
+make[2]: Leaving directory
+`/home/naghmeh/simplescalar/crosstool-0.43/build/alpha-dec-osf4/gcc-3.2.3-glibc-2.3.2/build-binutils/bfd'
+make[1]: *** [all-recursive-am] Error 2
+make[1]: Leaving directory
+`/home/naghmeh/simplescalar/crosstool-0.43/build/alpha-dec-osf4/gcc-3.2.3-glibc-2.3.2/build-binutils/bfd'
+make: *** [all-bfd] Error 2
+
+
+
+Regards,
+Naghmeh
+
+
+
+From oliver at linux-kernel.at  Tue Sep 18 15:44:04 2007
+From: oliver at linux-kernel.at (Oliver Falk)
+Date: Tue, 18 Sep 2007 17:44:04 +0200
+Subject: 2.6.23 alpha unistd.h changes
+In-Reply-To: <20070918140738.GD27980@stusta.de>
+References: <46EEE483.4020209@linux-kernel.at>
+	<20070917214107.GB27980@stusta.de>
+	<46EF90A3.2050109@linux-kernel.at>
+	<20070918140738.GD27980@stusta.de>
+Message-ID: <46EFF244.5070202@linux-kernel.at>
+
+On 09/18/2007 04:07 PM, Adrian Bunk wrote:
+> On Tue, Sep 18, 2007 at 10:47:31AM +0200, Oliver Falk wrote:
+>> On 09/17/2007 11:41 PM, Adrian Bunk wrote:
+>>> On Mon, Sep 17, 2007 at 10:33:07PM +0200, Oliver Falk wrote:
+>>>> Hi!
+>>> Hi Oliver!
+>>>
+>>>> ...
+>>>> As these additions are quite new to upstream kernel, but at Alphacore we
+>>>> have patched it since a while now (I don't know about other Alpha ports;
+>>>> Debian folks may speak up now!), I would suggest to use the same
+>>>> 'ordering' of the syscalls upstream and add the new syscalls that we had
+>>>> not in place, but are now upstream to the end of our 'old' list.
+>>>> ...
+>>> I just checked:
+>>>
+>>> It seems Debian didn't patch them into the kernel at all, and since two 
+>>> months Debian unstable ships kernel 2.6.22 with the upstream syscall 
+>>> numbers.
+>> That's possible a problem. Right. Someone with contacts to Debian here?
+>> If Debian hasn't rebuilt glibc against the new headers, we could change
+>> it without problems.
+>> ...
+> 
+> According to the Debian auto-builder database [1], the Alpha glibc 
+> package in Debian unstable has been rebuilt 8 times since the 2.6.22 
+> kernel packages entered Debian unstable.
+> 
+> And it's not only Debian, at least Gentoo also offers an Alpha port.
+
+Well. As I said. I'll step back and let it be as it is. Debian was to
+fast. :-)
+
+-of
+
+
+
+From naghmeh.karimi at yale.edu  Thu Sep 20 16:02:21 2007
+From: naghmeh.karimi at yale.edu (naghmeh.karimi at yale.edu)
+Date: Thu, 20 Sep 2007 12:02:21 -0400
+Subject: I need your help about cross compiler for alpha
+Message-ID: <20070920120221.mkfa03j2fwgs0g8c@www.mail.yale.edu>
+
+Dear All,
+
+I need to produce OSF alpha binaries to use them by SimpleScalar. I downloaded
+crosstool from this website and tried to install gcc ,... as a cross compiler.
+I have FEDORA RELEASE 7 on my computer and my system is running gcc 4.1.2-12. I
+selected alpha-dec-osf3.2 and for the version of gcc and glibc I
+selected gcc-4.0.2-glibc-2.3.6 but the process ended with the following
+error:
+
+make[1]: Leaving directory
+`/mnt/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/build-binutils/intl'
+make[1]: Entering
+directory
+`/mnt/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/build-binutils/libiberty'
+make[2]: Entering
+directory
+`/mnt/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/build-binutils/libiberty/testsuite'
+make[2]: Nothing to be done for
+`all'.
+make[2]: Leaving directory
+`/mnt/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/build-binutils/libiberty/testsuite'
+/bin/sh
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../mkinstalldirs
+/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/lib mkdir
+-p
+--
+/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/lib
+/usr/bin/install -c -m 644 ./libiberty.a
+/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/lib/./libiberty.an
+( cd /home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/lib
+;
+ranlib ./libiberty.an )
+mv -f
+/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/lib/./libiberty.an
+/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/lib/./libiberty.a
+if test -n ""; then
+\
+          case "" in \
+            /*)    thd=;; \
+            *)
+thd=/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/include/;;
+\
+          esac; \
+          /bin/sh
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../mkinstalldirs
+${thd};
+\
+          for h in
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/ansidecl.h
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/demangle.h
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/dyn-string.h
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/fibheap.h
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/floatformat.h
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/hashtab.h
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/libiberty.h
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/o!
+bjalloc.h
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/partition.h
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/safe-ctype.h
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/sort.h
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/splay-tree.h
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/ternary.h;
+do
+\
+            /usr/bin/install -c -m 644 $h ${thd}; \
+          done; \
+        fi
+make[2]: Entering directory
+`/mnt/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/build-binutils/libiberty/testsuite'
+make[2]: Nothing to be done for
+`install'.
+make[2]: Leaving directory
+`/mnt/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/build-binutils/libiberty/testsuite'
+make[1]: Leaving
+directory
+`/mnt/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/build-binutils/libiberty'
++
+test
+x/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/gcc-core-prefix
+'!='
+x/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2
++ mkdir -p
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin
++ for tool in ar as ld
+strip
++ rm -f
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/ar
++ ln
+-s
+/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/bin/alpha-dec-osf3.2-ar
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/ar
++ for tool in ar as ld
+strip
++ rm -f
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/as
++ ln
+-s
+/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/bin/alpha-dec-osf3.2-as
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/as
++ for tool in ar as ld
+strip
++ rm -f
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/ld
++ ln
+-s
+/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/bin/alpha-dec-osf3.2-ld
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/ld
++ for tool in ar as ld
+strip
++ rm -f
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/strip
++ ln
+-s
+/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/bin/alpha-dec-osf3.2-strip
+/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/strip
++ cd
+..
++ logresult binutils
+/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/bin/alpha-dec-osf3.2-ld
++ test
+-x
+/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/bin/alpha-dec-osf3.2-ld
++ abort Build failed during
+binutils
++ echo crosstool: Build failed during binutils
+crosstool: Build failed during binutils
++ exec false
+
+
+
+
+I checked and saw that
+/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/bin/alpha-dec-osf3.2-ld
+ actually doesn't exist and I just these files exist in that directory.
+
+alpha-dec-osf3.2-addr2line  alpha-dec-osf3.2-nm       alpha-dec-osf3.2-readelf
+alpha-dec-osf3.2-ar         alpha-dec-osf3.2-objcopy  alpha-dec-osf3.2-size
+alpha-dec-osf3.2-c++filt    alpha-dec-osf3.2-objdump  alpha-dec-osf3.2-strings
+alpha-dec-osf3.2-gprof      alpha-dec-osf3.2-ranlib   alpha-dec-osf3.2-strip
+
+I also checked the space on my computer. and I have 9 GB free.
+Would you please help me with this problem and let me know if I should select
+another gcc-glibc version or if there is any patch to remove this error?
+
+Thanks,
+Naghmeh
+
+
+
+From bert.verwoerd at gmail.com  Fri Sep 21 14:54:57 2007
+From: bert.verwoerd at gmail.com (Bert Verwoerd)
+Date: Fri, 21 Sep 2007 16:54:57 +0200
+Subject: I need your help about cross compiler for alpha
+In-Reply-To: <20070920120221.mkfa03j2fwgs0g8c@www.mail.yale.edu>
+References: <20070920120221.mkfa03j2fwgs0g8c@www.mail.yale.edu>
+Message-ID: <fe8977760709210754l43a71592qe383bc92e67c9a7d@mail.gmail.com>
+
+Naghmeh,
+
+A few month's ago i've build a crosscompiler with a script from
+www.kegel.com . Maybe that will work?
+
+Grtz,
+
+Bert
+
+2007/9/20, naghmeh.karimi at yale.edu <naghmeh.karimi at yale.edu>:
+>
+> Dear All,
+>
+> I need to produce OSF alpha binaries to use them by SimpleScalar. I
+> downloaded
+> crosstool from this website and tried to install gcc ,... as a cross
+> compiler.
+> I have FEDORA RELEASE 7 on my computer and my system is running gcc
+> 4.1.2-12. I
+> selected alpha-dec-osf3.2 and for the version of gcc and glibc I
+> selected gcc-4.0.2-glibc-2.3.6 but the process ended with the following
+> error:
+>
+> make[1]: Leaving directory
+> `/mnt/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6
+> /build-binutils/intl'
+> make[1]: Entering
+> directory
+> `/mnt/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6
+> /build-binutils/libiberty'
+> make[2]: Entering
+> directory
+> `/mnt/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6
+> /build-binutils/libiberty/testsuite'
+> make[2]: Nothing to be done for
+> `all'.
+> make[2]: Leaving directory
+> `/mnt/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6
+> /build-binutils/libiberty/testsuite'
+> /bin/sh
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../mkinstalldirs
+> /home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/lib
+> mkdir
+> -p
+> --
+> /home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2/lib
+> /usr/bin/install -c -m 644 ./libiberty.a
+> /home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2
+> /lib/./libiberty.an
+> ( cd /home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2
+> /lib
+> ;
+> ranlib ./libiberty.an )
+> mv -f
+> /home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2
+> /lib/./libiberty.an
+> /home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2
+> /lib/./libiberty.a
+> if test -n ""; then
+> \
+>           case "" in \
+>             /*)    thd=;; \
+>             *)
+> thd=/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2
+> /include/;;
+> \
+>           esac; \
+>           /bin/sh
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../mkinstalldirs
+> ${thd};
+> \
+>           for h in
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/ansidecl.h
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/demangle.h
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/dyn-string.h
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/fibheap.h
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/floatformat.h
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/hashtab.h
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/libiberty.h
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/o!
+> bjalloc.h
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/partition.h
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/safe-ctype.h
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/sort.h
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/splay-tree.h
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/binutils-2.16.1/libiberty/../include/ternary.h;
+> do
+> \
+>             /usr/bin/install -c -m 644 $h ${thd}; \
+>           done; \
+>         fi
+> make[2]: Entering directory
+> `/mnt/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6
+> /build-binutils/libiberty/testsuite'
+> make[2]: Nothing to be done for
+> `install'.
+> make[2]: Leaving directory
+> `/mnt/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6
+> /build-binutils/libiberty/testsuite'
+> make[1]: Leaving
+> directory
+> `/mnt/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-4.0.2-glibc-2.3.6
+> /build-binutils/libiberty'
+> +
+> test
+> x/home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/gcc-core-prefix
+> '!='
+> x/home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2
+> + mkdir -p
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin
+> + for tool in ar as ld
+> strip
+> + rm -f
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/ar
+> + ln
+> -s
+> /home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2
+> /bin/alpha-dec-osf3.2-ar
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/ar
+> + for tool in ar as ld
+> strip
+> + rm -f
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/as
+> + ln
+> -s
+> /home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2
+> /bin/alpha-dec-osf3.2-as
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/as
+> + for tool in ar as ld
+> strip
+> + rm -f
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/ld
+> + ln
+> -s
+> /home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2
+> /bin/alpha-dec-osf3.2-ld
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/ld
+> + for tool in ar as ld
+> strip
+> + rm -f
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/strip
+> + ln
+> -s
+> /home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2
+> /bin/alpha-dec-osf3.2-strip
+> /home/naghmeh/D/crosstool-0.43/build/alpha-dec-osf3.2/gcc-
+> 4.0.2-glibc-2.3.6/gcc-core-prefix/alpha-dec-osf3.2/bin/strip
+> + cd
+> ..
+> + logresult binutils
+> /home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2
+> /bin/alpha-dec-osf3.2-ld
+> + test
+> -x
+> /home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2
+> /bin/alpha-dec-osf3.2-ld
+> + abort Build failed during
+> binutils
+> + echo crosstool: Build failed during binutils
+> crosstool: Build failed during binutils
+> + exec false
+>
+>
+>
+>
+> I checked and saw that
+> /home/naghmeh/D/opt/crosstool/gcc-4.0.2-glibc-2.3.6/alpha-dec-osf3.2
+> /bin/alpha-dec-osf3.2-ld
+> actually doesn't exist and I just these files exist in that directory.
+>
+> alpha-dec-osf3.2-addr2line  alpha-dec-osf3.2-nm
+> alpha-dec-osf3.2-readelf
+> alpha-dec-osf3.2-ar         alpha-dec-osf3.2-objcopy
+> alpha-dec-osf3.2-size
+> alpha-dec-osf3.2-c++filt    alpha-dec-osf3.2-objdump
+> alpha-dec-osf3.2-strings
+> alpha-dec-osf3.2-gprof      alpha-dec-osf3.2-ranlib
+> alpha-dec-osf3.2-strip
+>
+> I also checked the space on my computer. and I have 9 GB free.
+> Would you please help me with this problem and let me know if I should
+> select
+> another gcc-glibc version or if there is any patch to remove this error?
+>
+> Thanks,
+> Naghmeh
+>
+> _______________________________________________
+> axp-list mailing list
+> axp-list at redhat.com
+> https://www.redhat.com/mailman/listinfo/axp-list
+>
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <http://listman.redhat.com/archives/axp-list/attachments/20070921/58ae3f6e/attachment.htm>
+

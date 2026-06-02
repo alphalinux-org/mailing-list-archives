@@ -1,0 +1,270 @@
+From raeburn at raeburn.org  Mon May  7 03:08:38 2007
+From: raeburn at raeburn.org (Ken Raeburn)
+Date: Sun, 6 May 2007 23:08:38 -0400
+Subject: AC 3 install failures - PWS500au
+In-Reply-To: <C9B465D8-9B89-4D62-8D1B-FB2FC3139BA7@raeburn.org>
+References: <C9B465D8-9B89-4D62-8D1B-FB2FC3139BA7@raeburn.org>
+Message-ID: <D714DA95-A70D-4980-922C-2B516867DB8E@raeburn.org>
+
+On Mar 10, 2007, at 23:40, Ken Raeburn wrote:
+> AC3 came out just in time for me to be reinstalling a couple of the  
+> test machines at work.
+
+[... AlphaStation 400 stuff omitted ...]
+
+> On another machine (PWS500au, only 128M RAM) it started up okay,  
+> but when it got to "Installation Starting" ("Starting install  
+> process.  This may take several minutes..."), it crunched for a  
+> while, displayed "install exited abnormally", and went through the  
+> same shutdown sequence.  No messages were displayed about why it  
+> exited, and root/install.log is empty.
+>
+> Any suggestions?
+
+I've finally gotten around to dealing with this machine again.
+
+Sergey Tikhonov suggested checking other virtual consoles.  Jay  
+Estabrook suggested I try to get my hands on more memory.
+
+I did get my hands on some more memory from another machine.  (I  
+figure, worst case, I install with gobs of memory and then put the  
+other memory back, and see if I can run an already-installed system  
+with only the 128M.)
+
+First thing I tried was the Debian installer, since I didn't recall  
+if I'd tried that on the PWS before; my email had only mentioned  
+trying it on the AlphaStation.  With the extra memory, at least, that  
+seemed to run fine, at least far enough to finish the first pass of  
+installation, eject the CD, and reboot.  So I went to retry the AC3  
+install, and remembered I should check for more info logged anywhere  
+with just the 128M, so I pulled out the extra memory and booted the  
+AC3 CD.
+
+This time, it seems to be working somewhat better.
+
+It has, a couple of times, seemed to freeze up partway through the  
+installation of packages.  The installer display stops changing, and  
+the disk seek noise has stopped, for 10 minutes or more.  But if I  
+switch VCs and run "top" or something at the shell prompt, that seems  
+to prod it into activity; the disk noises, at least, start up again  
+right away.  I can quit top and go back to the installer virtual  
+console, and it's moving on to other packages.
+
+It got as far as starting on the second CD before giving me "install  
+exited abnormally".
+
+So I checked the different VCs (couldn't run any commands because the  
+OS has shut down), and found some stuff logged by the kernel:
+
+<6>SELinux: initialized (dev hda, type iso9660) uses genfs_contexts
+<6>sd 0:0:1:0: SCSI error: return code = 0x8000002
+<6>sda: Current: sense key: Medium Error
+<6>   Additional sense: Unrecovered read error - recommend rewrite  
+the data
+<6>Info fld=0x10bb9f0
+<4>end_request: I/O error, dev sda, sector 17545712
+
+So, it appears I've got some kind of disk problem on the disk I'm  
+installing to, and the install system hides it from me.
+
+I think at this point it was still running from the file system  
+pulled from the CD, not running code from the hard drive.  If that's  
+true, it would've just been an error reading or writing data in the  
+install process that isn't handled properly, rather than an error  
+loading pages of the executable image, which might cause the process  
+to simply be killed...
+
+Ken
+
+
+
+From rm.riches at verizon.net  Mon May  7 03:17:22 2007
+From: rm.riches at verizon.net (Robert M. Riches Jr.)
+Date: Sun, 06 May 2007 20:17:22 -0700
+Subject: AC 3 install failures - PWS500au
+In-Reply-To: <D714DA95-A70D-4980-922C-2B516867DB8E@raeburn.org>
+References: <C9B465D8-9B89-4D62-8D1B-FB2FC3139BA7@raeburn.org>
+	<D714DA95-A70D-4980-922C-2B516867DB8E@raeburn.org>
+Message-ID: <20070507031722.118FB16E4A@one.localnet>
+
+> Date: Sun, 06 May 2007 23:08:38 -0400
+> From: Ken Raeburn <raeburn at raeburn.org>
+> So I checked the different VCs (couldn't run any commands because the  
+> OS has shut down), and found some stuff logged by the kernel:
+>
+> <6>SELinux: initialized (dev hda, type iso9660) uses genfs_contexts
+> <6>sd 0:0:1:0: SCSI error: return code = 0x8000002
+> <6>sda: Current: sense key: Medium Error
+> <6>   Additional sense: Unrecovered read error - recommend rewrite  
+> the data
+> <6>Info fld=0x10bb9f0
+> <4>end_request: I/O error, dev sda, sector 17545712
+>
+> So, it appears I've got some kind of disk problem on the disk I'm  
+> installing to, and the install system hides it from me.
+>
+> I think at this point it was still running from the file system  
+> pulled from the CD, not running code from the hard drive.  If that's  
+> true, it would've just been an error reading or writing data in the  
+> install process that isn't handled properly, rather than an error  
+> loading pages of the executable image, which might cause the process  
+> to simply be killed...
+
+If /dev/sda is the CDROM you're installing from, you might
+see if there is a hard-disk installation method available.
+If this method is available, you copy the ISOs and/or unpack
+the ISOs to a hard disk partition that is not going to be
+formatted during installation, then you get all the RPMs and
+such from the hard disk rather than from the CDs.  It's a
+lot more reliable and considerably faster.
+
+-- 
+Robert Riches
+spamtrap42 at verizon.net
+(Yes, that is one of my email addresses.)
+
+
+
+From raeburn at raeburn.org  Mon May  7 17:58:24 2007
+From: raeburn at raeburn.org (Ken Raeburn)
+Date: Mon, 7 May 2007 13:58:24 -0400
+Subject: AC 3 install failures - PWS500au
+In-Reply-To: <20070507031722.118FB16E4A@one.localnet>
+References: <C9B465D8-9B89-4D62-8D1B-FB2FC3139BA7@raeburn.org>
+	<D714DA95-A70D-4980-922C-2B516867DB8E@raeburn.org>
+	<20070507031722.118FB16E4A@one.localnet>
+Message-ID: <7FD3D2C6-5FCC-401C-8581-FFEADDF480B4@raeburn.org>
+
+On May 6, 2007, at 23:17, Robert M. Riches Jr. wrote:
+>> Date: Sun, 06 May 2007 23:08:38 -0400
+>> From: Ken Raeburn <raeburn at raeburn.org>
+>>
+>> <6>SELinux: initialized (dev hda, type iso9660) uses genfs_contexts
+>> <6>sd 0:0:1:0: SCSI error: return code = 0x8000002
+>> <6>sda: Current: sense key: Medium Error
+>> <6>   Additional sense: Unrecovered read error - recommend rewrite
+>> the data
+>> <6>Info fld=0x10bb9f0
+>> <4>end_request: I/O error, dev sda, sector 17545712
+>>
+>> So, it appears I've got some kind of disk problem on the disk I'm
+>> installing to, and the install system hides it from me.
+>
+> If /dev/sda is the CDROM you're installing from, you might
+> see if there is a hard-disk installation method available.
+
+No, it's the disk I'm installing to.  Further testing with dd seems  
+to confirm that there are bad blocks.  I'm testing whether simply  
+writing over the entire disk will revector enough bad blocks that I  
+can keep using it, but I suspect not.
+
+Ken
+
+P.S.  After I get finished with this machine I'll get back to dealing  
+with the AlphaStation install problem I reported at the same time.
+
+
+
+From thursday at allidaho.com  Mon May 14 03:24:02 2007
+From: thursday at allidaho.com (Jon_norstog)
+Date: Sun, 13 May 2007 21:24:02 -0600
+Subject: Mystery of the random TOY
+Message-ID: <1179113042.2522.10.camel@localhost.localdomain>
+
+To the list:
+
+over the last couple years I have had a worsening problem with time
+slippage in my XP1000.  I didn't know what was goin' on.  SRM for this
+box does not have the "date" command, so I did not know where it got
+word on date, time, year, etc.  Anyway, I was used to fighing date
+changes when I booted up Tru64 and NT on other machines.
+
+Last week I decided to see if the battery was low.  I went to pry it out
+- the sping that holds it in is quite strong - and noticed that one of
+the battery socket connections was loose.  By the time I got the battery
+out (it tested OK, 3.3V) the other connection popped off as well!  It
+looked like a cold joint to me. The socket is not pinned through the
+motherboard, it is just soldered to a couple copper flats.
+
+Fortunately there wasn't anything that looked heat-sensitive near the
+connectors.  I freshened up the solder on the socket contacts, then
+soldered them down to the board.
+
+Since then the computer hasn't lost a second.  Also I can now unplug the
+thing completely without having to warm up the chips for 10 minutes
+before it will boot again after a weekend.
+
+jn
+
+
+
+From Anthony.Martin at hp.com  Fri May 25 03:57:00 2007
+From: Anthony.Martin at hp.com (Martin, Anthony (NZ))
+Date: Fri, 25 May 2007 15:57:00 +1200
+Subject: BOINC on Alpha
+Message-ID: <A7A78387216CE54CB407038A4D80C73504E4F6C2@nzmexc01.asiapacific.cpqcorp.net>
+
+Is there anyone out there running any of the BOINC applications on Alpha
+hardware?
+If you are not sure what BOINC is, here is the url
+http://boinc.berkeley.edu/
+
+I have two servers (DS20, ES40) with lots of spare CPU cycles and I
+would like to get them processing once again, but I need assistance to
+get the apps running. Any help would be appreciated.
+
+
+Thanks
+Anthony
+
+
+
+From oliver at linux-kernel.at  Fri May 25 08:52:14 2007
+From: oliver at linux-kernel.at (Oliver Falk)
+Date: Fri, 25 May 2007 10:52:14 +0200
+Subject: BOINC on Alpha
+In-Reply-To: <A7A78387216CE54CB407038A4D80C73504E4F6C2@nzmexc01.asiapacific.cpqcorp.net>
+References: <A7A78387216CE54CB407038A4D80C73504E4F6C2@nzmexc01.asiapacific.cpqcorp.net>
+Message-ID: <4656A3BE.9090808@linux-kernel.at>
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+Hi Martin!
+
+On 05/25/2007 05:57 AM, Martin, Anthony (NZ) wrote:
+> Is there anyone out there running any of the BOINC applications on Alpha
+> hardware?
+
+/me not.
+
+> If you are not sure what BOINC is, here is the url
+> http://boinc.berkeley.edu/
+
+OK. Now I know - didn't hear about this project yet.
+
+> I have two servers (DS20, ES40) with lots of spare CPU cycles and I
+> would like to get them processing once again, but I need assistance to
+> get the apps running. Any help would be appreciated.
+
+What doesn't work? Do you have compile problems!?
+
+Martin, if you have spare CPU cycles - install AC3, I'll send you my ssh
+pubkey and you send me the IP. :-P
+
+Get involved into AlphaCore project, that would be VERY helpful! :-)
+
+Best,
+ Oliver
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
+
+iD8DBQFGVqO+xWN5Ge8lKUMRAnkXAKC2ItzlIMCKtZLGFyhpowh163hQJQCfRV8o
+QXFmYWOTIeqfdIW7MDICzLE=
+=0ZPo
+-----END PGP SIGNATURE-----
+
+
+
