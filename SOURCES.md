@@ -65,6 +65,16 @@ not present in HTML. public-inbox deduplicates by Message-ID on import.
 **Quality:** Good — all files have original Message-IDs.  
 No Wayback mbox capture exists for this list.
 
+## cooker-axp (separate list)
+
+### July 2000 – November 2001 (12 months, 110 messages)
+**Source:** Pipermail shtml files in `cooker-axp/`  
+**Script:** `html-to-mbox-hardware.py cooker-axp`  
+**Output:** `cooker-axp-mbox/YYYY-Month.mbox`  
+**Quality:** Good — all files have original Message-IDs.  
+Mandrake Linux Cooker Alpha port list. Messages in `cooker-axp/2001/` (flat
+year dir, no month subdirs) were bucketed by Date header.
+
 ## Sources investigated, not used
 
 ### marc.info — axp-redhat list
@@ -107,3 +117,4 @@ gone unless someone retained personal copies.
 | 2002-Apr – 2003-Sep | axp-kernel-list | Gmane | Good (full headers) |
 | 1999-Dec – 2001-Sep | axp-hardware | HTML → mbox + Wayback | Good |
 | 1999-Dec – 2001-Sep | axp-software | HTML → mbox | Good |
+| 2000-Jul – 2001-Nov | cooker-axp | HTML → mbox | Good |

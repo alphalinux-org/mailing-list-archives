@@ -116,49 +116,74 @@ def make_mbox_entry(msg):
 
 
 def parse_dir_name(name):
-    """Parse 'Month{YEAR}' directory names, return (year, MonthName) or None."""
+    """Parse 'Month{YEAR}' or '{YEAR}' directory names.
+    Returns (year, MonthName) or (year, None) for bare-year dirs."""
     m = re.match(r'^([A-Za-z]+)(\d{4})$', name)
-    if not m:
+    if m:
+        month = MONTH_NAMES.get(m.group(1).lower())
+        return (int(m.group(2)), month) if month else None
+    m = re.match(r'^(\d{4})$', name)
+    if m:
+        return (int(m.group(1)), None)
+    return None
+
+
+MONTH_NUM = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+             'July', 'August', 'September', 'October', 'November', 'December']
+
+
+def date_to_month(sent_str):
+    """Parse sent date string, return (year, MonthName) or None."""
+    import email.utils
+    try:
+        ts = email.utils.parsedate_to_datetime(sent_str)
+        return ts.year, MONTH_NUM[ts.month]
+    except Exception:
         return None
-    month_lower = m.group(1).lower()
-    year = int(m.group(2))
-    month = MONTH_NAMES.get(month_lower)
-    if not month:
-        return None
-    return year, month
 
 
 def main():
     MBOX_DIR.mkdir(exist_ok=True)
     total = 0
 
-    dirs = []
+    # buckets: (year, month) -> list of entries, for append-mode writing
+    from collections import defaultdict
+    buckets = defaultdict(list)
+
     for d in HTML_BASE.iterdir():
         if not d.is_dir():
             continue
         parsed = parse_dir_name(d.name)
-        if parsed:
-            dirs.append((parsed, d))
+        if not parsed:
+            continue
+        year, month = parsed
 
-    for (year, month), month_dir in sorted(dirs):
         shtml_files = sorted(
-            [f for f in month_dir.glob('*.shtml') if f.name not in INDEX_FILES],
+            [f for f in d.glob('*.shtml') if f.name not in INDEX_FILES],
             key=lambda p: int(p.stem),
         )
-        if not shtml_files:
-            continue
 
+        for sf in shtml_files:
+            msg = parse_shtml(sf)
+            if msg is None:
+                continue
+            if month is None:
+                # bare year dir — bucket by Date header
+                key = date_to_month(msg['sent']) if msg['sent'] else None
+                if key is None:
+                    key = (year, 'Unknown')
+            else:
+                key = (year, month)
+            buckets[key].append(make_mbox_entry(msg))
+
+    for key in sorted(buckets):
+        year, month = key
         out_path = MBOX_DIR / f'{year}-{month}.mbox'
-        count = 0
         with out_path.open('w', encoding='utf-8') as f:
-            for sf in shtml_files:
-                msg = parse_shtml(sf)
-                if msg is None:
-                    continue
-                f.write(make_mbox_entry(msg))
+            for entry in buckets[key]:
+                f.write(entry)
                 f.write('\n')
-                count += 1
-
+        count = len(buckets[key])
         print(f'{year}-{month}: {count} messages')
         total += count
 
