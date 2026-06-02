@@ -1,0 +1,1007 @@
+From stepan@suse.de Mon Sep 06 11:19:31 1999
+Message-ID: <Pine.LNX.4.10.9909012051450.23614-100000@Wotan.suse.de>
+Date: Wed, 1 Sep 1999 22:00:17 +0200 (MEST)
+From: Stefan Reinauer <stepan@suse.de>
+Subject: EMBED_LINUX
+
+Hi..
+
+As I am fiddling around with milo for quite a while now, and I have often
+
+thought about dropping the whole MINI_EMBED_LINUX support. 
+
+As far as I can see, this is not used by anyone, so it should not hurt. Is
+
+this true, or are there circumstances where a "normal" milo can´t be used?
+
+Dropping this would make parts of milo much more readable and it would be
+
+easier to make changes since one wouldn't have to change many things in 2
+
+places.
+
+Regards,
+
+        Stefan.
+
+-- 
+SuSE GmbH                                       Can you afford *NOT*
+Schanzäckerstr. 10                                     to use Linux?
+D-90443 Nürnberg                 	
+Germany                         			AlphaPowered
+
+From stepan@suse.de Wed Sep 08 12:52:25 1999
+Message-ID: <Pine.LNX.4.10.9909061443430.16583-100000@Wotan.suse.de>
+Date: Mon, 6 Sep 1999 14:53:21 +0200 (MEST)
+From: Stefan Reinauer <stepan@suse.de>
+Subject: Milo-2.2 :-)
+
+Hi...
+
+This is from my test machine:
+
+stepan@Beta:~ > cat /proc/cpuinfo
+
+cpu                     : Alpha
+
+cpu model               : EV56
+
+cpu variation           : 0
+
+cpu revision            : 0
+
+cpu serial number       : Linux_is_Great!
+
+system type             : Ruffian
+
+system variation        : 0
+
+system revision         : 0
+
+system serial number    : MILO-2.2
+
+cycle frequency [Hz]    : 599925024 est.
+
+timer frequency [Hz]    : 1024.00
+
+page size [bytes]       : 8192
+
+phys. address bits      : 40
+
+max. addr. space #      : 127
+
+BogoMIPS                : 1073.74
+
+kernel unaligned acc    : 0 (pc=0,va=0)
+
+user unaligned acc      : 0 (pc=0,va=0)
+
+platform string         : N/A
+
+cpus detected           : 1
+
+stepan@Beta:~ >
+
+Note: This is *not* a milo-2.0 with patched version output .. :-)
+
+Currently, this milo only runs on Ruffian boards and it is quite big:
+
+-rw-r--r--   1 root     root       491856 Sep  6 14:32 milo
+
+I will do a bit of code cleanup and make a public release.
+
+Look for example at the bogomips of this 600MHz machine.
+
+Regards,
+
+        Stefan.
+
+-- 
+SuSE GmbH                                       Can you afford *NOT*
+Schanzäckerstr. 10                                     to use Linux?
+D-90443 Nürnberg                 	
+Germany                         			AlphaPowered
+
+From stepan@suse.de Wed Sep 08 12:58:21 1999
+Message-ID: <Pine.LNX.4.10.9909081335050.27353-100000@Wotan.suse.de>
+Date: Wed, 8 Sep 1999 16:18:51 +0200 (MEST)
+From: Stefan Reinauer <stepan@suse.de>
+Subject: Milo 2.2 - things are becoming generic.
+
+Hi...
+
+I want to generalize milo in 2 steps:
+
+1. Make a platform dependant milo link against a generic kernel. This
+
+   means you have to #define CONFIG_ALPHA_{PLATFORM} only in the milo
+
+   Makefile and this selects the correct palcode and dependencies in the
+
+   different source files as well as the hard coded hwrpb.
+
+   To do this, I need to initialize the hwrpb and alpha_mv before I do
+
+   any I/O. Afaik, this means we have no possibility to do any output on
+
+   vga/serial in the stub and relocation code. Or should we put
+
+   initialisation of the hwrpb just that early so we keep the possibility
+
+   to debug this code more easily?
+
+   Is it really neccessary to run the floppy_init_hack() *that* early? In
+
+   my opinion this is something that should logically be called from
+
+   within devices.c
+
+   I take from the AARM, that the wrfen PALcode enables the FPU. Why isn't
+
+   this done on Ruffians in __main() of boot_main.c? If it is not really
+
+   needed, can we through it out for all machine types?
+
+   As far as I can see, the only critical files containing #ifdefs on 
+
+   specific alpha hardware are at the moment cpu.c, boot_main.c,
+
+   relocate.c, stub_main.c and of course hwrpb.c
+
+2. I don't know much about the ARC stuff, but is it somehow possible to
+
+   determine via ARC, which board/machine is used? I know there's no
+
+   hwrpb, but at least the AlphaBIOS prints out the machine's "name" so 
+
+   it must know it, hardcoded or not. The most stupid thing I can imagine
+
+   right now is having ldmilo/linload or milo calculating checksums over
+
+   the firmware or even reading some strings of the firmware directly. In
+
+   any case, this is neither an elegant way nor is it really secure,
+
+   because after a firmware update, milo might not be able to boot up a
+
+   box again.. I would love to have a function to give ldmilo a) the name
+
+   of the milo to load and possibly the machine type, too.
+
+   What we could *maybe* do is get the machine type via an ARC environment
+
+   variable.
+
+   In the linload Sources I found that the last line executed is (or
+
+   should be) 
+
+                        JumpToPal(Linux_Entry);
+
+   As far as I can see, this doesn't really swap the PALcode, but only
+
+   jumps into the milo head.S. Otherwise the PALcode gets swapped twice,
+
+   since milo does this again. (This wouldn't really make sense in my
+
+   opinion)
+
+Now I have some other things:
+
+* MILO license. MILO itself is under a free Digital license, the kernel
+
+  which is linked against milo ist GPL, so I guess the result has to be
+
+  GPL again. Am I wrong? I just don't want to run into problems here.
+
+* Future of ARC/AlphaBIOS/ARCS Bios. Now after Compaq seems to have the NT
+
+  development section freed from their unlucky fate, there's noone who
+
+  really needs anything but SRM anymore. It might still be interesting to
+
+  continue MILO development to get it flashed into Deskstation ARCS
+
+  based boxes to get all the modern graphics adapters to work in these
+
+  nice boxes without running into trouble with Deskstations totally broken
+
+  BIOS emulation which isn't even worked on anymore, according to several
+
+  people, including deskstation employees themselves.
+
+  Is there any chance that SRM will be ported to machines currently only
+
+  running with deskstation firmware?
+
+Please *do* heavily comment on my thoughts.
+
+Regards,
+
+    Stefan.
+
+-- 
+SuSE GmbH                                       Can you afford *NOT*
+Schanzäckerstr. 10                                     to use Linux?
+D-90443 Nürnberg                 	
+Germany                         		       Alpha Powered
+
+From stepan@suse.de Wed Sep 08 16:00:40 1999
+Message-ID: <Pine.LNX.4.10.9909081619110.13179-100000@Wotan.suse.de>
+Date: Wed, 8 Sep 1999 16:25:28 +0200 (MEST)
+From: Stefan Reinauer <stepan@suse.de>
+Subject: Milo 2.2 - continued.
+
+Hi.
+
+I am currently thinking about releasing my MILO tree now rather than later
+
+to get it heavily tested. It should with very little changes be at least
+
+at the same point as milo linked against 2.0 kernels, but of course the
+
+source didn't really get easier and there's no real advantage except you
+
+can use the new drivers and you don't need an old 2.0 source tree on your
+
+hard disk.
+
+Whether I do this depends mainly on your arguements and wishes. The
+
+average user hasn't been compiling his own milo until now and I guess this
+
+won't change in near future.
+
+Should I announce it on the redhat-axp list? (I fear a bit that everyone
+
+expects this to be much better than the old milo, but it's currently not
+
+more than working about as good as the old one)
+
+Regards,
+
+   Stefan
+
+-- 
+SuSE GmbH                                       Can you afford *NOT*
+Schanzäckerstr. 10                                     to use Linux?
+D-90443 Nürnberg                 	
+Germany                         			AlphaPowered
+
+From cetus@snowball.ucd.ie Wed Sep 08 19:15:16 1999
+Message-ID: <19990908182954.A2907@snowball.ucd.ie>
+Date: Wed, 8 Sep 1999 18:29:55 +0100
+From: Nikita Schmidt <cetus@snowball.ucd.ie>
+Subject: Re: Milo 2.2 - things are becoming generic.
+In-Reply-To: <Pine.LNX.4.10.9909081335050.27353-100000@Wotan.suse.de>
+
+On Wednesday,  8 Sep, Stefan Reinauer wrote:
+
+> Hi...
+
+> 
+
+> I want to generalize milo in 2 steps:
+
+> 
+
+> 1. Make a platform dependant milo link against a generic kernel. This
+
+>    means you have to #define CONFIG_ALPHA_{PLATFORM} only in the milo
+
+>    Makefile and this selects the correct palcode and dependencies in the
+
+>    different source files as well as the hard coded hwrpb.
+
+..and the machine vector.
+
+Good idea: this way kernel bits and most of MILO will have to be
+
+compiled only once in a multi-platform build.
+
+> 
+
+>    To do this, I need to initialize the hwrpb and alpha_mv before I do
+
+>    any I/O. Afaik, this means we have no possibility to do any output on
+
+>    vga/serial in the stub and relocation code.
+
+Why do you need HWRPB for I/O?  Alpha_mv alone should suffice, and it
+
+will be statically linked into MILO anyway.
+
+I don't think that "production" (non-debug) MILOs should do any I/O
+
+before passing control to the uncompressed full image.  For the debug
+
+versions even a less than ideal solution should be fine.
+
+> 
+
+> 2. I don't know much about the ARC stuff, but is it somehow possible to
+
+>    determine via ARC, which board/machine is used?  I know there's no
+
+>    hwrpb, but at least the AlphaBIOS prints out the machine's "name" so 
+
+>    it must know it, hardcoded or not.
+
+Apparently yes, at least as a string of characters: see
+
+GetConfigurationData call in the firmware vector.  There is also
+
+ReturnExtendedSystemInformation in the vendor vector which provides
+
+system information in more reasonable form, but it is not available on
+
+the Deskstation ARCS firmware.
+
+>    I would love to have a function to give ldmilo a) the name
+
+>    of the milo to load and possibly the machine type, too.
+
+>    What we could *maybe* do is get the machine type via an ARC environment
+
+>    variable.
+
+ARC passes SystemPartition, OSLoadFilename, OSLoadPartition, and
+
+OSLoadOptions to linload/ldmilo.  IIRC, current practice is that
+
+OSLoadFilename points to the MILO image file and OSLoadOptions get
+
+passed as arguments to the kernel.  You probably can stick additional
+
+information into OSLoadFilename after the MILO filename, if you really
+
+need it.
+
+Are you thinking of doing more generic MILOs - e.g., one MILO per
+
+PALcode?  What exactly possibilities are there for different system
+
+types that a single MILO can serve?  Maybe they are detectable by the
+
+MILO itself?
+
+I don't like to rely on anything from the console, as it makes it harder
+
+to eventually support flashable MILOs.  Information obtained from the
+
+firmware should be used only as a convenience (e.g., for autoboot), not
+
+for vital decisions such as system type or memory size.  It might be
+
+nice, for instance, to fill HWRPB's DSR with the symbolic system name
+
+obtained through GetConfigurationData(): there is nothing in the system
+
+that depends on it, but it will show up nicely in /proc/cpuinfo.
+
+> 
+
+>    In the linload Sources I found that the last line executed is (or
+
+>    should be) 
+
+> 			JumpToPal(Linux_Entry);
+
+> 
+
+>    As far as I can see, this doesn't really swap the PALcode, but only
+
+>    jumps into the milo head.S.
+
+Head.S?  I thought it was micropal.S.  The idea at this stage is not to
+
+swap the PALcode, but rather pass the control to MILO in PALmode so it
+
+can relocate itself to where it wants to be and *then* swap to its
+
+PALcode, after it has been put in its permanent place.
+
+>    Otherwise the PALcode gets swapped twice,
+
+>    since milo does this again. (This wouldn't really make sense in my
+
+>    opinion)
+
+Currently MILO swaps PALcode three times (two on MIKASA), which is
+
+clearly redundant.
+
+> 
+
+> Now I have some other things:
+
+> 
+
+> * MILO license. MILO itself is under a free Digital license, the kernel
+
+>   which is linked against milo ist GPL, so I guess the result has to be
+
+>   GPL again. Am I wrong? I just don't want to run into problems here.
+
+I'm not an expert so I can't advise on this, but I think you're right.
+
+There is however one nasty clause in the Digital's licence that requires
+
+anybody who makes changes to the code to "prominently mark" those
+
+modifications "as not part of the original".  What a nuisance!
+
+I had an idea to overcome it with a statment saying that the original
+
+code is on gatekeeper.dec.com and that you can run diff and see exactly
+
+what changes have been made, but it is not what I'd actually call
+
+"prominent" marking...
+
+Regards,
+
+Nikita
+
+From stepan@suse.de Thu Sep 09 11:25:18 1999
+Message-ID: <Pine.LNX.4.10.9909082017350.13179-100000@Wotan.suse.de>
+Date: Wed, 8 Sep 1999 22:30:09 +0200 (MEST)
+From: Stefan Reinauer <stepan@suse.de>
+Subject: Re: Milo 2.2 - things are becoming generic.
+In-Reply-To: <19990908182954.A2907@snowball.ucd.ie>
+
+On Wed, 8 Sep 1999, Nikita Schmidt wrote:
+
+> > 1. Make a platform dependant milo link against a generic kernel. This
+
+> >    means you have to #define CONFIG_ALPHA_{PLATFORM} only in the milo
+
+> >    Makefile and this selects the correct palcode and dependencies in the
+
+> >    different source files as well as the hard coded hwrpb.
+
+> 
+
+> ..and the machine vector.
+
+> 
+
+> Good idea: this way kernel bits and most of MILO will have to be
+
+> compiled only once in a multi-platform build.
+
+*wargl* Of course. I haven't thought of this. If we do it like the kernel
+
+and "alias" the alpha_mv to the platform specific machine vector, we don'
+
+have all the problems as long as we still have non-generic milos.
+
+> >    To do this, I need to initialize the hwrpb and alpha_mv before I do
+
+> >    any I/O. Afaik, this means we have no possibility to do any output on
+
+> >    vga/serial in the stub and relocation code.
+
+> 
+
+> Why do you need HWRPB for I/O?  Alpha_mv alone should suffice, and it
+
+> will be statically linked into MILO anyway.
+
+I actually thought about using the hwrpb for cpu detection to get some
+
+hint on the used hardware. This is of course not neccessary if we take the
+
+machine vector from the defines.
+
+And yes, only alpha_mv is needed for I/O. This solves the no-IO problem at
+
+least for the moment :)
+
+> I don't think that "production" (non-debug) MILOs should do any I/O
+
+> before passing control to the uncompressed full image.  For the debug
+
+> versions even a less than ideal solution should be fine.
+
+True. On the other hand, it's just the debug versions that need debug
+
+output. I had rather big problems to determine my errors with exactly no
+
+output, when I started.
+
+> Apparently yes, at least as a string of characters: see
+
+> GetConfigurationData call in the firmware vector.  There is also
+
+> ReturnExtendedSystemInformation in the vendor vector which provides
+
+> system information in more reasonable form, but it is not available on
+
+> the Deskstation ARCS firmware.
+
+Since I have some statement from the deskstation guys that they won't
+
+continue development on their flawed-by-design firmware, I don't think
+
+this is a real big problem. Afaik only the 164UX and 164BX use it. (Am I
+
+wrong?) which milo is used for the BX at all? PC164 or Ruffian?
+
+I haven't seen such a board life yet.
+
+> ARC passes SystemPartition, OSLoadFilename, OSLoadPartition, and
+
+> OSLoadOptions to linload/ldmilo.  IIRC, current practice is that
+
+> OSLoadFilename points to the MILO image file and OSLoadOptions get
+
+> passed as arguments to the kernel.  You probably can stick additional
+
+> information into OSLoadFilename after the MILO filename, if you really
+
+> need it.
+
+I made some tests on our Ruffians and it seems that at least Jay's hacked
+
+version of ldmilo ignores the OSLoadFileName. I just entered "blubb" there
+
+(which is the german equivalent of "foo") and it just loaded "milo"
+
+Having ldmilo interpreting this variable would be very nice. Or we leave
+
+it as it is now and "misuse" the meaning of it (not that elegant)
+
+> Are you thinking of doing more generic MILOs - e.g., one MILO per
+
+> PALcode?  What exactly possibilities are there for different system
+
+> types that a single MILO can serve?  Maybe they are detectable by the
+
+> MILO itself?
+
+I even thought about a single milo for all boxes. This may be to big
+
+though. But one per palcode is a very good idea since it wouldn't be much
+
+bigger. I stripped down my milo from 490k to about 410k. (Only with ncr,
+
+but debug versions. a version linked against the generic kernel is about
+
+20k bigger at the moment)
+
+The comparable 2.0 milo is a bit more than 360k, but I really think, this
+
+can still be optimized.
+
+> I don't like to rely on anything from the console, as it makes it harder
+
+> to eventually support flashable MILOs.  Information obtained from the
+
+> firmware should be used only as a convenience (e.g., for autoboot), not
+
+> for vital decisions such as system type or memory size.  It might be
+
+> nice, for instance, to fill HWRPB's DSR with the symbolic system name
+
+> obtained through GetConfigurationData(): there is nothing in the system
+
+> that depends on it, but it will show up nicely in /proc/cpuinfo.
+
+Yes, you are right. On the other hand, we could just "decide" that only a
+
+specific milo is allowed for flashing and a generic milo can be put on an
+
+installation CD for example. ;->
+
+> Head.S?  I thought it was micropal.S.  The idea at this stage is not to
+
+> swap the PALcode, but rather pass the control to MILO in PALmode so it
+
+> can relocate itself to where it wants to be and *then* swap to its
+
+> PALcode, after it has been put in its permanent place.
+
+Of course it's micropal.S. I just can't read the source sometimes :)
+
+> Currently MILO swaps PALcode three times (two on MIKASA), which is
+
+> clearly redundant.
+
+Ups? I only found two of them.. once in boot_main (which is the one not
+
+executed on MIKASA) and once in devices.c
+
+Why is it sufficient for Mikasa to swap palcodes later? Couldn't we do
+
+that just for the other platforms, too ?
+
+Again, the same for the wrfen at the very beginning of
+
+boot_main.c:__main() - if it's not neccessary (or possible) on Ruffian, is
+
+it really neccessary on other boards? I'd like to get the boot process a
+
+bit more stripped down and/or explained for a real release of the current
+
+code.
+
+> > * MILO license. MILO itself is under a free Digital license, the kernel
+
+> >   which is linked against milo ist GPL, so I guess the result has to be
+
+> >   GPL again. Am I wrong? I just don't want to run into problems here.
+
+> 
+
+> I'm not an expert so I can't advise on this, but I think you're right.
+
+> There is however one nasty clause in the Digital's licence that requires
+
+> anybody who makes changes to the code to "prominently mark" those
+
+> modifications "as not part of the original".  What a nuisance!
+
+> 
+
+> I had an idea to overcome it with a statment saying that the original
+
+> code is on gatekeeper.dec.com and that you can run diff and see exactly
+
+> what changes have been made, but it is not what I'd actually call
+
+> "prominent" marking...
+
+Well.. I just read the LICENSE file and it seems to state that everything
+
+except the PALcode and the BIOS emulation is GPL. The headers of the
+
+sources on the other hand give not a single statement about GPL.
+
+What shall I do now with files that I threw away and rewrote completely?
+
+I sometimes took the kernel source and just copied the function headers to
+
+be sure what it refers to in the kernel. On the other hand, I did the same
+
+with the milo sources. For example, I took the entry.S of the kernel and
+
+stripped it down until it fitted my needs. What license header do I have
+
+to put in the file before release?
+
+I don't think that anyone would give this a wrong sense, but as I had lots
+
+of contract problems with buerocratic german publishers, I try to be kind
+
+of aware now :)
+
+-- 
+SuSE GmbH                                       Can you afford *NOT*
+Schanzäckerstr. 10                                     to use Linux?
+D-90443 Nürnberg                 	
+Germany                         			AlphaPowered
+
+From cetus@snowball.ucd.ie Fri Sep 10 05:56:54 1999
+Message-ID: <19990909135501.B4685@snowball.ucd.ie>
+Date: Thu, 9 Sep 1999 13:55:01 +0100
+From: Nikita Schmidt <cetus@snowball.ucd.ie>
+Subject: Re: Milo 2.2 - things are becoming generic.
+In-Reply-To: <Pine.LNX.4.10.9909082017350.13179-100000@Wotan.suse.de>
+
+On Wednesday,  8 Sep, Stefan Reinauer wrote:
+
+> On Wed, 8 Sep 1999, Nikita Schmidt wrote:
+
+> 
+
+> > I don't think that "production" (non-debug) MILOs should do any I/O
+
+> > before passing control to the uncompressed full image.  For the debug
+
+> > versions even a less than ideal solution should be fine.
+
+> 
+
+> True. On the other hand, it's just the debug versions that need debug
+
+> output. I had rather big problems to determine my errors with exactly no
+
+> output, when I started.
+
+> 
+
+Yes, some debug output in the stub will be useful.  You can link
+
+alpha_mv into MILO twice for that purpose (one copy into the compressed
+
+image and another one into the stub/decompressor).  Since it's a debug
+
+version, some waste of memory doesn't matter.  Alternatively you could
+
+put it only into the stub and make the main working image link to it
+
+using linker scripts, but it's not worth the effort.
+
+> 
+
+> I made some tests on our Ruffians and it seems that at least Jay's hacked
+
+> version of ldmilo ignores the OSLoadFileName. I just entered "blubb" there
+
+> (which is the german equivalent of "foo") and it just loaded "milo"
+
+> Having ldmilo interpreting this variable would be very nice. Or we leave
+
+> it as it is now and "misuse" the meaning of it (not that elegant)
+
+> 
+
+True, ldmilo (originally written by Deskstation) just merely ignores
+
+OSLoadFilename, but nothing prevents us from taking linload's source and
+
+adapting it to our needs.  The difference between ldmilo and linload is
+
+only caused by the absence of the vendor vector (as defined by Digital)
+
+in ARCSBIOS.  If I remember correctly, the only thing linload needs from
+
+it is Print, and it is replaced in ldmilo by sprintf/Write combination
+
+(this is why ldmilo is bigger - it has to carry sprintf's code inside).
+
+What I wanted to do was to integrate linload/ldmilo into MILO.  This
+
+would drastically simplify whatever remains from linload, since all the
+
+file loading would go away: milo.exe will boot straight from ARC.
+
+OSLoadFilename would become completely free for our use.  SRM would load
+
+milo.exe starting a couple of blocks after the beginning of the file,
+
+skipping the NT .exe header and perhaps the code related to booting from
+
+ARC.
+
+This way the part of MILO responsible for booting from ARC (the
+
+remainings of linload) would pass the parameters such as OSLoadOptions
+
+straight into the designated area in the MILO, rather than through some
+
+peculiar memory location.
+
+> 
+
+> I even thought about a single milo for all boxes. This may be to big
+
+> though. But one per palcode is a very good idea since it wouldn't be much
+
+> bigger. I stripped down my milo from 490k to about 410k. (Only with ncr,
+
+> but debug versions. a version linked against the generic kernel is about
+
+> 20k bigger at the moment)
+
+I think a generic, single MILO is a serious undertaking.
+
+> 
+
+> Yes, you are right. On the other hand, we could just "decide" that only a
+
+> specific milo is allowed for flashing and a generic milo can be put on an
+
+> installation CD for example. ;->
+
+> 
+
+True.
+
+> > Currently MILO swaps PALcode three times (two on MIKASA), which is
+
+> > clearly redundant.
+
+> 
+
+> Ups? I only found two of them.. once in boot_main (which is the one not
+
+> executed on MIKASA) and once in devices.c
+
+First time it happens in micropal.S at the very end where it jumps to
+
+the pal_reset entry of the MILO palcode.  That means all parts of MILO
+
+except micropal.S and relocate.c run under MILO palcode.
+
+> Why is it sufficient for Mikasa to swap palcodes later? Couldn't we do
+
+> that just for the other platforms, too ?
+
+I have absolutely no idea why that palcode swap is needed at all.  I
+
+guess it has been there since old times when it was really required and
+
+nobody wanted to touch it, since it worked.  It's no surprise at all
+
+that Mikasa works fine without it!
+
+> 
+
+> Again, the same for the wrfen at the very beginning of
+
+> boot_main.c:__main() - if it's not neccessary (or possible) on Ruffian, is
+
+> it really neccessary on other boards? I'd like to get the boot process a
+
+> bit more stripped down and/or explained for a real release of the current
+
+> code.
+
+I avoided that question simply because I don't know.  I don't understand
+
+how wrfen() can break things.  The only person I know of who can shed some
+
+light here is Jay Estabrook.
+
+> 
+
+> Well.. I just read the LICENSE file and it seems to state that everything
+
+> except the PALcode and the BIOS emulation is GPL. The headers of the
+
+> sources on the other hand give not a single statement about GPL.
+
+Again, I'm not a lawyer, but my understanding is that in case of
+
+contradicting licences you can choose whatever you want, though my
+
+feeling is that it's safer to choose the more restrictive one.
+
+> What shall I do now with files that I threw away and rewrote completely?
+
+Put them under GPL.
+
+> I sometimes took the kernel source and just copied the function headers to
+
+> be sure what it refers to in the kernel. On the other hand, I did the same
+
+> with the milo sources. For example, I took the entry.S of the kernel and
+
+> stripped it down until it fitted my needs. What license header do I have
+
+> to put in the file before release?
+
+Whatever the kernel licence allows you to.  I think it's safe just to
+
+say it's GPL.
+
+> I don't think that anyone would give this a wrong sense, but as I had lots
+
+> of contract problems with buerocratic german publishers, I try to be kind
+
+> of aware now :)
+
+Can you ask SuSE's lawyers?  Lawyers tend to be very conservative and
+
+interpret every nuance in the worst possible sense, but the advices they
+
+give are bulletproof.  You might also try to persuade Digital
+
+authorities to resolve this licensing mess somehow...
+
+Nikita
+
+From jgarzik@pobox.com Fri Sep 10 06:00:34 1999
+Message-ID: <37D8B21F.97814BC1@pobox.com>
+Date: Fri, 10 Sep 1999 03:24:15 -0400
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Milo 2.2 - things are becoming generic.
+In-Reply-To: <Pine.LNX.4.10.9909081335050.27353-100000@Wotan.suse.de>
+
+Stefan Reinauer wrote:
+
+> 1. Make a platform dependant milo link against a generic kernel.
+
+Excellent.
+
+> * MILO license. MILO itself is under a free Digital license, the kernel
+
+>   which is linked against milo ist GPL, so I guess the result has to be
+
+>   GPL again. Am I wrong? I just don't want to run into problems here.
+
+If they are linked together yes, AFAIK.  [disclaimer:  not a lawyer :)]
+
+> * Future of ARC/AlphaBIOS/ARCS Bios. Now after Compaq seems to have the NT
+
+>   development section freed from their unlucky fate, there's noone who
+
+>   really needs anything but SRM anymore. It might still be interesting to
+
+>   continue MILO development to get it flashed into Deskstation ARCS
+
+>   based boxes to get all the modern graphics adapters to work in these
+
+>   nice boxes without running into trouble with Deskstations totally broken
+
+>   BIOS emulation which isn't even worked on anymore, according to several
+
+>   people, including deskstation employees themselves.
+
+> 
+
+>   Is there any chance that SRM will be ported to machines currently only
+
+>   running with deskstation firmware?
+
+A flash-able MILO would be difficult to maintain, but very useful to
+
+have.  It would be nice if ARC or AlphaBIOS could be open sourced... 
+
+Several of Jay Estabrook's comments on MILO, long long ago, mention that
+
+MILO really doesn't have the support necessary to be fully functional
+
+[for Linux's purposes] firmware.
+
+Regards,
+
+        Jeff
+
+-- 
+Custom driver development	|    Never worry about theory as long
+Open source programming		|    as the machinery does what it's
+				|    supposed to do.  -- R. A. Heinlein
+
+From jgarzik@pobox.com Tue Nov 09 09:46:29 1999
+Message-ID: <37D8B305.9227D607@pobox.com>
+Date: Fri, 10 Sep 1999 03:28:05 -0400
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Milo 2.2 - continued.
+In-Reply-To: <Pine.LNX.4.10.9909081619110.13179-100000@Wotan.suse.de>
+
+Stefan Reinauer wrote:
+
+> 
+
+> Hi.
+
+> 
+
+> I am currently thinking about releasing my MILO tree now rather than later
+
+> to get it heavily tested. It should with very little changes be at least
+
+> at the same point as milo linked against 2.0 kernels, but of course the
+
+> source didn't really get easier and there's no real advantage except you
+
+> can use the new drivers and you don't need an old 2.0 source tree on your
+
+> hard disk.
+
+> Should I announce it on the redhat-axp list? (I fear a bit that everyone
+
+> expects this to be much better than the old milo, but it's currently not
+
+> more than working about as good as the old one)
+
+Releasing it and announcing it are both good ideas IMHO.  As long as it
+
+works as well as the 2.0.x-based version, this release will if nothing
+
+else make people aware that it is being actively maintained and worked
+
+on, and that people are aware of a central place to send patches and
+
+improvements (such a place doesn't exist right now).
+
+        Jeff
+
+-- 
+Custom driver development	|    Never worry about theory as long
+Open source programming		|    as the machinery does what it's
+				|    supposed to do.  -- R. A. Heinlein
+

@@ -1,0 +1,386 @@
+From stepan@elvis.informatik.uni-freiburg.de Mon Nov 15 21:28:55 1999
+Message-ID: <Pine.LNX.4.00.9911091042480.24380-100000@wesley.informatik.uni-freiburg.de>
+Date: Tue, 9 Nov 1999 10:46:17 +0100 (CET)
+From: Stefan Reinauer <stepan@elvis.informatik.uni-freiburg.de>
+Subject: Milo 2.2 (release)
+
+Hi..
+
+   Just for those who haven't read already, here's the Milo 2.2 release
+
+   posting. Many thanks to Ruediger Oertel, Nikita Schmist and Jay
+
+   Estabrook for their never ending help :)
+
+   This version is based on the Milo-2.0.35-c5.3 sources of Nikita
+
+   Schmidt , which are available on ftp://genie.ucd.ie/pub/alpha/milo/
+
+   Since major changes were necessary, I won't release a patchfile.
+
+   
+
+   This version is working on a Ruffian. To compile it, you have to build
+
+   a platform specific kernel for the Ruffian hardware and then a
+
+   specific Milo. Please note: These sources are currently only
+
+   working/tested on Ruffian. I built milo successfully against Kernel
+
+   2.2.12. I think you need binutils older than 2.9.1.0.23 (I used
+
+   2.9.1.0.19) to build a working Milo. Something changed with the binary
+
+   format since then and milo still assumes the old format. It worked for
+
+   me using either egcs 1.1.2 or gcc 2.95.x.. other compilers were
+
+   untested. As I didn't have the time to test how it behaves on a RedHat
+
+   box, I only used a SuSE box as build system, but I guess you won't
+
+   need lots or even any changes.
+
+   
+
+   I was not able to get Milo 2.2 up and running for an 164LX board,but
+
+   fixing this may be trivial.
+
+   
+
+   The URL to get the Sources is:
+
+           http://www.stefan-reinauer.de/Milo/
+
+   
+
+   Have fun and please send me thousands of comments....
+
+   
+
+   Regards, 
+
+       Stefan Reinauer, stepan@suse.de
+
+ 
+
+-- 
+The reason computer chips are so small is computers don't eat much.
+
+From msw@redhat.com Tue Nov 16 02:48:29 1999
+Message-ID: <19991115152923.C12244@devserv.devel.redhat.com>
+Date: Mon, 15 Nov 1999 15:29:23 -0500
+From: Matt Wilson <msw@redhat.com>
+Subject: Re: Milo 2.2 (release)
+In-Reply-To: <Pine.LNX.4.00.9911091042480.24380-100000@wesley.informatik.uni-freiburg.de>
+
+On Tue, Nov 09, 1999 at 10:46:17AM +0100, Stefan Reinauer wrote:
+
+>    
+
+>    Have fun and please send me thousands of comments....
+
+Thanks for doing this work, Stefan.  A few things.  First, the ext2
+
+reading code is not handling revision 1 ext2 filesystems.  Revision 1
+
+filesystems split the 16 bit length name_len field of the dirent into
+
+two 8 bit fields, "file_type" and "name_len".  Milo still uses the
+
+ext2_dir_entry structrue and reads name_len as a 16 bit value, so you
+
+get file lengths that are extraordinary long.  For example, the 'etc'
+
+entry of the '/' directory is read to be 515 bytes long.  Since it's
+
+checking to see that the lenths of the file you're looking for and the
+
+dentry that you're looking at have the same length, nothing matches
+
+and MILO fails to open the file.
+
+Of course, 515 is just 0x0203, showing that it is a EXT2_FT_DIR (type
+
+2) with entry length of 3.  All we really need to do is a lot of 0xff
+
+masking whenever you use a dentry->name_len.
+
+There seems to be a problem reading 4096 byte block sizes.  I've not
+
+tracked down the exact problem here.
+
+Stefan - could you send the .config of the kernel that you built
+
+against?  I'm having trouble with symbol resolution, probably because
+
+I have too many drivers/subsystems turned on.
+
+Thanks again.
+
+Matt
+
+msw@redhat.com
+
+From jgarzik@mandrakesoft.com Tue Nov 16 03:17:59 1999
+Message-ID: <3830C4E7.318C5707@mandrakesoft.com>
+Date: Tue, 16 Nov 1999 02:43:51 +0000
+From: Jeff Garzik <jgarzik@mandrakesoft.com>
+Subject: Re: Milo 2.2 (release)
+In-Reply-To: <19991115152923.C12244@devserv.devel.redhat.com>
+
+Matt Wilson wrote:
+
+> 
+
+> On Tue, Nov 09, 1999 at 10:46:17AM +0100, Stefan Reinauer wrote:
+
+> >
+
+> >    Have fun and please send me thousands of comments....
+
+> 
+
+> Thanks for doing this work, Stefan.  A few things.  First, the ext2
+
+> reading code is not handling revision 1 ext2 filesystems.  Revision 1
+
+MILO should probably be using libext2.  It should handle weird block
+
+sizes and older filesystems just fine...
+
+http://web.mit.edu/tytso/www/linux/e2fsprogs.html
+
+-- 
+Jeff Garzik              | Just once, I wish we would encounter
+Building 1024            | an alien menace that wasn't immune to
+MandrakeSoft, Inc.       | bullets.   -- The Brigadier, "Dr. Who"
+
+From msw@redhat.com Sat Nov 27 16:41:48 1999
+Message-ID: <19991115221636.J12244@devserv.devel.redhat.com>
+Date: Mon, 15 Nov 1999 22:16:36 -0500
+From: Matt Wilson <msw@redhat.com>
+Subject: Re: Milo 2.2 (release)
+In-Reply-To: <3830C4E7.318C5707@mandrakesoft.com>
+
+On Tue, Nov 16, 1999 at 02:43:51AM +0000, Jeff Garzik wrote:
+
+> 
+
+> MILO should probably be using libext2.  It should handle weird block
+
+> sizes and older filesystems just fine...
+
+Oh, no doubt.  It shouldn't take long to make it work.
+
+BTW, older filesystems are fine, it's the new filesystems that are
+
+the problem.....
+
+Matt
+
+From stepan@suse.de Mon Nov 29 10:49:28 1999
+Message-ID: <XFMail.991127164015.stepan@suse.de>
+Date: Sat, 27 Nov 1999 16:40:15 +0100 (CET)
+From: Stefan Reinauer <stepan@suse.de>
+Subject: Milo 2.2 updates
+In-Reply-To: <19991115221636.J12244@devserv.devel.redhat.com>
+
+-----BEGIN PGP SIGNED MESSAGE-----
+
+On 16-Nov-99 Matt Wilson wrote:
+
+>> MILO should probably be using libext2.  It should handle weird block
+
+>> sizes and older filesystems just fine...
+
+> 
+
+> Oh, no doubt.  It shouldn't take long to make it work.
+
+> 
+
+> BTW, older filesystems are fine, it's the new filesystems that are
+
+> the problem.....
+
+Has anyone made a patch for this? This might be neccessary since the
+
+mkfs features that break milo are default options of newer e2utils
+
+btw.. I just released a new version of milo 2.2 on
+
+        http://www.core-systems.de/stepan/Milo/
+
+Changes are:
+
+  * compiles with 2.2.13(-SuSE)
+
+  * now includes my working .config files
+
+  * included Nikitas patches from milo-2.0.35-c5.3 to c7
+
+    to get up to date with the 2.0 version of milo
+
+  * cleanup
+
+Regards,..
+
+   Stefan, <stepan@suse.com>
+
+- -- 
+
+SuSE GmbH                                       Can you afford *NOT*
+
+Schanzäckerstr. 10                                     to use Linux?
+
+D-90443 Nürnberg                        
+
+Germany                                                 AlphaPowered
+
+-----BEGIN PGP SIGNATURE-----
+
+Version: 2.6.3i
+
+Charset: noconv
+
+iQEVAwUBOD/7Uiu+zKndEmP5AQGbIwgAoJvL2+iTwL2LvNKunxtecOwM1CypDfMe
+
+6x+HYwwvtIYCwIee1NV5vCTiqJy1b6iUHQcBqmTxYV6mqL/NiPTz90fh9t+9daxR
+
+/5yp1O4uVZopsE2pV7VMULEt40aSVqSx6hzpEhBPb0C0IHxdCOnNuDjMYieYoDtJ
+
+SPT/5NFG3+orFBZvGzlkV+lbfYnZMMQICauR08HNchw6KQfcVw2y8BEJtJy+t6rD
+
+MdF5oikED+Z9Ny1nfYfkAMhwZe019CZENTBC6MOqhpn0RItPOPtk3JEGwpY5zKdh
+
+n3H6E4SpefEgaFUjqCYD/e00dEzuGfotaX5YJw4f+CUpx65a1taKnQ==
+
+=f3WH
+
+-----END PGP SIGNATURE-----
+
+From stepan@suse.de Tue Nov 30 21:06:55 1999
+Message-ID: <XFMail.991129104739.stepan@suse.de>
+Date: Mon, 29 Nov 1999 10:47:39 +0100 (CET)
+From: Stefan Reinauer <stepan@suse.de>
+Subject: Milo-2.2-12 ready.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+
+Hi...
+
+I made another version of Milo-2.2 ready tonight :-)
+
+This time things are getting better:
+
+* sample-.config files included
+
+* Makefile and machine dependand code cleaned up
+
+* Configure now lets you choose the machine type, since
+
+* Milo builds against a generic kernel now :-)
+
+A ChangeLog is included.
+
+The only working platform is still Ruffian. None of the others
+
+are compiling since I haven't adapted the Makefile completely.
+
+The latest version 2.2-12 as well as a patch against 2.2-10b and
+
+of course a Ruffian binary can be found at
+
+        http://www.stefan-reinauer.de/Milo/
+
+Bug reports and patches are welcome.
+
+Regards,
+
+     Stefan Reinauer <stepan@suse.de>
+
+- -- 
+
+SuSE GmbH                                       Can you afford *NOT*
+
+Schanzäckerstr. 10                                     to use Linux?
+
+D-90443 Nürnberg                        
+
+Germany                                                 AlphaPowered
+
+-----BEGIN PGP SIGNATURE-----
+
+Version: 2.6.3i
+
+Charset: noconv
+
+iQEVAwUBOEJKySu+zKndEmP5AQHFmAf/Xpw/5BueO3uXuFCVjH/LTT62R74vVuLt
+
+jTjuWahcs/ZjGS12cW4bBsz/hzz1DR13FUUxVnQg131zwo/63qtRUsqoGi7pO3GU
+
+wwAKxB6yIHL7+uzcZ3nxWclksEZZURADi6ekzwVUdVnGc8Dwqz47or9seLpTjpVq
+
+mH/aNzcIAIy2l7BlvS2b3QNAWq4MyBKWgNlhvXE+PijjOXay/0JETVGIO1XXuoXz
+
+NoIzV4/Fo6V0Bx6+OY2uNguheTTVLWHKjgRdE24VnQpgyUZEoyafoYUksXtMmlvg
+
+v1iEsOhxtNWD/spk3FEE5TFML/DqIPDSbqNHms3wBmNU9Fj1bnKRfQ==
+
+=p/5Y
+
+-----END PGP SIGNATURE-----
+
+From stepan@suse.de Fri Dec 03 19:22:07 1999
+Message-ID: <99113022051900.06221@mulder>
+Date: Tue, 30 Nov 1999 21:50:32 +0100
+From: Stefan Reinauer <stepan@suse.de>
+Subject: Milo-2.2 Release 13
+
+Hello world,
+
+It's time for a new release of Milo-2.2, the Alpha-Linux boot loader for
+
+ARC/AlphaBIOS machines. 
+
+This version is based on the Milo-2.0.35-c7 sources of Nikita
+
+Schmidt , which are available on ftp://genie.ucd.ie/pub/alpha/milo/
+
+Please note: These sources are currently only tested on Ruffian. Several
+
+other platforms compile cleanly, but are not tested.
+
+Currently the following platforms are at least compiling:
+
+        * Alcor
+
+        * Cabriolet
+
+        * EB164
+
+        * Miata
+
+        * Mikasa
+
+        * Ruffian
+
+        * SX164
+
+        * Takara
+
+Please send me all positive and of course negative test reports.
+
+The source, binaries and patches to older Milo-2.2 releases can be found at the
+
+following URL:
+
+        http://www.stefan-reinauer.de/Milo/
+
+Regards,
+
+     Stefan Reinauer
+

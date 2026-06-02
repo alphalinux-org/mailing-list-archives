@@ -21,7 +21,9 @@ MONTH_NAMES = {
     'november': 'November', 'december': 'December',
 }
 INDEX_FILES = {'date.shtml', 'thread.shtml', 'subject.shtml',
-               'author.shtml', 'index.shtml'}
+               'author.shtml', 'index.shtml',
+               'date.html', 'thread.html', 'subject.html',
+               'author.html', 'index.html'}
 
 META_RE = re.compile(
     r'<!--\s*received="([^"]*)"[^>]*-->\s*'
@@ -132,14 +134,24 @@ MONTH_NUM = ['', 'January', 'February', 'March', 'April', 'May', 'June',
              'July', 'August', 'September', 'October', 'November', 'December']
 
 
-def date_to_month(sent_str):
-    """Parse sent date string, return (year, MonthName) or None."""
+def date_to_month(sent_str, received_str=None):
+    """Parse sent date string, return (year, MonthName) or None.
+    Falls back to received date if sent year is implausible (<1980)."""
     import email.utils
-    try:
-        ts = email.utils.parsedate_to_datetime(sent_str)
-        return ts.year, MONTH_NUM[ts.month]
-    except Exception:
-        return None
+    def parse(s):
+        try:
+            ts = email.utils.parsedate_to_datetime(s.strip())
+            return ts.year, MONTH_NUM[ts.month]
+        except Exception:
+            return None
+    result = parse(sent_str) if sent_str else None
+    if result and result[0] >= 1980:
+        return result
+    if received_str:
+        fallback = parse(received_str)
+        if fallback:
+            return fallback
+    return result
 
 
 def main():
@@ -159,7 +171,8 @@ def main():
         year, month = parsed
 
         shtml_files = sorted(
-            [f for f in d.glob('*.shtml') if f.name not in INDEX_FILES],
+            [f for f in d.iterdir()
+             if f.suffix in ('.shtml', '.html') and f.name not in INDEX_FILES],
             key=lambda p: int(p.stem),
         )
 
@@ -169,7 +182,7 @@ def main():
                 continue
             if month is None:
                 # bare year dir — bucket by Date header
-                key = date_to_month(msg['sent']) if msg['sent'] else None
+                key = date_to_month(msg['sent'], msg['received']) if msg['sent'] else None
                 if key is None:
                     key = (year, 'Unknown')
             else:

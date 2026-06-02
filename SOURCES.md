@@ -75,6 +75,19 @@ No Wayback mbox capture exists for this list.
 Mandrake Linux Cooker Alpha port list. Messages in `cooker-axp/2001/` (flat
 year dir, no month subdirs) were bucketed by Date header.
 
+## milo-list (separate list)
+
+### April 1999 – November 2001 (29 months, 89 messages)
+**Source:** HTML files in `milo-list/`  
+**Script:** `html-to-mbox-hardware.py milo-list`  
+**Output:** `milo-list-mbox/YYYY-Month.mbox`  
+**Quality:** Good — all files have original Message-IDs.  
+MILO (Mini Loader for Alpha) development list, hosted on alphalinux.org
+(talisman.mv.com). Bare year directory layout (1999/, 2000/, 2001/) with
+no month subdirs; messages bucketed by Date header. One message has a
+malformed sent date (year 100); correctly placed via received date fallback.  
+No Wayback mbox, not on marc.info, not on Gmane.
+
 ## Sources investigated, not used
 
 ### marc.info — axp-redhat list
@@ -118,3 +131,4 @@ gone unless someone retained personal copies.
 | 1999-Dec – 2001-Sep | axp-hardware | HTML → mbox + Wayback | Good |
 | 1999-Dec – 2001-Sep | axp-software | HTML → mbox | Good |
 | 2000-Jul – 2001-Nov | cooker-axp | HTML → mbox | Good |
+| 1999-Apr – 2001-Nov | milo-list | HTML → mbox | Good |

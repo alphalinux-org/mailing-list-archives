@@ -1,0 +1,275 @@
+From mato@kotelna.sk Wed Jul 14 18:23:22 1999
+Message-ID: <19990711014208.M3083@ariel.kotelna.sk>
+Date: Sun, 11 Jul 1999 01:42:08 +1200
+From: Martin Lucina <mato@kotelna.sk>
+Subject: MILO thoughts (Was Re: MILO init-command)
+In-Reply-To: <19990705142643.A7204@snowball.ucd.ie>
+
+[CCed to milo-list, please reply to me as I'm not (yet) on that list.]
+
+On Mon, Jul 05, 1999 at 02:26:43PM +0100, Nikita Schmidt wrote:
+
+> From: Jay.Estabrook@digital.com
+
+> Subject: Re: Milo - joined forces. 
+
+> Date: Mon, 29 Mar 1999 23:59:14 -0500
+
+> > At the moment there are several different source trees of milo available
+
+> > and every one works for another configuration or has this or that special
+
+> > feature. I think it would be nice to join forces again. 
+
+One other thing that could ease confusion for people would be to stop
+
+versioning MILO based on the kernel source. I think I have seen a few messages
+
+on debian-alpha where people seem to think that if it's called MILO-2.0.35 it
+
+must be old.
+
+> Date: Thu, 24 Jun 1999 15:32:22 +0100
+
+> From: Nikita Schmidt <cetus@snowball.ucd.ie>
+
+> Subject: Re: milo sources?
+
+> GRUB is also worth looking into.  At least the filesystem code is much
+
+> cleaner than what we have in MILO.  Perhaps some user interface might be
+
+> useful as well?  GRUB is supposed to be user-friendly, but I never saw
+
+> how it actually works.
+
+I've been using GRUB on all my intel boxes since somewhere around version 0.4.
+
+I have found it to be an absolute blessing after the mess that is LILO. The
+
+menu interface is very simple but easy to use and I think something like that
+
+would be useful for MILO also. 
+
+One very nice feature of Multiboot is the ability to load kernel modules at
+
+boot time. Linux on Intel unfortunately doesn't support Multiboot, mainly
+
+because the Linux setup code does a heap of initialisation (notably APM) that
+
+must be done in real mode, while GRUB dumps the kernel straight into protected
+
+mode. This would not be an issue on Alpha, thus killing ugly hacks like initrd
+
+(hurrah).
+
+The idea of sharing code with GRUB brings me to the following proposal:
+
+GRUB was originally designed as a reference implementation of a
+
+Multiboot-complaint bootloader for Intel (see http://www.uruk.org/grub/ for
+
+more information). 
+
+What if we did something similar for Alpha? IIRC NetBSD currently suffers from
+
+an inability to run on ARC/AlphaBIOS firmware since it needs the OSF PALcode.
+
+We could create a Multiboot standard for Alpha (all Multiboot basically
+
+involves is loading an ELF executable, possibly some modules and jumping to
+
+it) and thus give the BSD guys the benefit of being able to run on all Alpha
+
+machines.
+
+> 1. Logically separate the UI, filesystems and kernel bootstrap from the
+
+> rest so that they can be linked against kernel drivers for a full-blown
+
+> MILO as well as against SRM callbacks to provide an aboot-like thing
+
+> with MILO interface for consistency.
+
+Using the filesystem code from GRUB would give us a very compact
+
+implementation of ext2, fat and ffs. The only notable one missing is iso9660
+
+but I'm sure that could be done. Getting rid of aboot is also a great idea,
+
+since it hasn't been updated in years.
+
+> 3. Separate platform-dependent and platform-independent files.  By
+
+> "platform-dependent" I mean those with #ifdef CONFIG_ALPHA_...; it is a
+
+> good idea to reduce the number of such files as much as possible.
+
+You could go even futher and build MILO and GRUB from common code (like the
+
+user interface, filesystems and so on). I *like* this idea...
+
+> Should the kernel drivers be compiled as generic or a separate set for
+
+> each system?  I tend to prefer them being generic to simplify the
+
+> process.
+
+Definitely generic. For a bootloader we don't need anything special that the
+
+platform-specific configuations provide, do we?
+
+> 1. The wtint PALcall, which is missing in MILO, although required by the
+
+> Digital UNIX PALcode specification.  It is a nice power-saving facility.
+
+> I implanted it into my MILO as an experimental feature by
+
+> reverse-engineering from the SRM PALcode, and this immediately reduced
+
+> the CPU fan noise while the machine is idle.  (The kernel needs
+
+> modifications to use wtint, though.)  The problem is that it seems to be
+
+> highly platform-specific and I did not see any documentation how to
+
+> enter low power mode except for the 21066 family CPUs.
+
+Would it be feasible to get an updated PALcode out of Compaq?
+
+> 3. Ability to run programs under MILO.  This will be useful for various
+
+> console tools such as diagnostic and tuning routines, which we don't
+
+> want to keep inside MILO.
+
+Is this just "load an ELF file and jump to it"? Is the interface documented
+
+somewhere? Maybe MILO should provide callbacks of some sort?
+
+That's all for now... Comments?
+
+mato 
+
+-- 
+Martin Lucina http://www.kotelna.sk/mato/ Wellington, New Zealand
+I've always been mad I know I've been mad like the most of us are 
+Pretty hard to explain why you're a madman even if you're not mad
+
+From cetus@snowball.ucd.ie Wed Sep 01 20:00:52 1999
+Message-ID: <19990714192241.A838@snowball.ucd.ie>
+Date: Wed, 14 Jul 1999 19:22:41 +0100
+From: Nikita Schmidt <cetus@snowball.ucd.ie>
+Subject: Re: MILO thoughts (Was Re: MILO init-command)
+In-Reply-To: <19990711014208.M3083@ariel.kotelna.sk>
+
+On Sunday, 11 Jul, Martin Lucina wrote:
+
+> 
+
+> One other thing that could ease confusion for people would be to stop
+
+> versioning MILO based on the kernel source. I think I have seen a few messages
+
+> on debian-alpha where people seem to think that if it's called MILO-2.0.35 it
+
+> must be old.
+
+> 
+
+A good idea, and I was already thinking of it.
+
+> 
+
+> The idea of sharing code with GRUB brings me to the following proposal:
+
+> 
+
+> GRUB was originally designed as a reference implementation of a
+
+> Multiboot-complaint bootloader for Intel (see http://www.uruk.org/grub/ for
+
+> more information). 
+
+> 
+
+> What if we did something similar for Alpha? IIRC NetBSD currently suffers from
+
+> an inability to run on ARC/AlphaBIOS firmware since it needs the OSF PALcode.
+
+> We could create a Multiboot standard for Alpha (all Multiboot basically
+
+> involves is loading an ELF executable, possibly some modules and jumping to
+
+> it) and thus give the BSD guys the benefit of being able to run on all Alpha
+
+> machines.
+
+> 
+
+There is already a console specification for the Alpha machines,
+
+described in Alpha Architecture Reference Manual (ISBN 1-55558-202-8).
+
+This is what SRM conforms to.  We can perhaps agree on a sort of a
+
+Multiboot standard (as an addition to the Console Architecture) if that
+
+helps.
+
+I wonder what NetBSD needs from the console.  I wouldn't be suprised to
+
+know that they use much wider spectrum of the Console Architecture
+
+facitilites than the one provided by MILO, such as disk I/O callbacks,
+
+environment variables, etc.
+
+> 
+
+> You could go even futher and build MILO and GRUB from common code (like the
+
+> user interface, filesystems and so on). I *like* this idea...
+
+> 
+
+Yep...  Unless GRUB's author detests the perspective of carrying extra
+
+megabyte of source code.
+
+> 
+
+> Definitely generic. For a bootloader we don't need anything special that the
+
+> platform-specific configuations provide, do we?
+
+> 
+
+No.
+
+> 
+
+> Would it be feasible to get an updated PALcode out of Compaq?
+
+> 
+
+Hmm...  Perhaps, though not likely.
+
+> > 3. Ability to run programs under MILO.  This will be useful for various
+
+> > console tools such as diagnostic and tuning routines, which we don't
+
+> > want to keep inside MILO.
+
+> 
+
+> Is this just "load an ELF file and jump to it"? Is the interface documented
+
+> somewhere? Maybe MILO should provide callbacks of some sort?
+
+> 
+
+Yes; no; yes.  Callbacks, clever and useful ones.
+
+Nikita
+
