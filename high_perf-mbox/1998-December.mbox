@@ -1,0 +1,6764 @@
+From nshimizu@et.u-tokai.ac.jp Thu Jan 21 21:41:33 1999 EST
+Message-ID: <199812010624.PAA02425@et.u-tokai.ac.jp>
+Date: Tue, 1 Dec 1998 15:24:27 +0900 (JST)
+From: naohiko shimizu <nshimizu@et.u-tokai.ac.jp>
+Subject: Re: Questions on performance methods
+In-Reply-To: <199811300254.LAA26438@et.u-tokai.ac.jp>
+
+In article <9811301409.AA28540@liszt.amt.tay1.dec.com>
+
+gorton@amt.tay1.dec.com writes:
+
+>> 
+
+>> Naohiko Shimizu wrote:
+
+>> 
+
+>> >But I myself is not comfortable with 21264, because it does not
+
+>> >improve the peak floating point performance from 21164. The 21364
+
+>> >will use the same core with 21264 and then we cannot expect
+
+>> >outperformed performance with these chips.
+
+>> 
+
+>> If by 'peak floating point performance' you mean "number of floating
+
+>> point instructions issued/cycle" then this is a correct statement.
+
+>> 
+
+>> However, since it is an out-of-order machine, the actual elapsed time
+
+>> to complete a job can be significantly less on a 21264 machine than on
+
+>> a 21164 machine with the same clock rate.
+
+>> 
+
+Rick, if you feel that my post was miss leading for general users,
+
+please excuse me. As I wrote, we can retrieve full power of
+
+21264 with higher level languages and it will be very nice for general.
+
+The chip is well designed, I think. But I wonder that if 21164A uses
+
+same process rule, it will mark higher clock rating. And the easy 
+
+optimizable routine may have higher performance with (enhanced) 21164A.
+
+>> Additionally, the number of cycles to execute some FP operations is
+
+>> significantly better on the 21264 vs. the 21164 (i.e. divide)
+
+>> The addition of instructions in the architecture to perform SQRT
+
+>> (among other items) will result in additional performance gains.
+
+I think multiply-accumulate type instruction is usefull for many
+
+applicatoins, wouldn't you disscussed to include such instructions?
+
+In article <19981130095516.B4303@keksy.mchp.siemens.de>
+
+martin.kahlert@mchp.siemens.de writes:
+
+>> Is it very stupid to ask what TLB and MAF means?
+
+>> Sorry, to aks that silly questions.
+
+TLB is reffered as DTB in the Digital documentations. It is a data 
+
+address translation buffer to support virtual addressing, 
+
+and no load can be issued behind DTB miss. Because, if DTB miss
+
+occured the processor must check page table in the main memory to decide
+
+whether an page fault interrupt may or may not be occured. The interrupt must
+
+be precise and all instructions issued behind the load must be cancelled.
+
+Then shortage of DTB cause performance degradation. I think 21164A could
+
+have 1024 two way DTB with a few victim entries, instead of full associative
+
+64 entries DTB.
+
+The combination of Miss Address File(MAF) and pipelined Scache(L2 cache)
+
+is the key point to get higher performance with 21164(A).
+
+I will explain a little more:
+
+21164(A) is not an out-of-order processor, but only the load instruction
+
+can be treated as out-of-order with MAF.
+
+There are 5 MAF in 21164(A), and each can hold a cache miss load address.
+
+Then we can issue 5 independent address load which does not hit the cache
+
+without stall. And four of them can have upto four miss load which share
+
+the same cache line. So we can issue upto 21 miss load without stall.
+
+Additionaly, Scache can handle L2->L1 cache block transfer as a pipeline.
+
+The latency of Scache is 12 cycles, and if the loop is longer than 12, 
+
+the code will not stall for cache miss as far as Scache hit.
+
+If Scache miss is occured, only two outstanding loads is allowed.
+
+(21164PC can issue three outstanding loads, and 21264 will have eight.)
+
+Then we need to control where the outstanding loads will be placed.
+
+The basics are the same for 21264, and carefully designed program will
+
+mark higher performance even for out-of-order processors.
+
+BTW, when will the hardware refference manual for 21264 will be released?
+
+Typical high performance programs for 21164(A) can be organized
+
+as following. 
+
+21164(A) can issue two load per cycle, and this code is software pipelined. 
+
+foo:
+
+       load A[i+0]      load A[i+1]
+
+       load A[i+2]      load A[i+3]
+
+       load B[i+0]      load B[i+1]
+
+       load B[i+2]      load B[i+3]
+
+       load C[i+0]      load C[i+1]
+
+       load C[i+2]      load C[i+3]
+
+       load D[i+0]      load D[i+1]
+
+       load D[i+2]      load D[i+3]
+
+loop:
+
+       execute something with A,B,C,D
+
+       load A[i+4]      load A[i+5]
+
+       load A[i+6]      load A[i+7]
+
+       load B[i+4]      load B[i+5]
+
+       load B[i+6]      load B[i+7]
+
+       load C[i+4]      load C[i+5]
+
+       load C[i+6]      load C[i+7]
+
+       load D[i+4]      load D[i+5]
+
+       load D[i+6]      load D[i+7]
+
+       update i by 4
+
+       goto loop
+
+In article <199811300254.LAA26438@et.u-tokai.ac.jp>
+
+nshimizu@et.u-tokai.ac.jp writes:
+
+>> If the N is large (N > 10000), the code I and Goto wrote will use too much
+
+>> memory traffic.  Then we still have a chance to improve the 
+
+>> performance with blocking.  Last night it was almost 3am in localtime 
+
+>> when I read the mail, and I had not enough time to code.
+
+>> 
+
+I tune the code with prefetching and code optimization. 
+
+This may be my final for this problem.
+
+The q[] should have at least additional 9 dummy entiries for prefetching.
+
+Use gcc/egcs to compile the code.(still not debuged)
+
+----------------------------------------------------------------------------
+
+#define BLOCKINGSIZE 1000
+
+#define prefetch(x) asm volatile ("ldt $f31,%0" :: "m"((x)))
+
+void dsqrtiv(double *, double *, int);
+
+double find_jastrow_sub(double *vtemp, double b, int count) {
+
+  int i;
+
+  double tmp0,tmp1,tmp2,tmp3,tmp4,tmp5,tmp6,tmp7;
+
+  double vtmp[8];
+
+    dsqrtiv(vtemp, vtemp, count);
+
+/*
+
+Unrolling and software pipelining the loop. 
+
+8 times unrolling is enough for the Scache pipeline.
+
+*/
+
+    i = 0;
+
+    tmp0 = tmp1 = tmp2 = tmp3 = 
+
+    tmp4 = tmp5 = tmp6 = tmp7 = 1.0;
+
+    vtmp[0] =  vtemp[i];
+
+    vtmp[1] =  vtemp[i+1];
+
+    vtmp[2] =  vtemp[i+2];
+
+    vtmp[3] =  vtemp[i+3];
+
+    vtmp[4] =  vtemp[i+4];
+
+    vtmp[5] =  vtemp[i+5];
+
+    vtmp[6] =  vtemp[i+6];
+
+    vtmp[7] =  vtemp[i+7];
+
+    for(i=0;i < count-8; i+=8){
+
+          tmp0 *= (1.0 - b * vtmp[0]);
+
+          tmp1 *= (1.0 - b * vtmp[1]);
+
+          tmp2 *= (1.0 - b * vtmp[2]);
+
+          tmp3 *= (1.0 - b * vtmp[3]);
+
+          tmp4 *= (1.0 - b * vtmp[4]);
+
+          tmp5 *= (1.0 - b * vtmp[5]);
+
+          tmp6 *= (1.0 - b * vtmp[6]);
+
+          tmp7 *= (1.0 - b * vtmp[7]);
+
+          vtmp[0] =  vtemp[i+8];
+
+          vtmp[1] =  vtemp[i+9];
+
+          vtmp[2] =  vtemp[i+10];
+
+          vtmp[3] =  vtemp[i+11];
+
+          vtmp[4] =  vtemp[i+12];
+
+          vtmp[5] =  vtemp[i+13];
+
+          vtmp[6] =  vtemp[i+14];
+
+          vtmp[7] =  vtemp[i+15];
+
+    }
+
+/*
+
+The rest of the loop will be here.
+
+*/
+
+    for(i=0;i < count - i;i++)
+
+          tmp0 *= (1.0 - b * vtmp[i]);
+
+    return tmp0*tmp1*tmp2*tmp3*tmp4*tmp5*tmp6*tmp7;
+
+  }
+
+int find_jastrow(double *result,int j,struct coord *q,double r[3],double b){
+
+  int i,vcnt;
+
+  double tmp, tmp1, tmp2, tmp3;
+
+  double t1, t2, t3;
+
+  double r1, r2, r3;
+
+  double bp2;
+
+  double vtemp[BLOCKINGSIZE+16];
+
+  r1 = r[0];
+
+  r2 = r[1];
+
+  r3 = r[2];
+
+  
+
+  tmp  =  1.0;
+
+  vcnt = 0;
+
+  bp2 = b*b;
+
+  if(b>0){
+
+/*
+
+ To reduce inner loop conditional branch, I separate the loop.
+
+ This may not be required if the compiler is smart enough.
+
+ When b**2 < rij, we should return immediately, without calling sqrt.
+
+ Then I add one conditional branch *_*.
+
+*/
+
+    i = 0;
+
+    tmp1 = q[i].x[0]-r1;
+
+    tmp2 = q[i].x[1]-r2;
+
+    tmp3 = q[i].x[2]-r3;
+
+    for(i=0;i < j;i++){
+
+        t1 = tmp1*tmp1;
+
+        t2 = tmp2*tmp2;
+
+        t3 = tmp3*tmp3;
+
+        tmp1 = q[i+1].x[0]-r1;
+
+        tmp2 = q[i+1].x[1]-r2;
+
+        tmp3 = q[i+1].x[2]-r3;
+
+        prefetch(q[i+9].x[0]);
+
+        if((vtemp[vcnt++] = t1 + t2 + t3) > bp2) {
+
+             *result = 0.0;
+
+             return 0;
+
+        }
+
+        if(vcnt >= BLOCKINGSIZE) {
+
+             tmp *= find_jastrow_sub(vtemp, b, vcnt);
+
+             vcnt = 0;
+
+        }
+
+      }
+
+    tmp1 = q[j+1].x[0]-r1;
+
+    tmp2 = q[j+1].x[1]-r2;
+
+    tmp3 = q[j+1].x[2]-r3;
+
+    for(i=j+1;i < N;i++){
+
+        t1 = tmp1*tmp1;
+
+        t2 = tmp2*tmp2;
+
+        t3 = tmp3*tmp3;
+
+        tmp1 = q[i+1].x[0]-r1;
+
+        tmp2 = q[i+1].x[1]-r2;
+
+        tmp3 = q[i+1].x[2]-r3;
+
+        prefetch(q[i+9].x[0]);
+
+        if((vtemp[vcnt++] = t1 + t2 + t3) > bp2) {
+
+             *result = 0.0;
+
+             return 0;
+
+        }
+
+        if(vcnt >= BLOCKINGSIZE) {
+
+             tmp *= find_jastrow_sub(vtemp, b, vcnt);
+
+             vcnt = 0;
+
+        }
+
+      }
+
+    tmp *= find_jastrow_sub(vtemp, b, vcnt);
+
+  }
+
+  *result = tmp;
+
+  return 1;
+
+}
+
+Naohiko Shimizu
+
+Dept. Communication Engr./Univ. TOKAI.
+
+1117 Kitakaname Hiratsuka 259-12 Japan
+
+TEL.+81-463-58-1211(ext. 4084) FAX.+81-463-58-8320
+
+<URL http://shimizu-lab.et.u-tokai.ac.jp/>
+
+From joachim.wesner@lmw.leica.com Thu Jan 21 21:41:34 1999 EST
+Message-ID: <3663EFCA.1C31FB2@lmw.leica.com>
+Date: Tue, 01 Dec 1998 14:31:54 +0100
+From: Joachim Wesner <joachim.wesner@lmw.leica.com>
+Subject: Re: how to optimize dgemm? No.1
+In-Reply-To: <19981130231931B.goto@statabo.rim.or.jp>
+
+Kazushige Goto wrote:
+
+< Kazushige Goto explaining about the benefits of loop restructuring and
+
+the like >
+
+If you can read German, some time ago there was an article on a very
+
+related subject with examples, resp. on optimized programms for vector
+
+computers, by a pretty unknown author (myself <g>) in the German
+
+computer mag "mc".
+
+In the moment, I don't have the Ref. handy, I will look it up, but I
+
+think I can also send a hard-copy to interested people (if not too
+
+many).
+
+BTW, be warned to get confused. For certain reasons too complex to
+
+discuss here (but its in the article), an "inner dot product" based
+
+routine may *NOT* be THE best way on a typical vector computer !!
+
+There is also a good, yet now somewhat older, book (also German) by
+
+Schönauer on that subject (cited in my article, I will look up the Ref,
+
+too).
+
+Joachim
+
+From gorton@amt.tay1.dec.com Thu Jan 21 21:41:34 1999 EST
+Message-ID: <9812011334.AA05039@liszt.amt.tay1.dec.com>
+Date: Tue, 1 Dec 1998 08:34:36 -0500
+From: Richard Gorton <gorton@amt.tay1.dec.com>
+Subject: Re: 21264 performance (was Questions on performance methods)
+
+> Naohiko Shimizu wrote:
+
+>But I wonder that if 21164A uses
+
+>same process rule, it will mark higher clock rating. And the easy 
+
+>optimizable routine may have higher performance with (enhanced) 21164A.
+
+Interesting question - but very hypothetical.  The 21264 is a significantly
+
+larger beast (about 15M transistors, I believe) than the 21164A, and a
+
+radically different internal micro-architecture.  I don't believe that
+
+a (further) enhanced 21164A is on the Alpha CPU roadmap; all of the plans
+
+I've seen indicate that the focus is on improving the performance of the
+
+21264 CPUs.
+
+        Regards,
+
+                Rick
+
+Richard Gorton			http://www.digital.com/amt	
+
+Digital Equipment Corporation	All standard disclaimers apply.
+
+Reply-to: gorton@tallis.enet.dec.com
+
+"A committee is a cul-de-sac down which ideas are lured and then quietly
+
+strangled."
+
+     --Sir Barnett Cocks
+
+From joachim.wesner@lmw.leica.com Thu Jan 21 21:41:34 1999 EST
+Message-ID: <3663FAF7.6DD32AB9@lmw.leica.com>
+Date: Tue, 01 Dec 1998 15:19:35 +0100
+From: Joachim Wesner <joachim.wesner@lmw.leica.com>
+Subject: Re: Questions on performance methods
+In-Reply-To: <199812010624.PAA02425@et.u-tokai.ac.jp>
+
+naohiko shimizu wrote:
+
+> I think multiply-accumulate type instruction is usefull for many
+
+> applicatoins, wouldn't you disscussed to include such instructions?
+
+> 
+
+YEP, I too think this would help A LOT !!
+
+> I will explain a little more:
+
+> 
+
+> 21164(A) is not an out-of-order processor, but only the load instruction
+
+> can be treated as out-of-order with MAF.
+
+> There are 5 MAF in 21164(A), and each can hold a cache miss load address.
+
+> Then we can issue 5 independent address load which does not hit the cache
+
+> without stall. And four of them can have upto four miss load which share
+
+> the same cache line. So we can issue upto 21 miss load without stall.
+
+.........................
+
+<much more detailed 21164 internal info >
+
+Where did you get that "wisdom" from ?? Is it in the hardware ref.
+
+manual (that is available in the web) ?? If yes, I must have missed it.
+
+If not, where could we get it ??
+
+Joachim
+
+From adam.powell@nist.gov Thu Jan 21 21:41:34 1999 EST
+Message-ID: <36645815.FB09F6F@nist.gov>
+Date: Tue, 01 Dec 1998 15:56:53 -0500
+From: Adam C. Powell, IV <adam.powell@nist.gov>
+Subject: Re: High-performance on AXP-Linux
+In-Reply-To: <3659F918.2A8C7905@nist.gov>
+
+"Johannes G.D. Hausmann" wrote:
+
+> Hi Adam,
+
+>
+
+> is there a problem with axp-linux-perf@mit.edu?
+
+>
+
+> I keep getting messages from Mailer-Daemons - but don't know if this
+
+> is my problem (yes, we did have some trouble a few weeks ago so I had
+
+> to upgrade sendamail. Who knows if I really did this correctly...).
+
+>
+
+> I'll attach some of these. Maybe you could comment on it?
+
+>
+
+> Thanx, and sorry to bug you about it,
+
+>
+
+> Jo
+
+Hello Joe and other contributors,
+
+I'm sorry about these bounces.  Unfortunately, this list server sends feedback from other mail
+
+servers to message authors, to let you know which users might not have received your message.
+
+Perhaps a useful "feature" in some circumstances, but more of an annoyance for us, and I can't
+
+turn it off.
+
+The list will soon be moving to a new server, probably at alphalinux.org (unless there are strong
+
+reasons to go elsewhere), which should solve these problems and make joining/leaving the list
+
+faster and easier.
+
+In the meantime, please just erase the bounces.  They'll be gone soon.
+
+Zeen,
+
+-Adam `Cold Fusion' Powell, IV http://www.ctcms.nist.gov/~powell/ ____
+
+USDoC, National Institute of Standards & Technology (NIST)  |\ ||<  |
+
+Center for Theoretical and Computational Materials Science  | \||_> |
+
+From dubois@bec.physics.udel.edu Thu Jan 21 21:41:34 1999 EST
+Message-ID: <Pine.LNX.3.96.981201172209.16216A-100000@bec.physics.udel.edu>
+Date: Tue, 1 Dec 1998 17:35:15 -0500 (EST)
+From: Jonathan L Dubois <dubois@bec.physics.udel.edu>
+Subject: thanks! and more questions...
+In-Reply-To: <36645815.FB09F6F@nist.gov>
+
+Thanks everyone for the suggestions for improving my 'find_jastrow'
+
+routine!  I now have a working optomized version using Kazushige Goto's
+
+dsqrtiv and Naohiko Shimizu's pipelining and prefetching suggestions.  I
+
+will post performance comparisons if anyone is interested. 
+
+In the meantime,
+
+is anyone aware of an optomized routine for evaluating associated Legendre
+
+polynomials?
+
+From nshimizu@et.u-tokai.ac.jp Thu Jan 21 21:41:34 1999 EST
+Message-ID: <199812020335.MAA05777@et.u-tokai.ac.jp>
+Date: Wed, 2 Dec 1998 12:35:19 +0900 (JST)
+From: naohiko shimizu <nshimizu@et.u-tokai.ac.jp>
+Subject: Re: Questions on performance methods
+In-Reply-To: <3663FAF7.6DD32AB9@lmw.leica.com>
+
+In article <3663FAF7.6DD32AB9@lmw.leica.com>
+
+joachim.wesner@lmw.leica.com writes:
+
+>> 
+
+>> <much more detailed 21164 internal info >
+
+>> 
+
+>> Where did you get that "wisdom" from ?? Is it in the hardware ref.
+
+>> manual (that is available in the web) ?? If yes, I must have missed it.
+
+Yes, it is spreaded on that manual. 
+
+I myself does NOT have any EV5 based machine, then it completely depends
+
+on the hardware ref. manual. (There are 6 MAF, my memory is so volatile!)
+
+(I have three as200 4/100, a broken multia and a cablioret.)
+
+It was almost a year ago (30 Oct 1997) when I introduced the strategy 
+
+to the Japanese mailing list. And I believe that my strategy is proved
+
+with the gemm code.
+
+(Before that I made the prototype patch for cos,sin,exp,pow,...,etc.,
+
+and Mr. Goto coded them with the assembly language. It was useful
+
+for Linux/Alpha community, wasn't it?)
+
+Naohiko Shimizu
+
+Dept. Communication Engr./Univ. TOKAI.
+
+1117 Kitakaname Hiratsuka 259-12 Japan
+
+TEL.+81-463-58-1211(ext. 4084) FAX.+81-463-58-8320
+
+<URL http://shimizu-lab.et.u-tokai.ac.jp/>
+
+From nshimizu@et.u-tokai.ac.jp Thu Jan 21 21:41:34 1999 EST
+Message-ID: <199812020408.NAA05873@et.u-tokai.ac.jp>
+Date: Wed, 2 Dec 1998 13:08:23 +0900 (JST)
+From: naohiko shimizu <nshimizu@et.u-tokai.ac.jp>
+Subject: Re: 21264 performance (was Questions on performance methods)
+In-Reply-To: <9812011334.AA05039@liszt.amt.tay1.dec.com>
+
+In article <9812011334.AA05039@liszt.amt.tay1.dec.com>
+
+gorton@amt.tay1.dec.com writes:
+
+>> > Naohiko Shimizu wrote:
+
+>> 
+
+>> >But I wonder that if 21164A uses
+
+>> >same process rule, it will mark higher clock rating. And the easy 
+
+>> >optimizable routine may have higher performance with (enhanced) 21164A.
+
+>> I don't believe that
+
+>> a (further) enhanced 21164A is on the Alpha CPU roadmap; all of the plans
+
+>> I've seen indicate that the focus is on improving the performance of the
+
+>> 21264 CPUs.
+
+I know the enhance of the 21164A is hopeless, and also think COMPAQ should
+
+focus on the 21264. I think I know the bussiness.
+
+I hope the double clock rating cache design of 21264 will not cause
+
+any trouble in the future enhancement.
+
+But if I could be a manager of Samsung, I will do the task for myself. :-)
+
+(BTW, why they use SOI for comparable clock rating chip(ISSCC99)?)
+
+Naohiko Shimizu
+
+Dept. Communication Engr./Univ. TOKAI.
+
+1117 Kitakaname Hiratsuka 259-12 Japan
+
+TEL.+81-463-58-1211(ext. 4084) FAX.+81-463-58-8320
+
+<URL http://shimizu-lab.et.u-tokai.ac.jp/>
+
+From nshimizu@et.u-tokai.ac.jp Thu Jan 21 21:41:34 1999 EST
+Message-ID: <199812020431.NAA05980@et.u-tokai.ac.jp>
+Date: Wed, 2 Dec 1998 13:31:19 +0900 (JST)
+From: naohiko shimizu <nshimizu@et.u-tokai.ac.jp>
+Subject: Re: thanks! and more questions...
+In-Reply-To: <Pine.LNX.3.96.981201172209.16216A-100000@bec.physics.udel.edu>
+
+In article <Pine.LNX.3.96.981201172209.16216A-100000@bec.physics.udel.edu>
+
+dubois@bec.physics.udel.edu writes:
+
+>> I will post performance comparisons if anyone is interested. 
+
+I am very interested in the result.
+
+I don't have any 21164 based machine, and always want to see the real
+
+performance of my improvement.
+
+By the way, you may have to find good performance block size with
+
+tuning the BLOCKINGSZ parameter. The less value increase the prefetch
+
+efficiency, but more value may decrease the start up overhead of the
+
+vector routine. Then you may want to check the value from 16 to 1000.
+
+Naohiko Shimizu
+
+Dept. Communication Engr./Univ. TOKAI.
+
+1117 Kitakaname Hiratsuka 259-12 Japan
+
+TEL.+81-463-58-1211(ext. 4084) FAX.+81-463-58-8320
+
+<URL http://shimizu-lab.et.u-tokai.ac.jp/>
+
+From joachim.wesner@lmw.leica.com Thu Jan 21 21:41:34 1999 EST
+Message-ID: <36650695.74EBCA5B@lmw.leica.com>
+Date: Wed, 02 Dec 1998 10:21:25 +0100
+From: Joachim Wesner <joachim.wesner@lmw.leica.com>
+Subject: Re: Questions on performance methods
+In-Reply-To: <199812020335.MAA05777@et.u-tokai.ac.jp>
+
+naohiko shimizu wrote:
+
+> 
+
+> In article <3663FAF7.6DD32AB9@lmw.leica.com>
+
+> joachim.wesner@lmw.leica.com writes:
+
+> 
+
+> >>
+
+> >> <much more detailed 21164 internal info >
+
+> >>
+
+> >> Where did you get that "wisdom" from ?? Is it in the hardware ref.
+
+> >> manual (that is available in the web) ?? If yes, I must have missed it.
+
+> 
+
+> Yes, it is spreaded on that manual.
+
+> I myself does NOT have any EV5 based machine, then it completely depends
+
+> on the hardware ref. manual. (There are 6 MAF, my memory is so volatile!)
+
+> It was almost a year ago (30 Oct 1997) when I introduced the strategy
+
+> to the Japanese mailing list. And I believe that my strategy is proved
+
+> with the gemm code.
+
+Yep, thanx.
+
+So this is about loads. I will try to find it in the manual, too. How
+
+about stores ??  "Scheduling and issuing rules" in the 21164 manual only
+
+gives some *static* rules here, for ex. that loads cannot be issued
+
+together with stores or on certain cycles relative to other
+
+instructions, however, the section on *dynamic* rules simply says:
+
+"stores have no result", hence no latency. This clearly cannot be true
+
+in real life. If the memory subsystem is busy, at some point the
+
+execution must stop. Clearly, there will be some "write buffers" helping
+
+here, but how many ??? Anybody knows that ?? And is there a fast bypass
+
+if loads to the same datum follow shortly after the respective store ? I
+
+aske because I think to have read about that in the Alpha-Linux FAQ
+
+(about the different types of Alpha): As the Alphas < 21264 have no
+
+direct fp to integer register move, all those move have to go through
+
+memory (You will know that). However, the above FAQ has a note in it
+
+that there is/mght be a special bypass to speed up such moves. Maybe it
+
+simply the cache coming in here, so you must be able to read back the
+
+stored value from write buffer or fast L1 cache, even if L2/L3 or DRAM
+
+is still busy and unavailable.
+
+> (Before that I made the prototype patch for cos,sin,exp,pow,...,etc.,
+
+> and Mr. Goto coded them with the assembly language. It was useful
+
+> for Linux/Alpha community, wasn't it?)
+
+> 
+
+Thanx again
+
+Joachim
+
+From pshimizu@fa2.so-net.ne.jp Thu Jan 21 21:41:34 1999 EST
+Message-ID: <199812021555.AAA05823@mail.fa2.so-net.ne.jp>
+Date: Thu, 03 Dec 1998 00:42:48 +0900
+From: pshimizu@fa2.so-net.ne.jp <pshimizu@fa2.so-net.ne.jp>
+Subject: Re: Questions on performance methods
+In-Reply-To: <36650695.74EBCA5B@lmw.leica.com>
+
+In article <36650695.74EBCA5B@lmw.leica.com>
+
+joachim.wesner@lmw.leica.com writes:
+
+>> 
+
+>> So this is about loads. I will try to find it in the manual, too. How
+
+>> about stores ??  
+
+>> 
+
+Of course, thier answer is in the manual.
+
+In short, the load can hit on the six store buffer entries.
+
+And if the store buffer is full replay traps will be occured.
+
+See the sections:
+
+ 2.1.4.3 Store Execution
+
+ 2.3.4 Issue Rules
+
+ 2.4 Replay Traps
+
+ 2.7.1 The Write Buffer
+
+ 2.7.4 Write-Buffer Entry Processing
+
+I only have a copy of 21164 manual (not 21164A), then the section 
+
+number may be different.
+
+Naohiko Shimizu,
+
+School of Engr., Tokai Univ.
+
+http://shimizu-lab.et.u-tokai.ac.jp
+
+From joachim.wesner@lmw.leica.com Thu Jan 21 21:41:34 1999 EST
+Message-ID: <36656F66.14F7ED6F@lmw.leica.com>
+Date: Wed, 02 Dec 1998 17:48:38 +0100
+From: Joachim Wesner <joachim.wesner@lmw.leica.com>
+Subject: Re: Questions on performance methods
+In-Reply-To: <199812021555.AAA05823@mail.fa2.so-net.ne.jp>
+
+pshimizu@fa2.so-net.ne.jp wrote:
+
+> 
+
+> In article <36650695.74EBCA5B@lmw.leica.com>
+
+> joachim.wesner@lmw.leica.com writes:
+
+> 
+
+> >>
+
+> >> So this is about loads. I will try to find it in the manual, too. How
+
+> >> about stores ??
+
+> >>
+
+> 
+
+> Of course, thier answer is in the manual.
+
+> In short, the load can hit on the six store buffer entries.
+
+> And if the store buffer is full replay traps will be occured.
+
+> 
+
+> See the sections:
+
+>  2.1.4.3 Store Execution
+
+>  2.3.4 Issue Rules
+
+>  2.4 Replay Traps
+
+>  2.7.1 The Write Buffer
+
+>  2.7.4 Write-Buffer Entry Processing
+
+> 
+
+> I only have a copy of 21164 manual (not 21164A), then the section
+
+> number may be different.
+
+Thanks much
+
+Joachim Wesner
+
+From nshimizu@et.u-tokai.ac.jp Thu Jan 21 21:41:34 1999 EST
+Message-ID: <199812040239.LAA16334@et.u-tokai.ac.jp>
+Date: Fri, 4 Dec 1998 11:39:18 +0900 (JST)
+From: naohiko shimizu <nshimizu@et.u-tokai.ac.jp>
+Subject: Re: Questions on performance methods
+In-Reply-To: <Pine.LNX.3.96.981201174956.16291A-100000@bec.physics.udel.edu>
+
+Jonathan,
+
+I posted that you may try the BLOCKINGSIZE from 16 to 1000, but
+
+I checked the program again and now I think that the parameter 
+
+will hit the best performance with value 4 or 5.
+
+(with that small value, the unrolling method of the subroutine
+
+might be changed, but I will not mention for simplicity.)
+
+The MAF has only 6 entries, and all the prefetch may use an entry,
+
+then when it reaches to the 6th loop there may be some stall.
+
+So, if you set the BLOCKINGSIZE to 5 the program will call the vectorlized
+
+sqrti before the stall and the pending prefetch will be executed during 
+
+the calculation.
+
+The last MAF entry can not merge same line load, then the parameter
+
+of 4 may hit higher performance. Or if we can fully control load order
+
+from high level language, we still can use 5 for best performance.
+
+Naohiko Shimizu
+
+Dept. Communication Engr./Univ. TOKAI.
+
+1117 Kitakaname Hiratsuka 259-12 Japan
+
+TEL.+81-463-58-1211(ext. 4084) FAX.+81-463-58-8320
+
+<URL http://shimizu-lab.et.u-tokai.ac.jp/>
+
+From Thomas.Bruns@ptb.de Thu Jan 21 21:41:34 1999 EST
+Message-ID: <3667cc2e2696002@u8455.bs.ptb.de>
+Date: Fri, 4 Dec 1998 12:42:42 +1
+From: Thomas Bruns <Thomas.Bruns@ptb.de>
+Subject: Optimizing CRS-Matrix routines
+
+Hi,
+
+recently I modified the code of a FEM-Application due to the 
+
+information on loop otimization from Mr. Goto, and it was a real
+
+improvement.
+
+But those optimization base on fixed loop-boundaries.
+
+How can I optimize code as it is used in sparse matrix applications
+
+where the index of the non-zero-elements is a an array of it`s own 
+
+like:
+
+---------------------------
+
+double vector[MatrixDimension];
+
+double vector[MatrixDimension];
+
+double matrix[NumberOfNonZeroElements]; /* only nze of matrix */
+
+int matrix_idx[NumberOfNonZeroElements];     /* col_idxt */
+
+int matrix_ptr[MatrixDimension+1];	/* start of row */
+
+for (row=0; row<MaxRow; row++)
+
+        for(ptr=matrix_ptr[row];  ptr<matrixptr[row+1]; ptr++)
+
+                vector[matrix_idx[ptr]] += matrix[ptr]*vector[matrix_idx[ptr]]
+
+---------------------------
+
+You can't do manual loop-unrolling here, can you ?!?!
+
+Any Information welcome !
+
+        Thanks,	
+
+                        Thomas
+
+------------------------------------------------------
+
+Dipl. Phys. Thomas Bruns                    phone : 0531/592-1217
+
+Physikalisch Technische Bundesanstalt       Fax   :         -1205
+
+Bundesalle 100                              e-mail: Thomas.Bruns@ptb.de
+
+Postfach 3345
+
+38023 Braunscweig
+
+From adam.powell@nist.gov Thu Jan 21 21:41:34 1999 EST
+Message-ID: <36683D70.5A8AEAF2@nist.gov>
+Date: Fri, 04 Dec 1998 14:52:16 -0500
+From: Adam C. Powell, IV <adam.powell@nist.gov>
+Subject: Re: Optimizing CRS-Matrix routines
+In-Reply-To: <3667cc2e2696002@u8455.bs.ptb.de>
+
+Thomas Bruns wrote:
+
+> Hi,
+
+>
+
+> recently I modified the code of a FEM-Application due to the
+
+> information on loop otimization from Mr. Goto, and it was a real
+
+> improvement.
+
+> But those optimization base on fixed loop-boundaries.
+
+>
+
+> How can I optimize code as it is used in sparse matrix applications
+
+> where the index of the non-zero-elements is a an array of it`s own
+
+> like:
+
+> ---------------------------
+
+> double vector[MatrixDimension];
+
+> double vector[MatrixDimension];
+
+>
+
+> double matrix[NumberOfNonZeroElements]; /* only nze of matrix */
+
+> int matrix_idx[NumberOfNonZeroElements];     /* col_idxt */
+
+> int matrix_ptr[MatrixDimension+1];      /* start of row */
+
+>
+
+> for (row=0; row<MaxRow; row++)
+
+>         for(ptr=matrix_ptr[row];  ptr<matrixptr[row+1]; ptr++)
+
+>                 vector[matrix_idx[ptr]] += matrix[ptr]*vector[matrix_idx[ptr]]
+
+> ---------------------------
+
+> You can't do manual loop-unrolling here, can you ?!?!
+
+Why not just:
+
+for (row=0; row<MaxRow; row++) {
+
+  for(ptr=matrix_ptr[row];  ptr<matrix_ptr[row+1]-5; ptr+=6) {
+
+    vector[matrix_idx[ptr]] += matrix[ptr]*vector[matrix_idx[ptr]];
+
+    vector[matrix_idx[ptr+1]] += matrix[ptr+1]*vector[matrix_idx[ptr+1]];
+
+    vector[matrix_idx[ptr+2]] += matrix[ptr+2]*vector[matrix_idx[ptr+2]];
+
+    vector[matrix_idx[ptr+3]] += matrix[ptr+3]*vector[matrix_idx[ptr+3]];
+
+    vector[matrix_idx[ptr+4]] += matrix[ptr+4]*vector[matrix_idx[ptr+4]];
+
+    vector[matrix_idx[ptr+5]] += matrix[ptr+5]*vector[matrix_idx[ptr+5]]; }
+
+  while(ptr<matrix_ptr[row+1]) {
+
+    vector[matrix_idx[ptr]] += matrix[ptr]*vector[matrix_idx[ptr]]; ptr++; }}
+
+(Untested, just threw it together, I hope Netscape doesn't line-wrap it to
+
+death!)  Now, I don't know how much this will speed things up, if at all, because
+
+of C's assumptions (see the case for fortran on the alphalinux.org high
+
+performance page).  An assembler version could be massively faster though...
+
+To optimize further, blocking (using some messy conditions in the for loop)
+
+*might* help for some vectors of size >10000; but for FEM, the matrices tend to
+
+be at least somewhat "blocked" anyway (depending on the node ordering) so I'm not
+
+convinced it would help much.
+
+But the point is, I think you do have fixed loop boundaries, because you know
+
+matrix_ptr[row] and [row+1] in advance.  Right?
+
+Anyone interested in collaborating on some fast sparse matrix routines? :-)
+
+Zeen,
+
+-Adam `Cold Fusion' Powell, IV http://www.ctcms.nist.gov/~powell/ ____
+
+USDoC, National Institute of Standards & Technology (NIST)  |\ ||<  |
+
+Center for Theoretical and Computational Materials Science  | \||_> |
+
+From pshimizu@fa2.so-net.ne.jp Thu Jan 21 21:41:34 1999 EST
+Message-ID: <199812050219.LAA18332@mail.fa2.so-net.ne.jp>
+Date: Sat, 05 Dec 1998 11:06:21 +0900
+From: pshimizu@fa2.so-net.ne.jp <pshimizu@fa2.so-net.ne.jp>
+Subject: Re: Optimizing CRS-Matrix routines
+In-Reply-To: <36683D70.5A8AEAF2@nist.gov>
+
+I can be software pipelined also. :-)
+
+In article <36683D70.5A8AEAF2@nist.gov>
+
+adam.powell@nist.gov writes:
+
+>>  An assembler version could be massively faster though...
+
+If the vector/matrices size is large, the routine will cause extensive
+
+miss of the cache, and it will run only with the memory speed. In that
+
+case assembler will not help much, I think.
+
+(Of course this assumption strongly depends on how dense the matrices are.)
+
+Anyway, if we will write an assembler version, we should stay with
+
+C/FORTRAN version for algorithm/strategy validation (as we did 
+
+in the gemm code) until there is no other way to speed up. 
+
+If we need, we can issue prefetch/preload instructions inline even within
+
+the C code.
+
+>> Anyone interested in collaborating on some fast sparse matrix routines? :-)
+
+I would like to!
+
+Naohiko Shimizu,
+
+School of Engr. Tokai Univ.
+
+http://shimizu-lab.et.u-tokai.ac.jp/
+
+From nshimizu@et.u-tokai.ac.jp Thu Jan 21 21:41:34 1999 EST
+Message-ID: <199812070324.MAA23378@et.u-tokai.ac.jp>
+Date: Mon, 7 Dec 1998 12:24:51 +0900 (JST)
+From: naohiko shimizu <nshimizu@et.u-tokai.ac.jp>
+Subject: Re: Questions on performance methods
+In-Reply-To: <199812010624.PAA02425@et.u-tokai.ac.jp>
+
+When I checked the generated code of the find_jastrow_sub,
+
+I found the gcc generates unnecessary stores.
+
+In this paticuler problem, we don't need to use software pipelining.
+
+Because:
+
+ 1. The vector will be divided into a block which will fit in Dcache.
+
+ 2. The block size may be very small.
+
+Then replace the subroutine with following code.
+
+-------------------------------------------------------------
+
+double find_jastrow_sub(double *vtemp, double b, int count) {
+
+  int i;
+
+  double tmp0,tmp1,tmp2,tmp3;
+
+    dsqrtiv(vtemp, vtemp, count);
+
+    tmp0 = tmp1 = tmp2 = tmp3 = 1.0;
+
+    for(i=0;i < count-4; i+=4){
+
+          tmp0 *= (1.0 - b * vtemp[i+0]);
+
+          tmp1 *= (1.0 - b * vtemp[i+1]);
+
+          tmp2 *= (1.0 - b * vtemp[i+2]);
+
+          tmp3 *= (1.0 - b * vtemp[i+3]);
+
+    }
+
+/*
+
+The rest of the loop will be here.
+
+*/
+
+    for(i=i;i < count; i++)
+
+          tmp0 *= (1.0 - b * vtemp[i]);
+
+    return tmp0*tmp1*tmp2*tmp3;
+
+  }
+
+Naohiko Shimizu
+
+Dept. Communication Engr./Univ. TOKAI.
+
+1117 Kitakaname Hiratsuka 259-12 Japan
+
+TEL.+81-463-58-1211(ext. 4084) FAX.+81-463-58-8320
+
+<URL http://shimizu-lab.et.u-tokai.ac.jp/>
+
+From adam.powell@nist.gov Thu Jan 21 21:41:34 1999 EST
+Message-ID: <366C747F.5D696495@nist.gov>
+Date: Mon, 07 Dec 1998 19:36:15 -0500
+From: Adam C. Powell, IV <adam.powell@nist.gov>
+Subject: Re: Optimizing CRS-Matrix routines
+In-Reply-To: <199812050219.LAA18332@mail.fa2.so-net.ne.jp>
+
+pshimizu@fa2.so-net.ne.jp wrote:
+
+> I can be software pipelined also. :-)
+
+>
+
+> In article <36683D70.5A8AEAF2@nist.gov>
+
+> adam.powell@nist.gov writes:
+
+>
+
+> >>  An assembler version could be massively faster though...
+
+>
+
+> If the vector/matrices size is large, the routine will cause extensive
+
+> miss of the cache, and it will run only with the memory speed. In that
+
+> case assembler will not help much, I think.
+
+> (Of course this assumption strongly depends on how dense the matrices are.)
+
+It seems that with this routine (essentially gemv), the matrix elements should
+
+not be stored, since they're never re-used.  So, I was thinking, the right and
+
+left side vectors could sit in cache (assuming their total size is smaller than
+
+~10000 doubles), and the routine would be limited by either the processor or the
+
+memory speed- probably memory speed- to slurp through the matrix and indices.
+
+> Anyway, if we will write an assembler version, we should stay with
+
+> C/FORTRAN version for algorithm/strategy validation (as we did
+
+> in the gemm code) until there is no other way to speed up.
+
+> If we need, we can issue prefetch/preload instructions inline even within
+
+> the C code.
+
+Cool.  So this means we can limit the cache profile of the matrix and indices, to
+
+keep the vectors in cache, right?  Of course, if the vectors are too big to be
+
+cached, the optimal loading strategy will depend on the matrix structure.  Ekh!
+
+Sounds like a horrible problem!
+
+Zeen,
+
+-Adam `Cold Fusion' Powell, IV http://www.ctcms.nist.gov/~powell/ ____
+
+USDoC, National Institute of Standards & Technology (NIST)  |\ ||<  |
+
+Center for Theoretical and Computational Materials Science  | \||_> |
+
+From joe@neuro.uni-oldenburg.de Thu Jan 21 21:41:34 1999 EST
+Message-ID: <366D04E5.2ED86515@neuro.uni-oldenburg.de>
+Date: Tue, 08 Dec 1998 10:52:21 +0000
+From: Johannes G.D. Hausmann <joe@neuro.uni-oldenburg.de>
+Subject: Was: Port3/Lucent Technologies, Now: lapack stuff
+
+Hi,
+
+Adam asked me about some missing files in the lapack stuff on our ftp
+
+server, more specifically, the 981113 and 981122 directories as well
+
+as the blas_patch.gz (which you need *only* to correct the typo in
+
+axpy.S in the 981122 file).
+
+Well, they're not missing, I just locked them so you don't see them. I
+
+reworked some of the stuff (as is noted on the lapack.html page) to
+
+make things simpler. There are two source rpms, for lapack and
+
+fastmath (which has been upgraded to libffm-0.28), and the BLAS are in
+
+a separate tar file.
+
+The reason for this is that lapack itself will most probably not need
+
+to be changed anymore - once you have it, that's it. The BLAS and
+
+fastmath, OTOH, are still evolving, so it's  best to have them
+
+separately.
+
+So, this is what things looks like now:
+
+ftp://ftp.neuro.uni-oldenburg.de/pub
+
+alpha: contains lapack.html and blas-alpha.tar
+
+alpha/SRPMS: contains source rpms for lapack, fastmath, and the
+
+lapack.rpmrc
+
+In case of problems, please contact me!
+
+Jo
+
+-- 
+-----------------------------------------
+Johannes Hausmann
+Carl von Ossietzky Universitaet Oldenburg
+FB Physik -- AG Komplexe Systeme
+
+EMail : joe@neuro.uni-oldenburg.de
+-----------------------------------------
+
+From goto@statabo.rim.or.jp Thu Jan 21 21:41:34 1999 EST
+Message-ID: <19981209231455P.goto@statabo.rim.or.jp>
+Date: Wed, 09 Dec 1998 23:14:55 +0900
+From: Kazushige Goto <goto@statabo.rim.or.jp>
+Subject: how to optimize dgemm? No.2
+In-Reply-To: <19981130231931B.goto@statabo.rim.or.jp>
+
+Hi,
+
+This is a second part document of DGEMM.
+
+3. Addressing of C matirx.
+
+It's easy to determine :-).
+
+<< 27 MFLops >>
+
+  int i, j, l;
+
+  double temp;
+
+  for (j = 0; j < n; j++) {
+
+    for (i = 0; i < m; i++) {
+
+      temp = 0.;
+
+      for (l = 0; l < k; l++) {
+
+        temp += b[l + j * ldb] * a[i + l * lda];
+
+      }
+
+      c[i + j * ldc] += alpha * temp;
+
+    }
+
+  }
+
+4. Blocking
+
+To use cache effectively,  we can(must?) use a algorithm which is
+
+called "blocking". First, we apply most inner loop.
+
+<< 48 MFlops>>
+
+#define MIN(a,b)   ((a)>(b)? (b):(a))
+
+#define P 40
+
+  int i, j, l;
+
+  int ls;
+
+  double temp;
+
+  for (ls = 0; ls < k; ls+=P){          /* Blocking */
+
+    for (j = 0; j < n; j++) {
+
+      for (i = 0; i < m; i++) {
+
+        temp = 0.;
+
+        for (l = ls; l < MIN(k, ls+P); l++) {
+
+          temp += b[l + j * ldb] * a[i + l * lda];
+
+        }
+
+        c[i + j * ldc] += alpha * temp;
+
+      }
+
+    }
+
+  }
+
+Then, apply second innter loop.
+
+<< 44 MFlops>>
+
+#define MIN(a,b)   ((a)>(b)? (b):(a))
+
+#define P 40
+
+#define Q 16
+
+  int i, j, l;
+
+  int ls, is;
+
+  double temp;
+
+  for (is = 0; is < m; is += Q){    /* Blocking */
+
+    for (ls = 0; ls < k; ls += P){
+
+      for (j = 0; j < n; j++) {
+
+        for (i = is; i < MIN(m, is+Q); i++) {
+
+          temp = 0.;
+
+          for (l = ls; l < MIN(k, ls+P); l++) {
+
+            temp += b[l + j * ldb] * a[i + l * lda];
+
+          }
+
+          c[i + j * ldc] += alpha * temp;
+
+        }
+
+      }
+
+    }
+
+  }
+
+}
+
+At now, we can not determine P and Q.
+
+4. Copying
+
+There are two variations.
+
+  a. calculate directly.
+
+  b. fist copy matrices to stack flame, then calculate.
+
+It seems that (a) is better than (b), because (b)'s overhead is pretty 
+
+heavy.  But it may not correct on 21164(maybe it's same on other
+
+architecture).
+
+Direct calculation causes some problems -- cache congruence and DTB
+
+misses.
+
+When leading dimensions are just 2^n(512, 1024, 2048, ...) or some
+
+particluar values such as 768, ...,  it's much slower(about half)
+
+than others.  This is called cache congruence.  For example,
+
+         -------------------------------------
+
+          Leading Dimension  |   MFlops
+
+         --------------------+----------------
+
+                 510         |   43.46
+
+                 511         |   40.48
+
+                 512         |   21.75          <- much slower
+
+                 513         |   40.84
+
+                 514         |   43.55
+
+         -------------------------------------
+
+When we calculate on large matrix(large leading dimension),  we expect 
+
+or hope it runs same speed, but it tends to be slower as leading
+
+dimension.
+
+         -------------------------------------
+
+          Leading Dimension  |   MFlops
+
+         --------------------+----------------
+
+                 500         |   44.36
+
+                1000         |   43.27
+
+                1500         |   43.01
+
+                2000         |   42.71
+
+                 ...         |   it takes toooo long. I gave up.
+
+         -------------------------------------
+
+          
+
+I'm afraid that this table is hard to understand.  So I show table
+
+which run on optimized direct/copying dgemm routines(they took almost
+
+same algorithm except for direct or copying).
+
+             optmized dgemm routine(cache congruence)
+
+         ----------------------------------------------
+
+          Leading Dimension  |   direct   |   copying
+
+         --------------------+-------------------------
+
+                 504         |   661.78   |   807.23
+
+                 508         |   536.18   |   787.36
+
+                 512         |   138.67(*)|   820.15
+
+                 516         |   525.38   |   774.45
+
+                 520         |   644.99   |   805.77
+
+         ----------------------------------------------
+
+                optmized dgemm routine(DTB misses)
+
+         ----------------------------------------------
+
+          Leading Dimension  |   direct   |   copying
+
+         --------------------+-------------------------
+
+                 400         |   673.68   |   810.12
+
+                 800         |   666.14   |   805.03
+
+                1200         |   664.36   |   817.79
+
+                1600         |   650.91   |   813.12
+
+                2000         |   645.57   |   821.86
+
+                2400         |   635.02   |   820.46
+
+         ----------------------------------------------
+
+What's difference between them?  To answer it, I explain with a good
+
+tool which is called "performance counter"(PMCTR).  This counter, which 
+
+is in Alpha CPU, shows us various useful information(cycles, DTB
+
+misses, load/store count...).
+
+# To use PMCTR, we must modify milo(PAL code) and kernel, though.
+
+These values contain a little bit errors, because PMCTR can not count
+
+on specific process(USER means all of processes except for Kernel and
+
+PAL).
+
+# long long .... long time, to mesure it.......  Huu....
+
+                   direct(leading dimention = 1000)
+
+     I t e m          < P A L >           < O S >            < U S E R>
+
+Cycles              :57550152(  3.2)   50328787(  2.8)      1701192831( 94.0)
+
+Instructions        :34082981(  1.1)    7208644(  0.2)      3171976954( 98.7)
+
+nonissue cycles     :28085767(  5.4)   12809484(  2.5)       476459896( 92.1)
+
+split-issue cycles  :  179652(  1.4)     517078(  4.0)        12103980( 94.6)
+
+pipe-dry cycles     : 8154991(  7.5)    8794179(  8.1)        92090944( 84.5)
+
+replay trap         : 1030132(  9.1)     841867(  7.5)         9420666( 83.4)
+
+single-issue cycles : 6991917( 12.6)    2055396(  3.7)        46372009( 83.7)
+
+dual-issue cycles   :13540825(  3.6)     836121(  0.2)       366379019( 96.2)
+
+triple-issue cycles :       0(  0.0)       2261(  0.0)       503074753(100.0)
+
+quad-issue cycles   :       0(  0.0)       3906(  0.0)       220827314(100.0)
+
+flow-change insns   : 6686147( 16.2)     431793(  1.0)        34211383( 82.8)
+
+IntOps issued       : 1360591(  0.6)    1199895(  0.5)       235511911( 98.9)
+
+FPOps issued        :       0(  0.0)         12(  0.0)      2105000001(100.0)
+
+loads issued        : 2276139(  0.3)    1096963(  0.1)       776251092( 99.6)
+
+stores issued       :   21963(  0.1)     334926(  1.6)        21000003( 98.3)
+
+Icache issued       :16814563(  1.6)   11358401(  1.1)      1033736604( 97.3)
+
+Dcache accesses     : 2298628(  0.3)    1731192(  0.2)       797250356( 99.5)
+
+S cache access      : 2024299(  0.4)    2264914(  0.5)       498771558( 99.1)
+
+long(>15) stalls    :  227432(  3.2)     216772(  3.0)         6669097( 93.8)
+
+PC-mispredicts      :   97820( 65.6)      51288( 34.4)              44(  0.0)
+
+BR-mispredicts      :       6(  0.0)     134071(  4.6)         2793377( 95.4)
+
+Icache/RFB misses   :   35227( 12.0)     220505( 75.3)           37023( 12.6)
+
+ITB misses          :      32(100.0)          0(  0.0)               0(  0.0)
+
+Dcache LD misses    : 1037252(  0.1)    1960608(  0.3)       733383534( 99.6)
+
+DTB misses          :   82316(  3.8)        499(  0.0)         2093747( 96.2)
+
+LDs merged in MAF   :    5771(  0.0)     146924(  0.1)       249981039( 99.9)
+
+LDU replay traps    : 1028635( 83.9)     197183( 16.1)               4(  0.0)
+
+WB/MAF replay traps :    2502(  0.0)     758730(  7.1)         9985798( 92.9)
+
+MB stall cycles     :   29722(  2.4)    1227877( 97.6)              12(  0.0)
+
+LDx_L instructions  :       0(  0.0)       9359(100.0)               0(  0.0)
+
+Scache misses       :  608891(  4.5)     563866(  4.1)        12475116( 91.4)
+
+                  copying(leading dimention = 1000)
+
+     I t e m          < P A L >           < O S >            < U S E R>
+
+Cycles              :22630326(  1.6)   26782138(  1.9)      1389113959( 96.6)
+
+Instructions        :10041953(  0.3)    6613082(  0.2)      3064465670( 99.5)
+
+nonissue cycles     : 9589458(  3.8)   20890488(  8.2)       224256235( 88.0)
+
+split-issue cycles  :   37879(  0.4)     352991(  4.0)         8470085( 95.6)
+
+pipe-dry cycles     : 6624444(  6.2)    8928737(  8.3)        91679061( 85.5)
+
+replay trap         :  314146(  2.5)     612803(  5.0)        11434078( 92.5)
+
+single-issue cycles : 2063888(  7.3)    1190912(  4.2)        25022547( 88.5)
+
+dual-issue cycles   : 3984511(  1.2)     569822(  0.2)       325932120( 98.6)
+
+triple-issue cycles :       0(  0.0)       5822(  0.0)       468973424(100.0)
+
+quad-issue cycles   :       0(  0.0)       5640(  0.0)       245133385(100.0)
+
+flow-change insns   : 1978314(  5.2)     344252(  0.9)        35838539( 93.9)
+
+IntOps issued       :  345393(  0.3)     907142(  0.8)       110849734( 98.9)
+
+FPOps issued        :       0(  0.0)          6(  0.0)      2037152001(100.0)
+
+loads issued        :  662904(  0.1)     991766(  0.1)       861625203( 99.8)
+
+stores issued       :   17185(  0.1)     287554(  1.5)        19000003( 98.4)
+
+Icache issued       : 4771180(  0.5)    4682886(  0.5)       968471068( 99.0)
+
+Dcache accesses     :  680286(  0.1)    3865593(  0.4)       880625550( 99.5)
+
+S cache access      : 1486992(  0.4)    1205931(  0.3)       382070734( 99.3)
+
+long(>15) stalls    :  116345(  4.2)     180011(  6.6)         2448747( 89.2)
+
+PC-mispredicts      :   25189( 38.9)      39495( 61.0)              38(  0.1)
+
+BR-mispredicts      :      40(  0.0)      13353(  0.9)         1418903( 99.1)
+
+Icache/RFB misses   :  212017( 36.8)     175389( 30.5)          188426( 32.7)
+
+ITB misses          :      11(100.0)          0(  0.0)               0(  0.0)
+
+Dcache LD misses    :  352476(  0.0)    1580582(  0.2)       797500776( 99.8)
+
+DTB misses          :   12893(  2.0)         93(  0.0)          622252( 98.0)
+
+LDs merged in MAF   :    4664(  0.0)      44524(  0.0)       428926948(100.0)
+
+LDU replay traps    :  294586( 66.1)     151238( 33.9)             134(  0.0)
+
+WB/MAF replay traps :     220(  0.0)     187368(  1.7)        10681438( 98.3)
+
+MB stall cycles     :   23600(  2.3)     987487( 97.7)               0(  0.0)
+
+LDx_L instructions  :       0(  0.0)       7598(100.0)               0(  0.0)
+
+Scache misses       :  414992(  3.0)     516696(  3.7)        12976391( 93.3)
+
+These tables are pretty heavy, so you might confuse.
+
+  ITEM                   direct         copying      RATIO (direct/copying)
+
+---------------------------------------------------------------------------
+
+Cycles              :  1701192831     1389113959        1.22
+
+Instructions        :  3171976954     3064465670        1.04
+
+nonissue cycles     :   476459896      224256235        2.12
+
+split-issue cycles  :    12103980        8470085        1.42
+
+pipe-dry cycles     :    92090944       91679061        1.00
+
+replay trap         :     9420666       11434078        0.82
+
+single-issue cycles :    46372009       25022547        1.85
+
+dual-issue cycles   :   366379019      325932120        1.12
+
+triple-issue cycles :   503074753      468973424        1.07
+
+quad-issue cycles   :   220827314      245133385        0.90
+
+flow-change insns   :    34211383       35838539        0.95
+
+IntOps issued       :   235511911      110849734        2.12
+
+FPOps issued        :  2105000001     2037152001        1.03
+
+loads issued        :   776251092      861625203        0.90
+
+stores issued       :    21000003       19000003        1.10
+
+Icache issued       :  1033736604      968471068        1.06
+
+Dcache accesses     :   797250356      880625550        0.90
+
+S cache access      :   498771558      382070734        1.30
+
+long(>15) stalls    :     6669097        2448747        2.72(*)
+
+PC-mispredicts      :          44             38        ----
+
+BR-mispredicts      :     2793377        1418903        1.97
+
+Icache/RFB misses   :       37023         188426        0.20
+
+ITB misses          :           0              0        ----
+
+Dcache LD misses    :   733383534      797500776        0.92
+
+DTB misses          :     2093747         622252        3.36(*)
+
+LDs merged in MAF   :   249981039      428926948        0.58(*)
+
+LDU replay traps    :           4            134        ----
+
+WB/MAF replay traps :     9985798       10681438        0.93
+
+MB stall cycles     :          12              0        ----
+
+LDx_L instructions  :           0              0        ----
+
+Scache misses       :    12475116       12976391        0.96
+
+Please take notice of "DTB misses",  its ratio is 3.36.   DTB is
+
+filled by PAL code and it takes too long.  I do not know how long it
+
+takes(please refer to attached program).  So I calculate.  Thus, 
+
+it takes about 950 clocks(RPCC says about 860 clocks).
+
+                          DTB miss operation
+
+     I t e m          < P A L >           < O S >            < U S E R>
+
+Cycles              :     757( 77.9)        196( 20.2)              19(  2.0)
+
+Instructions        :      47( 92.2)          0(  0.0)               4(  7.8)
+
+nonissue cycles     :     460( 99.6)          0(  0.0)               2(  0.4)
+
+split-issue cycles  :       3(100.0)          0(  0.0)               0(  0.0)
+
+pipe-dry cycles     :     412( 96.9)          0(  0.0)              13(  3.1)
+
+replay trap         :       2(100.0)          0(  0.0)               0(  0.0)
+
+single-issue cycles :      13( 76.5)          0(  0.0)               4( 23.5)
+
+dual-issue cycles   :      17(100.0)          0(  0.0)               0(  0.0)
+
+triple-issue cycles :       0(  ---)          0(  ---)               0(  ---)
+
+quad-issue cycles   :       0(  ---)          0(  ---)               0(  ---)
+
+flow-change insns   :       8( 88.9)          0(  0.0)               1( 11.1)
+
+IntOps issued       :      16(100.0)          0(  0.0)               0(  0.0)
+
+FPOps issued        :       0(  ---)          0(  ---)               0(  ---)
+
+loads issued        :       3( 75.0)          0(  0.0)               1( 25.0)
+
+stores issued       :       0(  ---)          0(  ---)               0(  ---)
+
+Icache issued       :      23( 82.1)          0(  0.0)               5( 17.9)
+
+Dcache accesses     :       3( 75.0)          0(  0.0)               1( 25.0)
+
+S cache access      :      15( 83.3)          0(  0.0)               3( 16.7)
+
+long(>15) stalls    :       3(100.0)          0(  0.0)               0(  0.0)
+
+PC-mispredicts      :       1(100.0)          0(  0.0)               0(  0.0)
+
+BR-mispredicts      :       0(  ---)          0(  ---)               0(  ---)
+
+Icache/RFB misses   :       2( 66.7)          0(  0.0)               1( 33.3)
+
+ITB misses          :       0(  ---)          0(  ---)               0(  ---)
+
+Dcache LD misses    :       3( 75.0)          0(  0.0)               1( 25.0)
+
+DTB misses          :       1( 50.0)          0(  0.0)               1( 50.0)
+
+LDs merged in MAF   :       0(  ---)          0(  ---)               0(  ---)
+
+LDU replay traps    :       2(100.0)          0(  0.0)               0(  0.0)
+
+WB/MAF replay traps :       0(  ---)          0(  ---)               0(  ---)
+
+MB stall cycles     :       0(  ---)          0(  ---)               0(  ---)
+
+LDx_L instructions  :       0(  ---)          0(  ---)               0(  ---)
+
+Scache misses       :       8( 88.9)          0(  0.0)               1( 11.1)
+
+I also mesured DTB misses on ld(leading dimension)=2000 and compared
+
+against ld=1000.  The theoretical ratio is 8, but it's much worse on
+
+direct calculation.
+
+                  The ratio of DTB misses
+
+         ------------------------------------------------------
+
+          Leading Dimension  |    1000  |     2000  |   ratio 
+
+         --------------------+----------+-----------+----------
+
+              direct         | 2093747  | 26788263  |   12.79
+
+              copying        |  622252  |  5151404  |    8.27
+
+         ------------------------------------------------------
+
+Conclution:
+
+  We may(should?) take copying method to reduce DTB misses.
+
+Extra Information.
+
+  Do you know how long it takes to move register from main memory?
+
+  (no DTB miss, only cache miss)
+
+                     clocks of moving from memory
+
+          ---------------------------------------------------
+
+             1st level | 2nd level | 3rd level | main memory
+
+          -------------+-----------+-----------+-------------
+
+                 2     |      8    |     27    |     134
+
+          ---------------------------------------------------
+
+  
+
+Continue to No.3
+
+# It was pretty heavy.... tired.
+
+Thanks,
+
+  goto@statabo.rim.or.jp
+
+        .set noreorder
+
+        .set noat
+
+        .data
+
+        .align 4
+
+$message:
+
+        .ascii "%ld\n"
+
+#define SIZE 1024*1024
+
+        .align 4
+
+$dummy  :
+
+        .space 8*SIZE
+
+        .quad 0
+
+$dummy2  :
+
+        .text
+
+        .globl	main
+
+        .ent	main
+
+main:
+
+        ldgp	$29,0($27)
+
+        lda	$30, -32($30)
+
+        stq	$26, 0($30)
+
+        lda	$6, $dummy
+
+        lda	$5, SIZE
+
+        .align 4
+
+$loop:
+
+        ldq	$3, 0($6)
+
+        addq	$6, 8, $6
+
+        subq	$5, 1, $5
+
+        bgt	$5, $loop
+
+        rpcc	$0
+
+        .align 4
+
+        ldt	$f0, 0($30)
+
+        fmov	$f0, $f1
+
+        .align 4
+
+        
+
+        rpcc	$1
+
+        subl	$1, $0, $17
+
+        lda	$16, $message
+
+        jsr	$26, printf
+
+        ldq	$26, 0($30)
+
+        lda	$30, 32($30)
+
+        clr	$0
+
+        ret
+
+        .end main
+
+     I t e m          < P A L >           < O S >            < U S E R>
+
+Cycles              :841694024(  5.7)  467923843(  3.2)     13384449433( 91.1)
+
+Instructions        :438882906(  1.7)   66633172(  0.3)     25375797655( 98.0)
+
+nonissue cycles     :452487461( 10.2)  329793362(  7.4)      3658785135( 82.4)
+
+split-issue cycles  : 2568830(  2.5)    4991705(  4.9)        94301523( 92.6)
+
+pipe-dry cycles     :122281048( 13.8)  107391420( 12.1)       655141542( 74.0)
+
+replay trap         :18180167( 22.9)    2293654(  2.9)        59066625( 74.3)
+
+single-issue cycles :90036920( 18.8)   15711521(  3.3)       372783457( 77.9)
+
+dual-issue cycles   :174246340(  5.6)    2141935(  0.1)      2951392260( 94.4)
+
+triple-issue cycles :       0(  0.0)     429217(  0.0)      4020433775(100.0)
+
+quad-issue cycles   :       0(  0.0)    3706962(  0.2)      1760249267( 99.8)
+
+flow-change insns   :85946754( 23.7)    2113938(  0.6)       274852064( 75.7)
+
+IntOps issued       :18807758(  1.0)   14351081(  0.7)      1884081309( 98.3)
+
+FPOps issued        :       0(  0.0)         98(  0.0)     16840000001(100.0)
+
+loads issued        :29386620(  0.5)    8023613(  0.1)      6210784239( 99.4)
+
+stores issued       :  175532(  0.1)    3490153(  2.0)       168001622( 97.9)
+
+Icache issued       :238531183(  2.8)   29699819(  0.4)      8204292556( 96.8)
+
+Dcache accesses     :29570262(  0.5)   13857156(  0.2)      6378006221( 99.3)
+
+S cache access      :27331269(  0.7)   13469663(  0.3)      3969119743( 99.0)
+
+long(>15) stalls    : 2941030(  5.6)    1411024(  2.7)        47736999( 91.6)
+
+PC-mispredicts      : 1348690( 71.4)     540882( 28.6)             370(  0.0)
+
+BR-mispredicts      :    1223(  0.0)      67035(  0.3)        22345543( 99.7)
+
+Icache/RFB misses   :  298327( 12.6)    1700645( 72.0)          361679( 15.3)
+
+ITB misses          :     260(100.0)          0(  0.0)               0(  0.0)
+
+Dcache LD misses    :18264354(  0.3)    8605617(  0.1)      5838806976( 99.5)
+
+DTB misses          : 1223620(  4.4)        849(  0.0)        26788263( 95.6)
+
+LDs merged in MAF   :   48748(  0.0)    1494676(  0.1)      1996543335( 99.9)
+
+LDU replay traps    :18140020( 91.0)    1790381(  9.0)             555(  0.0)
+
+WB/MAF replay traps :   27309(  0.0)      44646(  0.1)        58216534( 99.9)
+
+MB stall cycles     :  267732(  2.6)    9979054( 97.4)            2292(  0.0)
+
+LDx_L instructions  :       0(  0.0)      87203(100.0)               0(  0.0)
+
+Scache misses       : 5959809(  5.7)    4462748(  4.3)        93337972( 90.0)
+
+     I t e m          < P A L >           < O S >            < U S E R>
+
+Cycles              :229751423(  2.0)  336746468(  2.9)     11082456462( 95.1)
+
+Instructions        :83659478(  0.3)   60983836(  0.2)     24505910953( 99.4)
+
+nonissue cycles     :143801699(  6.8)  169852262(  8.1)      1792187898( 85.1)
+
+split-issue cycles  :  354696(  0.5)    4009482(  5.6)        67181945( 93.9)
+
+pipe-dry cycles     :58809729(  7.3)   36401150(  4.5)       709906515( 88.2)
+
+replay trap         : 3440808(  3.7)    3597469(  3.9)        84884366( 92.3)
+
+single-issue cycles :17323087(  7.9)    8848198(  4.0)       192463502( 88.0)
+
+dual-issue cycles   :33323312(  1.3)    2784437(  0.1)      2607158586( 98.6)
+
+triple-issue cycles :       0(  0.0)      42145(  0.0)      3751788586(100.0)
+
+quad-issue cycles   :       0(  0.0)     458158(  0.0)      1961113860(100.0)
+
+flow-change insns   :16514290(  5.4)    2597946(  0.9)       286371054( 93.7)
+
+IntOps issued       : 3270098(  0.4)    7265740(  0.8)       885462583( 98.8)
+
+FPOps issued        :       0(  0.0)         70(  0.0)     16297072009(100.0)
+
+loads issued        : 5527759(  0.1)    7154792(  0.1)      6889783639( 99.8)
+
+stores issued       :  137601(  0.1)    2138112(  1.4)       148001691( 98.5)
+
+Icache issued       :42560119(  0.5)   46981666(  0.6)      7724262543( 98.9)
+
+Dcache accesses     : 5665455(  0.1)   14945119(  0.2)      7037001444( 99.7)
+
+S cache access      :13620681(  0.4)   10677937(  0.3)      3052853894( 99.2)
+
+long(>15) stalls    : 1470558(  6.6)    1489637(  6.6)        19443736( 86.8)
+
+PC-mispredicts      :  239246( 43.1)     314949( 56.8)             326(  0.1)
+
+BR-mispredicts      :    1283(  0.0)      50717(  0.4)        11311660( 99.5)
+
+Icache/RFB misses   : 1700169( 36.7)    1272585( 27.4)         1664040( 35.9)
+
+ITB misses          :     249(100.0)          0(  0.0)               0(  0.0)
+
+Dcache LD misses    : 3687679(  0.1)   16178308(  0.3)      6375418876( 99.7)
+
+DTB misses          :  128544(  2.4)       4684(  0.1)         5151404( 97.5)
+
+LDs merged in MAF   :   37113(  0.0)    2670839(  0.1)      3430618214( 99.9)
+
+LDU replay traps    : 3286998( 66.4)    1665591( 33.6)             295(  0.0)
+
+WB/MAF replay traps :    1172(  0.0)    1088719(  1.3)        80825378( 98.7)
+
+MB stall cycles     :  186524(  2.3)    7921648( 97.7)              42(  0.0)
+
+LDx_L instructions  :       0(  0.0)      82343(100.0)               0(  0.0)
+
+Scache misses       : 4663041(  4.2)    5114323(  4.6)       101125812( 91.2)
+
+From adam.powell@nist.gov Thu Jan 21 21:41:34 1999 EST
+Message-ID: <366EBC69.9F83C465@nist.gov>
+Date: Wed, 09 Dec 1998 13:07:37 -0500
+From: Adam C. Powell, IV <adam.powell@nist.gov>
+Subject: Re: Was: Port3/Lucent Technologies, Now: lapack stuff
+In-Reply-To: <366D04E5.2ED86515@neuro.uni-oldenburg.de>
+
+Hello,
+
+Now a new problem: I know how to fix the makefile, how do I build a new
+
+binary RPM?
+
+I tried editing the Makefile in the BUILD/BLAS dir, and all of the tests
+
+worked fine, then any rpm -b command killed the whole BUILD/BLAS tree,
+
+making the build die in the tests.
+
+So, I tried to back out, construct an entirely new lapackrpm directory,
+
+and re-construct the blas-alpha.tar file.  Then while building the RPM,
+
+the patch failed!
+
+How can I re-create the blas_patch to reflect my changes in the
+
+top-level makefile?  How can I make the RPM?  At least I can copy
+
+BUILD/BLAS/libblas.a and .so* to the right places, but then lapack.rpm
+
+won't install unless I can build and install the blas rpm!!
+
+Finally just added . to my path and built successfully, but but didn't
+
+create the .rpm in RPMS!  Oh well.
+
+This RPM system seems to make installation negligibly easier ("make" is
+
+planty easy for me), but modification extremely difficult.    Since
+
+parts of the library aren't LGPL, we can't distribute the RPMs, thus
+
+negating much of the motive for making an RPM in the first place.  As a
+
+general principle, for something like this under heavy development,
+
+might it make more sense to have a source .tar.gz with a makefile and a
+
+place to put the non-LGPL part, patch only that part, and distribute the
+
+.spec file separately?  It seems this would make modifying and
+
+rebuilding far less painful.
+
+Sorry to flame, I'm just frustrated after a couple of hours' worth of
+
+repeated fix/rebuild attempts.
+
+Zeen,
+
+-Adam `Cold Fusion' Powell, IV http://www.ctcms.nist.gov/~powell/ ____
+
+USDoC, National Institute of Standards & Technology (NIST)  |\ ||<  |
+
+Center for Theoretical and Computational Materials Science  | \||_> |
+
+From adam.powell@nist.gov Thu Jan 21 21:41:34 1999 EST
+Message-ID: <366ED3DA.3BDF5094@nist.gov>
+Date: Wed, 09 Dec 1998 14:47:38 -0500
+From: Adam C. Powell, IV <adam.powell@nist.gov>
+Subject: Re: Was: Port3/Lucent Technologies, Now: lapack stuff
+In-Reply-To: <366D04E5.2ED86515@neuro.uni-oldenburg.de>
+
+Hello again,
+
+Sorry for all the messages- I keep finding new problems in the rpms. :-(
+
+There's an error in the fastmath top-level makefile so that libffm.so
+
+comes with no symbols defined (except for pow, which depends on powr, so
+
+it's not very helpful).  It seems that all of the .o files except pow.o
+
+are deleted before the shared library is created.
+
+There are two possible fixes: modify the libffm makefile so that it
+
+doesn't remove the object files (or so that it creates the shared
+
+library itself), or expand line 21 of the makefile replacing "make
+
+pow.o" with "make asincos.o atan.o atan2.o exp.o log.o powr.o sincos.o
+
+tancotan.o sinhcosh.o sqrt.o sqrti.o dsqrtv.o dsqrtiv.o pow.o".  Kinda
+
+ugly, but I don't see a way around one or the other.  Of course, since
+
+libffm is LGPL, you can modify and redistribute the makefile with no
+
+copyright problems.
+
+One other question: why call it libffm.so.1.0.0 when it's 0.28?
+
+Finally, a question to the libffm authors: as of version 0.28, aside
+
+from log32 and sqrt32, I don't see any symbols in libfm that are missing
+
+from libffm.  Can we now link -lffm -lm and remove libfm from our
+
+systems?
+
+Zeen,
+
+-Adam `Cold Fusion' Powell, IV http://www.ctcms.nist.gov/~powell/ ____
+
+USDoC, National Institute of Standards & Technology (NIST)  |\ ||<  |
+
+Center for Theoretical and Computational Materials Science  | \||_> |
+
+From W.Zimmerman@sheffield.ac.uk Thu Jan 21 21:41:34 1999 EST
+Message-ID: <D257262BF@hagglee.shef.ac.uk>
+Date: Wed, 9 Dec 1998 21:13:37 +0000
+From: Will Zimmerman <W.Zimmerman@sheffield.ac.uk>
+Subject: em86 revisited
+
+Colleagues:
+
+Thanks for the help with the patch for a.out.h in the 
+
+include/asm-alpha directory.  It wasn't necessary, as the patch 
+
+seemed to in the new source code from gatekeeper.com
+
+However, on reflection I realized I must need to change the config 
+
+file, as everything in linux seems to require a new kernel 
+
+configuration.  Once CONFIG_BINFMT_EM86=y was set, em86 now runs.
+
+Now, it bombs with a different error:
+
+---------------------------------------------------------------------
+
+Unrecognized ioctl code 0x8927
+
+Signal 11 received
+
+Alpha state: PC = 0x4012b98c, instr = 0xa77d8290
+
+ R00: 0000000000000000 R01: 0000000000000000 R02: 0000000054442d18
+
+ R03: 0000000042d18000 R04: 000000004012b970 R05: 0000000040018000
+
+ R06: 0000000040019430 R07: 000000000869a7f4 R08: 0000000000000001
+
+ R09: 0000000000000002 R10: 000000000869a7f4 R11: 000000000864ee88
+
+ R12: 000000000864ee88 R13: 000000007cfffc74 R14: 000000000828b6f7
+
+ R15: 000000007ffffa38 R16: 0000000000000000 R17: 0000000054442d18
+
+ R18: 0000000042d18000 R19: 0000000040019780 R20: 00000000600396f0
+
+ R21: 0000000000000040 R22: 0000000000000000 R23: 0000000000000000
+
+ R24: 0000000060039b08 R25: 000000006003ae34 R26: 0000000060043114
+
+ R27: 00000000e0ddfad9 R28: 000000006003e0fc R29: 00000000e0ef9179
+
+ R30: 000000007ffffa18 R31: 000000000869f1a8
+
+  Trap A0: 00000000e0ef1409, A1: 0000000000000029, A2:
+
+  000000000000001b
+
+Intel state: PC = 0x85eaa20
+
+  EAX: 0x6, EBX: 0x4, ECX: 0x8643e90, EDX: 0x8643e90
+
+  ESI: 0x4, EDI: 0x869ead0, EBP: 0x7cfffb6c, ESP: 0x7cfffb58
+
+---------------------------------------------------------------------
+
+Any clues?
+
+Perhaps you might be able to comment on my reason for running em86--I 
+
+want to run Mathematica 3.0 in batch mode for long overnight jobs, 
+
+but only have the Linux Intel license.  Does anyone know if there is 
+
+a native alpha version?
+
+Cheers,
+
+Will
+
+Dr WBJ Zimmerman
+
+Senior Lecturer in Chemical and Process Engineering
+
+Director, M Sc in Environmental and Energy Engineering
+
+University of Sheffield
+
+Newcastle Street
+
+Sheffield S1 3JD
+
+tel:+44-114-222-7517
+
+fax:+44-114-222-7501
+
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+
+From nshimizu@et.u-tokai.ac.jp Thu Jan 21 21:41:34 1999 EST
+Message-ID: <199812100343.MAA07323@et.u-tokai.ac.jp>
+Date: Thu, 10 Dec 1998 12:43:30 +0900 (JST)
+From: naohiko shimizu <nshimizu@et.u-tokai.ac.jp>
+Subject: Re: how to optimize dgemm? No.2
+In-Reply-To: <19981209231455P.goto@statabo.rim.or.jp>
+
+In article <19981209231455P.goto@statabo.rim.or.jp>
+
+goto@statabo.rim.or.jp writes:
+
+>> 
+
+>> Conclution:
+
+>>   We may(should?) take copying method to reduce DTB misses.
+
+>> 
+
+JUST NO!
+
+I have a plan to overcome the problem, and one of my undergraduate 
+
+students is now involved in.
+
+But he is new to C or FORTRAN or Linux or Alpha(actually to computer), 
+
+then I cannot say when he will finish his program.
+
+When he will finish his work, we will not have to worry about the problem.
+
+Naohiko Shimizu
+
+Dept. Communication Engr./Univ. TOKAI.
+
+1117 Kitakaname Hiratsuka 259-12 Japan
+
+TEL.+81-463-58-1211(ext. 4084) FAX.+81-463-58-8320
+
+<URL http://shimizu-lab.et.u-tokai.ac.jp/>
+
+From jurijus@theophys.kth.se Thu Jan 21 21:41:34 1999 EST
+Message-ID: <Pine.OSF.4.05.9812101121070.1501-100000@hades.theophys.kth.se>
+Date: Thu, 10 Dec 1998 11:24:47 +0100 (MET)
+From: Jurij Smakov <jurijus@theophys.kth.se>
+Subject: Determinant calculation
+
+Hello!
+
+Is there an effective way to calculate determinant of a matrix,
+
+using LAPACK for Linux/Alpha? LAPACK itself doesn't seem to
+
+include any ready-made routines for this. Definitely, one can
+
+diagonalize the matrix using LAPACK and then calculate the
+
+product of the eigenvalues, but maybe someone knows of some
+
+tricks/tips, which could improve performance?
+
+Thanks.
+
+O----------------------O---------------------------------------O
+
+|           _          | ICQ    : 1690331                      |
+
+|     Jurij Smakov     | E-mail : jurijus@theophys.kth.se      |
+
+|                      | WWW    : www.theophys.kth.se/~jurijus |
+
+O----------------------O---------------------------------------O
+
+|  PGP public key: www.theophys.kth.se/cgi-bin/finger?jurijus  |
+
+O--------------------------------------------------------------O
+
+From goto@statabo.rim.or.jp Thu Jan 21 21:41:35 1999 EST
+Message-ID: <19981210233259I.goto@statabo.rim.or.jp>
+Date: Thu, 10 Dec 1998 23:32:59 +0900
+From: Kazushige Goto <goto@statabo.rim.or.jp>
+Subject: Re: Was: Port3/Lucent Technologies, Now: lapack stuff
+In-Reply-To: <366ED3DA.3BDF5094@nist.gov>
+
+Hi,
+
+From: "Adam C. Powell, IV" <adam.powell@nist.gov>
+
+Subject: Re: Was: Port3/Lucent Technologies, Now: lapack stuff
+
+adam.powell> Finally, a question to the libffm authors: as of version 0.28, aside
+
+adam.powell> from log32 and sqrt32, I don't see any symbols in libfm that are missing
+
+adam.powell> from libffm.  Can we now link -lffm -lm and remove libfm from our
+
+adam.powell> systems?
+
+I do not think you need libfm any longer.  You can remove libfm.
+
+Thanks,
+
+  goto@statabo.rim.or.jp
+
+From rdp@adam.cheshire.net Thu Jan 21 21:41:35 1999 EST
+Message-ID: <3675D877.BEAD95F8@adam.cheshire.net>
+Date: Mon, 14 Dec 1998 22:33:11 -0500
+From: Rich Payne <rdp@adam.cheshire.net>
+Subject: Alpha Cluster
+
+I just posted this on alphalinux.org and thought I'd send it to
+
+axp-also. If anbody is interested in helping, let us know.
+
+"In what could be one of the biggest AlphaLinux news items of the year,
+
+PATMOS and
+
+the AlphaLinux community are working together to build a 256 node
+
+AlphaLinux Cluster. Details are still being sketched out
+
+at this point. More information will be made available at the PATMOS
+
+(www.patmos-universal.com) and
+
+alphalinux.org (www.alphalinux.org) websites. If you are interested in
+
+helping build the worlds largest AlphaLinux cluster you can send mail to
+
+either (rdp@cheshire.net) myself or to (rescatex@dmv.com)
+
+Bill Anderson. A few pictures of the incoming hardware are available at
+
+the  (www.patmos-universal.com) PATMOS website, follow the link for
+
+Parallel Systems."
+
+            
+
+-- 
+Rich Payne
+www.alphalinux.org
+
+From nshimizu@et.u-tokai.ac.jp Thu Jan 21 21:41:35 1999 EST
+Message-ID: <199812170519.OAA07196@et.u-tokai.ac.jp>
+Date: Thu, 17 Dec 1998 14:19:32 +0900 (JST)
+From: naohiko shimizu <nshimizu@et.u-tokai.ac.jp>
+Subject: Yet another DGEMM routine from Shimizu
+
+Hi, folks
+
+I coded the optimized DGEMM with benchmarking facility.
+
+The routine is TLB and cache friendly and you may have
+
+good performance on a machine with smart memory system.
+
+I designed it to run on any architecture, and it may be useful
+
+for people without Alpha chip( where an assembler version exist).
+
+Though it is coded by C, it also have interface for FORTRAN users.
+
+Especially the matrices is row majored to be used with FORTRAN.
+
+Some results with my local machines are here.
+
+Machine                  OS    C           RESULT
+
+===========================================================================
+
+Pentium-133MHz           FreeBSD gcc(-O2)      11.593 MFLOPS(172.523 sec)
+
+21064A-300MHz(AlphaPC64) Linux EGCS(-O2 -Dev4) 39.312 MFLOPS(50.875 sec)
+
+PA-8000-180MHz(D series) HPUX  C89(+O4)        183.993 MFLOPS(10.870 sec)
+
+R10K-200MHz(NEC UP4800)  UNIX_SV CC(Kopt=2)    35.965 MFLOPS(55.610 sec)
+
+UltraSparc-143MHz(Ultra5)SUNOS CC(-O5)         26.178 MFLOPS(76.400 sec)
+
+---------------------------------------------------------------------------
+
+C=alpha*(A*B)+beta*C where m=k=n=1000, lda=ldb=ldc=1001, alpha=2.0, beta=0.5
+
+If you are interested in this code, visit my WEB site.
+
+Free downloadable code is there.
+
+http://shimizu-lab.et.u-tokai.ac.jp/pgm/gemm/index.html
+
+Thank you for your attention.
+
+Naohiko Shimizu
+
+Dept. Communication Engr./Univ. TOKAI.
+
+1117 Kitakaname Hiratsuka 259-12 Japan
+
+TEL.+81-463-58-1211(ext. 4084) FAX.+81-463-58-8320
+
+<URL http://shimizu-lab.et.u-tokai.ac.jp/>
+
+From goto@statabo.rim.or.jp Thu Jan 21 21:41:35 1999 EST
+Message-ID: <19981219000636T.goto@statabo.rim.or.jp>
+Date: Sat, 19 Dec 1998 00:06:36 +0900
+From: Kazushige Goto <goto@statabo.rim.or.jp>
+Subject: how to optimize dgemm? No.3
+In-Reply-To: <19981209231455P.goto@statabo.rim.or.jp>
+
+This is a 3rd part document of DGEMM.
+
+5. Copying 2
+
+(a) 1st step
+
+I use stack temporary array s_a(Matrix A).  And use these matrix in
+
+most inner loop.
+
+<< 28 MFlops, 93494 DTB misses>>  <- I added DTB miss information.
+
+#define P 40
+
+#define Q 16
+
+  int i, j, l, ll;
+
+  int ls, is;
+
+  double temp;
+
+  double s_a[P];
+
+  for (is = 0; is < m; is += Q){
+
+    for (ls = 0; ls < k; ls += P){
+
+      for (j = 0; j < n; j++) {
+
+        for (i = is; i < MIN(m, is+Q); i++) {
+
+          temp = 0.;
+
+          for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++)  /* Copying */
+
+            s_a[ll] = a[i + l * lda];
+
+          for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {
+
+            temp += b[l + j * ldb] * s_a[ll];
+
+          }
+
+          c[i + j * ldc] += alpha * temp;
+
+        }
+
+      }
+
+    }
+
+  }
+
+(b) 2nd step
+
+Expand temporary stack matrix s_a to 2 dimention.
+
+<< 54 MFlops, 82681 DTB misses>>
+
+#define P 40
+
+#define Q 16
+
+  int i, ii, j, l, ll;
+
+  int ls, is;
+
+  double temp;
+
+  double s_a[P][Q];
+
+  for (is = 0; is < m; is += Q){
+
+    for (ls = 0; ls < k; ls += P){
+
+      for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {  /* Copying */
+
+        for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) 
+
+          s_a[ll][ii] = a[i + l * lda];
+
+      }
+
+      
+
+      for (j = 0; j < n; j++) {
+
+        for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) {
+
+          temp = 0.;
+
+          for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {
+
+            temp += b[l + j * ldb] * s_a[ll][ii];
+
+          }
+
+          c[i + j * ldc] += alpha * temp;
+
+        }
+
+      }
+
+    }
+
+  }
+
+(c) 3rd step
+
+Do same way for s_b(Matrix B).
+
+<< 68 MFlops, 82670 DTB misses>>
+
+#define P 40
+
+#define Q 16
+
+  int i, ii, j, l, ll;
+
+  int ls, is;
+
+  double temp;
+
+  double s_a[P][Q], s_b[P];
+
+  for (is = 0; is < m; is += Q){
+
+    for (ls = 0; ls < k; ls += P){
+
+      for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {  /* Copying */
+
+        for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) 
+
+          s_a[ll][ii] = a[i + l * lda];
+
+      }
+
+      
+
+      for (j = 0; j < n; j++) {
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++)   /* Copying */
+
+          s_b[ll] = b[l + j * ldb];
+
+        
+
+        for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) {
+
+          temp = 0.;
+
+          for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {
+
+            temp += s_b[ll] * s_a[ll][ii];
+
+          }
+
+          c[i + j * ldc] += alpha * temp;
+
+        }
+
+      }
+
+    }
+
+  }
+
+(d) 4th step
+
+I want to move "s_b copying routine" to outer loops.  But it's
+
+difficult to move, so apply Blocking for "j loop".
+
+<< 66 MFlops, 78124 DTB misses>>
+
+#define P 40
+
+#define Q 16
+
+  int i, ii, j, l, ll;
+
+  int ls, is, js;
+
+  double temp;
+
+  double s_a[P][Q], s_b[P];
+
+  for (js = 0; js < n; js += R){
+
+    for (is = 0; is < m; is += Q){
+
+      for (ls = 0; ls < k; ls += P){
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {  /* Copying */
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) 
+
+            s_a[ll][ii] = a[i + l * lda];
+
+        }
+
+      
+
+        for (j = js; j < MIN(n, js+R); j++) {
+
+          for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++)   /* Copying */
+
+            s_b[ll] = b[l + j * ldb];
+
+        
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) {
+
+            temp = 0.;
+
+            for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {
+
+              temp += s_b[ll] * s_a[ll][ii];
+
+            }
+
+            c[i + j * ldc] += alpha * temp;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+(e) 5th step
+
+Also, expand s_b matrix to 2 dimention.
+
+The matrix sizes of s_a and s_b are pretty large, but 21164 has large
+
+and no-wait 2nd cache, so I choose this algorithm.
+
+<< 55 MFlops, 80007 DTB misses>>
+
+#define P 40
+
+#define Q 16
+
+#define R 32
+
+  int i, ii, j, jj, l, ll;
+
+  int ls, is, js;
+
+  double temp;
+
+  double s_a[P][Q], s_b[R][P];
+
+  for (js = 0; js < n; js += R){
+
+    for (is = 0; is < m; is += Q){
+
+      for (ls = 0; ls < k; ls += P){
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {  /* Copying */
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) 
+
+            s_a[ll][ii] = a[i + l * lda];
+
+        }
+
+      
+
+        for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+          for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++)   /* Copying */
+
+            s_b[jj][ll] = b[l + j * ldb];
+
+        }
+
+        for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) {
+
+            temp = 0.;
+
+            for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {
+
+              temp += s_b[jj][ll] * s_a[ll][ii];
+
+            }
+
+            c[i + j * ldc] += alpha * temp;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+(f) 6th(final) step
+
+To move "copying routine" to outer loops,  I moved "ls loop" to most
+
+outer loop, then moved "s_b copying routine".
+
+<< 59 MFlops, 4470 DTB misses>>
+
+              ~~~~ <- not typo.
+
+#define P 40
+
+#define Q 16
+
+#define R 32
+
+  int i, ii, j, jj, l, ll;
+
+  int ls, is, js;
+
+  double temp;
+
+  double s_a[P][Q], s_b[R][P];
+
+  for (ls = 0; ls < k; ls += P){      /* Swapped */
+
+    for (js = 0; js < n; js += R){
+
+      for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {   /* Copying & Moved */
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++)
+
+          s_b[jj][ll] = b[l + j * ldb];
+
+      }
+
+      for (is = 0; is < m; is += Q){
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {  /* Copying */
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) 
+
+            s_a[ll][ii] = a[i + l * lda];
+
+        }
+
+      
+
+        /* Now Start calculating ... */
+
+        for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) {
+
+            temp = 0.;
+
+            for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {
+
+              temp += s_b[jj][ll] * s_a[ll][ii];
+
+            }
+
+            c[i + j * ldc] += alpha * temp;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+Thus, DTB misses were considerably reduced and we can avoid cache
+
+congruence problem.
+
+                       Cache Congruence(MFlops)
+
+        -----------------------------------------------------
+
+          size  |   510  |   511  |   512  |   513  |   514
+
+        --------+--------+--------+--------+--------+--------
+
+          (a)   |  27.8  |  26.4  |  18.7  |  26.0  |  27.7
+
+        --------+--------+--------+--------+--------+--------
+
+          (b)   |  54.1  |  54.2  |  53.6  |  54.4  |  54.1
+
+        --------+--------+--------+--------+--------+--------
+
+          (c)   |  67.0  |  68.9  |  65.8  |  68.5  |  66.0
+
+        --------+--------+--------+--------+--------+--------
+
+          (d)   |  65.6  |  66.0  |  65.2  |  64.9  |  65.4
+
+        --------+--------+--------+--------+--------+--------
+
+          (e)   |  54.9  |  54.9  |  54.5  |  54.5  |  54.8
+
+        --------+--------+--------+--------+--------+--------
+
+          (f)   |  59.4  |  59.3  |  59.1  |  59.0  |  59.0
+
+        -----------------------------------------------------
+
+Continue to No.4
+
+Basic optimization was finished.  Next, I'll explain Alpha 21164
+
+specific optimization.
+
+Thanks,
+
+  goto@statabo.rim.or.jp
+
+From dubois@bec.physics.udel.edu Thu Jan 21 21:41:35 1999 EST
+Message-ID: <Pine.LNX.3.96.981219175950.524B-100000@bec.physics.udel.edu>
+Date: Sat, 19 Dec 1998 18:04:25 -0500 (EST)
+From: Jonathan L Dubois <dubois@bec.physics.udel.edu>
+Subject: slightly off topic: gdb and stepping over doubles
+
+with GNU gdb 4.17.0.4 I am experiencing the same problem as described
+
+below:
+
+>J (sundiver@hellfire.dusers.drexel.edu)
+
+>Fri, 20 Jun 1997 15:55:47 -0400 
+
+> I recently had found another strange behaviour of gdb, regarding
+
+>double variables/functions. When you next-step over a function which
+
+>returns a double value you receive some strange results. The returned
+
+>value is totally arbitrary. if you set a break point after the
+
+>function call the result is correct. This is also the case when you
+
+>use functions (sin, cos) of math-lib.
+
+does anyone know the current status of this problem?  It's really annoying
+
+when trying to debug numerical analysis code...
+
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+
+From goto@statabo.rim.or.jp Thu Jan 21 21:41:35 1999 EST
+Message-ID: <19981220234322A.goto@statabo.rim.or.jp>
+Date: Sun, 20 Dec 1998 23:43:22 +0900
+From: Kazushige Goto <goto@statabo.rim.or.jp>
+Subject: how to optimize dgemm? No.4
+In-Reply-To: <19981219000636T.goto@statabo.rim.or.jp>
+
+This is a 4th part document of DGEMM.
+
+6. Alpha assembler instruction
+
+Alpha is a load-store architecture, so instructions are pretty simple.
+
+  load(ldt)  ->  multiply(mult)  ->  add(addt)  ->  store(stt)
+
+                              (simplify of matrix-matrix multiply)
+
+(a) registers
+
+Alpha has 32 integer($0, $1, ... , $31) and 32 floating point
+
+registers($f0, $f1, ..., $f31).  All of registers are available
+
+architecturaly.  But there are some limitations on Linux or Digital
+
+UNIX.
+
+Integer Registers
+
+    $0  - $8, $22 - $25, $28	: Free, $0 is a return value
+
+    $9  - $15			: need to be saved if you use
+
+    $16 - $21			: Free, but used as argument value
+
+    $26				: return address
+
+    $27				: entry address but you may use.
+
+    $29				: Global Pointer
+
+    $30				: Stack Pointer
+
+    $31				: Zero register.
+
+Floating point Registers
+
+    $f0,$f1,$f10-$f15,$f22-$f30	: Free, $f0 is a return value
+
+    $f2  - $f9			: need to be saved if you use
+
+    $f16 - $f21			: Free, but used as argument value
+
+    $f31			: Zero register.
+
+(b) load instruction
+
+ example
+
+                                  Correspond to C source
+
+    ldt  $f0,  0($1)		# $f0 = *($1)
+
+    ldt  $f1,  8($1)		# $f1 = *($1 + 1)
+
+    ldt  $f2, 16($1)		# $f2 = *($1 + 2)
+
+This mean, $1 is a base address, and 0, 8, 16 are offset from $1, and
+
+load to $f0, $f1, $f2 from memory.  Two "ldt" instruction can issue in 
+
+one clock.  
+
+Therefore, this example takes 2 clocks, but we do not know how long
+
+it takes until $f0 - $f2 are available.
+
+      data in 1st level cache :   2 clocks
+
+      data in 2nd level cache :   8 clocks
+
+      data in 3rd level cache :  27 clocks(21164A 600MHz, PC164LX)
+
+      data in main memory     : 134 clocks(21164A 600MHz, PC164LX)
+
+      Page fault/DTB miss     : ???
+
+So, we must issue load instruction in advance(8 clocks or more) if
+
+we want to use 2nd cache enough without stall.
+
+(b) multiply and add instruction
+
+21164 can issue mutliply and add instruction on one clock except for 
+
+resource conflicts.
+
+      /* 1 clock */
+
+      mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+
+      addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+
+But it takes 4 clocks until $f2 and $f5 are available(latency).  So,
+
+we must put other useful instructions. For example,
+
+      /* 1 clock */
+
+      mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+
+      addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+
+      /* 1 clock */
+
+      mult  $f6,  $f7,  $f8	# $f8  = $f6 * $f7
+
+      addt  $f9,  $f10, $f11    # $f11 = $f9 + $f10
+
+      /* 1 clock */
+
+      mult  $f12, $f13, $f14	# $f14 = $f12 * $f13
+
+      addt  $f15, $f16, $f17    # $f17 = $f15 + $f16
+
+      /* 1 clock */
+
+      mult  $f18, $f19, $f20	# $f20 = $f18 * $f19
+
+      addt  $f21, $f22, $f23    # $f23 = $f21 + $f22
+
+      $f2 and $f5 are available at last.
+
+       mult  $f2,  $f5,  $f24	# $f24 = $f2 * $f5
+
+There are some examples about mutiply and add instructions.
+
+ex.1 
+
+      /* 5 clocks, because $f2 is conflicted */
+
+      mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+
+      addt  $f2,  $f4,  $f5     # $f5 = $f2 + $f4
+
+ex.2
+
+      /* 1 clock if $f0 and $f1 are available */
+
+      mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+
+      addt  $f0,  $f1,  $f3     # $f3 = $f0 + $f1
+
+ex.3
+
+      /* 1 clock, I use a lot of this case in gemm routine */
+
+      mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+
+      addt  $f0,  $f1,  $f0     # $f0 = $f0 + $f1
+
+ex.4
+
+      /* 2 clocks */
+
+      mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+
+      mult  $f0,  $f1,  $f3     # $f3 = $f0 * $f1
+
+(c) store instruction
+
+Store instrucion is almost same as load instruction, but can issue
+
+only one instruction in one clock.  21164 can not issue load and store 
+
+instructions simultaneously.
+
+(d) slot
+
+21164 simultaneously issues instructions with a "slot" which consist
+
+of 2-integerinstruction(includes load/store instructions) and
+
+2-floating point operation unless any resource conflicts.
+
+The combination of inter instruction is pretty flexible, but one of
+
+floating point instruction is limited(see above).
+
+ex.1
+
+      /* 1 clock */
+
+      mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+
+      ldt   $f0, 0($1)
+
+      addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+
+      addq  $1, 8, $1
+
+ex.2
+
+      /* 1 clock */
+
+      mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+
+      ldt   $f0, 0($1)
+
+      addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+
+      ldt   $f3, 8($1)
+
+ex.3
+
+      /* 1 clock */
+
+      mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+
+      addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+
+      ldt   $f0, 0($1)
+
+      ldt   $f3, 8($1)
+
+ex.4
+
+      /* 3 clocks or more over */
+
+      ldt   $f0, 0($1)
+
+      mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+
+      addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+
+      ldt   $f3, 8($1)
+
+ex.5
+
+/* 2 clocks, because can not issue load and tore instrucions simultaneously */
+
+      mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+
+      ldt   $f0, 0($1)
+
+      addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+
+      stt   $f6, 8($1)
+
+ex.6
+
+      /* 2 clocks, because can not issue 2-store instrucions simultaneously */
+
+      mult  $f0,  $f1,  $f2	# $f2 = $f0 * $f1
+
+      stt   $f4, 0($1)
+
+      addt  $f3,  $f4,  $f5     # $f5 = $f3 + $f4
+
+      stt   $f6, 8($1)
+
+Continue to No. 5
+
+Thanks,
+
+  goto@statabo.rim.or.jp
+
+From hazelsct@MIT.EDU Thu Jan 21 21:41:35 1999 EST
+Message-ID: <367D0D60.C111AB59@mit.edu>
+Date: Sun, 20 Dec 1998 14:44:55 +0000
+From: Adam C. Powell <hazelsct@MIT.EDU>
+Subject: Re: little unrolling trick
+In-Reply-To: <36777c8c1153002@u8455.bs.ptb.de>
+
+Thomas Bruns wrote:
+
+> Hi Adam,
+
+>
+
+> > From:          "Adam C. Powell, IV" <hazelsct@MIT.EDU>
+
+> > of a way to speed this up?  By the way, Thomas (Bruns), did you notice
+
+> > any performance improvement using my little "loop unrolling" trick?
+
+>
+
+> Sorry, I did some other work on my app the last days so it took some
+
+> time to post results
+
+>
+
+> your suggestion was:
+
+>
+
+> >for (row=0; row<MaxRow; row++) {
+
+> >  for(ptr=matrix_ptr[row];  ptr<matrix_ptr[row+1]-5; ptr+=6) {
+
+> >    vector[matrix_idx[ptr]] += matrix[ptr]*vector[matrix_idx[ptr]];
+
+> >    vector[matrix_idx[ptr+1]] +=
+
+> >    matrix[ptr+1]*vector[matrix_idx[ptr+1]]; vector[matrix_idx[ptr+2]]
+
+> >    += matrix[ptr+2]*vector[matrix_idx[ptr+2]];
+
+> >    vector[matrix_idx[ptr+3]] +=
+
+> >    matrix[ptr+3]*vector[matrix_idx[ptr+3]]; vector[matrix_idx[ptr+4]]
+
+> >    += matrix[ptr+4]*vector[matrix_idx[ptr+4]];
+
+> >    vector[matrix_idx[ptr+5]] +=
+
+> >    matrix[ptr+5]*vector[matrix_idx[ptr+5]]; }
+
+> >  while(ptr<matrix_ptr[row+1]) {
+
+> >    vector[matrix_idx[ptr]] += matrix[ptr]*vector[matrix_idx[ptr]];
+
+> >    ptr++; }}
+
+>
+
+> But, I think this can´t be right, since you modify the vector you
+
+> need to multiply with ???
+
+Oops!  You're absolutely right.  My mistake. :-)
+
+> Anyway your `little unrolling trick´ gave me the direction to some
+
+> faster code:
+
+>
+
+> my suggestion:
+
+>
+
+> for (row=0; row<MaxRow; row ++)
+
+>         {
+
+>         result[row] = 0;
+
+>         for (ptr=matrix_ptr[row]; ptr<matrix_ptr[row+1]-5;  ptr += 6)
+
+>                 result[row] += matrix[ptr]*vector[matrix_idx[ptr]]
+
+>                                 +matrix[ptr+1]*vector[matrix_idx[ptr+1]]
+
+>                                 +matrix[ptr+2]*vector[matrix_idx[ptr+2]]
+
+>                                 +matrix[ptr+3]*vector[matrix_idx[ptr+3]]
+
+>                                 +matrix[ptr+4]*vector[matrix_idx[ptr+4]]
+
+>                                 +matrix[ptr+5]*vector[matrix_idx[ptr+5]];
+
+>
+
+>         while (ptr < matrix_ptr[row+1])
+
+>                 {
+
+>                 result[row] +=  matrix[ptr]*vector[matrix_idx[ptr]];
+
+>                 ptr ++;
+
+>                 }
+
+>         }
+
+>
+
+> which gave me a speedup of about 30% in that routine, which is quite
+
+> good (I think) for now, because the matrices are quite small (~50x50
+
+> .... 100x100) with 8 to 30 non zeros in a row.
+
+That's great to hear!  Perhaps there is some hope for faster sparse matrix
+
+routines after all.  It's hard to know how big to make the "blocks"- six
+
+works here because your rows have at least 6 nonzeroes each.  For some
+
+applications, e.g. on structured grids, it might be more efficient to treat
+
+the "matrix" as a set of vectors and use level 1 BLAS to multiply them by
+
+vectors (again hoping "vector" and "result" stay in cache while the vectors
+
+that make up the matrix get swapped out).
+
+> I did the timing with the times(....) routine of gnu-C, I don`t know
+
+> how accurate that is.
+
+That's what I use too. :-)
+
+> So thank you very much for the inspiration !
+
+You're welcome.
+
+Zeen,
+
+-Adam      "...the firmament sheweth His handywork" (Ps 19:1)    ///
+
+............................................................__  ///|
+
+Adam "Cold Fusion" Powell IV Firmament Science & Engineering\\\///_|
+
+http://lyre.mit.edu/~powell/ Standing on the Solid State Rock\XX/  |MIGA
+
+From goto@statabo.rim.or.jp Thu Jan 21 21:41:35 1999 EST
+Message-ID: <19981221212339C.goto@statabo.rim.or.jp>
+Date: Mon, 21 Dec 1998 21:23:39 +0900
+From: Kazushige Goto <goto@statabo.rim.or.jp>
+Subject: how to optimize dgemm? No.5
+In-Reply-To: <19981220234322A.goto@statabo.rim.or.jp>
+
+This is a 5th part document of DGEMM.
+
+ 
+
+I explain only "alignment value(multiply for 8)".
+
+I'll attach complete source later.
+
+7.  Optimizing
+
+(a) replace matrix array(s_a, s_b, c) with pointer
+
+ << 118.9 MFlops >>
+
+  int i, ii, j, jj, l, ll;
+
+  int ls, is, js;
+
+  double temp;
+
+#define LDA Q
+
+#define LDB P
+
+  double s_a[P][LDA], s_b[R][LDB];
+
+  double *a_offset;
+
+  double *b_offset;
+
+  double *c_offset;
+
+  for (ls = 0; ls < k; ls += P){      /* Swapped */
+
+    for (js = 0; js < n; js += R){
+
+      for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++)   /* Copying & Moved */
+
+          s_b[jj][ll] = b[l + j * ldb];
+
+      }
+
+      for (is = 0; is < m; is += Q){
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {  /* Copying */
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) 
+
+            s_a[ll][ii] = a[i + l * lda];
+
+        }
+
+      
+
+        /* Now Start calculating ... */
+
+        for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+          c_offset = c + is + j*ldc;
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) {
+
+            temp = 0.;
+
+            a_offset = &s_a[0] [0] + ii;
+
+            b_offset = &s_b[jj][0];
+
+            for (l = MIN(k, ls+P) - ls; l > 0; l--) {
+
+              temp += *b_offset * *a_offset;
+
+              a_offset += LDA;
+
+              b_offset ++;
+
+            }
+
+            *c_offset += alpha * temp;
+
+            c_offset ++;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+(b) separate load, mutiply and add instruction
+
+<< 119.2 MFlops >>
+
+  int i, ii, j, jj, l, ll;
+
+  int ls, is, js;
+
+#define LDA Q
+
+#define LDB P
+
+  double s_a[P][LDA], s_b[R][LDB];
+
+  double *a_offset;
+
+  double *b_offset;
+
+  double *c_offset;
+
+  double atemp;      /* for data loading of A */
+
+  double btemp;      /* for data loading of B */
+
+  double ctemp;      /* for summing of dot product */
+
+  double temp;       /* temporary */
+
+  for (ls = 0; ls < k; ls += P){      /* Swapped */
+
+    for (js = 0; js < n; js += R){
+
+      for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++)   /* Copying & Moved */
+
+          s_b[jj][ll] = b[l + j * ldb];
+
+      }
+
+      for (is = 0; is < m; is += Q){
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {  /* Copying */
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) 
+
+            s_a[ll][ii] = a[i + l * lda];
+
+        }
+
+      
+
+        /* Now Start calculating ... */
+
+        for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+          c_offset = c + is + j*ldc;
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) {
+
+            ctemp = 0.;
+
+            a_offset = &s_a[0] [0] + ii;
+
+            b_offset = &s_b[jj][0];
+
+            for (l = MIN(k, ls+P) - ls; l > 0; l--) {  /* just modified */
+
+              atemp = *a_offset;    /* load */
+
+              btemp = *b_offset;    /* load */
+
+              temp  = atemp * btemp;/* multiply */
+
+              ctemp += temp;        /* add  */
+
+              a_offset += LDA;
+
+              b_offset ++;
+
+            }
+
+            *c_offset += alpha * ctemp;
+
+            c_offset ++;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+(c) unrolling for "i loop"
+
+<< 245.2 MFlops >>  <- much faster than before!!
+
+  int i, ii, j, jj, l, ll;
+
+  int ls, is, js;
+
+#define LDA Q
+
+#define LDB P
+
+  double s_a[P][LDA], s_b[R][LDB];
+
+  double *a_offset;
+
+  double *b_offset;
+
+  double *c_offset;
+
+  double atemp1, atemp2, atemp3, atemp4;    /* for data loading of A */
+
+  double btemp1;                            /* for data loading of B */
+
+  double ctemp1, ctemp2, ctemp3, ctemp4;    /* for summing of dot product */
+
+  double  temp1,  temp2,  temp3,  temp4;    /* temporary */
+
+  for (ls = 0; ls < k; ls += P){      /* Swapped */
+
+    for (js = 0; js < n; js += R){
+
+      for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++)   /* Copying & Moved */
+
+          s_b[jj][ll] = b[l + j * ldb];
+
+      }
+
+      for (is = 0; is < m; is += Q){
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {  /* Copying */
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) 
+
+            s_a[ll][ii] = a[i + l * lda];
+
+        }
+
+      
+
+        /* Now Start calculating ... */
+
+        for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+          c_offset = c + is + j*ldc;
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i += 4, ii += 4) {
+
+            a_offset = &s_a[0] [0] + ii;
+
+            b_offset = &s_b[jj][0];
+
+            ctemp1 = 0.;
+
+            ctemp2 = 0.;
+
+            ctemp3 = 0.;
+
+            ctemp4 = 0.;
+
+            for (l = MIN(k, ls+P) - ls; l > 0; l --) {
+
+              /* Data loading of A */
+
+              atemp1 = *(a_offset + 0);
+
+              atemp2 = *(a_offset + 1);
+
+              atemp3 = *(a_offset + 2);
+
+              atemp4 = *(a_offset + 3);
+
+              /* Data loading of B */
+
+              btemp1 = *b_offset;
+
+              /* calculation of temp1 to temp4 takes 4 clocks */
+
+              temp1  = atemp1 * btemp1;
+
+              temp2  = atemp2 * btemp1;
+
+              temp3  = atemp3 * btemp1;
+
+              temp4  = atemp4 * btemp1;
+
+              /* calculation of ctemp1 to ctemp4 takes 4 clocks */
+
+              /* total : 8 clocks exactly */
+
+              ctemp1 = ctemp1 + temp1;
+
+              ctemp2 = ctemp2 + temp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              ctemp4 = ctemp4 + temp4;
+
+              a_offset += LDA;
+
+              b_offset ++;
+
+            }
+
+            *(c_offset + 0) += alpha * ctemp1;
+
+            *(c_offset + 1) += alpha * ctemp2;
+
+            *(c_offset + 2) += alpha * ctemp3;
+
+            *(c_offset + 3) += alpha * ctemp4;
+
+            c_offset += 4;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+(d) unrolling for "j loop"
+
+ << 295.6 MFlops >>
+
+  int i, ii, j, jj, l, ll;
+
+  int ls, is, js;
+
+#define LDA Q
+
+#define LDB P
+
+  double s_a[P][LDA], s_b[R][LDB];
+
+  double *a_offset;
+
+  double *b_offset;
+
+  double *c_offset1, *c_offset2;
+
+  double atemp1, atemp2, atemp3, atemp4;    /* for data loading of A */
+
+  double btemp1, btemp2;                    /* for data loading of B */
+
+  double ctemp1, ctemp2, ctemp3, ctemp4;    /* for summing of dot product */
+
+  double ctemp5, ctemp6, ctemp7, ctemp8;    /* for summing of dot product */
+
+  double  temp1,  temp2,  temp3,  temp4;    /* temporary */
+
+  for (ls = 0; ls < k; ls += P){      /* Swapped */
+
+    for (js = 0; js < n; js += R){
+
+      for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++)   /* Copying & Moved */
+
+          s_b[jj][ll] = b[l + j * ldb];
+
+      }
+
+      for (is = 0; is < m; is += Q){
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {  /* Copying */
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) 
+
+            s_a[ll][ii] = a[i + l * lda];
+
+        }
+
+      
+
+        /* Now Start calculating ... */
+
+        for (j = js, jj=0; j < MIN(n, js+R); j+=2, jj+=2) {
+
+          c_offset1 = c + is +  j*ldc;
+
+          c_offset2 = c_offset1 + ldc;
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i += 4, ii += 4) {
+
+            a_offset = &s_a[0] [0] + ii;
+
+            b_offset = &s_b[jj][0];
+
+            ctemp1 = 0.; ctemp2 = 0.; ctemp3 = 0.; ctemp4 = 0.;
+
+            ctemp5 = 0.; ctemp6 = 0.; ctemp7 = 0.; ctemp8 = 0.;
+
+            for (l = MIN(k, ls+P) - ls; l > 0; l --) {
+
+              /* Data loading of A */
+
+              atemp1 = *(a_offset + 0);
+
+              atemp2 = *(a_offset + 1);
+
+              atemp3 = *(a_offset + 2);
+
+              atemp4 = *(a_offset + 3);
+
+              /* Data loading of B */
+
+              btemp1 = *(b_offset + 0);
+
+              btemp2 = *(b_offset + LDB); /* LDB is a constant value */
+
+              temp1  = atemp1 * btemp1;
+
+              temp2  = atemp2 * btemp1;
+
+              temp3  = atemp3 * btemp1;
+
+              temp4  = atemp4 * btemp1;
+
+              ctemp1 = ctemp1 + temp1;
+
+              ctemp2 = ctemp2 + temp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              ctemp4 = ctemp4 + temp4;
+
+              temp1  = atemp1 * btemp2;
+
+              temp2  = atemp2 * btemp2;
+
+              temp3  = atemp3 * btemp2;
+
+              temp4  = atemp4 * btemp2;
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+              a_offset += LDA;
+
+              b_offset ++;
+
+            }
+
+            *(c_offset1 + 0) += alpha * ctemp1;
+
+            *(c_offset1 + 1) += alpha * ctemp2;
+
+            *(c_offset1 + 2) += alpha * ctemp3;
+
+            *(c_offset1 + 3) += alpha * ctemp4;
+
+            *(c_offset2 + 0) += alpha * ctemp5;
+
+            *(c_offset2 + 1) += alpha * ctemp6;
+
+            *(c_offset2 + 2) += alpha * ctemp7;
+
+            *(c_offset2 + 3) += alpha * ctemp8;
+
+            c_offset1 += 4;
+
+            c_offset2 += 4;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+(e) swapping calculation
+
+The kernel calculation is
+
+       loop:
+
+              temp1  = atemp1 * btemp1;
+
+              temp2  = atemp2 * btemp1;
+
+              temp3  = atemp3 * btemp1;
+
+              temp4  = atemp4 * btemp1;
+
+              ctemp1 = ctemp1 + temp1;
+
+              ctemp2 = ctemp2 + temp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              ctemp4 = ctemp4 + temp4;
+
+              temp1  = atemp1 * btemp2;
+
+              temp2  = atemp2 * btemp2;
+
+              temp3  = atemp3 * btemp2;
+
+              temp4  = atemp4 * btemp2;
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+              goto loop
+
+If we optimize this calculation, it takes 12 clocks.
+
+       loop:
+
+              /* 4 clock(block A) */
+
+              temp1  = atemp1 * btemp1;
+
+              temp2  = atemp2 * btemp1;
+
+              temp3  = atemp3 * btemp1;
+
+              temp4  = atemp4 * btemp1;
+
+              /* 4 clock(block B) */
+
+              ctemp1 = ctemp1 + temp1;
+
+              temp1  = atemp1 * btemp2;
+
+              ctemp2 = ctemp2 + temp2;
+
+              temp2  = atemp2 * btemp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              temp3  = atemp3 * btemp2;
+
+              ctemp4 = ctemp4 + temp4;
+
+              temp4  = atemp4 * btemp2;
+
+              /* 4 clock(Block C) */
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+              goto loop
+
+So, we move "Block C" from bottom to top.
+
+              temp1 = 0.;
+
+              temp2 = 0.;
+
+              temp3 = 0.;
+
+              temp4 = 0.;
+
+       loop:
+
+              /* 4 clock(Block C) */
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+              /* 4 clock(block A) */
+
+              temp1  = atemp1 * btemp1;
+
+              temp2  = atemp2 * btemp1;
+
+              temp3  = atemp3 * btemp1;
+
+              temp4  = atemp4 * btemp1;
+
+              /* 4 clock(block B) */
+
+              ctemp1 = ctemp1 + temp1;
+
+              temp1  = atemp1 * btemp2;
+
+              ctemp2 = ctemp2 + temp2;
+
+              temp2  = atemp2 * btemp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              temp3  = atemp3 * btemp2;
+
+              ctemp4 = ctemp4 + temp4;
+
+              temp4  = atemp4 * btemp2;
+
+              goto loop
+
+              /* 4 clock(Block C) */
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+Then this routine should be optmized as follows, and it runs 8 clocks.
+
+              temp1 = 0.;
+
+              temp2 = 0.;
+
+              temp3 = 0.;
+
+              temp4 = 0.;
+
+       loop:
+
+              /* 4 clock(block A) */
+
+              ctemp5 = ctemp5 + temp1;
+
+              temp1  = atemp1 * btemp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              temp2  = atemp2 * btemp1;
+
+              ctemp7 = ctemp7 + temp3;
+
+              temp3  = atemp3 * btemp1;
+
+              ctemp8 = ctemp8 + temp4;
+
+              temp4  = atemp4 * btemp1;
+
+              /* 4 clock(block B) */
+
+              ctemp1 = ctemp1 + temp1;
+
+              temp1  = atemp1 * btemp2;
+
+              ctemp2 = ctemp2 + temp2;
+
+              temp2  = atemp2 * btemp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              temp3  = atemp3 * btemp2;
+
+              ctemp4 = ctemp4 + temp4;
+
+              temp4  = atemp4 * btemp2;
+
+              goto loop
+
+              /* 4 clock(Block C) */
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+<<323.2 MFlops >>
+
+  int i, ii, j, jj, l, ll;
+
+  int ls, is, js;
+
+#define LDA Q
+
+#define LDB P
+
+  double s_a[P][LDA], s_b[R][LDB];
+
+  double *a_offset;
+
+  double *b_offset;
+
+  double *c_offset1, *c_offset2;
+
+  double atemp1, atemp2, atemp3, atemp4;    /* for data loading of A */
+
+  double btemp1, btemp2;                    /* for data loading of B */
+
+  double ctemp1, ctemp2, ctemp3, ctemp4;    /* for summing of dot product */
+
+  double ctemp5, ctemp6, ctemp7, ctemp8;    /* for summing of dot product */
+
+  double  temp1,  temp2,  temp3,  temp4;    /* temporary */
+
+  for (ls = 0; ls < k; ls += P){      /* Swapped */
+
+    for (js = 0; js < n; js += R){
+
+      for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++)   /* Copying & Moved */
+
+          s_b[jj][ll] = b[l + j * ldb];
+
+      }
+
+      for (is = 0; is < m; is += Q){
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {  /* Copying */
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) 
+
+            s_a[ll][ii] = a[i + l * lda];
+
+        }
+
+      
+
+        /* Now Start calculating ... */
+
+        for (j = js, jj=0; j < MIN(n, js+R); j+=2, jj+=2) {
+
+          c_offset1 = c + is +  j*ldc;
+
+          c_offset2 = c_offset1 + ldc;
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i += 4, ii += 4) {
+
+            a_offset = &s_a[0] [0] + ii;
+
+            b_offset = &s_b[jj][0];
+
+            ctemp1 = 0.; ctemp2 = 0.; ctemp3 = 0.; ctemp4 = 0.;
+
+            ctemp5 = 0.; ctemp6 = 0.; ctemp7 = 0.; ctemp8 = 0.;
+
+            /* must be cleared */
+
+             temp1 = 0.;  temp2 = 0.;  temp3 = 0.;  temp4 = 0.; 
+
+            for (l = MIN(k, ls+P) - ls; l > 0; l --) {
+
+              /* Data loading of A */
+
+              atemp1 = *(a_offset + 0);
+
+              atemp2 = *(a_offset + 1);
+
+              atemp3 = *(a_offset + 2);
+
+              atemp4 = *(a_offset + 3);
+
+              /* Data loading of B */
+
+              btemp1 = *(b_offset + 0);
+
+              btemp2 = *(b_offset + LDB); /* LDB is a constant value */
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+              temp1  = atemp1 * btemp1;
+
+              temp2  = atemp2 * btemp1;
+
+              temp3  = atemp3 * btemp1;
+
+              temp4  = atemp4 * btemp1;
+
+              ctemp1 = ctemp1 + temp1;
+
+              ctemp2 = ctemp2 + temp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              ctemp4 = ctemp4 + temp4;
+
+              temp1  = atemp1 * btemp2;
+
+              temp2  = atemp2 * btemp2;
+
+              temp3  = atemp3 * btemp2;
+
+              temp4  = atemp4 * btemp2;
+
+              a_offset += LDA;
+
+              b_offset ++;
+
+            }
+
+            ctemp5 = ctemp5 + temp1;
+
+            ctemp6 = ctemp6 + temp2;
+
+            ctemp7 = ctemp7 + temp3;
+
+            ctemp8 = ctemp8 + temp4;
+
+            *(c_offset1 + 0) += alpha * ctemp1;
+
+            *(c_offset1 + 1) += alpha * ctemp2;
+
+            *(c_offset1 + 2) += alpha * ctemp3;
+
+            *(c_offset1 + 3) += alpha * ctemp4;
+
+            *(c_offset2 + 0) += alpha * ctemp5;
+
+            *(c_offset2 + 1) += alpha * ctemp6;
+
+            *(c_offset2 + 2) += alpha * ctemp7;
+
+            *(c_offset2 + 3) += alpha * ctemp8;
+
+            c_offset1 += 4;
+
+            c_offset2 += 4;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+(f) unrolling for "l loop"
+
+<< 336.2 MFlops >>
+
+  int i, ii, j, jj, l, ll;
+
+  int ls, is, js;
+
+#define LDA Q
+
+#define LDB P
+
+  double s_a[P][LDA], s_b[R][LDB];
+
+  double *a_offset;
+
+  double *b_offset;
+
+  double *c_offset1, *c_offset2;
+
+  double atemp1, atemp2, atemp3, atemp4;    /* for data loading of A */
+
+  double btemp1, btemp2;                    /* for data loading of B */
+
+  double ctemp1, ctemp2, ctemp3, ctemp4;    /* for summing of dot product */
+
+  double ctemp5, ctemp6, ctemp7, ctemp8;    /* for summing of dot product */
+
+  double  temp1,  temp2,  temp3,  temp4;    /* temporary */
+
+  for (ls = 0; ls < k; ls += P){      /* Swapped */
+
+    for (js = 0; js < n; js += R){
+
+      for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++)   /* Copying & Moved */
+
+          s_b[jj][ll] = b[l + j * ldb];
+
+      }
+
+      for (is = 0; is < m; is += Q){
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {  /* Copying */
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) 
+
+            s_a[ll][ii] = a[i + l * lda];
+
+        }
+
+      
+
+        /* Now Start calculating ... */
+
+        for (j = js, jj=0; j < MIN(n, js+R); j+=2, jj+=2) {
+
+          c_offset1 = c + is +  j*ldc;
+
+          c_offset2 = c_offset1 + ldc;
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i += 4, ii += 4) {
+
+            a_offset = &s_a[0] [0] + ii;
+
+            b_offset = &s_b[jj][0];
+
+            ctemp1 = 0.; ctemp2 = 0.; ctemp3 = 0.; ctemp4 = 0.;
+
+            ctemp5 = 0.; ctemp6 = 0.; ctemp7 = 0.; ctemp8 = 0.;
+
+            /* must be cleared */
+
+             temp1 = 0.;  temp2 = 0.;  temp3 = 0.;  temp4 = 0.; 
+
+            for (l = MIN(k, ls+P) - ls; l > 0; l -= 4) {
+
+              /* Data loading of A */
+
+              atemp1 = *(a_offset + 0);
+
+              atemp2 = *(a_offset + 1);
+
+              atemp3 = *(a_offset + 2);
+
+              atemp4 = *(a_offset + 3);
+
+              a_offset += LDA;
+
+              /* Data loading of B */
+
+              btemp1 = *(b_offset + 0);
+
+              btemp2 = *(b_offset + LDB); /* LDB is a constant value */
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+              temp1  = atemp1 * btemp1;
+
+              temp2  = atemp2 * btemp1;
+
+              temp3  = atemp3 * btemp1;
+
+              temp4  = atemp4 * btemp1;
+
+              ctemp1 = ctemp1 + temp1;
+
+              ctemp2 = ctemp2 + temp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              ctemp4 = ctemp4 + temp4;
+
+              temp1  = atemp1 * btemp2;
+
+              temp2  = atemp2 * btemp2;
+
+              temp3  = atemp3 * btemp2;
+
+              temp4  = atemp4 * btemp2;
+
+              /* Data loading of A */
+
+              atemp1 = *(a_offset + 0);
+
+              atemp2 = *(a_offset + 1);
+
+              atemp3 = *(a_offset + 2);
+
+              atemp4 = *(a_offset + 3);
+
+              a_offset += LDA;
+
+              /* Data loading of B */
+
+              btemp1 = *(b_offset + 1);
+
+              btemp2 = *(b_offset + 1 + LDB); /* LDB is a constant value */
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+              temp1  = atemp1 * btemp1;
+
+              temp2  = atemp2 * btemp1;
+
+              temp3  = atemp3 * btemp1;
+
+              temp4  = atemp4 * btemp1;
+
+              ctemp1 = ctemp1 + temp1;
+
+              ctemp2 = ctemp2 + temp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              ctemp4 = ctemp4 + temp4;
+
+              temp1  = atemp1 * btemp2;
+
+              temp2  = atemp2 * btemp2;
+
+              temp3  = atemp3 * btemp2;
+
+              temp4  = atemp4 * btemp2;
+
+              /* Data loading of A */
+
+              atemp1 = *(a_offset + 0);
+
+              atemp2 = *(a_offset + 1);
+
+              atemp3 = *(a_offset + 2);
+
+              atemp4 = *(a_offset + 3);
+
+              a_offset += LDA;
+
+              /* Data loading of B */
+
+              btemp1 = *(b_offset + 2);
+
+              btemp2 = *(b_offset + 2 + LDB); /* LDB is a constant value */
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+              temp1  = atemp1 * btemp1;
+
+              temp2  = atemp2 * btemp1;
+
+              temp3  = atemp3 * btemp1;
+
+              temp4  = atemp4 * btemp1;
+
+              ctemp1 = ctemp1 + temp1;
+
+              ctemp2 = ctemp2 + temp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              ctemp4 = ctemp4 + temp4;
+
+              temp1  = atemp1 * btemp2;
+
+              temp2  = atemp2 * btemp2;
+
+              temp3  = atemp3 * btemp2;
+
+              temp4  = atemp4 * btemp2;
+
+              /* Data loading of A */
+
+              atemp1 = *(a_offset + 0);
+
+              atemp2 = *(a_offset + 1);
+
+              atemp3 = *(a_offset + 2);
+
+              atemp4 = *(a_offset + 3);
+
+              a_offset += LDA;
+
+              /* Data loading of B */
+
+              btemp1 = *(b_offset + 3);
+
+              btemp2 = *(b_offset + 3 + LDB); /* LDB is a constant value */
+
+              b_offset += 4;
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+              temp1  = atemp1 * btemp1;
+
+              temp2  = atemp2 * btemp1;
+
+              temp3  = atemp3 * btemp1;
+
+              temp4  = atemp4 * btemp1;
+
+              ctemp1 = ctemp1 + temp1;
+
+              ctemp2 = ctemp2 + temp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              ctemp4 = ctemp4 + temp4;
+
+              temp1  = atemp1 * btemp2;
+
+              temp2  = atemp2 * btemp2;
+
+              temp3  = atemp3 * btemp2;
+
+              temp4  = atemp4 * btemp2;
+
+            }
+
+            ctemp5 = ctemp5 + temp1;
+
+            ctemp6 = ctemp6 + temp2;
+
+            ctemp7 = ctemp7 + temp3;
+
+            ctemp8 = ctemp8 + temp4;
+
+            *(c_offset1 + 0) += alpha * ctemp1;
+
+            *(c_offset1 + 1) += alpha * ctemp2;
+
+            *(c_offset1 + 2) += alpha * ctemp3;
+
+            *(c_offset1 + 3) += alpha * ctemp4;
+
+            *(c_offset2 + 0) += alpha * ctemp5;
+
+            *(c_offset2 + 1) += alpha * ctemp6;
+
+            *(c_offset2 + 2) += alpha * ctemp7;
+
+            *(c_offset2 + 3) += alpha * ctemp8;
+
+            c_offset1 += 4;
+
+            c_offset2 += 4;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+(g)  expanding register for loading(s_a and s_b, total 24 floating
+
+     point registers)
+
+<< 349.2 MFlops >>
+
+  int i, ii, j, jj, l, ll;
+
+  int ls, is, js;
+
+#define LDA Q
+
+#define LDB P
+
+  double s_a[P][LDA], s_b[R][LDB];
+
+  double *a_offset;
+
+  double *b_offset;
+
+  double *c_offset1, *c_offset2;
+
+  double atemp1, atemp2, atemp3, atemp4;    /* for data loading of A */
+
+  double atemp5, atemp6, atemp7, atemp8;    /* for data loading of A */
+
+  double btemp1, btemp2, btemp3, btemp4;    /* for data loading of B */
+
+  double ctemp1, ctemp2, ctemp3, ctemp4;    /* for summing of dot product */
+
+  double ctemp5, ctemp6, ctemp7, ctemp8;    /* for summing of dot product */
+
+  double  temp1,  temp2,  temp3,  temp4;    /* temporary */
+
+  for (ls = 0; ls < k; ls += P){      /* Swapped */
+
+    for (js = 0; js < n; js += R){
+
+      for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++)   /* Copying & Moved */
+
+          s_b[jj][ll] = b[l + j * ldb];
+
+      }
+
+      for (is = 0; is < m; is += Q){
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {  /* Copying */
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) 
+
+            s_a[ll][ii] = a[i + l * lda];
+
+        }
+
+      
+
+        /* Now Start calculating ... */
+
+        for (j = js, jj=0; j < MIN(n, js+R); j+=2, jj+=2) {
+
+          c_offset1 = c + is +  j*ldc;
+
+          c_offset2 = c_offset1 + ldc;
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i += 4, ii += 4) {
+
+            a_offset = &s_a[0] [0] + ii;
+
+            b_offset = &s_b[jj][0];
+
+            ctemp1 = 0.; ctemp2 = 0.; ctemp3 = 0.; ctemp4 = 0.;
+
+            ctemp5 = 0.; ctemp6 = 0.; ctemp7 = 0.; ctemp8 = 0.;
+
+            /* must be cleared */
+
+             temp1 = 0.;  temp2 = 0.;  temp3 = 0.;  temp4 = 0.; 
+
+            for (l = MIN(k, ls+P) - ls; l > 0; l -= 4) {
+
+              /* Data loading of A */
+
+              atemp1 = *(a_offset + 0);
+
+              atemp2 = *(a_offset + 1);
+
+              atemp3 = *(a_offset + 2);
+
+              atemp4 = *(a_offset + 3);
+
+              a_offset += LDA;
+
+              /* Data loading of B */
+
+              btemp1 = *(b_offset + 0);
+
+              btemp2 = *(b_offset + LDB); /* LDB is a constant value */
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+              temp1  = atemp1 * btemp1;
+
+              temp2  = atemp2 * btemp1;
+
+              temp3  = atemp3 * btemp1;
+
+              temp4  = atemp4 * btemp1;
+
+              ctemp1 = ctemp1 + temp1;
+
+              ctemp2 = ctemp2 + temp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              ctemp4 = ctemp4 + temp4;
+
+              temp1  = atemp1 * btemp2;
+
+              temp2  = atemp2 * btemp2;
+
+              temp3  = atemp3 * btemp2;
+
+              temp4  = atemp4 * btemp2;
+
+              /* Data loading of A */
+
+              atemp5 = *(a_offset + 0);
+
+              atemp6 = *(a_offset + 1);
+
+              atemp7 = *(a_offset + 2);
+
+              atemp8 = *(a_offset + 3);
+
+              a_offset += LDA;
+
+              /* Data loading of B */
+
+              btemp3 = *(b_offset + 1);
+
+              btemp4 = *(b_offset + 1 + LDB); /* LDB is a constant value */
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+              temp1  = atemp5 * btemp3;
+
+              temp2  = atemp6 * btemp3;
+
+              temp3  = atemp7 * btemp3;
+
+              temp4  = atemp8 * btemp3;
+
+              ctemp1 = ctemp1 + temp1;
+
+              ctemp2 = ctemp2 + temp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              ctemp4 = ctemp4 + temp4;
+
+              temp1  = atemp5 * btemp4;
+
+              temp2  = atemp6 * btemp4;
+
+              temp3  = atemp7 * btemp4;
+
+              temp4  = atemp8 * btemp4;
+
+              /* Data loading of A */
+
+              atemp1 = *(a_offset + 0);
+
+              atemp2 = *(a_offset + 1);
+
+              atemp3 = *(a_offset + 2);
+
+              atemp4 = *(a_offset + 3);
+
+              a_offset += LDA;
+
+              /* Data loading of B */
+
+              btemp1 = *(b_offset + 2);
+
+              btemp2 = *(b_offset + 2 + LDB); /* LDB is a constant value */
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+              temp1  = atemp1 * btemp1;
+
+              temp2  = atemp2 * btemp1;
+
+              temp3  = atemp3 * btemp1;
+
+              temp4  = atemp4 * btemp1;
+
+              ctemp1 = ctemp1 + temp1;
+
+              ctemp2 = ctemp2 + temp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              ctemp4 = ctemp4 + temp4;
+
+              temp1  = atemp1 * btemp2;
+
+              temp2  = atemp2 * btemp2;
+
+              temp3  = atemp3 * btemp2;
+
+              temp4  = atemp4 * btemp2;
+
+              /* Data loading of A */
+
+              atemp5 = *(a_offset + 0);
+
+              atemp6 = *(a_offset + 1);
+
+              atemp7 = *(a_offset + 2);
+
+              atemp8 = *(a_offset + 3);
+
+              a_offset += LDA;
+
+              /* Data loading of B */
+
+              btemp3 = *(b_offset + 3);
+
+              btemp4 = *(b_offset + 3 + LDB); /* LDB is a constant value */
+
+              b_offset += 4;
+
+              ctemp5 = ctemp5 + temp1;
+
+              ctemp6 = ctemp6 + temp2;
+
+              ctemp7 = ctemp7 + temp3;
+
+              ctemp8 = ctemp8 + temp4;
+
+              temp1  = atemp5 * btemp3;
+
+              temp2  = atemp6 * btemp3;
+
+              temp3  = atemp7 * btemp3;
+
+              temp4  = atemp8 * btemp3;
+
+              ctemp1 = ctemp1 + temp1;
+
+              ctemp2 = ctemp2 + temp2;
+
+              ctemp3 = ctemp3 + temp3;
+
+              ctemp4 = ctemp4 + temp4;
+
+              temp1  = atemp5 * btemp4;
+
+              temp2  = atemp6 * btemp4;
+
+              temp3  = atemp7 * btemp4;
+
+              temp4  = atemp8 * btemp4;
+
+            }
+
+            ctemp5 = ctemp5 + temp1;
+
+            ctemp6 = ctemp6 + temp2;
+
+            ctemp7 = ctemp7 + temp3;
+
+            ctemp8 = ctemp8 + temp4;
+
+            *(c_offset1 + 0) += alpha * ctemp1;
+
+            *(c_offset1 + 1) += alpha * ctemp2;
+
+            *(c_offset1 + 2) += alpha * ctemp3;
+
+            *(c_offset1 + 3) += alpha * ctemp4;
+
+            *(c_offset2 + 0) += alpha * ctemp5;
+
+            *(c_offset2 + 1) += alpha * ctemp6;
+
+            *(c_offset2 + 2) += alpha * ctemp7;
+
+            *(c_offset2 + 3) += alpha * ctemp8;
+
+            c_offset1 += 4;
+
+            c_offset2 += 4;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+Continue to No. 6
+
+Thanks,
+
+  goto@statabo.rim.or.jp
+
+void dgemm_nn(int m, int n, int k, double alpha, double *a,
+
+              int lda, double *b, int ldb,
+
+              double *c, int ldc){
+
+#define MIN(a,b)   ((a)>(b)? (b):(a))
+
+#define P 40
+
+#define Q 16
+
+#define R 32
+
+  int i, ii, j, jj, l, ll;
+
+  int ls, is, js;
+
+  double temp;
+
+  double s_a[P][Q], s_b[R][P];
+
+  for (ls = 0; ls < k; ls += P){      /* Swapped */
+
+    for (js = 0; js < n; js += R){
+
+      for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++)   /* Copying & Moved */
+
+          s_b[jj][ll] = b[l + j * ldb];
+
+      }
+
+      for (is = 0; is < m; is += Q){
+
+        for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {  /* Copying */
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) 
+
+            s_a[ll][ii] = a[i + l * lda];
+
+        }
+
+      
+
+        /* Now Start calculating ... */
+
+        for (j = js, jj=0; j < MIN(n, js+R); j++, jj++) {
+
+          for (i = is, ii=0; i < MIN(m, is+Q); i++, ii++) {
+
+            temp = 0.;
+
+            for (l = ls, ll=0; l < MIN(k, ls+P); l++, ll++) {
+
+              temp += s_b[jj][ll] * s_a[ll][ii];
+
+            }
+
+            c[i + j * ldc] += alpha * temp;
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+}
+
+From nshimizu@et.u-tokai.ac.jp Thu Jan 21 21:41:35 1999 EST
+Message-ID: <199812240707.QAA27104@et.u-tokai.ac.jp>
+Date: Thu, 24 Dec 1998 16:07:00 +0900 (JST)
+From: naohiko shimizu <nshimizu@et.u-tokai.ac.jp>
+Subject: Inline assembler sample code for gcc.
+
+My dgemm routine is now using inline assembler for the core loop.
+
+You can see the method in attached program.
+
+(Of course because I reject to use the inner sub-matrix copy method,
+
+the top performance is not comparable to the Goto's routine. The
+
+copy method only reduce the translation buffer misses, and I think
+
+the responsibility for the overhead is on the vendor. Many RISC
+
+processors only have thier target to SPECmark, and our real application
+
+will strongly sufferes from the shortage of the translation buffer entries.
+
+I would like to change the situation. With my experience TLB of 1024 entries
+
+is not difficult to built, though many riscs only have 64!)
+
+You can use my program as a tuning example for unrolling, software 
+
+pipelining, alternate way looping, inline assembler.
+
+And you can use the program as a benchmark for memory/FP performance.
+
+Well balanced machine will hit higher performance.
+
+Compile with -O2 -DMAIN to generate benchmark code with gcc.
+
+If you have 21264 machine, add -Dev6 option. Or if you only have 21064(A)
+
+machines like me, add -Dev4.
+
+Benchmark report with OS/compiler version is welcome.
+
+Naohiko Shimizu.
+
+==========================================================
+
+/*
+
+Fast DGEMM routine with Blocking and without the inner submatrix copy. 
+
+Smart OS should care of the shortage of TLB for programs like this.
+
+If your machine/OS does not exploit good performance with this program
+
+it may not be because of this program but because of the narrow bandwidth
+
+of memory or too little TLB or dummb OS.
+
+You can do benchmark of your system and/or OS with this program.
+
+Compile with -DMAIN will produce the benchmark binary.
+
+If you run on a specific machine/OS which is not described on my WEB,
+
+please report the result to me with the information of the compiler
+
+and operating system and their version.
+
+                                                Last updated date : 98.12.24
+
+Copyright 1998 by Naohiko Shimizu <nshimizu@et.u-tokai.ac.jp>
+
+All rights reserved.
+
+The blocking algorithm and strategy for the blocking factor is my
+
+original. If you want to use the same algorithm or to use the same
+
+strategy for the blocking factor, you must preserve the copyright 
+
+notice to the all programs and products which is derivable from this 
+
+program and/or description.
+
+Contact information:
+
+Dr. Naohiko Shimizu
+
+School of Engr. Tokai Univ.
+
+1117 Kitakaname Hiratsuka
+
+Kanagawa 259-1292 Japan
+
+email: nshimizu@et.u-tokai.ac.jp
+
+URL: http://shimizu-lab.et.u-tokai.ac.jp
+
+You can call this subroutine from C or FORTRAN.
+
+Only non-transposed routine is implemented.
+
+This program is not alpha specific. You can compile and run
+
+for many other architectures.
+
+Some benchmarking results with my and my university's machines
+
+are on the WEB:
+
+http://shimizu-lab.et.u-tokai.ac.jp/pgm/gemm/bench.html
+
+C:
+
+       void dgemms_nn(int m, int n, int k, 
+
+             double alpha, double *a, int lda, double *b, int ldb, 
+
+             double beta, double *c, int ldc);
+
+*CATION* C user should know that the matrices is assumed to be stored
+
+in the FORTRAN order(Row Major).
+
+FORTRAN:
+
+       call dgemms_nn(m,n,k,alpha,a,lda,b,ldb,beta,c,ldc)
+
+For benchmarking I placed main C routine. Use -DMAIN option to
+
+compile for benchmaking.
+
+Compile options:
+
+-DMAIN	: compile for benchmarking
+
+-Dev6	: compile for 21264
+
+-Dev4	: compile for 21064(A)
+
+-DRPCC	: use RPCC instruction to measure the time
+
+-DNOMULTDIR : do not use up-down loop on m,n
+
+-DNOINLINECORE : do not use inline assembler code for alpha
+
+-DKMNLOOP : use k->m->n major loop order(default is k->n->m)
+
+The core routine of DGEMM is matrices multiply. There are known
+
+way to use blocking algorithm for this problem. Usually they are
+
+intended only to the cache optimization. But for a large problem it is
+
+required to optimize the usage of translation buffer. Every matrix 
+
+element which is adjucent by one column will require an entry on the 
+
+translation buffer. Then buffer shortage will easily be occured on
+
+most RISC processors. This program is to demonstrate the blocking
+
+algorithm to reduce both the buffer miss and cache miss on a certain
+
+processor.
+
+Conventional method:
+
+Now we are going to solve a problem : C = aAB + bC.
+
+A=[A11 A12 A13 ... ; A21  A22 A23 ...; ... ; As1 As2 ...]
+
+B=[B11 B12 B13 ... ; B21  B22 B23 ...; ... ; Bt1 Bt2 ...]
+
+C=[C11 C12 C13 ... ; C21  C22 C23 ...; ... ; Cs1 Cs2 ...]
+
+Cij = bCij + a*sum(Ail*Blj for l=1 to t)
+
+More square the Aij will result in less memory load traffic. And
+
+usually above algorithm is just implemented to reduce store traffic.
+
+My method:
+
+In fortran, the row direction is continuous on memory. Then if we
+
+calculate Ail*Blj for i=1 to n, the translation miss will be reduced.
+
+Of course this requires more temporaly result on Cij which induce to
+
+occure more store traffic. For many implementation of RISC machines,
+
+the second or third cache is organized as store-in cache. Then once
+
+store is required it must first read a cache block from memoy. And the
+
+store traffic is almost as heavy as the double of the same amount load
+
+traffic. Since the store occurence of that computation completely 
+
+depends on the number of column of Ail, we can control the traffic.
+
+The traffic by Blj can be almost ignored, because once Blj is loaded
+
+into the cache, many of Ail*Blj can be executed with the cached data.
+
+But the load traffic of Ail will be another major traffic for this
+
+problem. And we should keep the portion of Ail in cache as large as
+
+possible. But if the store traffic and the load traffic will both be
+
+affordable for a specific machine, we have a chance to induce the 
+
+maximum performance.
+
+To fit in the translation buffer entry, the program should use
+
+blocking on Ail. The total number of the row times the sizeof double
+
+in a block should be fit in the pagesize of the processor. And the
+
+total number of the column of Ail, Blj, Cij should not be exceed the
+
+number of translation buffer entries.
+
+The number of column of the Ail is arbitrary. The more will decrease 
+
+the store traffic and increase the load traffic, the less will increase
+
+the store traffic but decrease the load traffic.  Then there is some
+
+optimal point for a specific machine. 
+
+The Ail will cause load traffic from the number of column of the Ail on
+
+every the number of column of Ail by the number of column of Blj
+
+submatrix multiplication. The Cij will cause store traffic on the
+
+every row of the Cij.
+
+The parameter depends on the processor and memory system
+
+configuration, and you can tune for your system.
+
+But if the number of the translation buffer is small and load/store
+
+throughput is also small, the result will be hopeless. You should
+
+think to replace your machine.
+
+If the Ail is aligned to the page size, it is easy to treat. But for
+
+general we cannot expect so. I assume that the translation buffer
+
+entries used by Ail will be doubled effectively. To be hold the
+
+all required page in the translation buffer.
+
+Of course this not ideal solution. You may want to align the A
+
+to the page boundary and set LDA to the factor of the pagesize.
+
+The algorithm will be following:
+
+do ii=1 to k, ail_clmn_size
+
+ do jj=1 to m, ail_maj_blk_size
+
+  do kk=1 to n, blj_clmn_size
+
+   do  ll=jj to jj+ail_maj_blk_size
+
+    ctmp_ll_kk += A_ll_ii*B_ii_kk
+
+   enddo
+
+  enddo
+
+ enddo
+
+enddo
+
+For AlphaPC164LX parameters:
+
+  DTB 64 entries
+
+  Page size 8KB
+
+  load throughput  almost 700MB/S
+
+  store throughput almost 400MB/S
+
+Then I think the following number is affordable.
+
+1. The number of column of Ail is 20
+
+2. The number of column of Blj,Cij is 12
+
+3. The blocking factor of the Ail row is 512 (just fit into the half page)
+
+You may have a good result for 21264 with the parameter of:
+
+1. The number of column of Ail is 40
+
+2. The number of column of Blj,Cij is 24
+
+3. The blocking factor of the Ail row is 512 (just fit into the half page)
+
+History:
+
+98.12.24: Inner most loop is now coded with inline assembler(only for alhpa)
+
+98.12.22: Introduce updown loop on the n.
+
+98.12.21: Change major loop order, introduce updown loop on the m.
+
+98.12.20: Change blocking default parameter, PA8K definitions added.
+
+98.12.18: Revised boundary condition of the unrollings again.
+
+Matrix B prefetch is designed not to hurt the load performance.
+
+98.12.17(2): Revised boundary condition of the unrollings.
+
+98.12.17: Revised not to use integer multiply for pointer traverse.
+
+Force to set Ail_max to the factor of 8 to reduce the followup loop.
+
+If you still need -DNOALGN may or may not help you.
+
+98.12.16: Revised the handling of alpha and beta parameters.
+
+98.12.15: Revised to do more execution in the inner loop.
+
+First version available :98.12.12
+
+ToDo:
+
+1: Implement sub-matrix copy algorithm for comparing aid.
+
+2: Processor/System specific Ail_max, Blj_max should be developped to
+
+extract best performance. 
+
+*/
+
+#ifdef DEBUG
+
+#include <stdio.h>
+
+#endif
+
+#ifdef NOMULDIR
+
+#define NOMULDIRMM
+
+#define NOMULDIRM
+
+#define NOMULDIRN
+
+#endif
+
+#if defined(__alpha__) || defined(__alpha)
+
+#if defined(ev4)
+
+#define PAGESIZE 8192
+
+#define CACHESIZE 16384
+
+#define L2CACHESIZE 524288
+
+#define TLBENTRY 32
+
+#elif defined(ev6)
+
+#define PREFETCHB
+
+#define PREFETCHC
+
+#define PAGESIZE 8192
+
+#define CACHESIZE 65536
+
+#define L2CACHESIZE 2097152
+
+#define TLBENTRY 128
+
+#else
+
+#define PREFETCHB
+
+#define PAGESIZE 8192
+
+#define CACHESIZE 98304
+
+#define L2CACHESIZE 2097152
+
+#define TLBENTRY 64
+
+#endif
+
+#elif defined(__hppa)
+
+#define PAGESIZE 4096
+
+#define CACHESIZE 1048576
+
+#define L2CACHESIZE 1048576
+
+#define TLBENTRY 96
+
+#define PREFETCHB
+
+#define PREFETCHC
+
+#elif defined(__i386__)
+
+#define PAGESIZE 4096
+
+#define CACHESIZE 8192
+
+#define L2CACHESIZE 262144
+
+#define TLBENTRY 64
+
+#else
+
+#define PAGESIZE 4096
+
+#define CACHESIZE 16384
+
+#define L2CACHESIZE 0
+
+#define TLBENTRY 32
+
+#endif
+
+#ifndef Ail_max
+
+#define Ail_max ((((TLBENTRY*3/8)>>2)<<2))
+
+#endif
+
+#ifndef Blj_max
+
+#define Blj_max ((((TLBENTRY*3/16)>>1))<<1)
+
+#endif
+
+#ifndef A_row_block
+
+#if (PAGESIZE/2 > CACHESIZE/(Ail_max/2))
+
+#define A_row_block (CACHESIZE/(sizeof(double)*(Ail_max/2)))
+
+#else
+
+#define A_row_block (PAGESIZE/(2*sizeof(double)))
+
+#endif
+
+#endif
+
+#if defined(__alpha__)
+
+#define prefetch(x) asm volatile("ldt $f31, %0" : :"m"(x))
+
+#elif defined(__hppa) && 0
+
+#define prefetch(x) _asm("fldd",x,"%fr0")
+
+#else
+
+#define prefetch(x) 
+
+#endif
+
+void dgemm_x_nn(int m, int n, int k,
+
+ double alpha, double *a, int lda, double *b, int ldb, 
+
+ double beta, double *c, int ldc, int submatcpy, double *submat)
+
+{
+
+int A_block;
+
+int i1,i3,i2,i4,i5,i6,i4end;
+
+int ndir, mdir, mmdir, i1step, i3step, i2step;
+
+double *pa0,*pa1,*pa2,*pa3,*pa4;
+
+double *pb0i,*pb0,*pb1,*pb2;
+
+double *pc0,*pc1,*pc2;
+
+double a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12;
+
+double b1,b2,b3,b4,b5,b6,b7,b8;
+
+double c1,c2,c3,c4,c5,c6;
+
+double t1,t2,t3,t4;
+
+#ifndef SIMPLEABLOCK
+
+A_block = (m>A_row_block)?
+
+          (m/(int)((float)m/(float)A_row_block + 0.9)):
+
+          m;
+
+#else
+
+A_block=(m>A_row_block)?A_row_block:m;
+
+#endif
+
+A_block = (A_block > 2)? A_block: 2;
+
+#if defined(DEBUG)
+
+printf("m: %d : A_block: %d:\n",m,A_block);
+
+#endif
+
+ndir = 0;
+
+mdir=0;
+
+i1=0;
+
+i1step = Ail_max;
+
+do {
+
+#ifdef DEBUG
+
+printf("i1step(k): %d :\n",i1step);
+
+printf("i1(k) loop: %d to %d by %d:\n",i1,k-i1step,i1step);
+
+#endif
+
+for(i1=i1; i1<=k-i1step ; i1+=i1step) { /*k*/
+
+ mmdir = mdir;
+
+ pa0 = a+i1*lda;
+
+#ifdef KMNLOOP
+
+   i3=(mdir)?m:0;
+
+   i3step = A_block;
+
+  do {
+
+#ifdef DEBUG
+
+printf("i3step(m): %d :\n",i3step);
+
+printf("i3(m) loop: %d to %d by %d:\n",i3,
+
+(mdir)?(i3>=i3step):(i3<=m-i3step),(mdir)?-i3step:i3step);
+
+#endif
+
+  for(i3=i3; (mdir)?(i3>=i3step):(i3<=m-i3step); i3+=(mdir)?-i3step:i3step) { /*m*/
+
+#endif
+
+ i2step = Blj_max;
+
+ i2=(ndir)?n:0;
+
+ do {
+
+#ifdef DEBUG
+
+printf("i2step(n): %d :\n",i2step);
+
+printf("i2(n) loop: %d to %d by %d:\n",i2,
+
+(ndir)?(i2>=i2step):(i2<=n-i2step),(ndir)?-i2step:i2step);
+
+#endif
+
+for(i2=i2; (ndir)?(i2>=i2step):(i2<=n-i2step); i2+=(ndir)?-i2step:i2step) { /*n*/
+
+   pc0=c+((ndir)?(i2-i2step):i2)*ldc;
+
+   pb0=b+((ndir)?(i2-i2step):i2)*ldb;
+
+#ifndef KMNLOOP
+
+   i3=(mdir)?m:0;
+
+   i3step = A_block;
+
+  do {
+
+#ifdef DEBUG
+
+printf("i3step(m): %d :\n",i3step);
+
+printf("i3(m) loop: %d to %d by %d:\n",i3,
+
+(mdir)?(i3>=i3step):(i3<=m-i3step),(mdir)?-i3step:i3step);
+
+#endif
+
+  for(i3=i3; (mdir)?(i3>=i3step):(i3<=m-i3step); i3+=(mdir)?-i3step:i3step) { /*m*/
+
+#endif
+
+#ifdef DEBUG
+
+printf("i4(m) loop: %d to %d by %d:\n",
+
+   (mmdir)?((mdir)?i3-3:i3+i3step-3):((mdir)?i3-i3step:i3),
+
+       ((mmdir)?((mdir)?i3-i3step:i3):((mdir)?i3-3:i3+i3step-3)),
+
+       (mmdir)?-3:3);
+
+#endif
+
+   i4end=(mmdir)?((mdir)?i3-i3step:i3):((mdir)?i3-3:i3+i3step-3);
+
+   for(i4= (mmdir)?((mdir)?i3-3:i3+i3step-3):(mdir)?i3-i3step:i3;
+
+       ((mmdir)?(i4>=i4end):(i4<=i4end)) && i1step>=4; 
+
+       i4+=(mmdir)?-3:3) { /* m */
+
+    pb0i = pb0;
+
+    pc1 = pc0+i4;
+
+    pc2 = pc1+ldc;
+
+#ifdef DEBUG
+
+printf("i6(n) loop: %d to %d by %d:\n",i2-i2step*ndir,i2+(1-ndir)*i2step-2,2);
+
+#endif
+
+    for(i6=(ndir)?i2-i2step:i2; i6<=((ndir)?i2-2:i2+i2step-2); i6+=2) { /* n */
+
+ /*    for(i6=i2; i6<=i2+i2step-2; i6+=2) { n */
+
+     pa1 = pa0+i4;
+
+     pa2 = pa1 + lda;
+
+     pa3 = pa2 + lda;
+
+     pa4 = pa3 + lda;
+
+     pb1 = pb0i+i1;
+
+     pb2 = pb1 + ldb;
+
+#ifdef PREFETCHC
+
+     prefetch(*pc1);
+
+     prefetch(*pc2);
+
+#endif
+
+     a1 = *(pa1);
+
+     a2 = *(pa2);
+
+     a3 = *(pa3);
+
+     a4 = *(pa4);
+
+     a5 = *(pa1+ 1);
+
+     a6 = *(pa2+ 1);
+
+     a7 = *(pa3+ 1);
+
+     a8 = *(pa4+ 1); 
+
+     a9 = *(pa1+ 2);
+
+     a10 = *(pa2+ 2);
+
+     a11 = *(pa3+ 2);
+
+     a12 = *(pa4+ 2); 
+
+     b1 = *pb1;
+
+     b2 = *(pb1 + 1);
+
+     b3 = *(pb1 + 2);
+
+     b4 = *(pb1 + 3);
+
+     b5 = *pb2;
+
+     b6 = *(pb2 + 1);
+
+     b7 = *(pb2 + 2);
+
+     b8 = *(pb2 + 3);
+
+     c1 =  0.0;
+
+     c2 =  0.0;
+
+     c5 =  0.0;
+
+     c3 =  0.0;
+
+     c4 =  0.0;
+
+     c6 =  0.0;
+
+#ifdef DEBUG
+
+printf("i5(k) loop: %d to %d by %d:\n",i1,i1+i1step,4);
+
+#endif
+
+     for(i5=i1; i5<i1+i1step-4; i5+=4) { /* k */
+
+#if defined(__alpha__) && !defined(NOINLINECORE) 
+
+#ifdef DEBUG
+
+printf("a1 %e a2 %e a3 %e a4 %e\n", a1,a2,a3,a4);
+
+printf("a5 %e a6 %e a7 %e a8 %e\n", a5,a6,a7,a8);
+
+printf("a9 %e a10 %e a11 %e a12 %e\n", a9,a10,a11,a12);
+
+printf("b1 %e b2 %e b3 %e b4 %e\n", b1,b2,b3,b4);
+
+printf("b5 %e b6 %e b7 %e b8 %e\n", b5,b6,b7,b8);
+
+#endif
+
+asm volatile(" s8addq %1,%2,%0":"r="(pa1):"r"(lda),"r"(pa4));
+
+asm volatile(" mult %1,%2,%0":"f="(t1):"f"(a1),"f"(b1));
+
+asm volatile(" s8addq %1,%2,%0":"r="(pa2):"r"(lda),"r"(pa1));
+
+asm volatile(" mult %1,%2,%0":"f="(t2):"f"(a5),"f"(b1));
+
+asm volatile(" addq %2,%1,%0":"r="(pb1):"i"(32),"r"(pb1));
+
+asm volatile(" addq %2,%1,%0":"r="(pb2):"i"(32),"r"(pb2));
+
+asm volatile(" mult %1,%2,%0":"f="(t3):"f"(a9),"f"(b1));
+
+asm volatile(" ldt %0,%1":"f="(b1):"m"(*pb1));
+
+asm volatile(" mult %1,%2,%0":"f="(t4):"f"(a1),"f"(b5));
+
+asm volatile(" ldt %0,%1":"f="(a1):"m"(*pa1));
+
+asm volatile(" addt %1,%2,%0":"f="(c1):"f"(t1),"f"(c1));
+
+asm volatile(" s8addq %1,%2,%0":"r="(pa3):"r"(lda),"r"(pa2));
+
+asm volatile(" mult %1,%2,%0":"f="(t1):"f"(a5),"f"(b5));
+
+asm volatile(" ldt %0,%1":"f="(a5):"m"(*(pa1+1)));
+
+asm volatile(" addt %1,%2,%0":"f="(c2):"f"(t2),"f"(c2));
+
+asm volatile(" s8addq %1,%2,%0":"r="(pa4):"r"(lda),"r"(pa3));
+
+asm volatile(" mult %1,%2,%0":"f="(t2):"f"(a9),"f"(b5));
+
+asm volatile(" ldt %0,%1":"f="(a9):"m"(*(pa1+2)));
+
+asm volatile(" addt %1,%2,%0":"f="(c3):"f"(t3),"f"(c3));
+
+asm volatile(" ldt %0,%1":"f="(b5):"m"(*(pb2+0)));
+
+asm volatile(" mult %1,%2,%0":"f="(t3):"f"(a2),"f"(b2));
+
+asm volatile(" addt %1,%2,%0":"f="(c4):"f"(t4),"f"(c4));
+
+asm volatile(" mult %1,%2,%0":"f="(t4):"f"(a6),"f"(b2));
+
+asm volatile(" addt %1,%2,%0":"f="(c5):"f"(t1),"f"(c5));
+
+asm volatile(" mult %1,%2,%0":"f="(t1):"f"(a10),"f"(b2));
+
+asm volatile(" ldt %0,%1":"f="(b2):"m"(*(pb1+1)));
+
+asm volatile(" addt %1,%2,%0":"f="(c6):"f"(t2),"f"(c6));
+
+asm volatile(" mult %1,%2,%0":"f="(t2):"f"(a2),"f"(b6));
+
+asm volatile(" ldt %0,%1":"f="(a2):"m"(*(pa2+0)));
+
+asm volatile(" addt %1,%2,%0":"f="(c1):"f"(t3),"f"(c1));
+
+asm volatile(" mult %1,%2,%0":"f="(t3):"f"(a6),"f"(b6));
+
+asm volatile(" ldt %0,%1":"f="(a6):"m"(*(pa2+1)));
+
+asm volatile(" addt %1,%2,%0":"f="(c2):"f"(t4),"f"(c2));
+
+asm volatile(" mult %1,%2,%0":"f="(t4):"f"(a10),"f"(b6));
+
+asm volatile(" ldt %0,%1":"f="(a10):"m"(*(pa2+2)));
+
+asm volatile(" addt %1,%2,%0":"f="(c3):"f"(t1),"f"(c3));
+
+asm volatile(" ldt %0,%1":"f="(b6):"m"(*(pb2+1)));
+
+asm volatile(" mult %1,%2,%0":"f="(t1):"f"(a3),"f"(b3));
+
+asm volatile(" addt %1,%2,%0":"f="(c4):"f"(t2),"f"(c4));
+
+asm volatile(" mult %1,%2,%0":"f="(t2):"f"(a7),"f"(b3));
+
+asm volatile(" addt %1,%2,%0":"f="(c5):"f"(t3),"f"(c5));
+
+asm volatile(" mult %1,%2,%0":"f="(t3):"f"(a11),"f"(b3));
+
+asm volatile(" ldt %0,%1":"f="(b3):"m"(*(pb1+2)));
+
+asm volatile(" addt %1,%2,%0":"f="(c6):"f"(t4),"f"(c6));
+
+asm volatile(" mult %1,%2,%0":"f="(t4):"f"(a3),"f"(b7));
+
+asm volatile(" ldt %0,%1":"f="(a3):"m"(*(pa3+0)));
+
+asm volatile(" addt %1,%2,%0":"f="(c1):"f"(t1),"f"(c1));
+
+asm volatile(" mult %1,%2,%0":"f="(t1):"f"(a7),"f"(b7));
+
+asm volatile(" ldt %0,%1":"f="(a7):"m"(*(pa3+1)));
+
+asm volatile(" addt %1,%2,%0":"f="(c2):"f"(t2),"f"(c2));
+
+asm volatile(" mult %1,%2,%0":"f="(t2):"f"(a11),"f"(b7));
+
+asm volatile(" ldt %0,%1":"f="(b7):"m"(*(pb2+2)));
+
+asm volatile(" addt %1,%2,%0":"f="(c3):"f"(t3),"f"(c3));
+
+asm volatile(" ldt %0,%1":"f="(a11):"m"(*(pa3+2)));
+
+asm volatile(" mult %1,%2,%0":"f="(t3):"f"(a4),"f"(b4));
+
+asm volatile(" addt %1,%2,%0":"f="(c4):"f"(t4),"f"(c4));
+
+asm volatile(" mult %1,%2,%0":"f="(t4):"f"(a8),"f"(b4));
+
+asm volatile(" addt %1,%2,%0":"f="(c5):"f"(t1),"f"(c5));
+
+asm volatile(" mult %1,%2,%0":"f="(t1):"f"(a12),"f"(b4));
+
+asm volatile(" addt %1,%2,%0":"f="(c6):"f"(t2),"f"(c6));
+
+asm volatile(" ldt %0,%1":"f="(b4):"m"(*(pb1+3)));
+
+asm volatile(" mult %1,%2,%0":"f="(t2):"f"(a4),"f"(b8));
+
+asm volatile(" ldt %0,%1":"f="(a4):"m"(*(pa4+0)));
+
+asm volatile(" addt %1,%2,%0":"f="(c1):"f"(t3),"f"(c1));
+
+asm volatile(" mult %1,%2,%0":"f="(t3):"f"(a8),"f"(b8));
+
+asm volatile(" ldt %0,%1":"f="(a8):"m"(*(pa4+1)));
+
+asm volatile(" addt %1,%2,%0":"f="(c2):"f"(t4),"f"(c2));
+
+asm volatile(" mult %1,%2,%0":"f="(t4):"f"(a12),"f"(b8));
+
+asm volatile(" ldt %0,%1":"f="(a12):"m"(*(pa4+2)));
+
+/*
+
+asm volatile(" addt %1,%2,%0":"f="(c3):"f"(t1),"f"(c3));
+
+asm volatile(" addt %1,%2,%0":"f="(c4):"f"(t2),"f"(c4));
+
+asm volatile(" addt %1,%2,%0":"f="(c5):"f"(t3),"f"(c5));
+
+asm volatile(" addt %1,%2,%0":"f="(c6):"f"(t4),"f"(c6));
+
+*/
+
+  c3 = t1 + c3;
+
+asm volatile(" ldt %0,%1":"f="(b8):"m"(*(pb2+3)));
+
+  c4 = t2 + c4;
+
+  c5 = t3 + c5;
+
+  c6 = t4 + c6;
+
+#ifdef DEBUG
+
+printf("c1=%e,c2=%e,c3=%e,c4=%e,c5=%e,c6=%e\n", c1,c2,c3,c4,c5,c6);
+
+#endif
+
+#else
+
+      c1 = c1 + (a1*b1+a2*b2+a3*b3+a4*b4);
+
+      c2 = c2 + (a5*b1+a6*b2+a7*b3+a8*b4);
+
+      c3 = c3 + (a9*b1+a10*b2+a11*b3+a12*b4);
+
+      c4 = c4 + (a1*b5+a2*b6+a3*b7+a4*b8);
+
+      c5 = c5 + (a5*b5+a6*b6+a7*b7+a8*b8);
+
+      c6 = c6 + (a9*b5+a10*b6+a11*b7+a12*b8);
+
+#ifdef DEBUG
+
+printf("a1 %e a2 %e a3 %e a4 %e\n", a1,a2,a3,a4);
+
+printf("a5 %e a6 %e a7 %e a8 %e\n", a5,a6,a7,a8);
+
+printf("a9 %e a10 %e a11 %e a12 %e\n", a9,a10,a11,a12);
+
+printf("b1 %e b2 %e b3 %e b4 %e\n", b1,b2,b3,b4);
+
+printf("b5 %e b6 %e b7 %e b8 %e\n", b5,b6,b7,b8);
+
+#endif
+
+      pa1 = pa4 + lda;
+
+      pa2 = pa1 + lda;
+
+      pa3 = pa2 + lda;
+
+      pa4 = pa3 + lda;
+
+      pb1 += 4;
+
+      pb2 += 4;
+
+      b1 = *pb1;
+
+      b2 = *(pb1 + 1);
+
+      b3 = *(pb1 + 2);
+
+      b4 = *(pb1 + 3);
+
+      b5 = *pb2;
+
+      b6 = *(pb2 + 1);
+
+      b7 = *(pb2 + 2);
+
+      b8 = *(pb2 + 3);
+
+      a1 = *(pa1);
+
+      a5 = *(pa1+ 1);
+
+      a9 = *(pa1+ 2);
+
+      a2 = *(pa2);
+
+      a6 = *(pa2+ 1);
+
+      a10 = *(pa2+ 2);
+
+      a3 = *(pa3);
+
+      a7 = *(pa3+ 1);
+
+      a11 = *(pa3+ 2);
+
+      a4 = *(pa4);
+
+      a8 = *(pa4+ 1); 
+
+      a12 = *(pa4+ 2); 
+
+#endif
+
+      } /*k*/
+
+#ifdef PREFETCHB
+
+      prefetch(*(pb2+ldb));
+
+      prefetch(*(pb2+2*ldb));
+
+#endif
+
+      c1 = c1 + (a1*b1+a2*b2+a3*b3+a4*b4);
+
+      c2 = c2 + (a5*b1+a6*b2+a7*b3+a8*b4);
+
+      c3 = c3 + (a9*b1+a10*b2+a11*b3+a12*b4);
+
+      c4 = c4 + (a1*b5+a2*b6+a3*b7+a4*b8);
+
+      c5 = c5 + (a5*b5+a6*b6+a7*b7+a8*b8);
+
+      c6 = c6 + (a9*b5+a10*b6+a11*b7+a12*b8);
+
+#ifdef DEBUG
+
+printf("a1 %e a2 %e a3 %e a4 %e\n", a1,a2,a3,a4);
+
+printf("a5 %e a6 %e a7 %e a8 %e\n", a5,a6,a7,a8);
+
+printf("a9 %e a10 %e a11 %e a12 %e\n", a9,a10,a11,a12);
+
+printf("b1 %e b2 %e b3 %e b4 %e\n", b1,b2,b3,b4);
+
+printf("b5 %e b6 %e b7 %e b8 %e\n", b5,b6,b7,b8);
+
+#endif
+
+     c1 = ((i1 == 0)? beta*(*(pc1+0)) : (*(pc1+0)))+c1*alpha;
+
+     c2 = ((i1 == 0)? beta*(*(pc1+1)) : (*(pc1+1)))+c2*alpha;
+
+     c3 = ((i1 == 0)? beta*(*(pc1+2)) : (*(pc1+2)))+c3*alpha;
+
+     c4 = ((i1 == 0)? beta*(*(pc2+0)) : (*(pc2+0)))+c4*alpha;
+
+     c5 = ((i1 == 0)? beta*(*(pc2+1)) : (*(pc2+1)))+c5*alpha;
+
+     c6 = ((i1 == 0)? beta*(*(pc2+2)) : (*(pc2+2)))+c6*alpha;
+
+#ifdef DEBUG
+
+printf("c1=%e,c2=%e,c3=%e,c4=%e,c5=%e,c6=%e\n", c1,c2,c3,c4,c5,c6);
+
+#endif
+
+     *pc1     = c1;
+
+     *(pc1+1) = c2;
+
+     *(pc1+2) = c3;
+
+     *pc2     = c4;
+
+     *(pc2+1) = c5;
+
+     *(pc2+2) = c6;
+
+     pc1 += 2*ldc;
+
+     pc2 += 2*ldc;
+
+     pb0i += 2*ldb;
+
+     }/*n*/
+
+#ifdef DEBUG
+
+printf("i6(n) loop: %d to %d by %d:\n",i6,i2+(1-ndir)*i2step,1);
+
+#endif
+
+    for(i6=i6; i6<((ndir)?i2:i2+i2step); i6+=1) { /* n */
+
+/*     for(i6=i6; i6<i2+i2step; i6++) { n */
+
+#ifdef PREFETCHC
+
+     prefetch(*pc1);
+
+#endif
+
+     pa1 = pa0+i4;
+
+     pb1 = pb0i+i1;
+
+     c1 = 0.0;
+
+     c2 = 0.0;
+
+     c3 = 0.0;
+
+#ifdef DEBUG
+
+printf("i5(k) loop: %d to %d by %d:\n",i1,i1+i1step,1);
+
+#endif
+
+     for(i5=i1; i5<i1+i1step; i5++) { /* k */
+
+      a1 = (*pa1);
+
+      a2 = *(pa1+1);
+
+      a3 = *(pa1+2);
+
+      b1 = (*pb1);
+
+#ifdef DEBUG
+
+printf("i1:%d:i3:%d:i2:%d:i4:%d:i5:%d:i6:%d\n",i1,i3,i2,i4,i5,i6);
+
+printf("a1 %e b1 %e c1 %e\n", a1,b1,c1);
+
+printf("a2 %e b1 %e c2 %e\n", a2,b1,c2);
+
+#endif
+
+      c1 = c1 + a1*b1;
+
+      c2 = c2 + a2*b1;
+
+      c3 = c3 + a3*b1;
+
+      pa1 += lda;
+
+      pb1 ++;
+
+      }
+
+#ifdef PREFETCHB
+
+     prefetch(*(pb1+ldb));
+
+#endif
+
+     c1 = ((i1 == 0)? beta*(*(pc1+0)) : (*(pc1+0)))+c1*alpha;
+
+     c2 = ((i1 == 0)? beta*(*(pc1+1)) : (*(pc1+1)))+c2*alpha;
+
+     c3 = ((i1 == 0)? beta*(*(pc1+2)) : (*(pc1+2)))+c3*alpha;
+
+#ifdef DEBUG
+
+printf("c1= %e, c2= %e, c3 = %e\n", c1,c2,c3);
+
+#endif
+
+     *pc1 = c1;
+
+     *(pc1+1) = c2;
+
+     *(pc1+2) = c3;
+
+     pc1 += ldc;
+
+     pb0i += ldb;
+
+     }
+
+    }
+
+#ifdef DEBUG
+
+printf("i4 loop: %d to %d by %d:\n",
+
+   (mmdir)?((mdir)?i3-i3step:i3):i4,
+
+   (mmdir)?i4+3:(mdir)?i3:(i3+i3step), 
+
+   1);
+
+#endif
+
+   i4end = (mmdir)?i4+3:(mdir)?i3:i3+i3step; 
+
+   for(i4=(mmdir)?((mdir)?(i3-i3step):i3):i4; 
+
+       i4<i4end;
+
+       i4+=1) { /* m */
+
+    pc1 = pc0+i4;
+
+#ifdef DEBUG
+
+printf("i6(n) loop: %d to %d by %d:\n",i2-i2step*ndir,i2+(1-ndir)*i2step,1);
+
+#endif
+
+    pb0i=pb0;
+
+    for(i6=(ndir)?i2-i2step:i2; i6<((ndir)?i2:i2+i2step); i6+=1) { /* n */
+
+/*     for(i6=i2; i6<i2+i2step; i6+=1) { n */
+
+     pa1 = pa0+i4;
+
+     pb1 = pb0i+i1;
+
+     c1 = 0.0;
+
+#ifdef DEBUG
+
+printf("i5(k) loop: %d to %d by %d:\n",i1,i1+i1step-4,4);
+
+#endif
+
+     for(i5=i1; i5<=i1+i1step-4; i5+=4) { /* k */
+
+      a1 = *pa1;
+
+      b1 = *pb1;
+
+      a2 = *(pa1+lda);
+
+      b2 = *(pb1+1);
+
+      a3 = *(pa1+2*lda);
+
+      b3 = *(pb1+2);
+
+      a4 = *(pa1+2*lda+lda);
+
+      b4 = *(pb1+3);
+
+#ifdef DEBUG
+
+printf("i1:%d:i3:%d:i2:%d:i4:%d:i5:%d:i6:%d\n",i1,i3,i2,i4,i5,i6);
+
+printf("a1 %e b1 %e c1 %e\n", a1,b1,c1);
+
+#endif
+
+      c1 = c1 + a1*b1+a2*b2+a3*b3+a4*b4;
+
+      pa1 += 4*lda;
+
+      pb1 += 4;
+
+      } /* i5 */
+
+#ifdef DEBUG
+
+printf("i5(k) loop: %d to %d by %d:\n",i1,i1+i1step,1);
+
+#endif
+
+     for(i5=i5; i5<i1+i1step; i5+=1) { /* k */
+
+      a1 = *pa1;
+
+      b1 = *pb1;
+
+#ifdef DEBUG
+
+printf("i1:%d:i3:%d:i2:%d:i4:%d:i5:%d:i6:%d\n",i1,i3,i2,i4,i5,i6);
+
+printf("a1 %e b1 %e c1 %e\n", a1,b1,c1);
+
+#endif
+
+      c1 = c1 + a1*b1;
+
+      pa1 += lda;
+
+      pb1++;
+
+      } /* i5 */
+
+     c1 = ((i1 == 0)? beta*(*(pc1+0)) : (*(pc1+0)))+c1*alpha;
+
+     *pc1 = c1;
+
+#ifdef DEBUG
+
+printf("c1= %e\n", c1);
+
+#endif
+
+     pc1 += ldc;
+
+     pb0i += ldb;
+
+    } /* i6 */
+
+   } /* i4 */
+
+#ifdef KMNLOOP
+
+#ifndef NOMULTDIRMM
+
+  mmdir = 1-mmdir;
+
+#endif
+
+ } /* i2 */
+
+ i2step = ((ndir)?(i2>=2 && i2step>2):(n-i2)>=2 && i2step>2)?  (ndir)?((i2>>1)<<1):(((n-i2)>>1)<<1): 1;
+
+ } while ((ndir)?(i2 > 0):(i2<n));
+
+#ifndef NOMULTDIRN
+
+  ndir = 1-ndir;
+
+#endif
+
+#endif
+
+  } /* i3 */
+
+  i3step = ((mdir)?(i3>=3 && i3step>3):(m-i3)>=3 && i3step>3)?  (mdir)?(i3):(m-i3): 1;
+
+  } while ((mdir)?(i3 > 0):(i3<m));
+
+#ifdef KMNLOOP
+
+#ifndef NOMULTDIRM
+
+  mdir = 1-mdir;
+
+#endif
+
+#else
+
+ } /* i2 */
+
+ i2step = ((ndir)?(i2>=2 && i2step>2):(n-i2)>=2 && i2step>2)?  (ndir)?((i2>>1)<<1):(((n-i2)>>1)<<1): 1;
+
+ } while ((ndir)?(i2 > 0):(i2<n));
+
+#ifndef NOMULTDIRM
+
+  mdir = 1-mdir;
+
+#endif
+
+#ifndef NOMULTDIRMM
+
+  mmdir = 1-mmdir;
+
+#endif
+
+#ifndef NOMULTDIRN
+
+  ndir = 1-ndir;
+
+#endif
+
+#endif
+
+} /* i1 */
+
+i1step = ((k-i1)>=4 && i1step>4)?  (((k-i1)>>2)<<2): 1;
+
+} while (i1 < k);
+
+}
+
+void dgemmc_nn(int m, int n, int k,
+
+ double alpha, double *a, int lda, double *b, int ldb, 
+
+ double beta, double *c, int ldc)
+
+{
+
+double sub[Ail_max*A_row_block];
+
+dgemm_x_nn(m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, 1, sub);
+
+}
+
+void dgemms_nn(int m, int n, int k,
+
+ double alpha, double *a, int lda, double *b, int ldb, 
+
+ double beta, double *c, int ldc)
+
+{
+
+dgemm_x_nn(m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, 0, (void *)0);
+
+}
+
+void dgemms_nn_(int *m, int *n, int *k,
+
+ double *alpha, double *a, int *lda, double *b, int *ldb, 
+
+ double *beta, double *c, int *ldc) {
+
+   dgemms_nn(*m, *n, *k, *alpha, a, *lda, b, *ldb, *beta, c, *ldc);
+
+  }
+
+#ifdef MAIN
+
+#include <stdio.h>
+
+#include <stdlib.h>
+
+#include <sys/times.h>
+
+#include <time.h>
+
+#define LDA    1001
+
+#define LDB    1001
+
+#define LDC    1001
+
+#define SIZE 1000
+
+#define SIZE_M SIZE
+
+#define SIZE_N SIZE
+
+#define SIZE_K SIZE
+
+#define REPEAT 3
+
+#if defined(RPCC)
+
+static inline unsigned int realcc(void){
+
+  unsigned int cc;
+
+  asm volatile("rpcc %0" : "=r"(cc));
+
+  return cc;
+
+}
+
+#ifndef CPS
+
+#define CPS 300000000
+
+#endif
+
+#else
+
+#define realcc() (int)clock()
+
+#define CPS CLOCKS_PER_SEC
+
+#endif
+
+int main(int argc, char *argv[]){
+
+  double *a, *b, *c;
+
+  double alpha, beta;
+
+  int i,j,repeat;
+
+  int m, n, k;
+
+  int lda, ldb, ldc;
+
+  int errflag;
+
+  int start, stop;
+
+  int start1, stop1;
+
+  if(argc>1) {m=n=k=atoi(argv[1]);}
+
+  else {
+
+          m=SIZE_M;
+
+          n=SIZE_N;
+
+          k=SIZE_K;
+
+          }
+
+  if(argc>2) {lda=ldb=ldc=atoi(argv[2]);}
+
+  else {
+
+          lda = LDA;
+
+          ldb = LDB;
+
+          ldc = LDC;
+
+          }
+
+  alpha = 2.0;
+
+  beta  = 0.5;
+
+  if (( a=(double *)malloc(sizeof(double) * ldc * lda)) == NULL){
+
+      fprintf(stderr,"Out of Memory!!\n");exit(1);
+
+    }
+
+  if (( b=(double *)malloc(sizeof(double) * ldb * ldc)) == NULL){
+
+      fprintf(stderr,"Out of Memory!!\n");exit(1);
+
+    }
+
+  if (( c=(double *)malloc(sizeof(double) * ldb * lda)) == NULL){
+
+      fprintf(stderr,"Out of Memory!!\n");exit(1);
+
+    }
+
+  for(i=0;i<ldc;i++) for(j=0;j<lda;j++) a[i*lda +j]=i;
+
+  for(i=0;i<ldb;i++) for(j=0;j<ldc;j++) b[i*ldb +j]=j;
+
+  printf("m:%3d n:%3d k:%3d\n", m, n, k);
+
+  printf("Ail_max %d, Blj_max %d, A_row_block %d\n", 
+
+          Ail_max, Blj_max, A_row_block);
+
+  for(repeat=0;repeat<REPEAT;repeat++) {
+
+        for(i=0;i<ldb;i++) for(j=0;j<lda;j++){
+
+          c[i*ldc +j]=1.0;
+
+        }
+
+        start1 = realcc();
+
+        dgemms_nn(m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+
+        stop1 = realcc();
+
+        printf("Shimizu's DGEMM :%8.3f MFLOPS(%6.3f sec)\n", 
+
+         2.0*m*n*k*1e-6/((double)(stop1 - start1)/CPS),
+
+         (double)(stop1 - start1)/CPS);
+
+   }
+
+  free(a);free(b);free(c);
+
+  return 0;
+
+}
+
+#endif
+
+From K.Garloff@ping.de Thu Jan 21 21:41:35 1999 EST
+Message-ID: <19981224085009.A17146@kg1.ping.de>
+Date: Thu, 24 Dec 1998 08:50:09 +0100
+From: Kurt Garloff <K.Garloff@ping.de>
+Subject: OT: High perf. comp./Comp. physics journal
+
+I know it's offtopic, sorry,
+
+but I also know that there is a number of people having quite some knowledge
+
+about High Perf. Computing and I guess some of them are physicists like I am.
+
+I happen to have written yet another numerical library in C++ [Vectors,
+
+Matrices, Optimized version of Matrices (Band, Compressed ...), Tensors,
+
+lots of solvers, etc.] within the frame of my diploma work. I am thinking
+
+that it's done quite well, cause it uses such things as parallelization
+
+(pthreads) and the Temporary Base Class Idiom to prevent those nasty
+
+redundant Copy Constructors when giving back the results of Operators which
+
+normally prevent C++ code to perform well.
+
+IMHO, it is worth a publication.
+
+Most probably the code of the library will also be made freely available,
+
+but the Professor has to give his final statement on it.
+
+Of course, there's also an application: We used it to implement our FD
+
+algorithm to solve Maxwell's equations in arbitrary coordinates.
+
+So now my question is: How should this be published? Two articles,
+
+one for computer scientists and one for physicists? Or rather one made of
+
+two parts: Efficient C++ class design for num. apps and applic. of
+
+coordinate trafos to solve FD problems?
+
+The related question is: Where to publish?
+
+I have no great overview of the journals dealing with such kind of problems.
+
+I know that there is the Journ. for Computational Physics. I also found
+
+references to Dr. Dobbs for questions about numerical design. (Is the latter
+
+an online journal, only, BTW?)
+
+I think there are some more journals which might have the audience to read
+
+and profit from such an article. Maybe you can tell me ... ?
+
+Thanks for your help!
+
+Merry X-Mas !
+
+-- 
+Kurt Garloff <K.Garloff@ping.de>  (Dortmund, FRG)
+PGP key on http://student.physik.uni-dortmund.de/homepages/garloff
+
+ There is  something  frustrating  about  the quality  and  speed  of  Linux
+ development.  I.e. the quality  is too high  and the speed  is too high, in
+ other words,  I  can implement  this XXXX feature,  but I bet  someone else
+ has already done it and is just about to release his patch to Linus soon...
+    [From a posting of Tigran Aivazian to linux-kernel, XXXX = disk stat]
+
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+

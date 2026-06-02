@@ -1,0 +1,1992 @@
+From adam.powell@nist.gov Mon Feb 08 23:53:48 1999 PST
+Message-ID: <36BF741A.BE6B02@nist.gov>
+Date: Mon, 08 Feb 1999 18:32:43 -0500
+From: Adam C. Powell, IV <adam.powell@nist.gov>
+Subject: Re: Optimized zgemv/cgemv routine
+In-Reply-To: <19990103223855N.goto@statabo.rim.or.jp>
+
+"Adam C. Powell, IV" wrote:
+
+> For my own selfish reasons, I would love to see an accelerated dger, the
+
+> level 2 BLAS function which calculates the outer product of two
+
+> vectors.  I think it is the last unoptimized part of dgetrf (which I use
+
+> a lot), and I think it is what makes dgetrf slow for large block sizes
+
+> (e.g. faster for 32x32 than 64x64, which I think should be faster for
+
+> dgemm).
+
+Okay, I feel silly.  I replaced the call to dger_ with a looped call to
+
+(Goto's assembler) daxpy_ and dgetrf now runs about 30% faster for a
+
+1000x1000 matrix, not quite so much faster for larger matrices.
+
+So, assembler dger would not help me.
+
+Thanks,
+
+-Adam `Cold Fusion' Powell, IV http://www.ctcms.nist.gov/~powell/ ____
+
+USDoC, National Institute of Standards & Technology (NIST)  |\ ||<  |
+
+Center for Theoretical and Computational Materials Science  | \||_> |
+
+From Robert.Harley@inria.fr Sun Feb 21 16:52:20 1999 PST
+Message-ID: <199902211623.RAA19718@pauillac.inria.fr>
+Date: Sun, 21 Feb 1999 17:23:28 +0100 (MET)
+From: Robert Harley <Robert.Harley@inria.fr>
+Subject: sqrt.S
+
+/* > sqrt.S
+
+ * Purpose: Fast double precision square root in Alpha ASM.
+
+ * Copyright: (c) Robert J. Harley, 19-Oct-1998
+
+ * Contact: Robert.Harley@inria.fr
+
+ * Legalese: This code is subject to the GNU General Public License (v2).
+
+ */
+
+/* Integer registers. */
+
+#define ea	$1
+
+#define ta	$2
+
+#define wm	$3
+
+#define wp	$4
+
+#define pt	$5
+
+#define ux	$6
+
+#define ua	$7
+
+#define pc	$8
+
+#define v	$22
+
+#define v2	$23
+
+#define tmp	$24
+
+#define exp	$25
+
+#define ra	$26
+
+#define pv	$27
+
+#define at	$28
+
+#define gp	$29
+
+#define sp	$30
+
+#define zero	$31
+
+/* Floating-point registers. */
+
+#define dX	$f0
+
+#define d0_5	$f10
+
+#define d1_5	$f11
+
+#define dB	$f12
+
+#define dT	$f13
+
+#define dZ	$f14
+
+#define dTmp	$f15
+
+#define dA	$f16
+
+#define dZero	$f31
+
+/* Delay one integer slot (E0 or E1). */
+
+#define NOP bis $31, $31, $31
+
+/* Delay one floating-point slot (FA or FM). */
+
+#define FNOP cpys $f31, $f31, $f31
+
+/* No delay, for alignment (invalidated at slotting). */
+
+#define UNOP ldq_u $31, 0($30)
+
+        .set noreorder
+
+.section	.rodata
+
+#define BLA(n) .long n<<16 | 126<<23
+
+        .type	tab, @object
+
+        .size	tab, 256
+
+        .align	5
+
+tab:
+
+        BLA(127)
+
+        BLA(125)
+
+        BLA(123)
+
+        BLA(121)
+
+        BLA(119)
+
+        BLA(118)
+
+        BLA(116)
+
+        BLA(114)
+
+        BLA(113)
+
+        BLA(111)
+
+        BLA(109)
+
+        BLA(108)
+
+        BLA(106)
+
+        BLA(105)
+
+        BLA(103)
+
+        BLA(102)
+
+        BLA(100)
+
+        BLA(99)
+
+        BLA(97)
+
+        BLA(96)
+
+        BLA(95)
+
+        BLA(93)
+
+        BLA(92)
+
+        BLA(91)
+
+        BLA(90)
+
+        BLA(88)
+
+        BLA(87)
+
+        BLA(86)
+
+        BLA(85)
+
+        BLA(84)
+
+        BLA(83)
+
+        BLA(82)
+
+        BLA(80)
+
+        BLA(79)
+
+        BLA(78)
+
+        BLA(77)
+
+        BLA(76)
+
+        BLA(75)
+
+        BLA(74)
+
+        BLA(73)
+
+        BLA(72)
+
+        BLA(71)
+
+        BLA(70)
+
+        BLA(70)
+
+        BLA(69)
+
+        BLA(68)
+
+        BLA(67)
+
+        BLA(66)
+
+        BLA(65)
+
+        BLA(64)
+
+        BLA(63)
+
+        BLA(63)
+
+        BLA(62)
+
+        BLA(61)
+
+        BLA(60)
+
+        BLA(59)
+
+        BLA(59)
+
+        BLA(58)
+
+        BLA(57)
+
+        BLA(56)
+
+        BLA(56)
+
+        BLA(55)
+
+        BLA(54)
+
+        BLA(53)
+
+#undef BLA
+
+        .align	4
+
+consts:
+
+        .s_floating 1.5
+
+        .s_floating 0.5
+
+        .t_floating 0.70710678118654757273731092936941422522068023681640625
+
+.text
+
+        .globl sqrt
+
+        .ent sqrt
+
+        .align	5
+
+sqrt:
+
+        .frame sp, 24, ra, 0
+
+        subq	sp, 24, sp
+
+        ldgp	gp, .-sqrt(pv)
+
+        stt	dA, 0(sp)
+
+        .prologue 1
+
+        .align	4
+
+        lda	pc, consts
+
+        lda	exp, 1022
+
+        ldq	ua, 0(sp)
+
+        sll	exp, 52, exp
+
+        lda	pt, tab
+
+        lds	d1_5, 0(pc)
+
+        srl	ua, 46, ta
+
+        lds	d0_5, 4(pc)
+
+        and	ta, 63, ta
+
+        sll	ua, 12, ux
+
+        s4addq	ta, pt, pt
+
+        srl	ux, 12, ux
+
+        lds	dX, 0(pt)
+
+        bis	ux, exp, ux
+
+        ble	ua, pm_zero_or_negative
+
+        stq	ux, 0(sp)
+
+        mult	dX, dX, dTmp
+
+        srl	ua, 52, ea
+
+        ldt	dZ, 0(sp)
+
+        beq	ea, positive_denormal
+
+        lda	tmp, -2047(ea)
+
+        addq	ea, 1, ta
+
+        addt	dZ, dZ, dB
+
+        mult	dZ, dTmp, dZ
+
+        beq	tmp, pos_nan_or_inf
+
+        bic	ta, 1, ta
+
+        lda	ta, -1024(ta)
+
+        subt	d1_5, dZ, dT
+
+        mult	dZ, dT, dZ
+
+        ldt	dTmp, 8(pc)
+
+        mult	dX, dT, dX
+
+        sll	ua, 52, wp
+
+        mult	dZ, dT, dZ
+
+        UNOP
+
+        subt	d1_5, dZ, dT
+
+        UNOP
+
+        sll	ta, 51, ta
+
+        UNOP
+
+        mult	dX, dT, dX
+
+        blbs	ea, skip
+
+        addt	dB, dB, dB
+
+        sll	ua, 53, wp
+
+        mult	dX, dTmp, dX
+
+        UNOP
+
+skip:
+
+        mult	dB, dX, dT
+
+        mult	dX, d0_5, dX
+
+        mult	dT, dT, dZ
+
+        subt	dB, dZ, dZ
+
+        mult	dX, dZ, dX
+
+        addt	dX, dT, dX
+
+        stt	dX, 0(sp)
+
+        FNOP
+
+        ldq	ux, 0(sp)
+
+        subq	ux, exp, v
+
+        mulq	v, v, v2
+
+        addq	ux, ta, ux
+
+        stq	ux, 8(sp)
+
+        addq	ux, 1, ux
+
+        subq	wp, v, wm
+
+        stq	ux, 0(sp)
+
+        subq	ux, 2, ux
+
+        stq	ux, 16(sp)
+
+        addq	wp, v, wp
+
+        UNOP
+
+        subq	v2, wm, wm
+
+        subq	v2, wp, wp
+
+        sra	wm, 63, wm
+
+        cmple	zero, wp, wp
+
+        addq	wm, wp, wm
+
+        s8addq	wm, sp, wm
+
+        ldt	dX, 8(wm)
+
+        addq	sp, 24, sp
+
+        ret	zero, (ra), 1
+
+        .align	4
+
+pm_zero_or_negative:
+
+positive_denormal:
+
+pos_nan_or_inf:
+
+        cpys	dZero, dZero, dX        /* Junk for now. */
+
+        addq	sp, 24, sp
+
+        ret	zero, (ra), 1
+
+        .end sqrt
+
+From Robert.Harley@inria.fr Sun Feb 21 16:57:09 1999 PST
+Message-ID: <199902211602.RAA25400@pauillac.inria.fr>
+Date: Sun, 21 Feb 1999 17:02:55 +0100 (MET)
+From: Robert Harley <Robert.Harley@inria.fr>
+Subject: sqrt
+
+We have a problem with sqrt on Alpha Linux.
+
+  1. The original square root gave bogus answers for very small inputs.
+
+  2. The current one is ten times too slow.
+
+  3. The fast one by Wesner & Goto doesn't get the last bit correct.
+
+Ideally we should have one that's correct (well duh), fast, and gets
+
+the last bit right (as required by the IEEE standard, so we can
+
+replace the default one in libm).  Then most people will be happy and
+
+those who want to lose last bit accuracy in exchange for the extra bit
+
+of speed can still do so.
+
+Anyway we should grab this particular bull by the horns, IMHO.
+
+In the next messages I'll send a C implementation (using 64-bit longs)
+
+and an ASM one (for Alpha of course).
+
+I left out the code to handle negative inputs, NaNs and so on for now
+
+to avoid getting distracted by them.
+
+What I'm hoping is that some of you will see ways to simplify and/or
+
+speed up the code.  I've tried tuning the ASM a bit, but I don't
+
+understand the 21164's scheduling well.  For instance there's one
+
+place I have a FNOP and putting a UNOP costs five extra cycles.  I've
+
+no idea why!
+
+The total time seems to be 101 or 103 cycles or thereabouts.  Anyone
+
+want to knock of a few cycles to get under the 100 barrier?
+
+Rob.
+
+From Robert.Harley@inria.fr Sun Feb 21 16:59:40 1999 PST
+Message-ID: <199902211623.RAA17291@pauillac.inria.fr>
+Date: Sun, 21 Feb 1999 17:23:07 +0100 (MET)
+From: Robert Harley <Robert.Harley@inria.fr>
+Subject: sqrt.c
+
+/* > sqrt.c
+
+ * Purpose: Fast double precision square root.
+
+ * Copyright: (c) Robert J. Harley, 19-Oct-1998
+
+ * Contact: Robert.Harley@inria.fr
+
+ * Legalese: This code is subject to the GNU General Public License (v2).
+
+ */
+
+/*-- sqrt ---------------------------------------------------------------*/
+
+double sqrt(double a) {
+
+  u64 ea, ua, ux, v, v2, w;
+
+  s64 wm, wp;
+
+  double b, t, x, z;
+
+  union { double d; u64 u; } du;
+
+  const double
+
+    sqrt2o2 = 0.70710678118654757273731092936941422522068023681640625
+
+  ;
+
+  static const unsigned char tab[64] =
+
+  { 127, 125, 123, 121, 119, 118, 116, 114, 113, 111, 109, 108, 106
+
+  , 105, 103, 102, 100, 99, 97, 96, 95, 93, 92, 91, 90, 88, 87, 86, 85
+
+  , 84, 83, 82, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 70, 69, 68
+
+  , 67, 66, 65, 64, 63, 63, 62, 61, 60, 59, 59, 58, 57, 56, 56, 55, 54, 53
+
+  };
+
+  /** Initial approximation to 1/sqrt(b) from table. **/
+
+  du.d = a; ua = du.u;
+
+  du.u = (u64)tab[ua>>46 & 63UL]<<45 | 1022UL<<52; x = du.d;
+
+  /* Nuke sign & exponent. */
+
+  du.u = ua<<12>>12 | 1022UL<<52; z = du.d;
+
+  /** Go out-of-line in rare cases (could do it earlier but faster here). **/
+
+  if ((s64)ua <= 0L) goto pm_zero_or_negative;
+
+  ea = ua>>52;
+
+  if (!ea) goto positive_denormal;
+
+  if (ea == 2047UL) goto pos_nan_or_inf;
+
+  /** Improve approximation to 1/sqrt(b) with Newton iterations. **/
+
+  b = z+z;
+
+  z *= x*x; t = 1.5-z; z *= t*t; x *= t; t = 1.5-z; x *= t;
+
+  /* Handle exponent parity. */
+
+  w = ua<<52;
+
+  if (!(ea & 1UL)) { b += b; x *= sqrt2o2; w = ua<<53; }
+
+  /** Final Newton iteration and multiply by b to get sqrt(b).. **/
+
+  t = b*x; x = t+0.5*x*(b-t*t);
+
+  /* Magic incantation to fix last bit. */
+
+  du.d = x; ux = du.u;
+
+  v = ux-(1022UL<<52); v2 = v*v;
+
+  ux += (((ea+1UL)>>1)-512UL)<<52; /* Insert exponent of result. */
+
+  wp = (s64)(w+v); wm = (s64)(w-v);
+
+  { union { double d; u64 u; } dut[3];
+
+    dut[0].u = ux+1UL;
+
+    dut[1].u = ux;
+
+    dut[2].u = ux-1UL;
+
+    
+
+    wp = (s64)v2-wp >= 0L;
+
+    wm = ((s64)v2-wm)>>63;
+
+    x = dut[1L+wp+wm].d;
+
+  } /* end block */
+
+  return x;
+
+  /* Junk for now. TO DO: put code for these cases in. */
+
+pm_zero_or_negative:
+
+positive_denormal:
+
+pos_nan_or_inf:
+
+  return 0.0;
+
+} /* end sqrt */
+
+From Joachim.Wesner@frankfurt.netsurf.de Mon Feb 22 02:39:57 1999 PST
+Message-ID: <36D09259.9D9C303C@frankfurt.netsurf.de>
+Date: Mon, 22 Feb 1999 00:10:17 +0100
+From: Joachim Wesner <Joachim.Wesner@frankfurt.netsurf.de>
+Subject: Re: sqrt
+
+Robert Harley wrote:
+
+> 
+
+> We have a problem with sqrt on Alpha Linux.
+
+> 
+
+>
+
+>   3. The fast one by Wesner & Goto doesn't get the last bit correct.
+
+> 
+
+> Ideally we should have one that's correct (well duh), fast, and gets
+
+> the last bit right (as required by the IEEE standard, so we can
+
+> replace the default one in libm).  Then most people will be happy and
+
+> those who want to lose last bit accuracy in exchange for the extra bit
+
+> of speed can still do so.
+
+> 
+
+Ehmmm, if last bit accuracy is your problem, the current libffm sqrt can
+
+be changed back to correctly round ! It's only few instructions I edited
+
+out from the Mosberger .S source just due to the reasons you give above
+
+(squuze out max. speed). Goto's improvement will still apply and you
+
+will get < 100 clocks !!
+
+Give me a day or so to change and test (just busy with something else)
+
+Joachim
+
+From Robert.Harley@inria.fr Mon Feb 22 09:50:12 1999 PST
+Message-ID: <199902220903.KAA20315@pauillac.inria.fr>
+Date: Mon, 22 Feb 1999 10:03:26 +0100 (MET)
+From: Robert Harley <Robert.Harley@inria.fr>
+Subject: Re: sqrt
+
+I wrote:
+
+>We have a problem with sqrt on Alpha Linux.
+
+Joachim replied:
+
+>Ehmmm, if last bit accuracy is your problem [...]
+
+Well actually, no it isn't *my* problem in particular.
+
+If somebody has a program running slowly because of sqrt's and they
+
+realise what the problem is and they know about libffm or some other
+
+replacement, then they can speed up that program if they feel that the
+
+effort is worthwhile.
+
+But if we replace the libm sqrt() with one that is ten times faster,
+
+then all programs that use sqrt's will go faster for everybody,
+
+transparently.  This is desireable, IMO!
+
+Rob.
+
+From joachim.wesner@lmw.leica.com Mon Feb 22 11:37:32 1999 PST
+Message-ID: <36D133DF.7A2AFBA5@lmw.leica.com>
+Date: Mon, 22 Feb 1999 11:39:27 +0100
+From: Joachim Wesner <joachim.wesner@lmw.leica.com>
+Subject: Re: sqrt
+In-Reply-To: <199902220903.KAA20315@pauillac.inria.fr>
+
+Robert Harley wrote:
+
+> 
+
+> I wrote:
+
+> >We have a problem with sqrt on Alpha Linux.
+
+> 
+
+> Joachim replied:
+
+> >Ehmmm, if last bit accuracy is your problem [...]
+
+> 
+
+> Well actually, no it isn't *my* problem in particular.
+
+> 
+
+Sorry, this was simply some sloppy-ness on my side, I better should have
+
+written.... "If you mention that last bit accuracy is the problem..."
+
+To be fixed soon...
+
+Joachim
+
+From adam.powell@nist.gov Thu Feb 25 21:46:59 1999 PST
+Message-ID: <36D5BDC5.DE0638B4@nist.gov>
+Date: Thu, 25 Feb 1999 16:16:54 -0500
+From: Adam C. Powell, IV <adam.powell@nist.gov>
+Subject: FFT software
+
+Hello,
+
+Just wondering, has anyone explored/benchmarked FFT software for Alpha
+
+Linux?  I've downloaded FFTW, but heard it is quite a bit faster for DU
+
+(or Tru64, as I guess it's called now) than for Linux.  Are there other
+
+strong options out there?
+
+Thanks,
+
+-Adam `Cold Fusion' Powell, IV http://www.ctcms.nist.gov/~powell/ ____
+
+USDoC, National Institute of Standards & Technology (NIST)  |\ ||<  |
+
+Center for Theoretical and Computational Materials Science  | \||_> |
+
+From esci@fastlane.net Fri Feb 26 00:48:22 1999 PST
+Message-ID: <199902260029.SAA0000002153@localhost>
+Date: Thu, 25 Feb 1999 18:29:14 -0600 (CST)
+From: esci <esci@fastlane.net>
+Subject: Re:  FFT software
+
+Here's my personal favorite fft.  It degenerates into a DFT if you feed it
+
+a prime length series, but it *always* works!  It's not original to me,
+
+it was floating around the department when I was in grad school many years
+
+ago.
+
+Enjoy!
+
+Reginald Beardsley
+
+------------------------------------------------------------------------
+
+              Exploration Software Consultants Inc.
+
+Voice: 972-379-0557                      email: rhb@acm.org
+
+Fax:   972-379-0558
+
+------------------------------------------------------------------------
+
+------------------------------ cut here ---------------------------------
+
+*=======================================================================
+
+* Single Precision Complex Fast Fourier Transform
+
+*
+
+*  A subroutine to compute the discrete Fourier transform by the fastest
+
+* available algorithm for any length input series.
+
+*
+
+* Reference:
+
+*        Ferguson, W., (1979),   A Simple Derivation of Glassmans's
+
+*          General N Fast Fourier Transform, MRC Tech. Summ. Rept. 2029,
+
+*          Math. Res. Cent. U. of Wisconsin, Madison, Wis.
+
+*
+
+*  REFERENCES
+
+*  ----------
+
+*
+
+* Routines called:
+
+* SPCPFT
+
+*
+
+* Functions called:
+
+* MOD
+
+* FLOAT
+
+*
+
+* VAX extensions:
+
+* DO WHILE
+
+*=======================================================================
+
+      SUBROUTINE SPCFFT(U,N,ISIGN,WORK,INTERP)
+
+* VARIABLES
+
+* ---------
+
+      IMPLICIT NONE
+
+      LOGICAL*1
+
+     |  INU      ! Flag for calling SUBROUTINE SPCPFT( arguments ).
+
+     | ,SCALE    ! .TRUE.=inverse transform -- .FALSE.=forward transform
+
+      INTEGER*4
+
+     |  A        ! After    \
+
+     | ,B        ! Before    >  Factors of N.
+
+     | ,C        ! Current  /
+
+     | ,N        ! Length of the array to be transformed.
+
+     | ,I        ! DO loop index.
+
+     | ,ISIGN    ! sign of transform
+
+      REAL*4
+
+     |  INTERP   ! interpolation factor
+
+      COMPLEX*8
+
+     |  U(1,1,1)        !  Vector to be transformed 
+
+     | ,WORK(1,1,1)     !  Working storage.
+
+*     Initialize parameters.
+
+      A = 1
+
+      B = N
+
+      C = 1
+
+      INU = .TRUE.
+
+   
+
+      IF (ISIGN.EQ.1) THEN
+
+         SCALE = .TRUE.
+
+      ELSE IF (ISIGN.EQ.-1) THEN
+
+         SCALE = .FALSE.
+
+      END IF
+
+* Calculate Fourier transform by means of Glassman's algorithm
+
+      DO WHILE ( B .GT. 1 )
+
+         A = C * A
+
+* Start of routine to get factors of N
+
+         C = 2
+
+* Increment C until it is an integer factor of B
+
+  
+
+         DO WHILE ( MOD(B,C) .NE. 0 )
+
+                  C = C + 1
+
+         
+
+         END DO
+
+* Calculate largest factor of B
+
+         B = B / C
+
+* Call Glassman's Fast Fourier Transform routine
+
+         IF ( INU ) THEN
+
+            CALL SPCPFT (A,B,C,U,WORK,ISIGN)
+
+          ELSE
+
+            CALL SPCPFT (A,B,C,WORK,U,ISIGN)
+
+         END IF
+
+* Set flag to swap input & output arrays to SPCPFT
+
+         INU = ( .NOT. INU )
+
+      END DO
+
+* If odd number of calls to SPCPFT swap WORK into U
+
+      IF ( .NOT. INU ) THEN
+
+         DO I = 1, N
+
+            U(I,1,1) = WORK(I,1,1)
+
+         END DO
+
+      END IF
+
+* Scale the output for inverse Fourier transforms.
+
+      IF ( SCALE ) THEN
+
+         DO I = 1, N
+
+            U(I,1,1) = U(I,1,1) / (N/INTERP)
+
+         END DO
+
+      END IF
+
+* TERMINATION
+
+* -----------
+
+      RETURN
+
+      END
+
+*=======================================================================
+
+* Single Precision Complex Prime Factor Transform
+
+*
+
+*  REFERENCES
+
+*  ----------
+
+*
+
+* Calling routines:
+
+* SPCFFT
+
+*
+
+* Subroutines called:
+
+* -none-
+
+*
+
+* Functions called:
+
+* CMLPX
+
+* COS
+
+* SIN
+
+* FLOAT
+
+*=======================================================================
+
+      SUBROUTINE SPCPFT( A, B, C, UIN, UOUT, ISIGN )
+
+* VARIABLES
+
+* ---------
+
+      IMPLICIT NONE
+
+      INTEGER*4
+
+     |  ISIGN           !  ISIGN of the Fourier transform.
+
+     | ,A               !  After   \
+
+     | ,B               !  Before   >  Factors of N.
+
+     | ,C               !  Current /
+
+     | ,IA              !  \
+
+     | ,IB              !   \  DO loop indicies.
+
+     | ,IC              !   /
+
+     | ,JCR             !  /
+
+     | ,JC              !  Dummy index.
+
+      REAL*8
+
+     |  ANGLE
+
+      COMPLEX*8
+
+     |  UIN(B,C,A)      !  Input vector.
+
+     | ,UOUT(B,A,C)     !  Output vector.
+
+     | ,DELTA           !  Fourier transform kernel.
+
+     | ,OMEGA           !  Multiples of exp( i TWOPI ).
+
+     | ,SUM             !  Dummy register for addition for UOUT(B,A,C)
+
+* ALGORITHM
+
+* ---------
+
+* Initialize run time parameters.
+
+      ANGLE =6.28318530717958 / FLOAT( A * C )
+
+      OMEGA = CMPLX( 1.0, 0.0 )
+
+* Check the ISIGN of the transform.
+
+      IF( ISIGN .EQ. 1 ) THEN
+
+         DELTA = CMPLX( DCOS(ANGLE), DSIN(ANGLE) )
+
+      ELSE
+
+         DELTA = CMPLX( DCOS(ANGLE), -DSIN(ANGLE) )
+
+      END IF
+
+* Do the computations.
+
+      DO IC = 1, C
+
+         DO IA = 1, A
+
+            DO IB = 1, B
+
+               SUM = UIN( IB, C, IA )
+
+               DO JCR = 2, C
+
+                  JC = C + 1 - JCR
+
+                  SUM = UIN( IB, JC, IA ) + OMEGA * SUM
+
+               END DO
+
+               UOUT( IB, IA, IC ) = SUM
+
+            END DO
+
+            OMEGA = DELTA * OMEGA
+
+         END DO
+
+      END DO
+
+* TERMINATION
+
+* -----------
+
+      RETURN
+
+      END
+
+#ifdef TEST
+
+      program test
+
+      implicit none
+
+      integer*4 nmax
+
+      parameter( nmax=10000 )
+
+      complex*8 input(nmax)
+
+      complex*8 scratch(nmax)
+
+      real*4 a , b
+
+      integer*4 i
+
+      integer*4 n
+
+      n = 0
+
+ 1000 format( 2e25.15 )
+
+      do i=1, nmax
+
+         read( 5 ,1000 ,end=10 ) input(i)
+
+         n = n + 1
+
+      end do
+
+   10 continue
+
+      call spcfft( input ,n ,.false. ,scratch ,1.0 )
+
+      do i=1 ,n
+
+         write( 6 ,1000 ) real(input(i)) ,imag(input(i))
+
+      end do
+
+      end 
+
+#endif
+
+From goto@statabo.rim.or.jp Sat Feb 27 09:12:51 1999 PST
+Message-ID: <19990227174630G.goto@statabo.rim.or.jp>
+Date: Sat, 27 Feb 1999 17:46:30 +0900
+From: Kazushige Goto <goto@statabo.rim.or.jp>
+Subject: Re: sqrt
+In-Reply-To: <199902211602.RAA25400@pauillac.inria.fr>
+
+Hi,
+
+From: Robert Harley <Robert.Harley@inria.fr>
+
+Subject: sqrt
+
+Robert> The total time seems to be 101 or 103 cycles or thereabouts.  Anyone
+
+Robert> want to knock of a few cycles to get under the 100 barrier?
+
+I attached sample sqrt routine which I made before.  This sqrt is
+
+heavy table versions(8kB), but it runs only 66 clocks(libffm's is 82
+
+clocks).  It's possible to archive about 90 clocks evenif last bit
+
+correction instruction is added.
+
+# I also attached vectorlized sqrt routine, it can calculate 12
+
+# clocks/each.
+
+Thanks,
+
+  goto@statabo.rim.or.jp
+
+ 
+
+Application/Octet-Stream attachment: qrt-test.tar.gz_
+
+From michal@ellpspace.math.ualberta.ca Sat Feb 27 18:26:34 1999 PST
+Message-ID: <199902271806.LAA12560@ellpspace.math.ualberta.ca>
+Date: Sat, 27 Feb 1999 11:06:20 -0700 (MST)
+From: Michal Jaegermann <michal@ellpspace.math.ualberta.ca>
+Subject: Re: sqrt.s
+
+I see all the time these square root routines with big lookup
+
+tables and impressive cycle counts.  I cannot help not to wonder
+
+what will be impact of such tables in a "real life".  While
+
+benchmarking one is performing square root operations in a tight
+
+loop; everything fits in a cache and a performance is impressive.
+
+But in reality these things are not used that way and it will
+
+be, usually, lots of other code around.  If one starts taking
+
+cache, or even worse - page, hits because of lookups then a performance
+
+can worsen considerably.
+
+I still remember a paper by Dave Mosberger-Tang, from a few years
+
+ago, about optimizing on Alpha where he showed that local calculations
+
+may be much prefererable to distant lookups.  I do not have measurements
+
+for a different computation strategies of sqrt in real code as opposed
+
+to small loops.  But does anybody attempted some investigations of
+
+that kind?
+
+   Michal
+
+From esci@fastlane.net Sun Feb 28 00:49:16 1999 PST
+Message-ID: <199902280031.SAA0000005774@localhost>
+Date: Sat, 27 Feb 1999 18:31:30 -0600 (CST)
+From: esci <esci@fastlane.net>
+Subject: Re: sqrt.s
+
+I shall shortly find out.  I have a "real life" application that makes 
+
+heavy use of sqrt().  I will provide comparisons against the DU implementation.
+
+The values for which roots are being taken increase monotonicly, so there
+
+shouldn't be too much penalty for the lookup table because of locality of
+
+reference.  Of course, I still have to reduce the overall memory traffic
+
+to something the 164 can handle, which *is* proving to be difficult.
+
+BTW I'd appreciate a copy of the paper by Dave Mosberger-Tang, if anyone
+
+has it available.
+
+Reginald Beardsley
+
+------------------------------------------------------------------------
+
+              Exploration Software Consultants Inc.
+
+Voice: 972-379-0557                      email: rhb@acm.org
+
+Fax:   972-379-0558
+
+------------------------------------------------------------------------
+
+From A.Dergatchev@tn.utwente.nl Sun Feb 28 01:26:06 1999 PST
+Message-ID: <36D8955F.97C2C990@tn.utwente.nl>
+Date: Sun, 28 Feb 1999 02:01:20 +0100
+From: Andrei A. Dergatchev <A.Dergatchev@tn.utwente.nl>
+Subject: Re: sqrt.s
+
+Hi,
+
+[snip]
+
+>  Of course, I still have to reduce the overall memory traffic
+
+> to something the 164 can handle, which *is* proving to be difficult.
+
+??? Can you elaborate on that - what do you use to run this application
+
+than - a multiprocessor system or what ?
+
+> BTW I'd appreciate a copy of the paper by Dave Mosberger-Tang, if
+
+anyone
+
+> has it available.
+
+http://www.mostang.com/~davidm/papers/expo97/paper/
+
+or do you want a .ps file ?
+
+I was heavily impressed seeing ~1000 counts for sqrt (using -lm without
+
+optimization, ~350 counts with -O) repeating his examples.
+
+Unfortunately, I don't have DU to make comparisons :-(
+
+>
+
+> Reginald Beardsley
+
+>
+
+>
+
+------------------------------------------------------------------------
+
+>               Exploration Software Consultants Inc.
+
+>
+
+> Voice: 972-379-0557                      email: rhb@acm.org
+
+> Fax:   972-379-0558
+
+>
+
+------------------------------------------------------------------------
+
+Rgds,
+
+Andrei
+
+From goto@statabo.rim.or.jp Sun Feb 28 05:34:25 1999 PST
+Message-ID: <19990228141402J.goto@statabo.rim.or.jp>
+Date: Sun, 28 Feb 1999 14:14:02 +0900
+From: Kazushige Goto <goto@statabo.rim.or.jp>
+Subject: Re: sqrt
+In-Reply-To: <19990227174630G.goto@statabo.rim.or.jp>
+
+Hi,
+
+goto> From: Robert Harley <Robert.Harley@inria.fr>
+
+goto> Subject: sqrt
+
+goto> 
+
+goto> Robert> The total time seems to be 101 or 103 cycles or thereabouts.  Anyone
+
+goto> Robert> want to knock of a few cycles to get under the 100 barrier?
+
+goto> 
+
+goto> I attached sample sqrt routine which I made before.  This sqrt is
+
+goto> heavy table versions(8kB), but it runs only 66 clocks(libffm's is 82
+
+goto> clocks).  It's possible to archive about 90 clocks evenif last bit
+
+goto> correction instruction is added.
+
+I modified Mr. Robert's routine, but I can improve only few
+
+clocks(original:105clocks, improved:101clocks).  I think it's fatal
+
+to use "mulq" instruction, it takes 12 clocks.  I recommend to use
+
+glibc's technique(I attached modified and glibc's routine).
+
+Thanks,
+
+  goto@statabo.rim.or.jp
+
+/* > sqrt.S
+
+ * Purpose: Fast double precision square root in Alpha ASM.
+
+ * Copyright: (c) Robert J. Harley, 19-Oct-1998
+
+ * Contact: Robert.Harley@inria.fr
+
+ * Legalese: This code is subject to the GNU General Public License (v2).
+
+ */
+
+/* Integer registers. */
+
+#define ea	$1
+
+#define ta	$2
+
+#define wm	$3
+
+#define wp	$4
+
+#define pt	$5
+
+#define ux	$6
+
+#define ua	$7
+
+#define pc	$8
+
+#define v	$22
+
+#define v2	$23
+
+#define tmp	$24
+
+#define exp	$25
+
+#define ra	$26
+
+#define pv	$27
+
+#define at	$28
+
+#define gp	$29
+
+#define sp	$30
+
+#define zero	$31
+
+/* Floating-point registers. */
+
+#define dX	$f0
+
+#define d0_5	$f10
+
+#define d1_5	$f11
+
+#define dB	$f12
+
+#define dT	$f13
+
+#define dZ	$f14
+
+#define dTmp	$f15
+
+#define dA	$f16
+
+#define dZero	$f31
+
+/* Delay one integer slot (E0 or E1). */
+
+#define NOP bis $31, $31, $31
+
+/* Delay one floating-point slot (FA or FM). */
+
+#define FNOP cpys $f31, $f31, $f31
+
+/* No delay, for alignment (invalidated at slotting). */
+
+/* #define UNOP ldq_u $31, 0($30) */
+
+        .set noreorder
+
+.section	.rodata
+
+        .align	5
+
+consts:
+
+        .s_floating 1.5
+
+        .s_floating 0.5
+
+        .t_floating 0.70710678118654757273731092936941422522068023681640625
+
+#define BLA(n) .long n<<16 | 126<<23
+
+        .type	tab, @object
+
+        .size	tab, 256
+
+tab:
+
+        BLA(127)
+
+        BLA(125)
+
+        BLA(123)
+
+        BLA(121)
+
+        BLA(119)
+
+        BLA(118)
+
+        BLA(116)
+
+        BLA(114)
+
+        BLA(113)
+
+        BLA(111)
+
+        BLA(109)
+
+        BLA(108)
+
+        BLA(106)
+
+        BLA(105)
+
+        BLA(103)
+
+        BLA(102)
+
+        BLA(100)
+
+        BLA(99)
+
+        BLA(97)
+
+        BLA(96)
+
+        BLA(95)
+
+        BLA(93)
+
+        BLA(92)
+
+        BLA(91)
+
+        BLA(90)
+
+        BLA(88)
+
+        BLA(87)
+
+        BLA(86)
+
+        BLA(85)
+
+        BLA(84)
+
+        BLA(83)
+
+        BLA(82)
+
+        BLA(80)
+
+        BLA(79)
+
+        BLA(78)
+
+        BLA(77)
+
+        BLA(76)
+
+        BLA(75)
+
+        BLA(74)
+
+        BLA(73)
+
+        BLA(72)
+
+        BLA(71)
+
+        BLA(70)
+
+        BLA(70)
+
+        BLA(69)
+
+        BLA(68)
+
+        BLA(67)
+
+        BLA(66)
+
+        BLA(65)
+
+        BLA(64)
+
+        BLA(63)
+
+        BLA(63)
+
+        BLA(62)
+
+        BLA(61)
+
+        BLA(60)
+
+        BLA(59)
+
+        BLA(59)
+
+        BLA(58)
+
+        BLA(57)
+
+        BLA(56)
+
+        BLA(56)
+
+        BLA(55)
+
+        BLA(54)
+
+        BLA(53)
+
+#undef BLA
+
+.text
+
+        .globl sqrt
+
+        .ent sqrt
+
+        .align	5
+
+sqrt:
+
+        .frame sp, 32, ra, 0
+
+        subq	sp, 32, sp
+
+        ldgp	gp, .-sqrt(pv)
+
+        stt	dA, 0(sp)
+
+        .prologue 1
+
+        .align	4
+
+        lda	pc, consts
+
+        lda	exp, 1022
+
+        sll	exp, 52, exp
+
+        nop
+
+        ldq	ua, 0(sp)
+
+        lds	d1_5, 0(pc)
+
+        lds	d0_5, 4(pc)
+
+        srl	ua, 46, ta
+
+        and	ta, 63, ta
+
+        sll	ua, 12, ux
+
+        s4addq	ta, pc, pt
+
+        srl	ux, 12, ux
+
+        lds	dX, 16(pt)
+
+        bis	ux, exp, ux
+
+        stq	ux, 0(sp)
+
+        ble	ua, pm_zero_or_negative
+
+        mult	dX, dX, dTmp
+
+        srl	ua, 52, ea
+
+        addq	ea, 1, ta
+
+        lda	tmp, -2047(ea)
+
+        ldt	dZ, 0(sp)
+
+        beq	ea, positive_denormal
+
+        bic	ta, 1, ta
+
+        beq	tmp, pos_nan_or_inf
+
+        addt	dZ, dZ, dB
+
+        lda	ta, -1024(ta)
+
+        mult	dZ, dTmp, dZ
+
+        ldt	dTmp, 8(pc)
+
+        subt	d1_5, dZ, dT
+
+        mult	dZ, dT, dZ
+
+        mult	dX, dT, dX
+
+        sll	ua, 52, wp
+
+        mult	dZ, dT, dZ
+
+        subt	d1_5, dZ, dT
+
+        mult	dX, dT, dX
+
+        blbs	ea, skip
+
+        addt	dB, dB, dB
+
+        sll	ua, 53, wp
+
+        mult	dX, dTmp, dX
+
+        unop
+
+        .align 4
+
+skip:
+
+        mult	dB, dX, dT
+
+        sll	ta, 51, ta
+
+        mult	dX, d0_5, dX
+
+        mult	dT, dT, dZ
+
+        subt	dB, dZ, dZ
+
+        mult	dX, dZ, dX
+
+        addt	dX, dT, dX
+
+        stt	dX, 0(sp)
+
+        nop			# avoid flashing pipeline
+
+        nop			# wait 1 clock(actually 2 clocks)
+
+        ldq	ux, 0(sp)
+
+        subq	ux, exp, v
+
+        mulq	v, v, v2	# takes too long.  difficult scheduling
+
+        addq	ux, ta, ux      
+
+        stq	ux, 8(sp)
+
+        addq	ux, 1, ux
+
+        stq	ux, 0(sp)
+
+        subq	ux, 2, ux
+
+        stq	ux, 16(sp)
+
+        subq	wp, v, wm
+
+        addq	wp, v, wp
+
+        nop
+
+        subq	v2, wm, wm	# stopping pipeline, wait 8 clocks
+
+        subq	v2, wp, wp
+
+        sra	wm, 63, wm
+
+        cmple	zero, wp, wp
+
+        addq	wm, wp, wm
+
+        s8addq	wm, sp, wm
+
+        ldt	dX, 8(wm)
+
+        addq	sp, 32, sp
+
+        ret	zero, (ra), 1
+
+        .align	4
+
+pm_zero_or_negative:
+
+positive_denormal:
+
+pos_nan_or_inf:
+
+        cpys	dZero, dZero, dX        /* Junk for now. */
+
+        addq	sp, 32, sp
+
+        ret	zero, (ra), 1
+
+        .end sqrt
+
+/* This proguram is from glibc/sysdeps/alpha/w_sqrt.S */
+
+/* Conberted to C by Kazushige Goto for a test */
+
+#include <stdio.h>
+
+static unsigned int table[] = {
+
+  0x1500, 0x2ef8,   0x4d67,  0x6b02,  0x87be,  0xa395,  0xbe7a,  0xd866,
+
+  0xf14a, 0x1091b, 0x11fcd, 0x13552, 0x14999, 0x15c98, 0x16e34, 0x17e5f,
+
+  0x18d03, 0x19a01, 0x1a545, 0x1ae8a, 0x1b5c4, 0x1bb01, 0x1bfde, 0x1c28d,
+
+  0x1c2de, 0x1c0db, 0x1ba73, 0x1b11c, 0x1a4b5, 0x1953d, 0x18266, 0x16be0,
+
+  0x1683e, 0x179d8, 0x18a4d, 0x19992, 0x1a789, 0x1b445, 0x1bf61, 0x1c989,
+
+  0x1d16d, 0x1d77b, 0x1dddf, 0x1e2ad, 0x1e5bf, 0x1e6e8, 0x1e654, 0x1e3cd,
+
+ 0x1df2a, 0x1d635, 0x1cb16, 0x1be2c, 0x1ae4e, 0x19bde, 0x1868e, 0x16e2e,
+
+ 0x1527f, 0x1334a, 0x11051,  0xe951,  0xbe01,  0x8e0d,  0x5924,  0x1edd,
+
+};
+
+double sqrt(double x){
+
+  unsigned long dnI = 0x3fefffffffffffffUL;
+
+  unsigned long upI = 0x3ff0000000000001UL;
+
+  unsigned long hfI = 0x3fe0000000000000UL;
+
+  unsigned long alI = 0x3ff7ffffffc00000UL;
+
+  double dn   = *(double *)(&dnI);
+
+  double up   = *(double *)(&upI);
+
+  double half = *(double *)(&hfI);
+
+  double al   = *(double *)(&alI);
+
+  double y, yp, ypp;
+
+  double z, zp;
+
+  double zmi, zpl, zmii, zpll;
+
+  unsigned long t0, t1, t2;
+
+  t1 = 0x5fe80000;
+
+  t0 = *(unsigned long *)(&x);
+
+  
+
+  t0 = (t0 >> 33);
+
+  t1 = t1 - t0;
+
+  t2 = (t1 << 33);
+
+  t0 = (t1 >> 12);
+
+  t0 = (t0 & 0xfc);
+
+  t0 = table[(t0>>2)];
+
+  t1 = (int)(t1 - t0);
+
+  t1 = (t1 << 32);
+
+  y = *(double *)(&t1);
+
+  yp  = y * (1.5 -  x * 0.5 * y * y);
+
+  ypp = yp * (al - x * 0.5 * yp * yp);
+
+  z   = x * ypp;
+
+  zp = z + z * 0.5 * (1.0 - z * ypp);
+
+  asm volatile("mult/c %1, %2, %0" : "=&f"(zmi)  : "f"(zp), "f"(dn));
+
+  asm volatile("mult/c %1, %2, %0" : "=&f"(zpl)  : "f"(zp), "f"(up));
+
+  asm volatile("mult/c %1, %2, %0" : "=&f"(zmii) : "f"(zp), "f"(zmi));
+
+  asm volatile("mult/c %1, %2, %0" : "=&f"(zpll) : "f"(zp), "f"(zpl));
+
+  if (zmii - x >=  0.)  return zmi;
+
+  if (zpll - x <  0.)   return zpl;
+
+  return zp;
+
+}
+
+From erik@theophys.kth.se Sun Feb 28 10:40:13 1999 PST
+Message-ID: <36D91797.7FF4C88@theophys.kth.se>
+Date: Sun, 28 Feb 1999 11:16:55 +0100
+From: Erik Lindahl <erik@theophys.kth.se>
+Subject: Re: sqrt.s
+
+Hi,
+
+Seems there are a number of us interested in real-life performace
+
+of square root calculations.
+
+I'm doing molecular dynamics on biological systems consisting of
+
+10000-100000 atoms. The computational heavy part is the inner
+
+loops (written in fortran of course) where I have to calculate the
+
+inverse square root of the distance between pairs of particles.
+
+The problem is reduced by using neighbourlists for each atom, but
+
+this might trash the cache. We're currently using a fortran
+
+implementation
+
+of a table look-up & iteration routine directly calculating 1/sqrt(r).
+
+The sqrt routine is still taking about 25% of the total runtime.
+
+However, we're not using any vectorized version... There might
+
+be something to win by not having to reload the table.
+
+I've got access to both a DU box and a linux one and will be happy
+
+both trying to contribute and test any new ideas... I'll send a piece
+
+of code tomorrow if anyone's interested!
+
+Regards,
+
+Erik
+
+From A.Dergatchev@tn.utwente.nl Sun Feb 28 11:29:54 1999 PST
+Message-ID: <36D92448.8C868DC1@tn.utwente.nl>
+Date: Sun, 28 Feb 1999 12:11:04 +0100
+From: Andrei A. Dergatchev <A.Dergatchev@tn.utwente.nl>
+Subject: Re: sqrt.s
+
+Hi,
+
+>Seems there are a number of us interested in real-life performace
+
+>of square root calculations.
+
+Well, I would say "in axp-linux performance" :-) No necessary sqrt
+
+particularly, but indeed it might be an useful example. I have a Monte-
+
+Carlo code with quite considerable amount of "normalization"
+
+operations too. But it's in Borland Pascal and I'm not sure if I'll
+
+ever have a time to rewrite it :-(
+
+[snip]
+
+>I've got access to both a DU box and a linux one and will be happy
+
+>both trying to contribute and test any new ideas... I'll send a piece
+
+>of code tomorrow if anyone's interested!
+
+Yes, please. Or put it somewhere in the Internet if it's possible to
+
+reduce a list traffic ?
+
+>Regards,
+
+>
+
+>Erik
+
+Rgds,
+
+Andrei
+

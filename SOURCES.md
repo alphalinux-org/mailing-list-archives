@@ -88,6 +88,17 @@ no month subdirs; messages bucketed by Date header. One message has a
 malformed sent date (year 100); correctly placed via received date fallback.  
 No Wayback mbox, not on marc.info, not on Gmane.
 
+## high_perf (separate list)
+
+### November 1998 – November 2001 (27 months, 152 messages)
+**Source:** HTML files in `high_perf/`  
+**Script:** `html-to-mbox-hardware.py high_perf`  
+**Output:** `high_perf-mbox/YYYY-Month.mbox`  
+**Quality:** Good — all files have original Message-IDs.  
+High Performance Alpha Linux list, hosted on alphalinux.org. Mixed
+directory layout: `Month{YEAR}` dirs (some lowercase) plus bare `2000/`
+and `2001/` year dirs.
+
 ## Sources investigated, not used
 
 ### marc.info — axp-redhat list
@@ -132,3 +143,4 @@ gone unless someone retained personal copies.
 | 1999-Dec – 2001-Sep | axp-software | HTML → mbox | Good |
 | 2000-Jul – 2001-Nov | cooker-axp | HTML → mbox | Good |
 | 1999-Apr – 2001-Nov | milo-list | HTML → mbox | Good |
+| 1998-Nov – 2001-Nov | high_perf | HTML → mbox | Good |
