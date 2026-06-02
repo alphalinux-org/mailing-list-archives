@@ -40,7 +40,9 @@ Fully covered by Wayback mbox — no new data.
 
 ### gmane.linux.redhat.axp.kernel (137 articles)
 Date range: April 2002 – September 2003.  
-Separate kernel sub-list, not present in any other source. **Not yet fetched.**
+Separate kernel sub-list, not present in any other source.  
+**Script:** `fetch-gmane-mbox.py`  
+**Output:** `axp-list-mbox/axp-kernel-YYYY-Month.mbox` (15 files)
 
 ## Sources not used
 
@@ -57,4 +59,4 @@ scrape has not been run.
 | pre-1995-Nov | Unknown | — |
 | 1995-Nov – 1998-Feb | HTML → mbox | Good (original Message-IDs) |
 | 1998-Mar – 2022-Apr | Wayback Machine | Lossless |
-| 2002-Apr – 2003-Sep | gmane.linux.redhat.axp.kernel | Not yet fetched |
+| 2002-Apr – 2003-Sep | gmane.linux.redhat.axp.kernel | Good (full headers) |
