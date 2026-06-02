@@ -1,0 +1,1051 @@
+From duaneisking@hotmail.com Sun May 06 09:08:59 2001
+Message-ID: <F3bATcFZ4RgPRCjOuF100000bfb@hotmail.com>
+Date: Sat, 05 May 2001 11:49:07 -0400
+From: duane ellis <duaneisking@hotmail.com>
+Subject: Re: [Axp-hardware] tftpboot alpha server 4/275
+
+duane > Found some problems with 'glibc' - sent the 4 line patch in       > 
+
+already.
+
+My glibc problem is this - I'm cross compiling, during the
+
+glibc 'install' step some programs need to be built - I can't build
+
+them cause not enough is installed. The boo-boo has to do with the
+
+build-programs=no option not being honored during 'make install'
+
+[snip, stuff about alpha]
+
+>Hope this helps a bit.
+
+>Thorsten
+
+Thanks, I think it will.
+
+_________________________________________________________________
+
+Get your FREE download of MSN Explorer at http://explorer.msn.com
+
+_______________________________________________
+
+Axp-hardware mailing list
+
+Axp-hardware@lists.alphalinux.org
+
+http://lists.alphalinux.org/mailman/listinfo/axp-hardware
+
+From kirk@colinet.de Tue May 08 13:36:13 2001
+Message-ID: <kirk-1010506110239.A0120384@hydra.colinet.de>
+Date: Sun, 06 May 2001 11:02:39 +0200
+From: T. Weyergraf <kirk@colinet.de>
+Subject: Re: [Axp-hardware] tftpboot alpha server 4/275
+In-Reply-To: <F37ljBOh8s4KWiGtXsL0000009e@hotmail.com>
+
+> After a long long hayatus, I'm back.
+
+Hey, welcome back ;-)
+
+ 
+
+> I can cross compile a kernal without dorking with
+
+> anything out side of /home/duane (my default user account)
+
+> 
+
+> There are defininatly problems with the alpha linux
+
+> makefiles that *DO*NOT* let you cross compile.
+
+> It is basically broken. I'm going to have to look at
+
+> various newer versions of the kernel to see if these
+
+> things are fixed or not.
+
+Don't worry about letting us know some details. Although at least *i* use various Alphas
+
+as build-hosts, this is interesting enough. I only have two PC's - one of which is in use
+
+as an Xterminal and Mailserver - but I could very well set up one of those to get
+
+involved with the cross-development stuff.
+
+ 
+
+> If/when I develop patches - who do I send them to?
+
+> Is there a designated "alpha-kernel" person, or do I send
+
+> them directly into Linus/Alan?
+
+I would probably send them to Andrea Arcangeli at SuSE. He's doing *a lot* of work
+
+on Alphas and thus has a deep understanding of what's going on in linux-alpha.
+
+I've not been in contact with him, so I can't predict, whether he would like to see them
+
+or not. But since he actively maintains patches to the main kernel-tree, he *might*
+
+be interested. I would not send the patches to Alan or Linus, since their Email is
+
+apparently cluttered with stuff of lesser importance already.
+
+As always, YMMV.
+
+ 
+
+> Found some problems with 'glibc' - sent the 4 line patch in already.
+
+> 
+
+> I'm now at the stage where I have "vmlinux" and I
+
+> need to do the "make bootpfile" step.
+
+> 
+
+> The file 'objstrip' is now the problem it appears
+
+> that it is written non-portable (ie: will not work
+
+> in a cross compile situation)
+
+> 
+
+> I'm getting this message:
+
+> 
+
+> tools/objstrip -v /home/duane/ALPHA/dir-kernel/linux/vmlinux vmlinux.nh
+
+> tools/objstrip: 0 program headers (forgot to link with -N?)
+
+> tools/objstrip: extracting 0x00000000310000-0000000000000000 (at 310000)
+
+> tools/objstrip: copying 4291756032 byte from 
+
+> /home/duane/ALPHA/dir-kernel/linux/vmlinux
+
+> read: Invalid argument
+
+> 
+
+> Two things look wrong (A) The extract range is dumb looking
+
+> (B) 4291756032 is very *WRONG* looking for a file size.
+
+> 
+
+> To fix this, I need some information.
+
+> I hope you guys can help. If not please point me to who can.
+
+> 
+
+> Remember my host is i686, target: alpha.
+
+> 
+
+>    intel 			alpha
+
+> ie: sizeof(char) = 1 byte, alpha? Assume 1 byte?
+
+>     sizeof(short) = 2 byte, alpha? Unknown
+
+>     sizeof(long)  = 4 byte, alpha? Unknown
+
+>     sizeof(long long) = 8 byte, alpha? Unknown
+
+On Alpha, all sizes are the same as in x86, except for longs being 64bit by default. The
+
+same of course goes for pointers.
+
+By looking at the source of objstrip, i think, this is precisely your problem.
+
+ 
+
+> Is alpha big/little endian?
+
+little endian
+
+ 
+
+> does alpha require/support/care about structure alignment?
+
+> what about structure packing?
+
+It cares *a lot* about alignment. It supports misaligned accesses, but traps on them as
+
+all major RISC arches do. See do_enTuna in the kernel sources. You'll get a
+
+kernel message about that. When creating the bootpfile, you should use the correct
+
+alignment for 64bit machines, which is 8 bytes. I think, that at least the ELF headers,
+
+which objstrip reads for tthe conversion is aligned to 8 bytes.
+
+You *must* use that alignment, so make sure, that the cross-compiler uses it.
+
+Also, objstrip uses longs in a way, that they are expected to be 64bits. IMHO, you
+
+need hack either the cross-dev setup or the source itself, to make sure it uses
+
+64bit longs, pointers and filedescriptors.
+
+ 
+
+> Anybody have reasonable looking numbers for these things?
+
+> I'm only looking for "ball park" numbers - I know mine will
+
+> be different to some degree.
+
+HTH,
+
+T. Weyergraf
+
+P.S.: I might be wrong on some of this - it's early here ( just got up ;-)
+
+       So, YMMV
+
+-- 
+Thomas Weyergraf                                                kirk@colinet.de
+My Favorite IA64 Opcode-guess ( see arch/ia64/lib/memset.S )
+"br.ret.spnt.few" - got back from getting beer, did not spend a lot.
+
+_______________________________________________
+Axp-hardware mailing list
+Axp-hardware@lists.alphalinux.org
+http://lists.alphalinux.org/mailman/listinfo/axp-hardware
+
+From jaap.hogenberg@nl.abnamro.com Mon May 21 23:33:53 2001
+Message-ID: <OFE4E27ED6.35B7B65F-ONC1256A46.004A099F@abnamro.com>
+Date: Tue, 8 May 2001 15:33:19 +0200
+From: jaap.hogenberg@nl.abnamro.com <jaap.hogenberg@nl.abnamro.com>
+Subject: [Axp-hardware] Adaptec / DPT RAID compatible ?
+
+Hi !
+
+I just got my hands on a Adaptec RAID controller
+
+labelled  DPT SmartRAID V (PM3755U2B)
+
+and I want to use this beast in my alpha (a SX164)
+
+Is there anyone out here that has experience with this
+
+controller ?
+
+Regards,
+
+Jaap
+
+_______________________________________________
+
+Axp-hardware mailing list
+
+Axp-hardware@lists.alphalinux.org
+
+http://lists.alphalinux.org/mailman/listinfo/axp-hardware
+
+From jaap.hogenberg@nl.abnamro.com Tue May 22 06:56:27 2001
+Message-ID: <OF4B20A916.FBA25DBA-ONC1256A53.0032DD34@abnamro.com>
+Date: Mon, 21 May 2001 11:22:24 +0200
+From: jaap.hogenberg@nl.abnamro.com <jaap.hogenberg@nl.abnamro.com>
+Subject: [Axp-hardware] Dead multia , failsafe floppies ?
+
+Hi
+
+I just tried to switch my multia from SRM to the ARC console,
+
+but it hangs while "setting up console mode"
+
+It looks like "bit rot" in the firmware. (It had been powered off for a
+
+while...)
+
+ I guess I need to restore the firmware ,by booting into a failsafe floppy
+
+and flashing things again.
+
+(Or is there a way to have the system come up in SRM , without trying to
+
+start the ARC ?)
+
+Anyway , I'm looking for these floppies. Does anyone know where I can find
+
+this ?
+
+Or have them around ?
+
+Any help appreciated,
+
+TIA,
+
+Jaap.
+
+_______________________________________________
+
+Axp-hardware mailing list
+
+Axp-hardware@lists.alphalinux.org
+
+http://lists.alphalinux.org/mailman/listinfo/axp-hardware
+
+From jbglaw@lug-owl.de Tue May 22 09:47:23 2001
+Message-ID: <20010522085626.B29624@lug-owl.de>
+Date: Tue, 22 May 2001 08:56:28 +0200
+From: Jan-Benedict Glaw <jbglaw@lug-owl.de>
+Subject: Re: [Axp-hardware] Dead multia , failsafe floppies ?
+In-Reply-To: <OF4B20A916.FBA25DBA-ONC1256A53.0032DD34@abnamro.com>
+
+On Mon, May 21, 2001 at 11:22:24AM +0200, jaap.hogenberg@nl.abnamro.com wrote:
+
+> Anyway , I'm looking for these floppies. Does anyone know where I can find
+
+> this ?
+
+ftp://ftp.digital.com/pub/DEC/Alpha/firmware/
+
+MfG, JBG
+
+-- 
+Fehler eingestehen, Größe zeigen: Nehmt die Rechtschreibreform zurück!!!
+/* Jan-Benedict Glaw <jbglaw@lug-owl.de> -- +49-172-7608481 */
+keyID=0x8399E1BB fingerprint=250D 3BCF 7127 0D8C A444 A961 1DBD 5E75 8399 E1BB
+     "insmod vi.o and there we go..." (Alexander Viro on linux-kernel)
+
+application/pgp-signature attachment: stored
+
+From jaap.hogenberg@nl.abnamro.com Tue May 22 11:00:51 2001
+Message-ID: <OF1D6143FE.E4FABE65-ONC1256A54.0034CEF0@abnamro.com>
+Date: Tue, 22 May 2001 11:44:10 +0200
+From: jaap.hogenberg@nl.abnamro.com <jaap.hogenberg@nl.abnamro.com>
+Subject: Re: [Axp-hardware] Dead multia , failsafe floppies ?
+
+Hi again,
+
+I definitely have a problem here !
+
+The SRM comes up and tries to start ARC , which fails.
+
+(The screen shows: setting up console mode , or something, and just hangs
+
+there)
+
+I've tried a failsafe floppy , this starts loading , and when it stops ,
+
+nothing happens ,
+
+no video , no nothing.
+
+So now I have a very dead multia ?
+
+Any hints ?
+
+Jaap.
+
+Hi
+
+I just tried to switch my multia from SRM to the ARC console,
+
+but it hangs while "setting up console mode"
+
+It looks like "bit rot" in the firmware. (It had been powered off for a
+
+while...)
+
+ I guess I need to restore the firmware ,by booting into a failsafe floppy
+
+and flashing things again.
+
+(Or is there a way to have the system come up in SRM , without trying to
+
+start the ARC ?)
+
+Anyway , I'm looking for these floppies. Does anyone know where I can find
+
+this ?
+
+Or have them around ?
+
+Any help appreciated,
+
+TIA,
+
+Jaap.
+
+_______________________________________________
+
+Axp-hardware mailing list
+
+Axp-hardware@lists.alphalinux.org
+
+http://lists.alphalinux.org/mailman/listinfo/axp-hardware
+
+application/octet-stream attachment: _RFC822.eml
+
+From jbglaw@lug-owl.de Tue May 22 11:51:22 2001
+Message-ID: <20010522130044.B5638@lug-owl.de>
+Date: Tue, 22 May 2001 13:00:47 +0200
+From: Jan-Benedict Glaw <jbglaw@lug-owl.de>
+Subject: Re: [Axp-hardware] Dead multia , failsafe floppies ?
+In-Reply-To: <OF1D6143FE.E4FABE65-ONC1256A54.0034CEF0@abnamro.com>
+
+On Tue, May 22, 2001 at 11:44:10AM +0200, jaap.hogenberg@nl.abnamro.com wrote:
+
+> Hi again,
+
+> 
+
+> I definitely have a problem here !
+
+> The SRM comes up and tries to start ARC , which fails.
+
+> (The screen shows: setting up console mode , or something, and just hangs
+
+> there)
+
+> 
+
+> I've tried a failsafe floppy , this starts loading , and when it stops ,
+
+> nothing happens ,
+
+> no video , no nothing.
+
+Keep waiting. If you've attached any PCI devices with own BIOS (SCSI
+
+Controller and graphic cards for example) it may take some time.
+
+Simply wait some minutes...
+
+> So now I have a very dead multia ?
+
+Don't know...
+
+MfG, JBG
+
+-- 
+Fehler eingestehen, Größe zeigen: Nehmt die Rechtschreibreform zurück!!!
+/* Jan-Benedict Glaw <jbglaw@lug-owl.de> -- +49-172-7608481 */
+keyID=0x8399E1BB fingerprint=250D 3BCF 7127 0D8C A444 A961 1DBD 5E75 8399 E1BB
+     "insmod vi.o and there we go..." (Alexander Viro on linux-kernel)
+
+application/pgp-signature attachment: stored
+
+From Anne.Terpstra@compaq.com Tue May 29 12:19:53 2001
+Message-ID: <7866238A04D10045A304CF7E71F488D1122836@utoexc01.emea.cpqcorp.net>
+Date: Tue, 22 May 2001 13:50:57 +0200
+From: Terpstra, Anne <Anne.Terpstra@compaq.com>
+Subject: RE: [Axp-hardware] Dead multia , failsafe floppies ?
+
+Jaap,
+
+Ik heb op mijn Alpha een vergelijkbaar probleem gehad bij het wisselen van
+
+console modes: Na wisselen van console mode hing het systeem. Bij mij was de
+
+oorzaak de (meegeleverde, oorspronkelijke - Digital) video kaart. Na
+
+(tijdelijk) wisselen van de video kaart (-> matrox milenium II) kwam alles
+
+wel weer normaal op. Een nieuwer BIOS loste ruim 1 jaar geleden het probleem
+
+(nog) niet op.
+
+Succes,
+
+Anne Terpstra 
+
+-----Original Message-----
+
+From: jaap.hogenberg@nl.abnamro.com
+
+[mailto:jaap.hogenberg@nl.abnamro.com]
+
+Sent: maandag 21 mei 2001 11:22
+
+To: axp-hardware@talisman.alphalinux.org
+
+Subject: [Axp-hardware] Dead multia , failsafe floppies ?
+
+Hi
+
+I just tried to switch my multia from SRM to the ARC console,
+
+but it hangs while "setting up console mode"
+
+It looks like "bit rot" in the firmware. (It had been powered off for a
+
+while...)
+
+ I guess I need to restore the firmware ,by booting into a failsafe floppy
+
+and flashing things again.
+
+(Or is there a way to have the system come up in SRM , without trying to
+
+start the ARC ?)
+
+Anyway , I'm looking for these floppies. Does anyone know where I can find
+
+this ?
+
+Or have them around ?
+
+Any help appreciated,
+
+TIA,
+
+Jaap.
+
+_______________________________________________
+
+Axp-hardware mailing list
+
+Axp-hardware@lists.alphalinux.org
+
+http://lists.alphalinux.org/mailman/listinfo/axp-hardware
+
+_______________________________________________
+
+Axp-hardware mailing list
+
+Axp-hardware@lists.alphalinux.org
+
+http://lists.alphalinux.org/mailman/listinfo/axp-hardware
+
+From jaap.hogenberg@nl.abnamro.com Thu May 31 22:41:18 2001
+Message-ID: <OFF13DD61B.D10C8027-ONC1256A5B.0042CCCC@abnamro.com>
+Date: Tue, 29 May 2001 14:15:56 +0200
+From: jaap.hogenberg@nl.abnamro.com <jaap.hogenberg@nl.abnamro.com>
+Subject: Re: [Axp-hardware] SOLVED: Dead multia , failsafe floppies ?
+
+Hiya !
+
+This is just to let all of you know i've solved the problems
+
+described below.
+
+I found some good doc's on the webpages of the NetBSD/Alpha port.
+
+The trick is to REMOVE the dead battery.
+
+I had 2 multia's both seemed dead , but I revived both by pulling the
+
+bastard out.
+
+Now , find some new batteries (in Netherlands)     :-)
+
+Jaap.
+
+(PS , maybe we should include (or link to) the NetBSD doc's on the
+
+alphalinux site ?)
+
+========================================================================
+
+Hi again,
+
+I definitely have a problem here !
+
+The SRM comes up and tries to start ARC , which fails.
+
+(The screen shows: setting up console mode , or something, and just hangs
+
+there)
+
+I've tried a failsafe floppy , this starts loading , and when it stops ,
+
+nothing happens ,
+
+no video , no nothing.
+
+So now I have a very dead multia ?
+
+Any hints ?
+
+Jaap.
+
+Hi
+
+I just tried to switch my multia from SRM to the ARC console,
+
+but it hangs while "setting up console mode"
+
+It looks like "bit rot" in the firmware. (It had been powered off for a
+
+while...)
+
+ I guess I need to restore the firmware ,by booting into a failsafe floppy
+
+and flashing things again.
+
+(Or is there a way to have the system come up in SRM , without trying to
+
+start the ARC ?)
+
+Anyway , I'm looking for these floppies. Does anyone know where I can find
+
+this ?
+
+Or have them around ?
+
+Any help appreciated,
+
+TIA,
+
+Jaap.
+
+_______________________________________________
+
+Axp-hardware mailing list
+
+Axp-hardware@lists.alphalinux.org
+
+http://lists.alphalinux.org/mailman/listinfo/axp-hardware
+
+application/octet-stream attachment: _RFC822.eml
+
+From esazonov@csee.wvu.edu Thu May 31 22:59:59 2001
+Message-ID: <3B16D5CF.1030901@csee.wvu.edu>
+Date: Thu, 31 May 2001 18:37:51 -0500
+From: Edward Sazonov <esazonov@csee.wvu.edu>
+Subject: [Axp-hardware] Cannot boot from the network. Please help.
+
+Hello!
+
+I'm trying to make a diskless workstation from an Alpha  PC164LX.
+
+I have two computers: server and workstation.
+
+The problem is that workstation's SRM (v.5.8) does not work with the 
+
+network card (DEC 21140-AA).
+
+Tcpdump on the server doesn't show any activity on the network when I 
+
+issue "boot ewa0" on the workstation.
+
+The activity LED on the workstation's NIC is not blinking either.
+
+The SRM tells:
+
+       Trying BOOTP boot.
+
+       Broadcasting BOOTP request . . .
+
+..file open failed for bootp/ewa0.0.0.6.0
+
+bootstrap failure
+
+Retrying, type ^C to abort ...
+
+(boot ewa0.0.0.6.0)
+
+and does this forever.
+
+I tried different firmware (v.5.6 and v.5.8),  different NIC cards of 
+
+the same make, different SRM settings;
+
+searched hundreds of pages on the Internet but I cannot make it work.
+
+Any feedback on this problem would be highly appreciated.
+
+Thank you,
+
+Edward
+
+PS: Is it critical that the NIC is 21140-AA not 21040-AA ???
+
+The SRM does detect it properly.
+
+_______________________________________________
+
+Axp-hardware mailing list
+
+Axp-hardware@lists.alphalinux.org
+
+http://lists.alphalinux.org/mailman/listinfo/axp-hardware
+
+From rdp@talisman.alphalinux.org Thu May 31 23:30:07 2001
+Message-ID: <Pine.LNX.4.21.0105311858350.7156-100000@talisman.mv.com>
+Date: Thu, 31 May 2001 19:00:28 -0400 (EDT)
+From: Rich Payne <rdp@talisman.alphalinux.org>
+Subject: Re: [Axp-hardware] Cannot boot from the network. Please help.
+In-Reply-To: <3B16D5CF.1030901@csee.wvu.edu>
+
+Have you tried forcing the negotiation of the NIC in SRM? If the SRM
+
+driver can't negotiate properly with the hub/switch then it will never be
+
+able to send the request.
+
+You should be able to do something like:
+
+>>>set ew0_mode TwistedPair
+
+you can see the valid modes with something like:
+
+>>>set ewa0_mode blah
+
+then I'd make sure that the hub/switch agrees with SRM, which may take a
+
+power cycle (especially if you're going 10-100 or 100-10).
+
+good luck,
+
+--rdp
+
+On Thu, 31 May 2001, Edward Sazonov wrote:
+
+> Hello!
+
+> 
+
+> I'm trying to make a diskless workstation from an Alpha  PC164LX.
+
+> I have two computers: server and workstation.
+
+> The problem is that workstation's SRM (v.5.8) does not work with the 
+
+> network card (DEC 21140-AA).
+
+> Tcpdump on the server doesn't show any activity on the network when I 
+
+> issue "boot ewa0" on the workstation.
+
+> The activity LED on the workstation's NIC is not blinking either.
+
+> The SRM tells:
+
+> 
+
+>        Trying BOOTP boot.
+
+> 
+
+>        Broadcasting BOOTP request . . .
+
+> ..file open failed for bootp/ewa0.0.0.6.0
+
+> bootstrap failure
+
+> 
+
+> Retrying, type ^C to abort ...
+
+> 
+
+> (boot ewa0.0.0.6.0)
+
+> 
+
+> and does this forever.
+
+> 
+
+> I tried different firmware (v.5.6 and v.5.8),  different NIC cards of 
+
+> the same make, different SRM settings;
+
+> searched hundreds of pages on the Internet but I cannot make it work.
+
+> Any feedback on this problem would be highly appreciated.
+
+> 
+
+> Thank you,
+
+> Edward
+
+> 
+
+> PS: Is it critical that the NIC is 21140-AA not 21040-AA ???
+
+> The SRM does detect it properly.
+
+> 
+
+> 
+
+> _______________________________________________
+
+> Axp-hardware mailing list
+
+> Axp-hardware@lists.alphalinux.org
+
+> http://lists.alphalinux.org/mailman/listinfo/axp-hardware
+
+> 
+
+-- 
+Rich Payne
+rpayne@alphalinux.org			www.alphalinux.org
+
+_______________________________________________
+Axp-hardware mailing list
+Axp-hardware@lists.alphalinux.org
+http://lists.alphalinux.org/mailman/listinfo/axp-hardware
+
+From esazonov@csee.wvu.edu Fri Jun 01 09:03:29 2001
+Message-ID: <3B16E15F.2060007@csee.wvu.edu>
+Date: Thu, 31 May 2001 19:27:11 -0500
+From: Edward Sazonov <esazonov@csee.wvu.edu>
+Subject: Re: [Axp-hardware] Cannot boot from the network. Please help.
+In-Reply-To: <Pine.LNX.4.21.0105311858350.7156-100000@talisman.mv.com>
+
+I tried all possible ewa0_mode settings. Doesn't work.
+
+I even tried 10Mbit hub, 100Mbit hub, crossover cable. Still doesn't work.
+
+Rich Payne wrote:
+
+> Have you tried forcing the negotiation of the NIC in SRM? If the SRM
+
+> driver can't negotiate properly with the hub/switch then it will never be
+
+> able to send the request.
+
+> 
+
+> You should be able to do something like:
+
+> 
+
+>>>> set ew0_mode TwistedPair
+
+>>> 
+
+> 
+
+> you can see the valid modes with something like:
+
+> 
+
+>>>> set ewa0_mode blah
+
+>>> 
+
+> 
+
+> then I'd make sure that the hub/switch agrees with SRM, which may take a
+
+> power cycle (especially if you're going 10-100 or 100-10).
+
+> 
+
+> good luck,
+
+> --rdp
+
+> 
+
+> On Thu, 31 May 2001, Edward Sazonov wrote:
+
+> 
+
+>> Hello!
+
+>> 
+
+>> I'm trying to make a diskless workstation from an Alpha  PC164LX.
+
+>> I have two computers: server and workstation.
+
+>> The problem is that workstation's SRM (v.5.8) does not work with the 
+
+>> network card (DEC 21140-AA).
+
+>> Tcpdump on the server doesn't show any activity on the network when I 
+
+>> issue "boot ewa0" on the workstation.
+
+>> The activity LED on the workstation's NIC is not blinking either.
+
+>> The SRM tells:
+
+>> 
+
+>>        Trying BOOTP boot.
+
+>> 
+
+>>        Broadcasting BOOTP request . . .
+
+>> ..file open failed for bootp/ewa0.0.0.6.0
+
+>> bootstrap failure
+
+>> 
+
+>> Retrying, type ^C to abort ...
+
+>> 
+
+>> (boot ewa0.0.0.6.0)
+
+>> 
+
+>> and does this forever.
+
+>> 
+
+>> I tried different firmware (v.5.6 and v.5.8),  different NIC cards of 
+
+>> the same make, different SRM settings;
+
+>> searched hundreds of pages on the Internet but I cannot make it work.
+
+>> Any feedback on this problem would be highly appreciated.
+
+>> 
+
+>> Thank you,
+
+>> Edward
+
+>> 
+
+>> PS: Is it critical that the NIC is 21140-AA not 21040-AA ???
+
+>> The SRM does detect it properly.
+
+>> 
+
+>> 
+
+>> _______________________________________________
+
+>> Axp-hardware mailing list
+
+>> Axp-hardware@lists.alphalinux.org
+
+>> http://lists.alphalinux.org/mailman/listinfo/axp-hardware
+
+>> 
+
+I tried all possible ewa0_mode settings. Doesn't work.
+I even tried 10Mbit hub, 100Mbit hub, crossover cable. Still doesn't work.
+
+Rich Payne wrote:
+Have you tried forcing the negotiation of the NIC in SRM? If the SRM
+driver can't negotiate properly with the hub/switch then it will never be
+able to send the request.
+
+You should be able to do something like:
+
+  set ew0_mode TwistedPair
+
+        
+you can see the valid modes with something like:
+
+        set ewa0_mode blah
+
+              
+then I'd make sure that the hub/switch agrees with SRM, which may take a
+power cycle (especially if you're going 10-100 or 100-10).
+
+good luck,
+--rdp
+
+On Thu, 31 May 2001, Edward Sazonov wrote:
+
+              Hello!
+
+I'm trying to make a diskless workstation from an Alpha  PC164LX.
+I have two computers: server and workstation.
+The problem is that workstation's SRM (v.5.8) does not work with the 
+network card (DEC 21140-AA).
+Tcpdump on the server doesn't show any activity on the network when I 
+issue "boot ewa0" on the workstation.
+The activity LED on the workstation's NIC is not blinking either.
+The SRM tells:
+
+       Trying BOOTP boot.
+
+       Broadcasting BOOTP request . . .
+..file open failed for bootp/ewa0.0.0.6.0
+bootstrap failure
+
+Retrying, type ^C to abort ...
+
+(boot ewa0.0.0.6.0)
+
+and does this forever.
+
+I tried different firmware (v.5.6 and v.5.8),  different NIC cards of 
+the same make, different SRM settings;
+searched hundreds of pages on the Internet but I cannot make it work.
+Any feedback on this problem would be highly appreciated.
+
+Th!
+!
+ank you,
+Edward
+
+PS: Is it critical that the NIC is 21140-AA not 21040-AA ???
+The SRM does detect it properly.
+
+_______________________________________________
+Axp-hardware mailing list
+Axp-hardware@lists.alphalinux.org
+http://lists.alphalinux.org/mailman/listinfo/axp-hardware
+
+                
+                
+
+_______________________________________________
+Axp-hardware mailing list
+Axp-hardware@lists.alphalinux.org
+http://lists.alphalinux.org/mailman/listinfo/axp-hardware
+
+From mailman-owner@talisman.mv.com Fri Jun 01 09:03:29 2001
+Message-ID: <200106010905.FAA10372@talisman.mv.com>
+Date: Fri, 1 Jun 2001 05:05:11 -0400
+From: mailman-owner@talisman.mv.com <mailman-owner@talisman.mv.com>
+Subject: lists.alphalinux.org mailing list memberships reminder
+
+This is a reminder, sent out once a month, about your
+
+lists.alphalinux.org mailing list memberships.  It includes your
+
+subscription info and how to use it to change it or unsubscribe from a
+
+list.
+
+You can visit the URLs to change your membership status or
+
+configuration, including unsubscribing, setting digest-style delivery
+
+or disabling delivery altogether (e.g., for a vacation), and so on.
+
+In addition to the URL interfaces, you can also use email to make such
+
+changes.  For more info, send a message to the '-request' address of
+
+the list (for example, axp-hardware-request@lists.alphalinux.org)
+
+containing just the word 'help' in the message body, and an email
+
+message will be sent to you with instructions.
+
+If you have questions, problems, comments, etc, send them to
+
+mailman-owner@talisman.mv.com.  Thanks!
+
+Passwords for axp-hardware-archive@alphalinux.org:
+
+List                                     Password // URL
+
+----                                     --------  
+
+axp-hardware@lists.alphalinux.org        CaKs      
+
+http://lists.alphalinux.org/mailman/options/axp-hardware/axp-hardware-archive%40alphalinux.org
+
