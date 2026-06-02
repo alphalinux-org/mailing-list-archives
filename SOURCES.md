@@ -21,6 +21,12 @@ full headers intact. All 154 files SHA256-verified against fresh re-download.
 **Key detail:** Wayback `id_` modifier used (not `if_`) — `if_` decodes
 Content-Encoding and truncates files.
 
+### axp-kernel sub-list: April 2002 – September 2003 (15 months, 137 messages)
+**Source:** Gmane (news.gmane.io), group `gmane.linux.redhat.axp.kernel`  
+**Script:** `fetch-gmane-mbox.py`  
+**Output:** `axp-list-mbox/axp-kernel-YYYY-Month.mbox`  
+This kernel-specific sub-list is absent from all other sources.
+
 ## axp-list/ (pre-existing Pipermail HTML)
 37,389 HTML files, 1995-November through 1999-November.  
 Two directory layouts:
@@ -30,33 +36,42 @@ Two directory layouts:
 Each file contains original metadata in HTML comments: `received`, `sent`,
 `name`, `email`, `subject`, `id` (Message-ID), `inreplyto`.  
 The 1999 months overlap with Wayback mbox coverage; Wayback takes priority
-there (verified for 1998-March: Wayback is a strict superset of HTML).
+(verified for 1998-March: Wayback is a strict superset of HTML).
 
-## Gmane (news.gmane.io)
+## Sources investigated, not used
 
-### gmane.linux.redhat.axp.general (7,152 articles)
-Date range: March 2002 – June 2015.  
-Fully covered by Wayback mbox — no new data.
+### marc.info — axp-redhat list
+Covers 1995-November through 1999-June, ~13,181 messages. Headers
+reconstructed (no original Message-ID). All months covered by higher-quality
+sources; not fetched.
 
-### gmane.linux.redhat.axp.kernel (137 articles)
-Date range: April 2002 – September 2003.  
-Separate kernel sub-list, not present in any other source.  
-**Script:** `fetch-gmane-mbox.py`  
-**Output:** `axp-list-mbox/axp-kernel-YYYY-Month.mbox` (15 files)
+### marc.info — axp-list, axp-kernel-list
+Neither list is indexed on marc.info ("No such list").
 
-## Sources not used
+### Gmane — gmane.linux.redhat.axp.general (7,152 articles, Mar 2002 – Jun 2015)
+Fully covered by Wayback mbox; no new data.
 
-### marc.info (axp-redhat list)
-Script `fetch-marc-mbox.py` written and ready. Covers 1995-November through
-1999-June, ~13,181 messages. Headers are reconstructed (no original
-Message-ID). All months have data from higher-quality sources, so this
-scrape has not been run.
+### lore.kernel.org — linux-alpha@vger.kernel.org
+14,923 messages, April 2002 – present. This is the upstream vger kernel
+Alpha list, distinct from Red Hat's axp-list/axp-kernel-list. Starts too
+late to fill any gaps. Not fetched.
+
+### marc.info — linux-alpha@vger.kernel.org
+May 1998 – present. Same vger list as lore, different archive. Predates
+lore's coverage by ~4 years, but is still a different list from axp-kernel-list.
+Not fetched.
+
+### axp-kernel-list (Red Hat, pre-2002)
+Referenced in external archives by September 1998. Checked Wayback Machine
+(nothing), marc.info (not indexed), Gmane (starts April 2002 only). No
+pre-2002 archive found anywhere.
 
 ## Coverage summary
 
-| Period | Source | Quality |
-|--------|--------|---------|
-| pre-1995-Nov | Unknown | — |
-| 1995-Nov – 1998-Feb | HTML → mbox | Good (original Message-IDs) |
-| 1998-Mar – 2022-Apr | Wayback Machine | Lossless |
-| 2002-Apr – 2003-Sep | gmane.linux.redhat.axp.kernel | Good (full headers) |
+| Period | List | Source | Quality |
+|--------|------|--------|---------|
+| pre-1995-Nov | axp-list | Unknown | — |
+| 1995-Nov – 1998-Feb | axp-list | HTML → mbox | Good (original Message-IDs) |
+| 1998-Mar – 2022-Apr | axp-list | Wayback Machine | Lossless |
+| pre-2002 | axp-kernel-list | Not found | — |
+| 2002-Apr – 2003-Sep | axp-kernel-list | Gmane | Good (full headers) |
