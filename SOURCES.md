@@ -38,6 +38,15 @@ Each file contains original metadata in HTML comments: `received`, `sent`,
 The 1999 months overlap with Wayback mbox coverage; Wayback takes priority
 (verified for 1998-March: Wayback is a strict superset of HTML).
 
+## axp-hardware.mbox (separate list)
+
+### May 2000 – August 2001 (113 messages)
+**Source:** Wayback Machine  
+**URL:** `http://lists.alphalinux.org/pipermail/axp-hardware.mbox/axp-hardware.mbox`  
+**Capture used:** 20011104 (two captures exist: 20011104, 20020120 — identical content)  
+**Output:** `axp-hardware.mbox` (single file; archive was never split into monthly files)  
+Hardware-focused sub-list hosted on lists.alphalinux.org, distinct from axp-list.
+
 ## Sources investigated, not used
 
 ### marc.info — axp-redhat list
@@ -78,3 +87,4 @@ gone unless someone retained personal copies.
 | 1998-Mar – 2022-Apr | axp-list | Wayback Machine | Lossless |
 | pre-2002 | axp-kernel-list | Not found | — |
 | 2002-Apr – 2003-Sep | axp-kernel-list | Gmane | Good (full headers) |
+| 2000-May – 2001-Aug | axp-hardware | Wayback Machine | Lossless |
