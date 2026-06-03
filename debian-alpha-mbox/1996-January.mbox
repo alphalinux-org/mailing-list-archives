@@ -1,0 +1,630 @@
+From unknown Thu, 4 Jan 1996 08:32:37 -0500
+Message-ID: <199601041329.OAA14502@goofy.zdv.Uni-Mainz.DE>
+Date: Thu, 4 Jan 1996 08:32:37 -0500
+From: Mister Linux
+Subject: Installing RedHat BETA on Alpine ???
+
+Hello alltogether and a happy new year!
+
+As some of you have recommended, i have dropped my attempts to install
+BLADE and waited for RedHat to be available.
+
+Our mirror copied all the stuff over the holidays and i dumped the eb64+
+image and the ramdisk image as described in the README. But when i tried
+to boot it (from the SRM console - changing that is not an option!) all i
+got was "no valid bootblock". I checked the bootdisk, but all it seemed
+to have was a kernel, no bootloader files or things like that.
+
+Now the question is: did anybody succeed in installing a system with the
+eb64+ image?
+
+If this image can only be booted using MILO, could anybody provide my
+a SRM bootable image ?
+
+Thanks,
+  Dominik Kubla
++----------------------------------------------------------------------+
+|  'Mr. Linux' is responsible for the Linux area of the FTP-server of  |
+|           Johannes Gutenberg-University at Mainz, Germany.           |
++----------------------------------------------------------------------+
+
+From unknown Thu, 11 Jan 1996 20:53:09 -0500
+Message-ID: <199601120150.SAA25351@web.azstarnet.com>
+Date: Thu, 11 Jan 1996 20:53:09 -0500
+From: David  Mosberger
+Subject: Re: Installing RedHat BETA on Alpine ???
+
+The RedHat installation does not currently support SRM.  You'd need to
+get aboot and install it and the kernel on a floppy to get started
+(the ramdisk floppy should work fine, though).  See the FAQ for more
+info on aboot.
+
+	--david
+
+From unknown Tue, 23 Jan 1996 14:46:46 -0500
+Message-ID: <199601231945.UAA18808@daisy.zdv.Uni-Mainz.DE>
+Date: Tue, 23 Jan 1996 14:46:46 -0500
+From: Dominik Kubla
+Subject: DPKG not compiling due to differences between Alpha and Intel...
+
+Hi Folks!
+
+FINALLY! I got RedHat to install on the 200MHz Alpine system used for testing
+purposes. It was a tough fight (i had to build a complete new kernel first!)
+but now it works and i finally started working on the DEBIAN stuff.
+
+First thing i tried to compile was dpkg - and it failed miserably because
+Linux/Alpha does not define all syscalls! This is apparently because of the
+OSF/1 compatibility.
+
+I found the following differences between Linux/x86 and Linux/Alpha:
+* SYS_sysinfo is not defined in any of the header files (but the kernel does
+  implement it).
+* Structure sigaction has no member sa_restorer.
+
+Not much you will say, but too much for me to solve it single handed.
+What's to do?
+
+Dominik
+
+From unknown Tue, 23 Jan 1996 18:03:25 -0500
+Message-ID: <m0terj1-0002YUC@chiark.chu.cam.ac.uk>
+Date: Tue, 23 Jan 1996 18:03:25 -0500
+From: Ian Jackson
+Subject: Re: DPKG not compiling due to differences between Alpha and Intel...
+
+(For those on linux-alpha: I'm the author of dpkg.)
+
+Dominik Kubla writes:
+> First thing i tried to compile was dpkg - and it failed miserably because
+> Linux/Alpha does not define all syscalls! This is apparently because of the
+> OSF/1 compatibility.
+> 
+> I found the following differences between Linux/x86 and Linux/Alpha:
+> * SYS_sysinfo is not defined in any of the header files (but the kernel does
+>   implement it).
+
+This is IMO a bug in the libc and/or kernel.  I suppose the best
+workaround is to write a configure rule that detects for the presence
+of SYS_sysinfo and defines it, or something.
+
+Alternatively you could redefine sysinfo in config.h to run a fake
+version in compat.c that always returns the same numbers.
+
+Anyway, I've reported the lack of an entrypoint or prototype for
+sysinfo as a bug against Debian's libc packages and it doesn't seem to
+have helped very much ...
+
+If you send me some code for configure.in &c that deals with this
+problem for you then I'll incorporate it into the next dpkg release.
+
+> * Structure sigaction has no member sa_restorer.
+
+Huh ?  This really confuses me.  Is this necessary for OSF/1
+compatibility ?  How am I to write code that works right on both
+systems, if I refuse to use #ifdef ?
+
+(Obviously I shouldn't need to use #ifdef to compile
+architecture-independent code on different Linux systems !)
+
+Ian.
+
+From unknown Tue, 23 Jan 1996 18:39:42 -0500
+Message-ID: <199601232338.SAA17638@huahaga.rutgers.edu>
+Date: Tue, 23 Jan 1996 18:39:42 -0500
+From: "David S. Miller"
+Subject: Re: DPKG not compiling due to differences between Alpha and Intel...
+
+Date: 	Tue, 23 Jan 96 23:02 GMT
+   From: Ian Jackson <ian@chiark.chu.cam.ac.uk>
+
+   > * Structure sigaction has no member sa_restorer.
+
+   Huh ?  This really confuses me.  Is this necessary for OSF/1
+   compatibility ?  How am I to write code that works right on both
+   systems, if I refuse to use #ifdef ?
+
+   (Obviously I shouldn't need to use #ifdef to compile
+   architecture-independent code on different Linux systems !)
+
+The layout of struct sigaction has become architecture dependant under
+Linux.  And yes it is mostly for binary compatability.  Architectures
+like the sparc and the alpha do not need, and therefore do not have an
+sa_restorer member.  Most of the time there is a special system call
+sys_sigreturn() which restores the necessary state from whatever is in
+the sigaction struct on the processes stack.
+
+The process is forced to call sys_sigreturn() via one of two mechanisms.
+
+1) The code to call sys_sigreturn() with a pointer to the sigaction
+   restoration information is placed on the users stack, to be
+   executed when the signal handler function returns  (this is the way
+   the alpha does it, also it is how {net, open}bsd + solaris do it
+   on the sparc).
+
+2) Libc manages where the real signal handers are and it points the
+   kernel at one "signal trampoline" routine which does any extra
+   state saving from user land for the process then calls the real
+   signal handler via a signal function ptr table.  After the
+   trampoline code regains control is restores the extra state it
+   saved before the signal handler call and calls sys_sigreturn() with
+   the pointer to the sigaction struct as the first argument.  This is
+   how SunOS on the sparc and Linux on the sparc deal with things.
+
+This is why there exists no sa_restorer member.  I hope this helps
+people out.
+
+Later,
+David S. Miller
+davem@caip.rutgers.edu
+
+From unknown Tue, 23 Jan 1996 18:54:55 -0500
+Message-ID: <m0tesV4-0002btC@chiark.chu.cam.ac.uk>
+Date: Tue, 23 Jan 1996 18:54:55 -0500
+From: Ian Jackson
+Subject: Re: DPKG not compiling due to differences between Alpha and Intel...
+
+David S. Miller writes ("Re: DPKG not compiling due to differences between Alpha and Intel..."):
+> The layout of struct sigaction has become architecture dependant under
+> Linux.
+
+Oh dear.
+
+>   And yes it is mostly for binary compatability.  Architectures
+> like the sparc and the alpha do not need, and therefore do not have an
+> sa_restorer member.  Most of the time there is a special system call
+> sys_sigreturn() which restores the necessary state from whatever is in
+> the sigaction struct on the processes stack.
+> 
+> The process is forced to call sys_sigreturn() via one of two mechanisms.
+> 
+> 1) The code to call sys_sigreturn() with a pointer to the sigaction
+>    restoration information is placed on the users stack, to be
+>    executed when the signal handler function returns  (this is the way
+>    the alpha does it, also it is how {net, open}bsd + solaris do it
+>    on the sparc).
+
+Aha.
+
+> 2) Libc manages where the real signal handers are and it points the
+>    kernel at one "signal trampoline" routine which does any extra
+>    state saving from user land for the process then calls the real
+>    signal handler via a signal function ptr table.  After the
+>    trampoline code regains control is restores the extra state it
+>    saved before the signal handler call and calls sys_sigreturn() with
+>    the pointer to the sigaction struct as the first argument.  This is
+>    how SunOS on the sparc and Linux on the sparc deal with things.
+
+Right.
+
+> This is why there exists no sa_restorer member.  I hope this helps
+> people out.
+
+So, what am I supposed to do when I call sigaction ?
+
+Supposing I want to set the action entirely myself, without using any
+of the previous state (eg, by calling sigaction first to get the
+current state and then modifying it).  How do I fill in the sigaction
+struct ?
+
+Is it ever necessary to fill in the sa_restorer member, or will the
+libc fill it in if it is needed/present ?
+
+If the sa_restorer member is solely for the benefit of the libc, then
+could this be made clearer in the manpage for sigaction ?  My current
+manpage says:
+       The sa_restorer element is  obsolete  and  should  not  be
+       used.
+
+This doesn't tell me whether it's safe to leave it undefined, or
+whether I should fill it with NULL.  I currently do the latter out of
+paranoia.
+
+Ian.
+
+From unknown Tue, 23 Jan 1996 21:22:57 -0500
+Message-ID: <m0teupl-0002YUC@chiark.chu.cam.ac.uk>
+Date: Tue, 23 Jan 1996 21:22:57 -0500
+From: Ian Jackson
+Subject: Re: DPKG not compiling due to differences between Alpha and Intel...
+
+David S. Miller writes ("Re: DPKG not compiling due to differences between Alpha and Intel..."):
+> For compatability reasons the sa_restorer is still checked, if it is
+> non-null the stack save state is thrown wherever that points to.  So
+> it seems not a bad idea to set it to NULL in your application.
+> *However* I would imagine that H.J. sets it to null on purpose in libc
+> to get the new behavior.  I would check the libc sources before doing
+> this.
+
+I'm afraid I don't have time for that at the moment - perhaps Dominik
+Kubla, who was the person trying to get it to compile on the alpha,
+could do my research for me ?
+
+> As a point of reference, I just looked at bash, to check things out.
+> All it cares about is whether signal handlers return void or int, it
+> makes no reference to sa_restorer or similar and works.  Make whatever
+> conclusions you want...  I suggest checking out libc directly or
+> contacting H.J. Liu for the real scoop.
+
+It would be nice of course if this kind of thing were documented in a
+manpage, rather than us having to ask HJ !
+
+If there's no motion on this I'll probably get around to updating the
+manpage myself at some point, but I'm just as busy as everyone else so
+it won't get done soon :-).
+
+Does anyone know what POSIX says on this issue ?
+
+Ian.
+
+From unknown Tue, 23 Jan 1996 22:02:25 -0500
+Message-ID: <199601240158.UAA18061@huahaga.rutgers.edu>
+Date: Tue, 23 Jan 1996 22:02:25 -0500
+From: "David S. Miller"
+Subject: Re: DPKG not compiling due to differences between Alpha and Intel...
+
+Date: Tue, 23 Jan 96 23:51 GMT
+   From: Ian Jackson <ian@chiark.chu.cam.ac.uk>
+
+   > This is why there exists no sa_restorer member.  I hope this helps
+   > people out.
+
+   So, what am I supposed to do when I call sigaction ?
+
+I do not know if Linux libc on the i386 dorks with sa_restorer, but I
+can tell you what is up with the kernel end of things.  In the olden
+days the signal state was stored wherever this sa_restorer thing
+pointed to.  Now, and for the purposes of being ibcs2 compliant, the
+signal save state is thrown on the processes stack.
+
+For compatability reasons the sa_restorer is still checked, if it is
+non-null the stack save state is thrown wherever that points to.  So
+it seems not a bad idea to set it to NULL in your application.
+*However* I would imagine that H.J. sets it to null on purpose in libc
+to get the new behavior.  I would check the libc sources before doing
+this.
+
+As a point of reference, I just looked at bash, to check things out.
+All it cares about is whether signal handlers return void or int, it
+makes no reference to sa_restorer or similar and works.  Make whatever
+conclusions you want...  I suggest checking out libc directly or
+contacting H.J. Liu for the real scoop.
+
+Later,
+David S. Miller
+davem@caip.rutgers.edu
+
+From unknown Wed, 24 Jan 1996 09:48:58 -0700
+Message-ID: <199601241643.JAA08951@koala.azstarnet.com>
+Date: Wed, 24 Jan 1996 09:48:58 -0700
+From: David Mosberger-Tang
+Subject: Re: DPKG not compiling due to differences between Alpha and Intel...
+
+>>>>> On Tue, 23 Jan 1996 20:45:10 +0100, Dominik Kubla <dominik.kubla@uni-mainz.de> said:
+
+  Dominik> First thing i tried to compile was dpkg - and it failed
+  Dominik> miserably because Linux/Alpha does not define all syscalls!
+  Dominik> This is apparently because of the OSF/1 compatibility.
+
+No, it's not (primarily) because of OSF/1 compatibility.  Call it
+laziness or whatever.  I think it's not a bad thing to add kernel
+syscalls "on demand" especially since nobody has so far volunteered to
+(a) go through the list of Linux kernel calls and add the missing ones
+in one big swoop *and* (b) volunteered to test the calls just added.
+Doing it one by one makes testing easier.  Having said that, I don't
+believe there are that many calls missing any more.
+
+	--david
+
+From unknown Wed, 24 Jan 1996 10:34:13 -0700
+Message-ID: <199601241731.SAA10656@klopfer.zdv.Uni-Mainz.DE>
+Date: Wed, 24 Jan 1996 10:34:13 -0700
+From: Dominik Kubla
+Subject: Re: DPKG not compiling due to differences between Alpha and Intel...
+
+Ian Jackson wrote:
+> 
+> I'm afraid I don't have time for that at the moment - perhaps Dominik
+> Kubla, who was the person trying to get it to compile on the alpha,
+> could do my research for me ?
+
+No problem. I just wanted to get a hint where to start.
+
+> 
+> Does anyone know what POSIX says on this issue ?
+> 
+
+I just checked "Donald Levine: POSIX Programmer's Guide (1st Ed., 1991)"
+and it does only list the following members of struct sigaction:
+
+  Type           Name
+  -------------------------
+  void(*)()      sa_handler
+  sigset_t       sa_mask
+  int            sa_flags        
+
+Cheers,
+  Dominik
+
+From unknown Wed, 24 Jan 1996 15:30:44 -0700
+Message-ID: <61UTNguEcsB@khms.westfalen.de>
+Date: Wed, 24 Jan 1996 15:30:44 -0700
+From: kai@khms.westfalen.de (Kai Henningsen)
+Subject: Re: DPKG not compiling due to differences between Alpha and Intel...
+
+ian@chiark.chu.cam.ac.uk (Ian Jackson)  wrote on 24.01.96 in <[🔎] m0teupl-0002YUC@chiark.chu.cam.ac.uk>:
+
+> Does anyone know what POSIX says on this issue ?
+
+I mislaid my original POSIX.1, but the very reliable "The POSIX.1 Standard  
+- A Programmers Guide" says that Posix has
+
+struct sigaction {
+   void     (*sa_handler)(); /* Signal handler function */
+   sigset_t sa_mask;         /* Extra mask during handling */
+   int      sa_flags;        /* Only used for SIGCHLD */
+   /* Possibly other members */
+};
+
+and in their example of "a strictly POSIX conforming program" they  
+initialize a new struct sigaction by initializing only these three  
+members.
+
+This seems to be a general POSIX (and ANSI C) philosophy: as long as you  
+only use POSIX interfaces, you can safely ignore any members an  
+implementation might add to a structure.
+
+Now if libc implements this correctly is a completely different question!
+
+However, if you absolutely want to be on the safe side, you might simply  
+memset(my_sigaction, 0, sizeof(my_sigaction)); - I don't believe there's  
+anything wrong with that.
+
+MfG Kai
+
+From unknown Thu, 25 Jan 1996 11:09:03 -0700
+Message-ID: <199601251637.RAA29089@dagobert.zdv.Uni-Mainz.DE>
+Date: Thu, 25 Jan 1996 11:09:03 -0700
+From: Dominik Kubla
+Subject: No uploads to U-Mainz possible until next Monday.
+
+No uploads will be be possible at U-Mainz until next Monday, because the
+FTP filesystem is full. Since this machine is one of the central servers =
+of
+U-Mainz, we need to wait until the next scheduled maintenance period to
+add some additional GB's and reboot the system.
+
+Sorry for the inconvenience,
+  Dominik Kubla
+
+From unknown Thu, 25 Jan 1996 12:43:52 -0700
+Message-ID: <199601251943.UAA00369@dagobert.zdv.Uni-Mainz.DE>
+Date: Thu, 25 Jan 1996 12:43:52 -0700
+From: Dominik Kubla
+Subject: Debian/Alpha gets going ...
+
+Hi Folks,
+
+After i "fixed" the problems with dpkg, my 200 MHz Alpha got busy.
+The following packages are due to be uploaded on Monday (due to our
+little FTP problem i reported earlier):
+
+admin:
+-rw-r--r--   1 root     root       170860 Jan 25 20:03 at-2.9a-11.deb
+-rw-r--r--   1 root     root       229279 Jan 25 20:06 cpio-2.3-11.deb
+-rw-r--r--   1 root     root       191269 Jan 25 20:07 cron-3.0pl1-31.deb
+-rw-r--r--   1 root     root        70808 Jan 25 20:07 hdparm-2.3-0.deb
+-rw-r--r--   1 root     root        61286 Jan 25 20:07 mt-st-0.2-4.deb
+-rw-r--r--   1 root     root       181468 Jan 25 20:07 statserial-1.1-11.deb
+-rw-r--r--   1 root     root       203656 Jan 25 20:08 sudo-1.3.1pl4-1.deb
+-rw-r--r--   1 root     root       220712 Jan 25 20:10 taper-6.1.2a-1.deb
+
+base:
+-rw-r--r--   1 root     root       225855 Jan 25 19:59 ae-493-10.deb
+-rw-r--r--   1 root     root       396717 Jan 25 19:59 bash-1.14.4-3.deb
+-rw-r--r--   1 root     root      1918151 Jan 25 19:59 bsdutils-2.0-1.deb
+-rw-r--r--   1 root     root       196712 Jan 25 19:59 chfn-1.0-5.deb
+-rw-r--r--   1 root     root       467434 Jan 25 19:59 diff-2.7-9.deb
+-rw-r--r--   1 root     root       496827 Jan 25 19:59 dpkg-1.0.11.deb
+-rw-r--r--   1 root     root       715671 Jan 25 19:59 e2fsprogs-1.01-3.deb
+-rw-r--r--   1 root     root       190205 Jan 25 19:59 ed-0.2-10.deb
+-rw-r--r--   1 root     root      1537722 Jan 25 19:59 fileutils-3.12-3.deb
+-rw-r--r--   1 root     root       499060 Jan 25 19:59 findutils-4.1-5.deb
+-rw-r--r--   1 root     root       345504 Jan 25 19:59 gawk-2.15.6-2.deb
+-rw-r--r--   1 root     root       115075 Jan 25 19:59 grep-2.0-4.deb
+-rw-r--r--   1 root     root       140668 Jan 25 19:59 gzip-1.2.4-8.deb
+-rw-r--r--   1 root     root       396051 Jan 25 19:59 mount-2.5-4.deb
+-rw-r--r--   1 root     root       112443 Jan 25 19:59 sed-2.05-5.deb
+-rw-r--r--   1 root     root        59117 Jan 25 19:59 setserial-2.10-7.deb
+-rw-r--r--   1 root     root      1683523 Jan 25 19:59 sh-utils-1.12-4.deb
+-rw-r--r--   1 root     root       230716 Jan 25 19:59 sysklogd-1.2-16.deb
+-rw-r--r--   1 root     root       593380 Jan 25 19:59 sysvinit-2.58-2.deb
+-rw-r--r--   1 root     root       337214 Jan 25 19:59 tar-1.11.8-3.deb
+-rw-r--r--   1 root     root      1595006 Jan 25 19:59 textutils-1.11-3.deb
+-rw-r--r--   1 root     root       416347 Jan 25 19:59 timezone-7.46-0.deb
+
+devel:
+-rw-r--r--   1 root     root        91194 Jan 25 20:50 libdb1-1.85.2-5.deb
+-rw-r--r--   1 root     root       210058 Jan 25 20:50 libdb1-dev-1.85.2-5.deb
+
+PLEASE NOTE: These packages are all linked statical, because Linux/Alpha has
+not yet implemented shared libraries. Thus any dependency problems regarding
+library versions may be ignored (read: use dpkg --force-depends --install)
+
+WARNING: If you install debian-packages on-top of an existing system the
+         file ownership may not be set correctly. Also it may be possible
+         that i made a mistake while packaging them (i am developing on
+         a RedHat 2.1 BETA system!)
+
+Dominik
+
+=============================================================================
+
+The non-debian (read: bootstrap) version of dpkg is located at:
+
+  ftp.uni-mainz.de:/pub/Linux/devel/debian/dontuse/alpha/project/software/
+
+The binary packages are located at:
+
+  ftp.uni-mainz.de:/pub/Linux/devel/debian/dontuse/alpha/binary
+
+They will be migrated to the DEBIAN FTP-Server as soon as possible:
+
+  ftp.debian.org:/debian/ALPHA-TEST/debian-1.0/binary-alpha
+
+=============================================================================
+
+From unknown Mon, 29 Jan 1996 17:56:01 -0700
+Message-ID: <199601291920.UAA01964@dagobert.zdv.Uni-Mainz.DE>
+Date: Mon, 29 Jan 1996 17:56:01 -0700
+From: Dominik Kubla
+Subject: Re: DPKG not compiling due to differences between Alpha and Intel...
+
+Regan asked:
+> Is there a ftp site for Debian Alpha Linux development ?
+
+Yes, there is:
+  ftp.uni-mainz.de:/pub/Linux/devel/debian/dontuse/alpha
+
+The dpkg binary is available in tar format in the project/software subdir.
+
+Also i have already compiled a lot of packages, there is still a lot to do.
+
+Cheers,
+  Dominik
+
+From unknown Mon, 29 Jan 1996 17:56:03 -0700
+Message-ID: <m0tgkBF-0002cPC@chiark.chu.cam.ac.uk>
+Date: Mon, 29 Jan 1996 17:56:03 -0700
+From: Ian Jackson
+Subject: Re: DPKG not compiling due to differences between Alpha and Intel...
+
+Kai Henningsen writes ("Re: DPKG not compiling due to differences between Alpha and Intel..."):
+...
+> However, if you absolutely want to be on the safe side, you might simply  
+> memset(my_sigaction, 0, sizeof(my_sigaction)); - I don't believe there's  
+> anything wrong with that.
+
+Right, I think I'll do that.  It'll be in 1.0.14.
+
+Ian.
+
+From unknown Mon, 29 Jan 1996 17:56:04 -0700
+Message-ID: <m0tgzVF-00063rC@mongo.pixar.com>
+Date: Mon, 29 Jan 1996 17:56:04 -0700
+From: bruce@Pixar.com (Bruce Perens)
+Subject: Re: DPKG not compiling due to differences between Alpha and Intel...
+
+> Supposing I want to set the action entirely myself, without using any
+> of the previous state (eg, by calling sigaction first to get the
+> current state and then modifying it).  How do I fill in the sigaction
+> struct ?
+
+	memset((void *),&sigaction_struct, '\0', sizeof(sigaction_struct));
+
+Then initialize the fields you use.
+
+The system call had better do something sensible if unused or local fields
+in its data structure are 0.
+
+	Thanks
+
+	Bruce
+--
+Bruce Perens <Bruce@Pixar.com> Pixar Animation Studios
+Author of the Twelve-Step Program to Quit Emacs
+Toy Story: > US$174M domestic box office receipts and an Oscar so far.
+
+From unknown Mon, 29 Jan 1996 17:56:05 -0700
+Message-ID: <9601291251.AA25199@reef.cs.jcu.edu.au>
+Date: Mon, 29 Jan 1996 17:56:05 -0700
+From: Regan Russell
+Subject: Re: DPKG not compiling due to differences between Alpha and Intel...
+
+> 
+> Kai Henningsen writes ("Re: DPKG not compiling due to differences between Alpha and Intel..."):
+> ...
+> > However, if you absolutely want to be on the safe side, you might simply  
+> > memset(my_sigaction, 0, sizeof(my_sigaction)); - I don't believe there's  
+> > anything wrong with that.
+> 
+> Right, I think I'll do that.  It'll be in 1.0.14.
+
+Is there a ftp site for Debian Alpha Linux development ?
+Or is it a matter of getting the sources off a mirror to stuff like dpkg and 
+portting. Whats been done ?
+
+Is there some small way I could contribute ? I have ported somethings from
+Slakware and elsewhere on my Noname (Blade w/1.3.53). I have X running on a S3,
+I was kinda thinking of porting other cards or something. 
+
+Have I some how been droped off the linux-alpha list ?
+
+-Regan
+
+From unknown Mon, 29 Jan 1996 17:56:06 -0700
+Message-ID: <199601290436.VAA13843@koala.azstarnet.com>
+Date: Mon, 29 Jan 1996 17:56:06 -0700
+From: David Mosberger-Tang
+Subject: Re: DPKG not compiling due to differences between Alpha and Intel...
+
+>>>>> On Mon, 29 Jan 96 03:30 GMT, Ian Jackson <ian@chiark.chu.cam.ac.uk> said:
+
+  Ian> I discover that the syscall I want is documented but isn't
+  Ian> implemented consistently in the libcs, and there doesn't seem
+  Ian> to be any way for me to use it that'll work on any system.
+
+  Ian> If someone gives me a nice solution for dpkg I'll put it in the
+  Ian> code.  Until then I don't see that there's much I can do other
+  Ian> than what I'm doing at the moment - namely, use _syscallX and
+  Ian> report it as a bug against each successive version of the libc.
+
+You certainly need not work around a missing syscall in Linux/Alpha.
+The kernel is still under development so few people will be surprised
+if something is missing occasionally.  Though things are getting real
+close to being complete, so maybe it's soon time to make a final pass
+over the syscall lists to add all missing (and sensible) calls.
+
+I do think that using _syscallX is generally a bad idea.  For the
+Alpha, we have a libinux.a that contains syscall stubs for all Linux
+specific syscalls (e.g., the module-related calls).  IMHO, it would be
+nice to do the same on the other platforms so that _syscall() is
+really used in experimental code only.
+
+	--david
+
+From unknown Mon, 29 Jan 1996 17:56:07 -0700
+Message-ID: <m0tgkIB-0002bXC@chiark.chu.cam.ac.uk>
+Date: Mon, 29 Jan 1996 17:56:07 -0700
+From: Ian Jackson
+Subject: Re: DPKG not compiling due to differences between Alpha and Intel...
+
+David Mosberger-Tang writes:
+> [Dominik Kubla <dominik.kubla@uni-mainz.de> said:]
+> > First thing i tried to compile was dpkg - and it failed
+> > miserably because Linux/Alpha does not define all syscalls!
+> > This is apparently because of the OSF/1 compatibility.
+> 
+> No, it's not (primarily) because of OSF/1 compatibility.  Call it
+> laziness or whatever.  I think it's not a bad thing to add kernel
+> syscalls "on demand" especially since nobody has so far volunteered to
+> (a) go through the list of Linux kernel calls and add the missing ones
+> in one big swoop *and* (b) volunteered to test the calls just added.
+> Doing it one by one makes testing easier.  Having said that, I don't
+> believe there are that many calls missing any more.
+
+!
+
+Well, what am I supposed to do, as a software author ?
+
+I discover that the syscall I want is documented but isn't implemented
+consistently in the libcs, and there doesn't seem to be any way for me
+to use it that'll work on any system.
+
+If someone gives me a nice solution for dpkg I'll put it in the
+code.  Until then I don't see that there's much I can do other than
+what I'm doing at the moment - namely, use _syscallX and report it
+as a bug against each successive version of the libc.
+
+Ian.
+

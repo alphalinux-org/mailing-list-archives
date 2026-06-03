@@ -1,0 +1,1953 @@
+From unknown 2 Jun 1997 23:14:47 -0000
+Message-ID: <"Ag5aK.0.fo7.b7sap"@debian>
+Date: 2 Jun 1997 23:14:47 -0000
+From: "Ian Willmott"
+Subject: re:Debian Alpha ``install'' works
+
+In message "Debian Alpha ``install'' works", smithgr@nagita.cs.colorado.edu writes:
+
+> The installation procedure described by Ian Willmott
+> (willmott@nortel.ca) a few days ago works!
+
+Unfortunately, it did not work for me. The kernel (2.1.1) boots to the
+point where it says something about mounting the root filesystem
+read-only, and then it hangs with the following error message:
+
+Unable to open an initial console.
+
+A quick grepping expedition through the kernel source finds the following:
+
+/* linux/init/main.c */
+
+static int init(void * unused)
+{
+        ...
+
+	if ((open("/dev/tty1",O_RDWR,0) < 0) &&
+	    (open("/dev/ttyS0",O_RDWR,0) < 0))
+		printk("Unable to open an initial console.\n");
+
+        ...
+}
+
+Both these device files do in fact exist; they were in the base.tgz
+archive. The device numbers, if I recall correctly, were (4,1) for tty1
+and (4,64) for ttyS0. Video output worked fine up to this point, and one 
+of the messages printed was about tty00 and tty01 being initialized with 
+a 16550 UART, or something like that. Obviously, this error only occurs
+if both open() syscalls fail, so it is unlikely to be a hardware
+problem. It may be some incompatibility between the filesystem in the
+archive and  kernel v2.1 .
+
+Could there be some kind of problem with the termcap or terminfo
+databases? Would this cause the open() syscall to fail? There was no
+termcap in the archive (I copied one over), and the /usr/lib/terminfo
+hierarchy is just a bunch of symlinks into /etc/terminfo :
+
+$ tar tf base.tar
+etc/terminfo/l/linux
+etc/terminfo/v/vt100
+usr/lib/terminfo/l/linux symbolic link to ../../../../etc/terminfo/l/linux
+usr/lib/terminfo/v/vt100 symbolic link to ../../../../etc/terminfo/v/vt100
+
+Does anybody know what the problem is? Is there something wrong with
+this kernel version, or some incompatibility?
+
+Ian Willmott
+Northern Telecom
+Ottawa Ontario Canada
+willmott@nortel.ca
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 3 Jun 1997 01:53:51 -0000
+Message-ID: <199706030155.TAA24429@taussky.cs.colorado.edu>
+Date: 3 Jun 1997 01:53:51 -0000
+From: "Gregory P. Smith"
+Subject: Re: Debian Alpha ``install'' works
+
+> Unfortunately, it did not work for me. The kernel (2.1.1) boots to the
+> point where it says something about mounting the root filesystem
+> read-only, and then it hangs with the following error message:
+> 
+> Unable to open an initial console.
+> 
+
+Hmm.. The kernel I grabbed from the RedHat 4.2 Noname.img boot disk was 
+2.0.30.
+
+Greg
+
+-- 
+Gregory P. Smith  --  smithgr@cs.colorado.edu
+http://ugrad-www.cs.colorado.edu/~smithgr   (finger for my PGP key)
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 3 Jun 1997 17:54:41 -0000
+Message-ID: <Pine.ULT.3.95.970603204332.2432E-100000@gorba.lpt.fi>
+Date: 3 Jun 1997 17:54:41 -0000
+From: Pasi Pirhonen
+Subject: help! :-)
+
+Hi,
+
+I am really out of my league now, so i try ask you some help.
+
+I am middle of generating those installation floppies and i am stuck 
+in the libc.so.6.1 generation phase. I can figure out, why the 
+
+(objdump --dynamic-syms libc.so.6.1)
+
+original __libc_global_ctors lookd like
+
+0000000000028740 g    DF .text  000000000000006c __libc_global_ctors
+
+And it gets defined as 
+
+0000000000000000      D  *UND*  0000000000000000 __libc_global_ctors
+
+in libc.so.6.1 of the root.bin
+
+I have kernel (2.1.30) and when i boot 
+(boot fd0:vmlinux.gz root=/dev/fd0 load_ramdisk=1 prompt_ramdisk=1)
+it loads the ramdisk, but init complains that
+
+/lib/libc.so.6.1: undefined symbol: __libc_global_ctors
+
+PS. i can't even see, if my base14-[1-6}.bin are working as i can't boot :)
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 3 Jun 1997 18:18:32 -0000
+Message-ID: <Pine.ULT.3.95.970603211559.2432F-100000@gorba.lpt.fi>
+Date: 3 Jun 1997 18:18:32 -0000
+From: Pasi Pirhonen
+Subject: help! (continues)
+
+Hi,
+
+Obviously i forgot to mention something.
+
+The rootdisk generation script had originally included 
+
+/usr/lib/crtbeginS.o and crtendS.o 
+
+As libc6.1-dev doesn't provide those, i tried to replace those
+with crtbegin.o and crtend.o
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 3 Jun 1997 19:04:34 -0000
+Message-ID: <87206j8qgv.fsf@calder.med.miami.edu>
+Date: 3 Jun 1997 19:04:34 -0000
+From: Michael Alan Dorman
+Subject: Re: help! :-)
+
+Pasi Pirhonen <upi@gorba.lpt.fi> writes:
+> I am really out of my league now, so i try ask you some help.
+
+I'm not sure you're not out of my league as well. :-)
+
+> I am middle of generating those installation floppies and i am stuck 
+> in the libc.so.6.1 generation phase. I can figure out, why the 
+> 
+> (objdump --dynamic-syms libc.so.6.1)
+> 
+> original __libc_global_ctors lookd like
+> 
+> 0000000000028740 g    DF .text  000000000000006c __libc_global_ctors
+> 
+> And it gets defined as 
+> 
+> 0000000000000000      D  *UND*  0000000000000000 __libc_global_ctors
+> 
+> in libc.so.6.1 of the root.bin
+
+I *think* this might be solved if you add a -u __libc_global_ctors to
+the requires_symbols definition in the generate_library script.
+
+You may have to do this for other things as well.  You may also have
+to include libutil, but I think we would rather avoid that if possible.
+
+> PS. i can't even see, if my base14-[1-6}.bin are working as i can't boot :)
+
+Thanks for undertaking this task.  Boot disks would be a godsend, and
+definitely get your name on the list of important people for
+Debian/Alpha.
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 3 Jun 1997 19:05:09 -0000
+Message-ID: <87zpt77bsc.fsf@calder.med.miami.edu>
+Date: 3 Jun 1997 19:05:09 -0000
+From: Michael Alan Dorman
+Subject: Re: help! (continues)
+
+Pasi Pirhonen <upi@gorba.lpt.fi> writes:
+> The rootdisk generation script had originally included 
+> /usr/lib/crtbeginS.o and crtendS.o 
+> As libc6.1-dev doesn't provide those, i tried to replace those
+> with crtbegin.o and crtend.o
+
+Hmmm.  Those are (or should be) in gcc, in: 
+
+/usr/lib/gcc-lib/alpha-linux/2.7.2.1/crt*
+
+Why they're in libc, too?  I'm not sure.  Must investigate.
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 3 Jun 1997 19:15:53 -0000
+Message-ID: <Pine.ULT.3.95.970603215858.2432G-100000@gorba.lpt.fi>
+Date: 3 Jun 1997 19:15:53 -0000
+From: Pasi Pirhonen
+Subject: Re: help! :-)
+
+On 3 Jun 1997, Michael Alan Dorman wrote:
+
+Hi,
+
+> > in libc.so.6.1 of the root.bin
+> 
+> I *think* this might be solved if you add a -u __libc_global_ctors to
+> the requires_symbols definition in the generate_library script.
+> 
+
+No :( That was actually first thing i tried, long before 'shouting' help
+in this channel. 
+
+by looking the libc5-dev stuff in i386, i can see only one
+diff in crtbegin.o compared to crtbeginS.o (which generator script originally
+wanted to use) and that it the last line (objdump --syms).
+
+00000000         *UND* 00000000 _GLOBAL_OFFSET_TABLE_
+
+> You may have to do this for other things as well.  You may also have
+> to include libutil, but I think we would rather avoid that if possible.
+
+init is actually complaining about libc.so.6.1 at this point :) It just hangs
+after puking the error out. I don't have any knowledge about libs and 
+learning would propably take too long :)
+
+> 
+> Thanks for undertaking this task.  Boot disks would be a godsend, and
+> definitely get your name on the list of important people for
+> Debian/Alpha.
+> 
+
+I promised it and i stand behind it as long as my skills are enought. I am
+begining to be obsessed about it and normally i won't quit, when i start
+something - time and ability of learn new things is everything i have, so
+i see 'very little light ion the end of the tube' ;)
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 3 Jun 1997 23:10:34 -0000
+Message-ID: <Pine.ULT.3.95.970604010043.2432H-100000@gorba.lpt.fi>
+Date: 3 Jun 1997 23:10:34 -0000
+From: Pasi Pirhonen
+Subject: Re: help! (continues)
+
+On 3 Jun 1997, Michael Alan Dorman wrote:
+
+Hi,
+
+> Hmmm.  Those are (or should be) in gcc, in: 
+> 
+> /usr/lib/gcc-lib/alpha-linux/2.7.2.1/crt*
+> 
+
+Yup. One could think once for a while and let 'find' do some work too :)
+
+> Why they're in libc, too?  I'm not sure.  Must investigate.
+> 
+
+Dunno. i was just looking i386-version and those are included there
+in libc5-dev, so i was obviously looking those from libc6.1-dev ;)
+
+Anyway, i couldn't compile working one with the scripts, so i 
+just stripped all the 'unneeded' (same as script is stripping)
+symbols out of the /lib/libc.so.6.1 and dumped that in to the rootdisk.
+That solved something, but now dinstall is looping madly in endless loop
+and i feel quite tired already -> i'll look it tomorrow again (actually today)
+
+PS. i think that RedHat's ramdisk libc is made quite same way as it's 
+quite same size and dynamic too.
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Jun 1997 12:51:33 -0000
+Message-ID: <199706040848.EAA07301@owlsnest.com>
+Date: 4 Jun 1997 12:51:33 -0000
+From: owl@owlsnest.com
+Subject: Is Your Web Site A Secret?
+
+Is your web site the best kept secret on the Internet?
+
+     We'll promote it to 50 search engines and indexes for $85
+     and complete the job in 2 business days.  Satisfaction is
+     guaranteed!
+
+If you have a great product, but are not getting many inquiries from
+your Web site, you may not be adequately listed on the Web's search
+engines and indexes.
+
+Millions of viewers daily use these facilities to find the products
+and services they are looking for.  But if your site is not listed, no
+one will see it.
+
+Listings on most of these services are free.  However, locating and
+filling out the forms required to get a listing can take several days,
+and most people just don't have the time to do it.
+
+That is why we offer a web site promotion service.
+
+WHAT'S THE DEAL?
+
+We will submit your site to 50 indexes and search engines for $85.  We
+will accept the return of this E-mail, with the form below filled out,
+as an order.  We will bill you upon completion of the promotion.  Our
+terms are net 15 days from date of invoice.  Satisfaction guaranteed!
+
+HOW LONG WILL IT TAKE?
+
+Generally, we complete the submissions within 48 hours of
+receiving your order.  It can take any individual search engine or
+index up to three weeks to process your submission, although most are
+much faster.
+
+WHAT SEARCH ENGINES AND INDEXES ARE INCLUDED IN THE
+PROMOTION?
+
+The list changes from time to time.  This is our current list:
+
+Abaweb!, Alta Vista, Been There, BizWeb, Central Source Yellow Pages,
+Enterpreneurs on the Web, Excite, Four11, Galaxy, I-Network I-Systems
+Spiral Business Directory, I-World Web Pointer, Infoseek, Inktomi,
+Innovator's Network Yellow Pages, Internet Mall, Jayde Online Directory,
+Jumpcity, Jumper Hot Links, Linkmaster, Lycos, Magellan, Mega Mall,
+Net-Happenings, Net Navigator, Net Mall, NTG's List, NYNEX Big Yellow,
+One World Plaza, OnLine's WWWeb Index, Rex, Starting Point, Truenorth,
+URL Tree, Virtual Lynx, Web Point, WebCentral, Web Venture Hotlist,
+Webcrawler, Websurf, Win Mag/NetGuide Hotspots, WhatUSeek, Worldwide
+Announce Archive, WWW Business Yellow Pages, World Wide Yellow Pages,
+WWW Worm, YelloWWWeb.
+
+HOW WILL I KNOW THAT YOU HAVE PROMOTED MY SITE?
+
+When we have completed the promotion, we will send you an HTML
+file as an attachment to your E-mail bill.  Save this file to your
+disk, and view it through your Web browser.  It provides links to the
+search engine we submitted your site to, plus any comments we received
+from them when we did it.
+
+ARE THERE ANY GUARANTEES?
+
+We do not require prepayment.  Your satisfaction is guaranteed or
+you don't pay the bill.
+
+WHO IS OWL'S EYE PRODUCTIONS?
+
+We are a web site promotion company located at:
+
+   Owl's Eye Productions, Inc.
+   260 E. Main Street
+   Brewster, NY 10509
+   Phone: (914) 278-4933
+   Fax:     (914) 278-4507
+   Email: owl@owlsnest.com
+
+HOW DO I ORDER?
+
+The easiest way to order is by e-mail.  Just hit the REPLY button on
+your e-mail program and fill out the following information. (This
+information will be posted to the search engines/indexes):
+
+Your name: 
+Company Name:
+Address:
+City:              State/Prov:     Zip/Postal Code: 
+Telephone: 
+Fax: 
+Email address: 
+URL:  http://
+Site Title: 
+Description (about 25 words): 
+Key words (maximum of 25, in descending order of importance):
+
+Proofs (Where shall we e-mail proofs): 
+
+If  billing a different address, please complete the following:
+
+Addressee: 
+Company Name:
+Address:
+City:              State/Prov:     Zip/Postal Code: 
+Telephone: 
+Fax: 
+Email address: 
+
+We will bill via Email. (7519)
+
+Terms:  By returning this document via Email, you agree as follows:
+You have the authority to purchase this service on behalf of your
+company.    Terms are net 15 days.  Accounts sent to collections will
+be liable for collection costs.  You agree to protect and indemnify
+Owl's Eye Productions, Inc. in any claim for libel, copyright
+violations, plagiarism, or privacy and other suits or claims based on
+the content or subject matter of  your site.
+
+WHAT HAPPENS NEXT?
+
+When we receive your order, we will input the information into
+our system, and send you a proof.
+
+After we process any corrections, we will run your promotion, capturing
+any comments from search engines as we go.  We will incorporate these
+into an HTML-formatted report to you, which we will attach to
+your bill.
+===Web Promotions=====Press Releases=====Link Exchanges=========
+                 Owl's Eye Productions, Inc.
+                   260 E. Main Street
+                   Brewster, NY 10509
+Ph: 914-278-4933  Fx: 914-278-4507  E-mail: owlseye@owlsnest.com
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . Trouble? 
+e-mail to templin@bucknell.edu .
+
+From unknown 4 Jun 1997 20:26:16 -0000
+Message-ID: <Pine.ULT.3.95.970604215454.2432N-100000@gorba.lpt.fi>
+Date: 4 Jun 1997 20:26:16 -0000
+From: Pasi Pirhonen
+Subject: There IS light at the end of the tube after all
+
+Hi,
+
+I just wanted to  'announce' that i managed to get install begin with
+my forthcoming root.bin. It needs lot of work still, but basically
+it's all about modifying /sbin/dinstall now (hehe. i don't know much about
+shell-scripts, but i guess it's time to learn now :)
+
+Maybe i'll have to generate some other scripts too, but i think it's done
+before end of this week. That's NOT a promise ....
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Jun 1997 20:29:46 -0000
+Message-ID: <199706041929.WAA24074@naakka.cs.tut.fi>
+Date: 4 Jun 1997 20:29:46 -0000
+From: Davidsson Kari
+Subject: gcc, cc1 errors
+
+Hi,
+
+I have installed parts of the debian alpha system, and it is
+running. I am still tough mostly using RedHat. Anyway I downloaded
+the source package of pgp-2.6.3 and I am attempring of compiling it.
+I have gcc debian package version 2.7.2.1-9. Always when compiling the
+second file in the package, crypto.c the compiler crashes with the
+error:
+cc: Internal compiler error: program cc1 got fatal signal 6
+
+Is this a known problem? I am running kernel 2.0.27 custom compiled
+under Redhat. I start the compilation with
+dpkg-buildpackage -us -b -aalpha
+
+Or perhaps somebody allready has a compiled pgp debian package for
+alpha? 8-)
+
+Thanks,
+
+K.D.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Jun 1997 20:54:49 -0000
+Message-ID: <"ymckA.0.Kw1.EGUbp"@debian>
+Date: 4 Jun 1997 20:54:49 -0000
+From: "Ian Willmott"
+Subject: re:Is Your Web Site A Secret?
+
+<web site promotion advertisement deleted>
+
+Although this may be a useful service for some, advertising does not
+belong on software development mailing lists such as
+debian-alpha@lists.debian.org . Take it somewhere else.
+
+Ian Willmott
+Northern Telecom
+Ottawa Ontario Canada
+willmott@nortel.ca
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Jun 1997 22:39:19 -0000
+Message-ID: <87k9kadmek.fsf@calder.med.miami.edu>
+Date: 4 Jun 1997 22:39:19 -0000
+From: Michael Alan Dorman
+Subject: Re: gcc, cc1 errors
+
+Davidsson Kari <d154402@cs.tut.fi> writes:
+> cc: Internal compiler error: program cc1 got fatal signal 6
+
+If you remove optimization it'll compile.  This is a gcc bug.  I think
+I have a fix stashed somewhere, but I'm short of the disk space needed
+to recompile.  That should change in a couple of days.
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Jun 1997 22:46:11 -0000
+Message-ID: <Pine.ULT.3.95.970605014259.2432O-100000@gorba.lpt.fi>
+Date: 4 Jun 1997 22:46:11 -0000
+From: Pasi Pirhonen
+Subject: Re: gcc, cc1 errors
+
+On Wed, 4 Jun 1997, Davidsson Kari wrote:
+
+Hi,
+
+> second file in the package, crypto.c the compiler crashes with the
+> error:
+> cc: Internal compiler error: program cc1 got fatal signal 6
+
+That was discussed here few weeks ago and it was some kind of problem
+in the gcc optimization.
+
+> 
+> 
+> Or perhaps somebody allready has a compiled pgp debian package for
+> alpha? 8-)
+> 
+
+Actually the maintainer of pgp have had account in my alpha several week
+to do that task, but nothing. i'll do that right away after i finnish
+something 'installable' (namely installation kit) or even sooner, if
+i get bored of playing with my shiny, new. Hercules Stingray 128/3D :)
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 6 Jun 1997 19:41:28 -0000
+Message-ID: <Pine.ULT.3.95.970606223505.2432Y-100000@gorba.lpt.fi>
+Date: 6 Jun 1997 19:41:28 -0000
+From: Pasi Pirhonen
+Subject: features for installation kernel?
+
+Hi,
+
+As i am pretty much sure that i'll manage to put it all together
+this weekend, i'd like to know exactly what to put in the installation
+kernel. So, what hardware do you have, you need, if you are intending
+to test it out?
+
+I have to make at least two kernels anyway, one for Multias and
+one for other nonames (w/o TGA like mine).
+
+MILO has it's limits, but now in am at
+hex
+1b1c09  
+
+so there is some space left and there are some stuff, which isn't
+necessarily needed still in the kernel. I'll aim for monolithic
+kernel with first rev. as those modules w/ 2.0.30 are quite shaky.
+(yes, i did stip -x those)
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 7 Jun 1997 00:16:14 -0000
+Message-ID: <Pine.ULT.3.95.970607030516.2432Z-100000@gorba.lpt.fi>
+Date: 7 Jun 1997 00:16:14 -0000
+From: Pasi Pirhonen
+Subject: (huoh) dialog
+
+Hi,
+
+I am pretty sure that it's dialog which is not working
+depending, what version i use, i get in some point menu that is
+full of '^@' selections. statically compiling is not helping ....
+
+Good news is that i have (little probs stil) base system installed and
+am using dselect for test installation (first thing it's trying to grab
+is libc6 :(
+
+So, where i can get the functional dialog?
+
+PS. i think i need some sleep for a while now .....
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 7 Jun 1997 18:13:48 -0000
+Message-ID: <Pine.ULT.3.95.970607210608.2432d-100000@gorba.lpt.fi>
+Date: 7 Jun 1997 18:13:48 -0000
+From: Pasi Pirhonen
+Subject: finally working
+
+Hi,
+
+It wasn't dialog afterall. it was ash. i replaced it with bash and
+i am still few kilobytes under 4MB limit with the ramdisk.
+
+I'll clean some things up tomorrow and upload disks to some place,
+i'll announce later in this list.
+
+I'll include bootimages at least for noname and multia w/ TGA-console.
+Including NCR53C8XX, QLOGIC_ISP and BUSLOGIC for SCSI and
+NE2000/NE1000, DE4X5 and Tulip for networking, if i don't
+get any requests for something else.
+
+Tired, but happy .....
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 7 Jun 1997 18:47:53 -0000
+Message-ID: <199706071847.MAA16920@chunks.gag.com>
+Date: 7 Jun 1997 18:47:53 -0000
+From: Bdale Garbee
+Subject: Re: finally working
+
+In article <[🔎] Pine.ULT.3.95.970607210608.2432d-100000@gorba.lpt.fi> you wrote:
+
+: I'll clean some things up tomorrow and upload disks to some place,
+: i'll announce later in this list.
+
+Great!  Let me know, and I'll update hamm/disks-alpha on master.debian.org.
+
+Bdale
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 7 Jun 1997 19:19:36 -0000
+Message-ID: <87raeecjb5.fsf@calder.med.miami.edu>
+Date: 7 Jun 1997 19:19:36 -0000
+From: Michael Alan Dorman
+Subject: Re: finally working
+
+Bdale Garbee <bdale@gag.com> writes:
+> In article <[🔎] Pine.ULT.3.95.970607210608.2432d-100000@gorba.lpt.fi> you wrote:
+> : I'll clean some things up tomorrow and upload disks to some place,
+> : i'll announce later in this list.
+> Great!  Let me know, and I'll update hamm/disks-alpha on master.debian.org.
+
+Wow, yes, great work!
+
+And now I've got my ZIP drive, so I can play installation victim for a
+bit.
+
+Also, I've got more available space, so I'll be able to get back to
+porting things.  I need to talk to Klee and find out if he finished
+that tool to compare versions across source/arch combinations to find
+out when things need updating.
+
+I'm also looking forward to Mark gettign XFree86-3.3 done, so I can
+recompile it for the AXP.  That way my xconsole'l quit getting filled
+to the brim with alignment traps.
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 7 Jun 1997 21:11:26 -0000
+Message-ID: <3399CE71.20DE@cs.tut.fi>
+Date: 7 Jun 1997 21:11:26 -0000
+From: Kari Davidsson
+Subject: Re: finally working
+
+Pasi Pirhonen wrote:
+> 
+> Hi,
+> 
+> It wasn't dialog afterall. it was ash. i replaced it with bash and
+> i am still few kilobytes under 4MB limit with the ramdisk.
+> 
+> I'll clean some things up tomorrow and upload disks to some place,
+> i'll announce later in this list.
+> 
+> I'll include bootimages at least for noname and multia w/ TGA-console.
+> Including NCR53C8XX, QLOGIC_ISP and BUSLOGIC for SCSI and
+> NE2000/NE1000, DE4X5 and Tulip for networking, if i don't
+> get any requests for something else.
+
+Great! I can do some test installs.
+
+K.D.
+
+-- 
+  *********************************************************************
+  * Kári Davíðsson                    *                               *
+  * Opiskelijankatu 4 F 330           *                               *
+  * 33720 Tampere                     *     Your advertisement here.  *
+  * Finland                           *     Low prices.               *
+  * Tel: + 358-(0)50-5225153          *                               *
+  * d154402@cs.tut.fi                 *	                              *
+  *********************************************************************
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 8 Jun 1997 12:41:04 -0000
+Message-ID: <Pine.ULT.3.95.970608151500.2432j-100000@gorba.lpt.fi>
+Date: 8 Jun 1997 12:41:04 -0000
+From: Pasi Pirhonen
+Subject: 'installation kit'
+
+Hi,
+
+As i promised, at least to someone, yesterday, i'll put available
+the work i have done for 'installation kit'.
+I really think that it's not finnished, but it's at least a start.
+
+it's available in ftp://gorba.lpt.fi/debian/disks-alpha/current/
+
+Basically:
+
+- get a MILO for your system and read some docs, for example 
+http://www.redhat.com/support/docs/rhl/RHL-4.2-Users-Guide-HTML/ \
+manual/doc096.html
+
+- boot the rescue with
+
+MILO> boot fd0:vmlinux.gz root=/dev/fd0 load_ramdisk=1
+
+- follow the instructions and you are done, but the current 'reboot' doesn't
+do the job, so press 'ctrl-alt-del' in suitable moment and you'll get MILO-
+prompt again.
+
+- boot your system from HD with the vlinux.gz in it.
+
+If you are using the dselect, you'll end up quite unusable system as
+there are too many libc6 dependend packages in the hamm/hamm/binary-alpha.
+Actually first package the dselect grabs IS libc6 :(
+
+At least i don't remeber, as writing this, anything else.
+
+The kernel includes the patch from
+ftp://ftp.azstarnet.com/pub/linux/axp/sys/axp-diffs-2.0.30.gz
+Who knows, what patches 2.0.30/axp _really_ needs?
+
+The rescue for noname doesn't include TGA or MSS, but i am compiling
+one as i write this. I'll test it in my noname and if it's working,
+i'll replace the generic noname with the multia-compatible one (one hour or so).
+
+The current kernel has NCR8XX (bsd) and Qlogic ISP for SCSI (as i got signal 6
+from Buslogic drivers) and NE*000, DE4X5 and TULIP for netowrk. There
+is also IDE support in the kernel. CDROM is enabled for IDE/SCSI and there
+is TAPE enabled for SCSI too.
+
+PPP is in the kernel and IP-forwarding is enabled, but i don't know if that
+is working at all.
+
+In prosess generating those floppies, i have been desperate many times, but
+the feeling you get after it's working, wipes everything away :) Let this
+be my first contribution for NET community, but not the last one. I have
+been using 'free' software for years and all the time looked for way to
+pay back .....
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 8 Jun 1997 13:02:43 -0000
+Message-ID: <Pine.ULT.3.95.970608155953.2432m-100000@gorba.lpt.fi>
+Date: 8 Jun 1997 13:02:43 -0000
+From: Pasi Pirhonen
+Subject: something i forgot, naturally
+
+Hi,
+
+I forgot to mention the specs of my 'reference system'
+
+Noname AXPpci 33/166 (onboad IDE/NCR810 etc.)
+Trio 64V+
+NE2000/PCI clone (Realtek chip)
+32MB RAM + 256k cache
+SCSI disks
+
+At least it's working with those specs .......
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 8 Jun 1997 14:43:50 -0000
+Message-ID: <Pine.ULT.3.95.970608173804.2432o-100000@gorba.lpt.fi>
+Date: 8 Jun 1997 14:43:50 -0000
+From: Pasi Pirhonen
+Subject: hamm/hamm/binary-alpha
+
+Hi,
+
+whil i waited the upload finnish, i did some 'grepping' for those 
+packages and at least following seems to be broken, if i undestand
+all right.
+
+admin
+
+- wg15-locale
+
+base
+- bdflush
+- e2fsprogs
+- ldso
+- libbfd27
+- libc5
+- libc6 (remove?)
+- libdb1
+- libgdbm1
+- ncurses*
+- sysvinit
+
+devel
+
+- gcc
+- libbsd
+- libc6-dev (remove?)
+- ncurses*
+
+interpreters
+
+- cpp
+
+When you use dselect for base installation, you'd end up to pretty
+**ucked up system :)
+
+I do have at least some packages recompiled for libc6-1, but i don't know
+what is proper action to take in this issue?
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 8 Jun 1997 14:45:46 -0000
+Message-ID: <Pine.ULT.3.95.970608174509.2432p-100000@gorba.lpt.fi>
+Date: 8 Jun 1997 14:45:46 -0000
+From: Pasi Pirhonen
+Subject: pgp/axp
+
+Hi,
+
+As i promised, it's available at
+
+ftp://gorba.lpt.fi/debian/debian-non-US/binary-alpha/
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 8 Jun 1997 21:57:02 -0000
+Message-ID: <Pine.ULT.3.95.970609005059.2432r-100000@gorba.lpt.fi>
+Date: 8 Jun 1997 21:57:02 -0000
+From: Pasi Pirhonen
+Subject: hamm/hamm/binary-alpha (more)
+
+Hi,
+
+It's not that bad messed up as i think said place. Michael have
+compiled much of the needed stuff and i have almous all the rest
+(wg15-locale is one didn't compile i remeber).
+First thing was to remove that 'evil' ghost - libc6 and update some
+of those packages, i wrote this list before.
+
+I'll try to remeber upload those packages to
+ftp://gorba.lpt.fi/debian/binary-alpha/
+
+I made private unstable/binary-alpha and now that even compiles hello.c 
+and that doesn't segfault imitiadetly.
+
+BTW. what was the leading idea behind dpkg getting it's binary acrh from
+gcc?
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 9 Jun 1997 07:35:30 -0000
+Message-ID: <339BB15D.2575@cs.tut.fi>
+Date: 9 Jun 1997 07:35:30 -0000
+From: Kari Davidsson
+Subject: Floppy install
+
+Hi,
+
+Did the floppy install yesterday on my 166MHz UDB with 24Mb ram (2*12M), 
+500Mb internal SCSI, 1Gb external SCSI and TGA graphics adapter.
+Everything went smooth. Only problem is that reboot (option O) does
+not reboot but Pasi had allready pointed that one out. I ran dselect
+and installed all the packages it wanted to install. There was a
+problem in the end with two packages (ahh, now I don't remeber their
+names), but that is irrelevant to Pasis work anyway. Probably the
+system is not up to many things after the deselect-installation phase,
+(pasi said it might by "unusable"). I did not have time to try it out,
+this was a install-and-run-away thing 8-). I will play more with it
+tonight, and let you all know if I find anything worth mentioning.
+
+K.D.
+
+-- 
+  *********************************************************************
+  * Kári Davíðsson                    *                               *
+  * Opiskelijankatu 4 F 330           *                               *
+  * 33720 Tampere                     *     Your advertisement here.  *
+  * Finland                           *     Low prices.               *
+  * Tel: + 358-(0)50-5225153          *                               *
+  * d154402@cs.tut.fi                 *	                              *
+  *********************************************************************
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . Trouble? 
+e-mail to templin@bucknell.edu .
+
+From unknown 11 Jun 1997 09:07:38 -0000
+Message-ID: <339E6AC1.2861@cs.tut.fi>
+Date: 11 Jun 1997 09:07:38 -0000
+From: Kari Davidsson
+Subject: Re: Floppy install
+
+Hi,
+
+I'll follow up to my own email:
+
+The system after running deselect was "unusable". Too many things were
+broken. Did the floppy install again and skipped the dselect phase and
+installed packages manually. The only thing that I found to be tricky
+was the netpart. netstd_2.13-1 seem to by unusable, the programs from
+it like telnet and ftp report "Network unreachable" or something like
+that. Installed a older version of netstd (2.6 i think). This netstd
+requeres libc6 (seen e.g. when ldd telnet is run) so I installed
+libc6 (don't remeber the version) and the programs from netstd started
+to run and behave correctly. There were lot of warnings consernig 
+locale files (and possibley other files too), which are also part of 
+the libc6.1. Those are just warnings and seem to be harmless. The
+network was never unreachable route and ifconfig showed that and lynx
+worked flawlessly, hence I must conclude problems with netstd 2.13.
+The development packages (such as gcc, the devl. libs and more) are
+another story. I managed though to get somehow working devel. system
+but I doubt that it is working 100% correct.
+
+So the conclusion of all this: The floppy install "works" but stay away
+from dselect. Install packages manually after the base install and
+by picki on wich packages you install.
+
+Hope this helps those who wants to do some adventure 8-)
+
+K.D.
+
+P.S. The only way of getting access to the latest and greatest packes
+on debina.org is through Incoming? But one must be a developer to
+get access to Incoming? And one must have some packes to maintain 
+to be a decveloper? I am wondering this because ther seems to be
+a lag between packages beeing uploaded to debian.org and those
+packages made publick to the common debian user.
+
+Kari Davidsson wrote:
+> 
+> Hi,
+> 
+> Did the floppy install yesterday on my 166MHz UDB with 24Mb ram (2*12M),
+> 500Mb internal SCSI, 1Gb external SCSI and TGA graphics adapter.
+> Everything went smooth. Only problem is that reboot (option O) does
+> not reboot but Pasi had allready pointed that one out. I ran dselect
+> and installed all the packages it wanted to install. There was a
+> problem in the end with two packages (ahh, now I don't remeber their
+> names), but that is irrelevant to Pasis work anyway. Probably the
+> system is not up to many things after the deselect-installation phase,
+> (pasi said it might by "unusable"). I did not have time to try it out,
+> this was a install-and-run-away thing 8-). I will play more with it
+> tonight, and let you all know if I find anything worth mentioning.
+> 
+> K.D.
+
+-- 
+  *********************************************************************
+  * Kári Davíðsson                    *                               *
+  * Opiskelijankatu 4 F 330           *                               *
+  * 33720 Tampere                     *     Your advertisement here.  *
+  * Finland                           *     Low prices.               *
+  * Tel: + 358-(0)50-5225153          *                               *
+  * d154402@cs.tut.fi                 *	                              *
+  *********************************************************************
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 11 Jun 1997 09:26:32 -0000
+Message-ID: <Pine.ULT.3.95.970611121611.21406J-100000@gorba.lpt.fi>
+Date: 11 Jun 1997 09:26:32 -0000
+From: Pasi Pirhonen
+Subject: Re: Floppy install
+
+On Wed, 11 Jun 1997, Kari Davidsson wrote:
+
+Hi,
+
+> 
+> I'll follow up to my own email:
+> 
+> So the conclusion of all this: The floppy install "works" but stay away
+> from dselect. Install packages manually after the base install and
+> by picki on wich packages you install.
+> 
+
+As i have been telling in this list before, the binary-alpha tree
+needs some minor mods to be 'dselectable'. I have pesonally installed
+(telnet at least is not working) functional debian/axp with slightly
+modified binary-alpha (remove libc6, upgrade some packages, blaa, blaa...)
+
+> 
+> P.S. The only way of getting access to the latest and greatest packes
+> on debina.org is through Incoming? But one must be a developer to
+> get access to Incoming? And one must have some packes to maintain 
+
+Look 
+
+ftp://gorba.lpt.fi/debian/binary-alpha/		(mine)
+or
+ftp://debian.med.miami.edu/pub/mdorman/		(Michael Dorman)
+
+for some upgraded packages. I think most of needed packages are in one
+of above sites. There might be more sites, but i'm not aware of those.
+
+If something crucial is missing from those sites, let me/us know, and 
+we'll see if we can do something about it ....
+
+I haven't even looked the base disks since sunday, but i think i'll have 
+to write at least MILO installer to that dinstall-script and look, what
+i can do about that reboot/halt binary. I'll have to look it with SRM too
+as i have ARC installed at the moment ....
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 12 Jun 1997 08:05:29 -0000
+Message-ID: <339FADB2.42F7@cs.tut.fi>
+Date: 12 Jun 1997 08:05:29 -0000
+From: Kari Davidsson
+Subject: Re: Floppy install
+
+Pasi Pirhonen wrote:
+> 
+> On Wed, 11 Jun 1997, Kari Davidsson wrote:
+> 
+> Hi,
+> 
+> >
+> > I'll follow up to my own email:
+> >
+> > So the conclusion of all this: The floppy install "works" but stay away
+> > from dselect. Install packages manually after the base install and
+> > by picki on wich packages you install.
+> >
+> 
+> As i have been telling in this list before, the binary-alpha tree
+> needs some minor mods to be 'dselectable'. I have pesonally installed
+> (telnet at least is not working) functional debian/axp with slightly
+> modified binary-alpha (remove libc6, upgrade some packages, blaa, blaa...)
+
+I know that you know, since you have been telling that here before 8-)
+This was just a quick summary for those who are running red hat want to
+try
+debian, are not maintainers (like me) and are not involved in the
+development
+process, i.e. what might happen when attempting a "fresh" debian
+install,
+Like I did. It could also serve as some feedback to your work, which I
+think
+is great. (The feedback to you is basically that I did not run into any
+problems that you had not found.) Perhaps this "report" was redundant.
+In that
+case I am sorry it will not happen again.
+One thing I forgot to mention (again for those adventurus types who
+wan't to
+try something new from redhat) is that I did not mess with my current
+milo
+setup, i.e. I am using the same milo as in my red hat setup and loading
+it
+(milo) with the aid of ARC console.
+
+> 
+> >
+> > P.S. The only way of getting access to the latest and greatest packes
+> > on debina.org is through Incoming? But one must be a developer to
+> > get access to Incoming? And one must have some packes to maintain
+> 
+> Look
+> 
+> ftp://gorba.lpt.fi/debian/binary-alpha/         (mine)
+> or
+> ftp://debian.med.miami.edu/pub/mdorman/         (Michael Dorman)
+
+Yes, this was my point (maybe not clear) some packages in debian.org are 
+newer than the packages on those two ftp-sites, some are older and who
+knows what is in Incoming? Not I.
+
+> 
+> for some upgraded packages. I think most of needed packages are in one
+> of above sites. There might be more sites, but i'm not aware of those.
+> 
+> If something crucial is missing from those sites, let me/us know, and
+> we'll see if we can do something about it ....
+
+I don't think any thing is missing, I mean I was able to get the system
+up
+and running with networking and development stuff (gcc, devel libs.
+etc....)
+With some packages from your and M.Dormans site and some from
+debina.org.
+But I think that you and M. Dorman are not the only developers for
+debian-alpha
+and that is why I was wondering about the Incoming on debian.org. Others
+_might_
+have uploaded something crusial to debian.org. Maybe I will just file
+for 
+debian developer job and see how it goes. 8-)
+
+> 
+> I haven't even looked the base disks since sunday, but i think i'll have
+> to write at least MILO installer to that dinstall-script and look, what
+> i can do about that reboot/halt binary. I'll have to look it with SRM too
+> as i have ARC installed at the moment ....
+> 
+> -- upi@iki.fi -- http://www.iki.fi/upi/
+> 
+> --
+> TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+> debian-alpha-request@lists.debian.org .
+> Trouble?  e-mail to templin@bucknell.edu .
+
+-- 
+  *********************************************************************
+  * Kári Davíðsson                    *                               *
+  * Opiskelijankatu 4 F 330           *                               *
+  * 33720 Tampere                     *     Your advertisement here.  *
+  * Finland                           *     Low prices.               *
+  * Tel: + 358-(0)50-5225153          *                               *
+  * d154402@cs.tut.fi                 *	                              *
+  *********************************************************************
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 12 Jun 1997 15:31:49 -0000
+Message-ID: <87n2ovzvl5.fsf_-_@calder.med.miami.edu>
+Date: 12 Jun 1997 15:31:49 -0000
+From: Michael Alan Dorman
+Subject: "State of the art"
+
+I'm sorry I've been so quite lately.  I've been quite busy, a little
+sick, and, until yesterday, unable to find enough space to recompile X
+and other things. :-) That has changed, and I intend to push forward
+again.
+
+Anyway, I wanted to comment on what I perceive the state of things to
+be WRT Debian/Alpha, and maybe I can suggest a couple of activities
+for people.
+
+We've got a fair number of packages compiled---nowhere even remotely
+near all, but many of the "basic" ones.  Pasi has done us a wonderful
+service by creating installation disks, however many glitches they
+might have.
+
+Unfortunately, some of the packages have problems, including:
+
+Because the old method of bootstrapping stuff often left old libs
+around, which then would get linked to new packages, etc.  I know
+off-hand that this affects sudo, and probably others.
+
+There are packages where there is simply no way to work from the
+existing debian package because the alpha mods to it would have been
+too extensive, and were often not conditionalized (no #ifdef's).  This
+includes libg++ (which might be mergeable with the version recently
+released for libc6 use) and probably others.
+
+I've not felt comfortable about releasing these to the archive, since
+they're basically non-reproducible, so I've been putting them on
+debian.med.miami.edu.  A note, though: I've not cleaned
+debian.med.miami.edu:/pub/mdorman in a while.  If you find something
+on the main archive that's also on debian.med.miami.edu, use the one
+on the main archive---it's probably been left on debian.med.miami.edu
+by mistake.
+
+Finally, some packages, though they compile fine, don't work entirely
+properly.  A big one here is telnet---FWIW, if you telnet to a
+specific IP address it'll work.  I don't know why hostname resolution
+confuses it so.
+
+I would like it if some people could scan the archive, figuring out
+which packages might still be linked with the old libc6, and either
+recompile them (and _check_ them, too, by hand, just to be sure), or
+post to the list and let someone else do them (which means that you
+can help even if you don't have a working system yet).
+
+Also, if people could really give packages a workout, and if someone
+could maintain a debian/alpha status page, with a list of known
+issues, like the telnet bug, on the WWW, so we can remember to look at
+these, but reassure people that things are getting better at the same
+time.
+
+Anything else?
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 14 Jun 1997 10:44:25 -0000
+Message-ID: <Pine.ULT.3.95.970614123438.21406b-100000@gorba.lpt.fi>
+Date: 14 Jun 1997 10:44:25 -0000
+From: Pasi Pirhonen
+Subject: Re: "State of the art"
+
+On 12 Jun 1997, Michael Alan Dorman wrote:
+
+Hi,
+
+> 
+> I'm sorry I've been so quite lately.  I've been quite busy, a little
+> sick, and, until yesterday, unable to find enough space to recompile X
+> and other things. :-) That has changed, and I intend to push forward
+> again.
+> 
+
+--- [CLIP] ---
+
+> 
+> I would like it if some people could scan the archive, figuring out
+> which packages might still be linked with the old libc6, and either
+> recompile them (and _check_ them, too, by hand, just to be sure), or
+> post to the list and let someone else do them (which means that you
+> can help even if you don't have a working system yet).
+> 
+
+I'll do that (again) today and will be more specific about changes and
+packages, which are linked against libc6
+
+As i have been telling in this list, the mods for (quite) fully working
+dselect based install, isn't so drastic as i thought first time.
+Just few critical packages and you are in busness, but still ending
+up to use stuff like telnet mentioned before.
+
+> Also, if people could really give packages a workout, and if someone
+> could maintain a debian/alpha status page, with a list of known
+> issues, like the telnet bug, on the WWW, so we can remember to look at
+> these, but reassure people that things are getting better at the same
+> time.
+> 
+
+Any other volunteers? ;)
+
+-- upi@iki.fi -- http://www.iki.fi/upi/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 14 Jun 1997 14:21:55 -0000
+Message-ID: <Pine.ULT.3.95.970614171347.21406c-100000@gorba.lpt.fi>
+Date: 14 Jun 1997 14:21:55 -0000
+From: Pasi Pirhonen
+Subject: hamm/hamm/binary-alpha/* (continues)
+
+Hi,
+
+As Michael asked, i did it again, and found following binary packages
+to be outdated or linked again wrong libraries. I have couple of
+those in ftp://gorba.lpt.fi/debian/binary-alpha, but i seem not to be able
+to upload those *.debian.org, so ....
+
+This time i really unpacked every package and checked it, but that ain't
+much different than the first list i made. ncurses seems to be fixed after
+that.
+
+admin
+
+- wg15-locale
+
+base
+
+- e2fsprogs_1.06-4 	Linked against libc6 
+- hostname_2.01		Linked against libc6
+- libbfd27_2.7-1		Libs linked against libc6
+- libc6			remove
+- libgdbm1_1.7.3-11 	Libs linked against libc6
+
+devel
+
+- gcc_2.7.2-8		Linked against libc6
+- libc6-dev		remove
+- cvs_1.9-1 		Linked against libc6
+- rcs_5.7-4 		Linked against libc6
+
+interpreters
+
+- cpp_2.7.2-8		linked against libc6
+
+utils
+
+- cpio_2.4.2-8		linked agains libc6
+- sysutils_1.2-1 	linked againstlibc6
+
+libs
+
+- found *none*
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 14 Jun 1997 14:30:43 -0000
+Message-ID: <19970614153239.06349@snowball.ucd.ie>
+Date: 14 Jun 1997 14:30:43 -0000
+From: Nikita Schmidt
+Subject: Re: "State of the art"
+
+On Jun 12, Michael Alan Dorman wrote:
+> 
+> Finally, some packages, though they compile fine, don't work entirely
+> properly.  A big one here is telnet---FWIW, if you telnet to a
+> specific IP address it'll work.  I don't know why hostname resolution
+> confuses it so.
+> 
+
+As for telnet, I have a patch (see below).  I'm going to submit a bug
+report later today to make it officially included into 2.13-2.
+
+	Kit
+
+--- telnet/commands.c.orig	Sat Jun 14 15:01:25 1997
++++ telnet/commands.c	Sat Jun 14 15:05:10 1997
+@@ -2219,7 +2219,7 @@
+     } else {
+ #endif
+ 	temp = inet_addr(hostp);
+-	if (temp != (unsigned long) -1) {
++	if (temp != INADDR_NONE) {
+ 	    sin.sin_addr.s_addr = temp;
+ 	    sin.sin_family = AF_INET;
+ 	    (void) strcpy(_hostname, hostp);
+@@ -2787,7 +2787,7 @@
+ 		if (!c)
+ 			cp2 = 0;
+ 
+-		if ((tmp = inet_addr(cp)) != -1) {
++		if ((tmp = inet_addr(cp)) != (int)INADDR_NONE) {
+ 			sin_addr.s_addr = tmp;
+ 		} else if (host = gethostbyname(cp)) {
+ #if	defined(h_addr)
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 16 Jun 1997 10:40:12 -0000
+Message-ID: <87hgeyde67.fsf@os.inf.tu-dresden.de>
+Date: 16 Jun 1997 10:40:12 -0000
+From: Sven Rudolph
+Subject: ld error (?): multiple definition of `_DYNAMIC'
+
+I just tried to compile XFree86_3.3-2 on alpha:
+
+making all in lib/Xt...
+make[3]: Entering directory `/usr/local/sr1/src/xfree86-3.3/lib/Xt'
+rm -f libXt.so.6.0~
++ cd .
++ gcc -o ./libXt.so.6.0~ -shared -Wl,-soname,libXt.so.6 ActionHook.o Alloc.o ArgList.o Callback.o ClickTime.o Composite.o Constraint.o Convert.o Converters.o Core.o Create.o Destroy.o Display.o Error.o Event.o EventUtil.o Functions.o GCManager.o Geometry.o GetActKey.o GetResList.o GetValues.o HookObj.o Hooks.o Initialize.o Intrinsic.o Keyboard.o Manage.o NextEvent.o Object.o PassivGrab.o Pointer.o Popup.o PopupCB.o RectObj.o Resources.o Selection.o SetSens.o SetValues.o SetWMCW.o Shell.o StringDefs.o Threads.o TMaction.o TMgrab.o TMkey.o TMparse.o TMprint.o TMstate.o VarCreate.o VarGet.o Varargs.o Vendor.o -L../../exports/lib -lX11 -lSM -lICE
+../../exports/lib/libSM.so: In function `SmsGetIceConnection':
+sm_misc.c(*ABS*+0x120109410): multiple definition of `_DYNAMIC'
+/usr/lib/crti.o(.dynamic+0x0): first defined here
+gcc: Internal compiler error: program ld got fatal signal 11
++ rm -f libXt.so.6
++ ln -s libXt.so.6.0 libXt.so.6
++ rm -f ../../exports/lib/libXt.so.6
++ cd ../../exports/lib
++ ln -s ../../lib/Xt/libXt.so.6 .
+
+Creating libXt.so.6 fails; the resulting file size is 0 bytes.
+
+Has anyone seen such a problem before. Hints/solutions?
+
+	Sven
+-- 
+Sven Rudolph <sr1@inf.tu-dresden.de> ; WWW : http://www.sax.de/~sr1/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 16 Jun 1997 12:37:27 -0000
+Message-ID: <87vi3e67wj.fsf@calder.med.miami.edu>
+Date: 16 Jun 1997 12:37:27 -0000
+From: Michael Alan Dorman
+Subject: Re: ld error (?): multiple definition of `_DYNAMIC'
+
+Sven Rudolph <sr1@os.inf.tu-dresden.de> writes:
+> I just tried to compile XFree86_3.3-2 on alpha:
+
+What libc are you using?  What binutils?  I've compiled xfree on my
+system just this past week with no problems remotely resembling that.
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 16 Jun 1997 14:27:51 -0000
+Message-ID: <87910ad3o4.fsf@os.inf.tu-dresden.de>
+Date: 16 Jun 1997 14:27:51 -0000
+From: Sven Rudolph
+Subject: Re: ld error (?): multiple definition of `_DYNAMIC'
+
+Michael Alan Dorman <mdorman@calder.med.miami.edu> writes:
+
+> Sven Rudolph <sr1@os.inf.tu-dresden.de> writes:
+> > I just tried to compile XFree86_3.3-2 on alpha:
+> 
+> What libc are you using?  What binutils?  I've compiled xfree on my
+> system just this past week with no problems remotely resembling that.
+
+My installation might be different because I didn't bootstrap using
+RedHat. I used the cistron base system and upgraded.
+
+I appended dpkg -l output below.
+
+I just see that I use libc6-dev. Probably I should use 6.1 instead ?
+
+	Sven
+-- 
+Sven Rudolph <sr1@inf.tu-dresden.de> ; WWW : http://www.sax.de/~sr1/
+
+Desired=Unknown/Install/Remove/Purge
+| Status=Not/Installed/Config-files/Unpacked/Failed-config/Half-installed
+|/ Err?=(none)/Hold/Reinst-required/X=both-problems (Status,Err: uppercase=bad)
+||/ Name            Version        Description
++++-===============-==============-============================================
+ii  adduser         3.2            Add users and groups to the system.
+ii  ae              962-12         Anthony's Editor -- a tiny full-screen edito
+ii  afio            2.4.2-2        Archive file manipulation program.
+ii  alias           2.3-1          Access perl variables through aliases
+iU  at              3.1.3-1        Delayed job execution and batch processing
+ii  auctex          9.7n-2         An integrated environment for writing TeX/La
+ii  autoconf        2.12-1         automatic configure script builder.
+ii  automake        1.0-4          A tool for generating GNU Standards-complian
+ii  base-files      1.3.5          Debian Base System Miscellaneous Files
+ii  base-passwd     1.3.1          
+ii  bash            2.0-3          The GNU Bourne Again SHell
+ii  bash-builtins   2.0-3          Bash loadable builtins - headers & examples
+ii  bind            4.9.5-1.4      An Internet domain name server.
+ii  binutils        2.8-1          The GNU assembler, linker and binary utiliti
+ii  bison           1.25-4         A parser generator that is compatible with Y
+ii  bsdutils        3.1.3          Basic utilities from 4.4BSD-Lite.
+ii  cfgtool         1.5-1          Manipulate system configuration variables
+ii  cpio            2.4.2-8        GNU cpio -- a program to manage archives of 
+ii  cron            3.0pl1-38      management of regular background processing
+ii  cvs             1.9-1          Concurrent Versions System -- an RCS extensi
+ii  cvs-pcl         1.9-4          Concurrent Versions System Emacs extension (
+ii  debian-policy   2.1.3.3        Debian Policy Manual and related documents
+iHR debiandoc-sgml  1.0.8          Documentation formatting for Debian manuals
+ii  debianutils     1.4            Miscellaneous utilities specific to Debian.
+ii  debmake         3.2.7          Development environment for Debian Sourcepac
+ii  dialog          0.9a-8         Displays user-friendly dialog boxes from she
+ii  diff            2.7-13         File comparison utilities
+ii  doc-debian      1.5-0          Debian Manual, FAQ and other documents
+ii  doc-rfc         1997.05-1      Important RFCs
+ii  dpkg            1.4.0.11       Package maintenance system for Debian Linux
+ii  dpkg-dev        1.4.0.17       Package building tools for Debian Linux
+iU  dpkg-ftp        1.4.8          Ftp method for dselect.
+ii  e2fsprogs       1.06-4         The EXT2 file system utilities.
+ii  ed              0.2-12         The classic unix line editor
+ii  elib            1.0-2          Library of commonly-used Emacs functions
+ii  elisp-manual    19-2.4-2       Emacs Lisp Reference Manual
+ii  emacs           19.34-11       The GNU Emacs editor.
+ii  emacs-el        19.34-11       GNU Emacs LISP (.el) files.
+ii  emacs-lisp-intr 1.04-1         Programming in Emacs Lisp: An Introduction
+ii  fdflush         1.0.0-7        A disk-flushing program.
+ii  file            3.20.1-3       Determines file type using "magic" numbers
+ii  fileutils       3.16-2         GNU file management utilities.
+ii  findutils       4.1-21         utilities for finding files--find, xargs, an
+ii  flex            2.5.4-2        A fast lexical analyzer generator.
+iU  fortunes        9510-4         Datafiles containing fortune cookies
+ii  gawk            3.0.2-1        GNU awk, a pattern scanning and processing l
+ii  gcc             2.7.2-8        The GNU C compiler (ELF version).
+ii  gdb             4.16-7         The GNU Debugger
+ii  getty           1.45a-3        agetty, an alternative Linux getty
+ii  glibcdoc        1.92-1         GNU C library Info documentation (edition 0.
+ii  grep            2.0-11         GNU grep, egrep and fgrep.
+iU  groff           1.10-2         GNU troff text-formatting system.
+ii  gsfonts         4.01-5         Fonts for the ghostscript interpreter
+ii  gzip            1.2.4-15       The GNU compression utility.
+ii  hostname        2.01           A utility to set/show the host name or domai
+iU  hyperlatex      2.2.4-1        Creating HTML using LaTeX documents.
+iU  ibritish        3.1.20-0.1     A British English dictionary for ispell.
+iU  igerman         2-5            The german dictionary for ispell.
+ii  info            3.9-4          Standalone GNU Info documentation browser
+iU  jedsl           0.98.2-2       Sources of Slang runtime files for jed
+ii  kbd             0.92-3         Linux console font and keytable utilities.
+ii  latex2html      96.1.h-6       LaTeX to HTML translator.
+ii  ldconfig        1.8.1-1        determine run-time link bindings.
+ii  ldso            1.7.14-2       Dummy deb package
+ii  less            321-2          A file pager program, similar to more(1)
+ii  libbfd2.8       2.8-1          The GNU Binary File Descriptor library (run-
+ii  libbfd2.8-dev   2.8-1          The GNU Binary File Descriptor library (deve
+ii  libbfd27        2.7-1          BFD shared libraries (runtime).
+ii  libc5           5.2.18-11      Dummy deb package
+ii  libc6           6.0.0-1        The GNU C library version 6 (run-time librar
+ii  libc6-dev       6.0.0-1        The GNU C library version 6 (development fil
+ii  libc6.1         2.0.3-3        The GNU C library version 2 (run-time files)
+ii  libdb1          1.85.2-8       Dummy deb package
+ii  libgdbm1        1.7.3-11       GNU dbm database routines (runtime version).
+ii  libpaper        1.0.3-3        Library for handling paper characteristics
+ii  libreadline2    2.1-2          GNU readline and history libraries, run-time
+ii  locales         2.0.3-3        Locale data files and utilities.
+ii  login           961025-1       Sign on to the system.
+ii  lynx            2.7-1          Text-mode WWW Browser
+ii  m4              1.4-6          a macro processing language
+ii  make            3.75-4         The GNU version of the "make" utility.
+ii  makedev         1.5-4          Creates special device files in /dev.
+iU  man-db          2.3.10-35      Display the on-line manual.
+ii  manpages        1.15-5         Man pages about using a Debian system.
+ii  manpages-de     0.1-6          German section 2, 3, 4, 5, 7, and 8 manpages
+ii  mawk            1.3.3-1        a pattern scanning and text processing langu
+ii  mime-support    2.12-1         MIME files 'mime.types' & 'mailcap', and sup
+ii  mirror          2.8-9          Perl program for keeping ftp archives up-to-
+ii  miscfiles       1.1-2          Dictionaries and other interesting files.
+ii  modconf         0.2.11         Device Driver Configuration
+ii  mount           2.6d-2         Tools for mounting and manipulating filesyst
+iU  mutt            0.71-1         Text-based mailreader supporting MIME, PGP a
+ii  ncurses-base    1.9.9e-1       Video terminal manipulation: Minimum set of 
+ii  ncurses-bin     1.9.9e-1       Video terminal manipulation: associated prog
+ii  ncurses3.0      1.9.9e-1       Video terminal manipulation: shared librarie
+ii  ncurses3.0-dev  1.9.9e-1       Video terminal manipulation: Developer's lib
+ii  ncurses3.0-pic  1.9.9e-1       Video terminal manipulation: Shared-library 
+ii  netbase         2.12-1         Basic TCP/IP networking binaries
+ii  netstd          2.13-1         Networking binaries and daemons for Linux
+ii  nvi             1.76-1         4.4BSD re-implementation of vi.
+ii  passwd          961025-1       Change and administer password and group dat
+ii  patch           2.1-11         Apply a diff file to an original
+ii  perl            5.004-1        Larry Wall's Practical Extracting and Report
+ii  perl-debug      5.004-1        Allow debugging perl scripts (and perl).
+ii  perl-suid       5.004-1        Runs setuid perl scripts.
+ii  pgp-i           2.6.3a-1       Public key encryption system (International 
+iU  procps          1.11.5         The /proc file system utilities.
+ii  rcs             5.7-4          The GNU Revision Control System
+ii  rsaref          19930105-1     RSADSI's RSAREF encryption library
+ii  sed             2.05-12        The GNU sed stream editor.
+ii  setserial       2.12-2         Controls configuration of serial ports.
+ii  sgml-data       0.02           Data files for SGML programs
+iU  sgml-tools      0.99.7-1       SGML tools
+ii  sgmlspm         1.03ii-3       Perl modules for processing SGML parser outp
+ii  shellutils      1.16-1         The GNU shell programming utilities.
+ii  slang0.99.34    0.99.38-1      A C programming library for user interfaces 
+iU  slang0.99.34-de 0.99.38-1      A C programming library for user interfaces 
+iU  sp              1.1.1-3        James Clark's suite of tools to parse SGML f
+iU  spellprogs      1.11-1         Three shell spell scripts.
+ii  strace          3.1-8          A system call tracer.
+ii  sudo            1.5.2-4        Provides limited super user privileges to sp
+ii  sysklogd        1.3-15         Kernel and system logging daemons
+ii  syslinux        1.30-2         Boot disk creator.
+ii  sysutils        1.2-1          Miscellaneous small system utilities.
+ii  sysvinit        2.70-1         System-V like init.
+ii  tar             1.11.8-11      GNU tar
+ii  tcl76           7.6p2-4        The Tool Command Language (TCL) v7.6 - Run-T
+ii  tcl76-dev       7.6p2-4        The Tool Command Language (TCL) v7.6 - Devel
+ii  tetex-base      0.4pl8-2       teTeX library files
+iU  tetex-bin       0.4pl6-7       teTeX binary files
+ii  tetex-dev       0.4pl6-7       kpathsea.a and include files for teTeX
+ii  tetex-doc       0.4pl8-1       teTeX documentation
+iU  tetex-extra     0.4pl8-1       teTeX library files
+ii  texidoc         3.9-2          Texinfo manual - how to write a Texinfo file
+ii  textutils       1.22-1         The GNU text file processsing utilities.
+ii  timezones       2.0.3-3        Time zone data files and utilities.
+ii  tk42            4.2p2-4        The Tk toolkit for TCL and X11 v4.2 - Run-Ti
+ii  tk42-dev        4.2p2-4        The Tk toolkit for TCL and X11 v4.2 - Develo
+ii  update          1.2-1          daemon to periodically flush filesystem buff
+ii  util-linux      2.5-10         Miscellaneous system utilities.
+ii  w3-el           2.2.26-1       This is a hypertext (World Wide Web) browser
+ii  wenglish        1.0-6          English dictionary words for /usr/dict
+ii  wgerman         2-6            The german dictionary for /usr/dict.
+ii  xbase           3.2-5          Local clients and configuration required by 
+ii  xext            3.2-5          Extensions to X servers
+ii  xfnt100         3.3-1          100dpi fonts for X servers
+ii  xfnt75          3.3-1          75dpi fonts for X servers
+ii  xfntbase        3.3-1          Standard fonts for X servers
+ii  xfntbig         3.3-1          Large fonts for X servers
+ii  xfntcyr         3.3-1          Cyrillic fonts for X servers
+ii  xfntil2         1.0.2          ISO 8859-2 fonts for X servers
+ii  xfntpex         3.3-1          Minimal fonts for PEX support in X servers
+ii  xfntscl         3.3-1          Scalable fonts for X servers
+iU  xforms-dev      0.86-3         GUI Toolkit for X Window Systems
+iU  xforms0         0.86-3         GUI Toolkit for X Window Systems
+ii  xlib6           3.2-5          Shared libraries required by X clients
+ii  xlib6-dev       3.2-5          Include files and libraries for X client dev
+ii  xnest           3.2-5          Nested X server
+ii  xntp3           5.89-1         Network Time Protocol clients and server
+iU  xpm-bin         3.4j-0         X Pixmap libraries - associated binaries
+ii  xserver-s3      3.2-5          X server for S3-based graphics cards
+ii  zlib1           1.0.4-7        compression library - runtime
+ii  zlib1-dev       1.0.4-7        compression library - development
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 16 Jun 1997 15:39:07 -0000
+Message-ID: <873eqid0mg.fsf@os.inf.tu-dresden.de>
+Date: 16 Jun 1997 15:39:07 -0000
+From: Sven Rudolph
+Subject: Re: ld error (?): multiple definition of `_DYNAMIC'
+
+Sven Rudolph <sr1@os.inf.tu-dresden.de> writes:
+
+> Michael Alan Dorman <mdorman@calder.med.miami.edu> writes:
+> 
+> > Sven Rudolph <sr1@os.inf.tu-dresden.de> writes:
+> > > I just tried to compile XFree86_3.3-2 on alpha:
+> > 
+> > What libc are you using?  What binutils?  I've compiled xfree on my
+> > system just this past week with no problems remotely resembling that.
+
+> I just see that I use libc6-dev. Probably I should use 6.1 instead ?
+
+Probably not. When I compile using libc6.1-dev (2.0.3-3) the program
+coredumps immediately:
+
+make[2]: Entering directory `/usr/local/sr1/src/xfree86-3.3/config/imake'
+making imake with BOOTSTRAPCFLAGS=
+cc -o ccimake  -O -I../../include -I../../imports/x11/include/X11 ccimake.c
+cc -c  -O -I../../include -I../../imports/x11/include/X11 `./ccimake` imake.c
+cc -o imake  -O -I../../include -I../../imports/x11/include/X11 imake.o
+make[2]: Leaving directory `/usr/local/sr1/src/xfree86-3.3/config/imake'
+rm -f ./config/makedepend/Makefile.proto
+./config/imake/imake -I./config/cf  -s ./config/makedepend/Makefile.proto -f ./config/makedepend/Imakefile -DTOPDIR=../.. -DCURDIR=./config/makedepend
+make[1]: *** [config/makedepend/Makefile.proto] Segmentation fault
+(core dumped)
+
+	Sven
+-- 
+Sven Rudolph <sr1@inf.tu-dresden.de> ; WWW : http://www.sax.de/~sr1/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 16 Jun 1997 17:33:08 -0000
+Message-ID: <872062cv2e.fsf@os.inf.tu-dresden.de>
+Date: 16 Jun 1997 17:33:08 -0000
+From: Sven Rudolph
+Subject: gcc is killed by -O2
+
+I use 
+Package: gcc
+Version: 2.7.2-8
+Depends: libc5 (>= 5.2.18-5), binutils (>= 2.6-2)
+
+(where libc5 is a dummy package).
+
+On some .c files gcc exits on signal 11. This doesn't happen when I
+disable -O2.
+
+$ gcc -O2 -c -D_GNU_SOURCE -I. -I. -I../bfd -I./../bfd -I./../include   stabs.c
+gcc: Internal compiler error: program cc1 got fatal signal 11
+$ gcc -c -D_GNU_SOURCE -I. -I. -I../bfd -I./../bfd -I./../include   stabs.c
+$
+
+Did anyone else experience this too?
+
+Is there a newer gcc for alpha-linux. Debian gcc 2.7.2.2-4 source
+doesn't know anything about alpha, and I didn't find alpha-patches
+anywhere.
+
+	Sven
+-- 
+Sven Rudolph <sr1@inf.tu-dresden.de> ; WWW : http://www.sax.de/~sr1/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 16 Jun 1997 18:40:49 -0000
+Message-ID: <87yb8abdcq.fsf@os.inf.tu-dresden.de>
+Date: 16 Jun 1997 18:40:49 -0000
+From: Sven Rudolph
+Subject: pgp for alpha
+
+... is in non-US. (os.inf.tu-dresden.de:/pub/debian-non-US/ and others)
+
+(I just realized that I wasn't subscribed to debian-alpha, so I'm
+reading the archive ...)
+
+	Sven
+-- 
+Sven Rudolph <sr1@inf.tu-dresden.de> ; WWW : http://www.sax.de/~sr1/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 19 Jun 1997 14:08:50 -0000
+Message-ID: <Pine.LNX.3.96.970619150626.13045B-100000@amasis.trin.cam.ac.uk>
+Date: 19 Jun 1997 14:08:50 -0000
+From: Nikhil Nair
+Subject: Expected progress?
+
+Hi,
+
+I'm going to be buying a machine of some description in October, and am
+toying with the idea of making it an Alpha (the alternative is a Pentium).
+Whatever I get, I'd like to run dEbian on it, so I was wondering how you
+guys expect the Debian Alpha port to develop in the next few months, and
+in particular how stable it's likely to be by then.  I appreciate it's
+probably not an easy one to call, but appreciate hearing the thoughts of
+those at the cutting edge ...
+
+Thanks,
+
+Nikhil.
+
+--
+Nikhil Nair
+Trinity College, Cambridge, England
+Tel.: +44 1223 368353
+Email: nn201@cus.cam.ac.uk
+       nnair@debian.org
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 19 Jun 1997 18:51:27 -0000
+Message-ID: <87lo468m06.fsf@calder.med.miami.edu>
+Date: 19 Jun 1997 18:51:27 -0000
+From: Michael Alan Dorman
+Subject: Re: gcc is killed by -O2
+
+Sven Rudolph <sr1@os.inf.tu-dresden.de> writes:
+> On some .c files gcc exits on signal 11. This doesn't happen when I
+> disable -O2.
+
+Known problem.
+
+> Is there a newer gcc for alpha-linux. Debian gcc 2.7.2.2-4 source
+> doesn't know anything about alpha, and I didn't find alpha-patches
+> anywhere.
+
+I am uploading a gcc-2.7.2.1-10 for Alpha at this moment.  It should
+take care of this problem.
+
+*HOWEVER*, my PPP line to home has been having mega problems, so I
+can't be sure things will complete.  On top of that, I'm going to be
+out of town for a week starting tomorrow, so from my end things will
+come to a halt.  If I can, I'll try and schedule some other stuff I've
+been compiling to upload---like the newest glibc and binutils---but,
+again, I don't know if it'll work.  If it doesn't, it'll be a while
+before I can get to it.
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 27 Jun 1997 19:41:08 -0000
+Message-ID: <19970627204145.04735@snowball.ucd.ie>
+Date: 27 Jun 1997 19:41:08 -0000
+From: Nikita Schmidt
+Subject: Re: "State of the art"
+
+On Jun 12, Michael Alan Dorman wrote:
+> 
+> There are packages where there is simply no way to work from the
+> existing debian package because the alpha mods to it would have been
+> too extensive, and were often not conditionalized (no #ifdef's).  This
+> includes libg++ (which might be mergeable with the version recently
+> released for libc6 use) and probably others.
+> 
+> I've not felt comfortable about releasing these to the archive, since
+> they're basically non-reproducible, so I've been putting them on
+> debian.med.miami.edu.
+
+Binary releases only?  I think source packages should also be reachable.
+(Probably at some point architecture-dependent dsc and diff files will
+even be allowed on master, when other ports face same problems.)
+
+> 
+> Also, if people could really give packages a workout, and if someone
+> could maintain a debian/alpha status page, with a list of known
+> issues, like the telnet bug, on the WWW, so we can remember to look at
+> these, but reassure people that things are getting better at the same
+> time.
+> 
+
+Good idea.  First time there will be terrible lots of small issues, and
+I think that Debian bug-tracking system is not quite good for tracking
+them.  Basic differences are:
+- it is better to keep full description on the page, instead of a link
+  to it - the problems are better observed, and they are not going to
+  be terribly big bug reports - at this stage, bugs are usually easily
+  reproducible;
+- the reported problems are not solely the maintainer's responsibility,
+  anybody should be allowed to take a problem, fix it and send the patch
+  to the appropriate Alpha port maintainer.
+
+I could do such a thing, the problem is that I won't be able to maintain
+this page in July and August; the page certainly must be automatic, but,
+unfortunately, not many things in this world, especially bug-tracking
+web pages, can work properly without human intervention for a reasonable
+amount of time.  But at least I can try and maybe lend the page to
+somebody able to maintain it in my absence.
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 29 Jun 1997 03:20:17 -0000
+Message-ID: <19970629042123.61364@snowball.ucd.ie>
+Date: 29 Jun 1997 03:20:17 -0000
+From: Nikita Schmidt
+Subject: Bug tracking page
+
+Hi,
+
+I've established an experimental bug tracking service for Debian/Alpha
+port on a Web page.  It is not a replacement for the Debian bug tracking
+system, it's just a first stage on the way there.  It is envisioned that
+the issues appearing on that page will be eventually dealt with by Alpha
+maintainers and the proposed solutions will then be submitted into the
+official bug tracking system to be merged into the distribution.
+
+At the moment the page is populated by one bug report, which is intended
+to serve as an example so that people can see what it is all about.
+
+The page is slightly raw, but, well, that's a common problem for WWW pages.
+
+Its front-end URL is http://genie.ucd.ie/alpha.
+
+Have fun
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+

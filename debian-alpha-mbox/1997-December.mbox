@@ -1,0 +1,4124 @@
+From unknown 1 Dec 1997 10:42:25 -0000
+Message-ID: <65u4le$3ae$1@Q.cistron.nl>
+Date: 1 Dec 1997 10:42:25 -0000
+From: miquels@cistron.nl (Miquel van Smoorenburg)
+Subject: Re: where are the archives?
+
+In article <199711302251.UAA02218@hoggar.fisica.ufpr.br>,
+Carlos Carvalho <carlos@fisica.ufpr.br> wrote:
+>I couldn't find the archives of the mailing lists in the www page, the
+>URL is not found.
+>
+>I'm preparing for installing debian on an alpha and need to find how
+>to do it...
+
+www.debian.org has a lot of problems mirrorring master.debian.org. I
+have an up-to-date copy on www.nl.debian.org, you could try that one
+instead.
+
+>PS: the alpha mailing list isn't mentioned in the www page!!! :-( :-(
+
+It is on an up-to-date mirror..
+
+Mike.
+-- 
+ Miquel van Smoorenburg |  Studying to be a technomage   <*>
+    miquels@cistron.nl  | "May you live in interesting times"
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 1 Dec 1997 15:54:23 -0000
+Message-ID: <m0xcYD8-000shGC@cupido.cs.hut.fi>
+Date: 1 Dec 1997 15:54:23 -0000
+From: Lars Wirzenius
+Subject: lesstif packaging error?
+
+[ Please don't Cc: public replies to me. ]
+
+I tried to build lesstif, but it fails to unpack:
+
+dpkg-source: error: file lesstif_0.82.orig.tar.gz has md5sum c2bf17f5053e950e3451d61bec421362 instead of expected c612c843030c622fea626a73de340dd0
+
+Did someone rebuild their .orig.tar.gz file at some point?
+
+-- 
+Please don't Cc: public replies to me.
+
+Attachment:
+pgpGjKA2mlzG9.pgp
+Description: PGP signature
+
+From unknown 1 Dec 1997 19:27:00 -0000
+Message-ID: <Pine.LNX.3.96.971201202132.7150B-100000@leon.lander.es>
+Date: 1 Dec 1997 19:27:00 -0000
+From: "Roberto A. Lumbreras Pastor"
+Subject: Libc6 2.0.5c has a leak in inet_ntoa (fwd)
+
+Hi all.
+
+Sorry if you already have this message, but I think it is
+important.
+
+It seems that there is a memory leak in libc-2.0.5c.
+
+Well, now I know why the squid I'm testing in my alpha box has to
+been killed too often, and it really is doing nothing :)
+
+What are the plans with libc6? We are going to have a libc-2.0.6?
+
+Regards,
+-- 
+Roberto Lumbreras Pastor  *  mailto:rover@lander.es
+Lander Internet - Spain   *  http://www.lander.es/
+Tel +34 1 556.28.83       *  Fax +34 1 556.30.01
+
+"Encryption renamed to Encode to avoid US regulation problems"
+                     - include/linux/wireless.h in Linux 2.0.30 kernel
+
+---------- Forwarded message ----------
+From: Philippe Troin <phil@fifi.org>
+To: debian-devel@lists.debian.org
+Date: Wed, 26 Nov 1997 03:38:39 +0800
+Subject: Libc6 2.0.5c has a leak in inet_ntoa
+
+I should have sent this email much earlier since I've found this 
+problem more than a week ago:
+Libc6 2.0.5c has a leak in inet_ntoa.
+This simple program will prove it:
+
+        #include <sys/socket.h>
+        #include <netinet/in.h>
+        #include <arpa/inet.h>
+
+        void main(void) {
+            char *a;
+            struct in_addr s;
+            while(1) {
+                a=inet_ntoa(s);
+            }
+        }
+
+Run it and watch it grow.
+This explains the diald 0.16.4-10 memory leak (and might explain the 
+nfsd leak too).
+
+The inside story is: due to a problem with libc6, libc_create_key is 
+not declared as a weak symbol of libpthread, and it's not wrapped in 
+a macro which detects if the program is linked with libpthread.
+The result is that during the first call to inet_ntoa(), a libc_once 
+initialization routine is called, it thinks it's linked with 
+libpthread and attempts to create a thread-specific return buffer 
+through libc_create_key. It  believes that the call completed 
+successfully. It does not setup a process-wide buffer.
+For each invocation of inet_ntoa, libc_get_key returns null, and 
+inet_ntoa thinks it's the first time it's been called and mallocs() a 
+buffer. It normally stores it with libc_set_key, but it fails (and 
+this is not reported).
+Every time the function is called, 16 bytes are lost.
+
+The normal operation would be:
+1) Libpthread is not present.
+   The libc_once initialization routine detects that libc_create_key 
+   isn't there and sets up a global buffer. Inet_ntoa uses this 
+buffer.
+2) Libpthread is present.
+   The libc_once initialization routine creates thread-specific keys.
+   During the first invocation of inet_ntoa in each thread,
+   the thread-specific key is accessed. If null, a buffer is allocated
+   with malloc, once per thread, and is stored for future use.
+
+This is what libc6 2.0.6 does (I've checked).
+
+In the meantime, you can link programs which do heavy inet_ntoa with 
+libpthread, it will cure the leak (diald 0.16.4-11 does this, as a 
+temporary measure while waiting for libc6 2.0.6).
+
+I hope this is not too confusing :-)
+
+Phil.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-devel-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 1 Dec 1997 21:37:33 -0000
+Message-ID: <Pine.LNX.3.96.971201163529.23544A-100000@beezer.med.miami.edu>
+Date: 1 Dec 1997 21:37:33 -0000
+From: Christopher C Chimelis
+Subject: Re: Trying out automatically built packages?
+In-Reply-To: <Pine.GSO.3.93.971128125204.2729C-100000@shadows.cs.hut.fi>
+
+On Fri, 28 Nov 1997, Lars Wirzenius wrote:
+
+> I've uploaded info 3.9-5 to beezer (and now I notice that
+> there's a 3.9-5.1 .deb somewhere, oh well).  If someone
+> could test that (see that the libs it uses are correct, and
+> so on), I'd be _very_ grateful. If that one seems OK, I'll
+> start uploading things to master instead, as soon as my
+> queries about PGP keys are answered.
+
+FYI, the 3.9-5.1 deb on beezer is the one I built to satisfy dependency
+problems revolving around ncurses.  It probably is the same as yours, but
+I'll double-check the dependencies.
+
+Also, I feel your pain regarding the PGP key.  I sent mine in last month
+and haven't heard back yet.  Otherwise, we'd have a *much* updated tree on
+master by now.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 1 Dec 1997 23:14:01 -0000
+Message-ID: <65vgmd$7e2$1@defiant.cistron.nl>
+Date: 1 Dec 1997 23:14:01 -0000
+From: miquels@cistron.nl (Miquel van Smoorenburg)
+Subject: Re: Libc6 2.0.5c has a leak in inet_ntoa (fwd)
+
+In article <[🔎] Pine.LNX.3.96.971201202132.7150B-100000@leon.lander.es>,
+Roberto A. Lumbreras Pastor <rover@lander.es> wrote:
+>Hi all.
+>
+>Sorry if you already have this message, but I think it is
+>important.
+>
+>It seems that there is a memory leak in libc-2.0.5c.
+
+Yep, in several routines.
+
+>Well, now I know why the squid I'm testing in my alpha box has to
+>been killed too often, and it really is doing nothing :)
+>
+>What are the plans with libc6? We are going to have a libc-2.0.6?
+
+Yep, in fact 2 pre-versions have already been released and the source
+and i386 debs are available from David Engel. I'm running squid with
+libc6-2.0.6pre2 without any troubles (on a i586 tho').
+
+Mike.
+-- 
+ Miquel van Smoorenburg |  Studying to be a technomage   <*>
+    miquels@cistron.nl  | "May you live in interesting times"
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 2 Dec 1997 00:39:49 -0000
+Message-ID: <19971202004603.9570.qmail@va.debian.org>
+Date: 2 Dec 1997 00:39:49 -0000
+From: bruce@va.debian.org
+Subject: Dec ALPHA Multia for sale
+
+I bought this Multia for $400 about a year ago. I intended to use it to
+work on Debian, but never really had time. It has no RAM or disk.
+It's also rather slow (something to do with having no cache). It is,
+however, just fine for supporting ALPHA software. Any offers?
+
+	Thanks
+
+	Bruce
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 2 Dec 1997 16:07:19 -0000
+Message-ID: <ylenhg8r201y.fsf@viper.law.miami.edu>
+Date: 2 Dec 1997 16:07:19 -0000
+From: Michael Alan Dorman
+Subject: Re: Automatic compilation: results
+
+James Troup <J.J.Troup@comp.brad.ac.uk> writes:
+> BTW, since I'm here, if you do decide to use master (I strongly agree
+> with Bdale about that), quinn-diff might be helpful, it's already
+> running for i386 vs. alpha.
+> 
+> http://thor.lib.chalmers.se/~jamest/quinn-diff/
+
+WOW!  Cool!
+
+I didn't realize this was available, else I'd have been looking at it
+long ago...
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 2 Dec 1997 16:28:18 -0000
+Message-ID: <Pine.LNX.3.96.971202112344.1327A-100000@beezer.med.miami.edu>
+Date: 2 Dec 1997 16:28:18 -0000
+From: Christopher C Chimelis
+Subject: Re: Automatic compilation: results
+
+On 2 Dec 1997, Michael Alan Dorman wrote:
+
+> James Troup <J.J.Troup@comp.brad.ac.uk> writes:
+> > BTW, since I'm here, if you do decide to use master (I strongly agree
+> > with Bdale about that), quinn-diff might be helpful, it's already
+> > running for i386 vs. alpha.
+> > http://thor.lib.chalmers.se/~jamest/quinn-diff/
+> 
+> I didn't realize this was available, else I'd have been looking at it
+> long ago...
+
+I agree :)  I must've missed this the first time it was posted.  I'm
+already recompiling everything it lists in the base section.  I have some
+done already, but I'll try to knock out the entire base section this week.
+If someone can pick up the stuff I've done already and throw it on master
+ASAP, I would appreciate it.  The libs I've recompiled are needed for
+everything I'm doing now and, unless they get to master also, we'll have
+more dependency probs...
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 2 Dec 1997 16:59:51 -0000
+Message-ID: <Pine.LNX.3.96.971202114444.2467A-100000@beezer.med.miami.edu>
+Date: 2 Dec 1997 16:59:51 -0000
+From: Christopher C Chimelis
+Subject: Re: Automatic compilation: results
+In-Reply-To: <m0xcvSj-000shGC@cupido.cs.hut.fi>
+
+On Tue, 2 Dec 1997, Lars Wirzenius wrote:
+
+> I put up a list of packages that my script seems to compile
+> correctly to http://www.iki.fi/liw/debian/alpha-list (a plain
+> text file).  It contains lots of packages that are already
+> on master, so it's not very useful, but perhaps it's of some
+> use to someone.
+
+I'll take a look at this today.  Thanks :)  I was gonna write back and
+"take" a few of the problem packages, but I'll wait until I look at this.
+Oh, it just popped up :)
+
+After comparing yours and James' lists, I guess I'll take the following:
+
+base/login
+base/libgdbm
+base/e2fslibsg
+base/commerr2g
+base/mount (ugly...real ugly)
+base/ncurses3.4 (and associated packages)
+base/passwd
+base/e2fsprogsg (?)
+base/modutils (both 2.0 and 2.1 kernel versions)
+
+I'm reposting this to the list, btw.
+
+Mike, can you handle the perl-base repackaging? :)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 2 Dec 1997 17:34:46 -0000
+Message-ID: <Pine.LNX.3.96.971202122435.4114A-100000@beezer.med.miami.edu>
+Date: 2 Dec 1997 17:34:46 -0000
+From: Christopher C Chimelis
+Subject: Re: Automatic compilation: results
+
+On Tue, 2 Dec 1997, Christopher C Chimelis wrote:
+
+> I'll take a look at this today.  Thanks :)  I was gonna write back and
+> "take" a few of the problem packages, but I'll wait until I look at this.
+> Oh, it just popped up :)
+> 
+> After comparing yours and James' lists, I guess I'll take the following:
+> 
+> base/login
+> base/libgdbm
+> base/e2fslibsg
+> base/commerr2g
+> base/mount (ugly...real ugly)
+> base/ncurses3.4 (and associated packages)
+> base/passwd
+> base/e2fsprogsg (?)
+> base/modutils (both 2.0 and 2.1 kernel versions)
+
+Ok...after further research, I've narrowed the above down to the
+following:
+
+base/libgdbm1
+base/mount
+base/ncurses3.4 (and related)
+base/modutils
+base/login
+base/passwd
+
+The rest of what I listed before were done by the autobuilding script, but
+I didn't realise it before :P
+
+I just finished recompiling base/mount and that should be up on beezer
+momentarily.  base/login and base/passwd are two I'll have to look for,
+but I think I know where they are.  The rest I can easily finish by the
+week's end.  Check beezer later this week for updated versions of all of
+these :)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 2 Dec 1997 18:15:28 -0000
+Message-ID: <dmmiut7obbw.fsf@dcsun4.comp.brad.ac.uk>
+Date: 2 Dec 1997 18:15:28 -0000
+From: James Troup
+Subject: Re: Automatic compilation: results
+
+Christopher C Chimelis <chris@beezer.med.miami.edu> writes:
+
+> base/login
+> base/passwd
+
+Watch out for shadow, you need to run "automake --add-missing" before
+running debian/rules build.  (#13815).
+
+-- 
+James
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 2 Dec 1997 18:20:24 -0000
+Message-ID: <Pine.LNX.3.96.971202131903.6090A-100000@beezer.med.miami.edu>
+Date: 2 Dec 1997 18:20:24 -0000
+From: Christopher C Chimelis
+Subject: Re: Automatic compilation: results
+
+On 2 Dec 1997, James Troup wrote:
+
+> > base/login
+> > base/passwd
+> Watch out for shadow, you need to run "automake --add-missing" before
+> running debian/rules build.  (#13815).
+
+Turns out that these were done by the automatic building script as well.
+I'll redo them JIC, though, and put them on beezer.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 2 Dec 1997 18:41:20 -0000
+Message-ID: <ylend8jf1swe.fsf@viper.law.miami.edu>
+Date: 2 Dec 1997 18:41:20 -0000
+From: Michael Alan Dorman
+Subject: Re: Automatic compilation: results
+
+Christopher C Chimelis <chris@beezer.med.miami.edu> writes:
+> After comparing yours and James' lists, I guess I'll take the following:
+> 
+> base/e2fslibsg
+> base/commerr2g
+> base/e2fsprogsg (?)
+> 
+> I'm reposting this to the list, btw.
+
+I'm already doing (in other words, nearly done with) these.  Don't
+waste your time.
+
+> Mike, can you handle the perl-base repackaging? :)
+
+Already done and uploaded.
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 2 Dec 1997 18:42:15 -0000
+Message-ID: <ylenbtyz1suh.fsf@viper.law.miami.edu>
+Date: 2 Dec 1997 18:42:15 -0000
+From: Michael Alan Dorman
+Subject: Re: Automatic compilation: results
+
+Christopher C Chimelis <chris@beezer.med.miami.edu> writes:
+> The rest of what I listed before were done by the autobuilding script, but
+> I didn't realise it before :P
+
+Actually, the e2fs stuff wouldn't have correct dependencies for the
+-dev stuff, which I'm in the process of solving.
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 2 Dec 1997 19:29:18 -0000
+Message-ID: <dmm7m9no7x5.fsf@dcsun4.comp.brad.ac.uk>
+Date: 2 Dec 1997 19:29:18 -0000
+From: James Troup
+Subject: Re: Automatic compilation: results
+
+Christopher C Chimelis <chris@beezer.med.miami.edu> writes:
+
+> > > base/login
+> > > base/passwd
+> >
+> > Watch out for shadow, you need to run "automake --add-missing"
+> > before running debian/rules build.  (#13815).
+> 
+> Turns out that these were done by the automatic building script as
+> well.
+
+Hmm, that's a cuning trick, I couldn't get the latest version of
+shadow to build on i386 or m68k, automatically or otherwise.  Oh well.
+
+-- 
+James
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 2 Dec 1997 19:29:26 -0000
+Message-ID: <dmm67p7o7wm.fsf@dcsun4.comp.brad.ac.uk>
+Date: 2 Dec 1997 19:29:26 -0000
+From: James Troup
+Subject: Re: Automatic compilation: results
+
+Christopher C Chimelis <chris@beezer.med.miami.edu> writes:
+
+> > > http://thor.lib.chalmers.se/~jamest/quinn-diff/
+>
+> I agree :) I must've missed this the first time it was posted.
+
+Oh, this was the first time I posted it to the list, sorry.  I had
+mentioned it to Mike months ago (I think), but hadn't announced it on
+the list, because I didn't want to do too much self-publication, as it
+were, or something.
+
+An alpha person might want to check the list of arch-specific excluded
+packages, I already got one package on that list wrong (mpg123, as
+Nikita discovered).
+
+-- 
+James
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 2 Dec 1997 19:33:15 -0000
+Message-ID: <Pine.LNX.3.96.971202143145.9096A-100000@beezer.med.miami.edu>
+Date: 2 Dec 1997 19:33:15 -0000
+From: Christopher C Chimelis
+Subject: Re: Automatic compilation: results
+
+On 2 Dec 1997, James Troup wrote:
+
+> Oh, this was the first time I posted it to the list, sorry.  I had
+> mentioned it to Mike months ago (I think), but hadn't announced it on
+> the list, because I didn't want to do too much self-publication, as it
+> were, or something.
+
+DOH!  Hehehe...No wonder I missed it :P  And as far as
+self-publication...if you're good, you're good....at least that's my
+belief.  Hehehe.
+
+> An alpha person might want to check the list of arch-specific excluded
+> packages, I already got one package on that list wrong (mpg123, as
+> Nikita discovered).
+
+I've already started doing that.  I don't know all of the nuances, but I
+already have made notes on a few to double-check.  I'll get back to you
+with my findings (if someone doesn't beat me to it).
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 3 Dec 1997 04:43:42 -0000
+Message-ID: <"HjftT.A.qC.-NOh0"@debian>
+Date: 3 Dec 1997 04:43:42 -0000
+From: "Ian Willmott"
+Subject: milo and vmlinux.gz
+
+After I compiled a 2.1 kernel for my AXPpci33, I found that MILO
+(2.0.29, from gatekeeper.dec.com) would boot it if it was not
+compressed, but with the gzip'ed version MILO produced the error message 
+"invalid compressed format - halting" and rebooted. 'gzip -t' doesn't
+find any problem with the image.
+
+This never happened with either of the 2.0 compressed images I used, one 
+from Redhat and the other from the Oct 5 set on ftp.debian.org . Could
+it be that MILO doesn't understand the compression method used by a
+later version of gzip? Would the gzip -[1-9] option help? Is there a
+problem using different versions of MILO and the kernel?
+
+Does anyone have any ideas about this?
+
+Ian Willmott
+Northern Telecom
+Ottawa Ontario
+willmott@nortel.ca
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 3 Dec 1997 13:18:48 -0000
+Message-ID: <ylenpvneimj0.fsf@viper.law.miami.edu>
+Date: 3 Dec 1997 13:18:48 -0000
+From: Michael Alan Dorman
+Subject: Re: milo and vmlinux.gz
+
+"Ian Willmott" <willmott@nortel.ca> writes:
+> After I compiled a 2.1 kernel for my AXPpci33, I found that MILO
+> (2.0.29, from gatekeeper.dec.com) would boot it if it was not
+> compressed, but with the gzip'ed version MILO produced the error message 
+> "invalid compressed format - halting" and rebooted. 'gzip -t' doesn't
+> find any problem with the image.
+
+Try the 2.0.30 MILO, as the 2.0.29 MILO wasn't able to deal with
+something regarding the 2.1.X kernels.  I don't remember what exactly.
+
+Although 2.0.30 was no prize as a kernel, the 2.0.30 MILO seems just
+fine.
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 00:26:36 -0000
+Message-ID: <199712040032.WAA15168@hoggar.fisica.ufpr.br>
+Date: 4 Dec 1997 00:26:36 -0000
+From: Carlos Carvalho
+Subject: why aren't these packages in the alpha distribution?
+
+I'm thinking of converting our server to an alpha, and checked whether
+the packages we use are available on the alpha. I came up with these
+missing:
+
+amd
+f2c
+g77
+ghostview
+gs-aladdin
+gv
+joe
+lapack*
+libtiff3
+ncftp
+octave
+oleo
+pine
+pixmap
+scilab
+svgalib1
+transfig
+unzip
+wdiff
+xcontrib
+xfig
+xkeycaps
+xloadimage
+xv
+xxgdb
+zip
+
+Why aren't they available? Is it just a matter of someone compiling
+them? Some are available in Red Hat.
+
+Also, which machine is beezer?
+
+Carlos
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 03:56:25 -0000
+Message-ID: <Pine.LNX.3.96.971203224716.20618A-100000@beezer.med.miami.edu>
+Date: 4 Dec 1997 03:56:25 -0000
+From: Christopher C Chimelis
+Subject: Re: why aren't these packages in the alpha distribution?
+
+On Wed, 3 Dec 1997, Carlos Carvalho wrote:
+
+> I'm thinking of converting our server to an alpha, and checked whether
+> the packages we use are available on the alpha. I came up with these
+> missing:
+
+Yeah, we still have quite a few missing.  If you want to convert soon, I
+can start compiling most of these very soon.  I don't really have too much
+of a "priority" list anymore, so if someone wants to give me an excuse to
+make one up, I will :)
+
+The only problem we have right now is the g77 and f2c stuff.  I don't know
+about f2c (haven't tried), but g77 is a nightmare right now.  Right now,
+our gcc is pretty patchy and getting ahold of all of the patches is not
+too easy.  I did attempt to compile an unpatched copy of gcc not too long
+ago with g77 included, but it failed to run properly.  I think most if not
+all of us are waiting until egcs matures a bit more before really making a
+decision on Fortran support one way or another.
+
+> ghostview
+> gs-aladdin
+> gv
+
+I actually almost compiled these.  The only thing that stopped me was
+svgalib....which I never dealt with.
+
+> libtiff3
+> ncftp
+
+These two I *know* are done since I did them myself :)  I just haven't
+uploaded them yet because of dependency stuff.  I should have a good copy
+up soon.
+
+> octave
+> oleo
+
+I don't remember about oleo, but octave won't compile without g77.  See
+above regarding that :P
+
+> pine
+
+Done.  I have to redo this for our new ncurses, though.
+
+> pixmap
+
+Done.
+
+Most of the rest of them are things that I've compiled before.  I'll keep
+this email though and start down the list soon (well, I'll do whatever the
+autobuilding script didn't take care of for me).
+
+> Why aren't they available? Is it just a matter of someone compiling
+> them? Some are available in Red Hat.
+
+Unfortunately, RedHat is a more "mature" distribution on the Alpha and far
+more established.  I wouldn't doubt that we'll eventually equal, if not
+better the RedHat distribution on the Alpha (rpm is really not an optimal
+package tool, IMO), but there is still only a handful of us working on
+this, and most with slow UDB's, so it may take some time.
+
+> Also, which machine is beezer?
+
+Ah, that's my machine at work :)  If you want to see what's there, ftp to:
+	beezer.med.miami.edu:/pub/chris
+Most of the good stuff is in the to_master directory, but there's some
+other stuff sprinkled in the others too.
+
+Let me know what you think and what you'd like me to start on.  I'd be
+happy to work on something specific if a future user wants it...
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 10:47:17 -0000
+Message-ID: <Pine.OSF.3.91.971204114512.5091B-100000@angband.microb.uni.wroc.pl>
+Date: 4 Dec 1997 10:47:17 -0000
+From: Jerzy Kakol
+Subject: Debian on DEC 3000
+
+Hi all,
+
+I'd like to install debian on DEC 3000 and after some RTFM-ing I realized 
+that only this list is the source for installation instructions. 
+My situation is a bit difficult. I have DEC 3000 station WITHOUT any 
+input devices, the only connection to the outer world is network card. 
+I had to remove hard disk from that machine and attached it to another 
+Alpha station, so that to mount and modified some files (I forgot my own 
+and root passwords). This operation finished with a complete destruction 
+of the prevoius system residing on that disk, which is now empty and 
+partitioned only. So, my question is: is it possible to install 
+debian-alpha on this disk installed temporarily as a second hard disk in 
+Alpha Station 300. I realize that such operation may be possible only 
+doing everything by hand, but how? In addition, I have no possibility to 
+connect any monitor and keyboard to DEC 3000 because of strange and 
+non-standard sockets. Is it possible to prepare a complete and working 
+system image, transfer it to the DEC's disk and make it bootable?
+
+TIA,
+
+  Jerzy Kakol
+ 
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 11:03:19 -0000
+Message-ID: <Pine.LNX.3.96.971204055656.3780A-100000@beezer.med.miami.edu>
+Date: 4 Dec 1997 11:03:19 -0000
+From: Christopher C Chimelis
+Subject: Re: Debian on DEC 3000
+
+On Thu, 4 Dec 1997, Jerzy Kakol wrote:
+
+> Hi all,
+> 
+> I'd like to install debian on DEC 3000 and after some RTFM-ing I realized 
+> that only this list is the source for installation instructions. 
+> My situation is a bit difficult. I have DEC 3000 station WITHOUT any 
+> input devices, the only connection to the outer world is network card. 
+< -- Stuff deleted -- >
+> partitioned only. So, my question is: is it possible to install 
+> debian-alpha on this disk installed temporarily as a second hard disk in 
+> Alpha Station 300. I realize that such operation may be possible only 
+> doing everything by hand, but how? In addition, I have no possibility to 
+
+Well, although I don't have much knowledge in this respect, I can suggest
+one thing that could possibly get you running fairly easily.
+Unfortunately, it requires access to another Linux system of some sort
+(preferably Debian).  Here it is...
+
+You could always remove the hard drive from the Alpha, put it into another
+Linux machine, and "build" it by hand.  In other words, untar the base
+tgz onto the disk, manually unpack the deb's needed for basic networking,
+set the whole thing up by hand, then move the disk back into the Alpha and
+pray for peace.  I am pretty sure this will work, but I wouldn't know
+where to begin to offer step-by-step instructions.
+
+Hmmm...that's the only idea I can think of.  Without an existing OS, it's
+really tough since the ethernet card isn't easily configured (especially
+without a keyboard, etc).  If you can at least get it to boot and talk to
+the net, then you could always rsh or even NFS-mount the drive and finish
+from there.
+
+Anyone else have a better idea?
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 11:49:53 -0000
+Message-ID: <9712041155.AA15214@lts.sel.alcatel.de>
+Date: 4 Dec 1997 11:49:53 -0000
+From: Andreas Buschmann
+Subject: Re: Debian on DEC 3000
+
+Hallo,
+
+  jk> My situation is a bit difficult. I have DEC 3000 station WITHOUT
+  jk> any input devices, the only connection to the outer world is
+  jk> network card.
+  jk> [The disk] is now empty and partitioned only.
+
+cc> Without an existing OS, it's really tough since the ethernet card
+cc> isn't easily configured (especially without a keyboard, etc). If
+cc> you can at least get it to boot and talk to the net, then you
+cc> could always rsh or even NFS-mount the drive and finish from
+cc> there.
+cc> Anyone else have a better idea?
+
+Yes.
+
+Put the disk back into the DEC 3000.
+Attach a Terminal to the first serial port.
+Add an external SCSI CDROM.
+
+Boot into the monitor. (The SRC Console works with a vt200.)
+Now you can boot the OS from CD.
+(you may have to write the CD yourself to get an apropriate kernel
+ onto the CD.)
+If you can't write CDs, you can connect to ethernet, and try to boot
+the OS image with tftp. 
+Or you can write the CD image to a partition on an empty external scsi
+disk, connect it to the DEC 3000, and mount it like you would have
+mounted a CD.
+
+					Tschuess
+						Andreas
+-- 
+#include <stddisclaimer.h>
+
+ /|)	Andreas Buschmann
+/-|)	SEL Stuttgart US/EC4
+
+work:	buschman@lts.sel.alcatel.de
+home:	buschman@kalahari.schwaben.de
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 13:04:50 -0000
+Message-ID: <19971204131057.64285@dallas.ucd.ie>
+Date: 4 Dec 1997 13:04:50 -0000
+From: Nikita Schmidt
+Subject: Re: EGCS 1.0 is out
+
+On Wednesday,  3 Dec, Jason Gunthorpe wrote:
+> 
+> Could we possible separate libg++ and libstdc++? I don't think there is
+> much reason to include libg++ in Base, but libstdc++ definately should be
+> in there. I do admit I don't have any idea how much C++ code in debian
+> makes use of the special G++ constructs so this might be a bad idea!
+> 
+
+I think it is better to separate libg++ and libstdc++.  If I'm not
+mistaken, the only Debian package on my system that uses libg++ is menu.
+Speaking of egcs, I think since it comes with libstdc++ and has libg++
+as an add-on to its source tree, these libraries should be built as
+separate binary packages from the egcs source package.
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 13:12:50 -0000
+Message-ID: <19971204131906.14820@dallas.ucd.ie>
+Date: 4 Dec 1997 13:12:50 -0000
+From: Nikita Schmidt
+Subject: Re: EGCS 1.0 is out
+
+Sorry, it was supposed to go to debian-devel...  Anyway, the egcs
+people have made a release.  I doubt it can compile the kernel though, but
+for most purposes egcs is better on Alpha than gcc.
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 13:16:25 -0000
+Message-ID: <Pine.LNX.3.96.971204081451.9451A-100000@beezer.med.miami.edu>
+Date: 4 Dec 1997 13:16:25 -0000
+From: Christopher C Chimelis
+Subject: Re: EGCS 1.0 is out
+
+On Thu, 4 Dec 1997, Nikita Schmidt wrote:
+
+> Sorry, it was supposed to go to debian-devel...
+
+Hehehe...yeah, I was wondering about that :)
+
+> Anyway, the egcs
+> people have made a release.  I doubt it can compile the kernel though, but
+> for most purposes egcs is better on Alpha than gcc.
+
+I'm ftp'ing it right now.  Is somebody making a package out of it?  If so,
+I'll hold off on installing it now if the release date for the package is
+before the end of the month.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 13:46:44 -0000
+Message-ID: <19971204135257.14831@dallas.ucd.ie>
+Date: 4 Dec 1997 13:46:44 -0000
+From: Nikita Schmidt
+Subject: Re: EGCS 1.0 is out
+
+On Thursday,  4 Dec, Christopher C Chimelis wrote:
+> 
+> I'm ftp'ing it right now.  Is somebody making a package out of it?  If so,
+> I'll hold off on installing it now if the release date for the package is
+> before the end of the month.
+> 
+
+Yes, Galen Hazelwood is the guy who packs egcs.  I don't think that the
+packaged version is expected to be out really soon - see debian-devel on this.
+I've been happily living with raw snapshots (installed under /usr/local)
+for months; when I needed the old gcc, I just used /usr/bin/gcc.  There
+is a problem with programs written in C++, which get built with egcs'
+libstdc++, thus depending on unreleased stuff (in Debian).  They should
+be explicitly told in Makefile or debian/rules to link statically to
+libstdc++ in order to be releaseable as Debian packages.  (That's how
+the menu package was built.)
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 13:59:06 -0000
+Message-ID: <Pine.LNX.3.96.971204085631.10948A-100000@beezer.med.miami.edu>
+Date: 4 Dec 1997 13:59:06 -0000
+From: Christopher C Chimelis
+Subject: Re: EGCS 1.0 is out
+
+On Thu, 4 Dec 1997, Nikita Schmidt wrote:
+
+> Yes, Galen Hazelwood is the guy who packs egcs.  I don't think that the
+> packaged version is expected to be out really soon - see debian-devel on this.
+
+Will do.
+
+> I've been happily living with raw snapshots (installed under /usr/local)
+> for months; when I needed the old gcc, I just used /usr/bin/gcc. 
+
+What options did you pass to configure when building egcs?  I'm just
+curious so we have a similar installation.  Plus, I've never needed a
+second compiler on the same machine, so I'm wondering how everything will
+work out :)
+
+> There
+> is a problem with programs written in C++, which get built with egcs'
+> libstdc++, thus depending on unreleased stuff (in Debian).  They should
+> be explicitly told in Makefile or debian/rules to link statically to
+> libstdc++ in order to be releaseable as Debian packages.  (That's how
+> the menu package was built.)
+
+Yeah, that's what I thought.  I plan on just playing with it mostly and
+compiling straight C stuff (normal packages) to see if the optimisation is
+improved and some other things.  I also want to test the Fortran support
+more (I plan on going for the gusto and trying to compile octave with it).
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 14:05:17 -0000
+Message-ID: <ylenwwhldwk8.fsf@viper.law.miami.edu>
+Date: 4 Dec 1997 14:05:17 -0000
+From: Michael Alan Dorman
+Subject: Re: EGCS 1.0 is out
+
+Nikita Schmidt <cetus@snowball.ucd.ie> writes:
+> Sorry, it was supposed to go to debian-devel...  Anyway, the egcs
+> people have made a release.  I doubt it can compile the kernel though, but
+> for most purposes egcs is better on Alpha than gcc.
+
+Well, Richard Henderson was an active contributor to egcs, so there's
+a distinct possibility.  You might not want to enable an excessive
+amount of optimization, but it should get the basic right...
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 14:30:08 -0000
+Message-ID: <Pine.LNX.3.96.971204090638.11414A-100000@beezer.med.miami.edu>
+Date: 4 Dec 1997 14:30:08 -0000
+From: Christopher C Chimelis
+Subject: Re: EGCS 1.0 is out
+
+On 4 Dec 1997, Michael Alan Dorman wrote:
+
+> Well, Richard Henderson was an active contributor to egcs, so there's
+> a distinct possibility. 
+
+:)
+
+> You might not want to enable an excessive
+> amount of optimization, but it should get the basic right...
+
+I'll second this.  I recently found a bit of code that even Richard's
+patches to gcc wouldn't handle correctly.  I sent the offending fragment
+to him, so hopefully that same problem should've been fixed in egcs, but
+it's probably better to assume it isn't for the time being.  I'll retest
+the code with egcs sometime soon to double-check, though :)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 14:40:10 -0000
+Message-ID: <ylensos9duyc.fsf@viper.law.miami.edu>
+Date: 4 Dec 1997 14:40:10 -0000
+From: Michael Alan Dorman
+Subject: Re: Trying out automatically built packages?
+
+Lars Wirzenius <liw@mail.cs.hut.fi> writes:
+> I've uploaded info 3.9-5 to beezer (and now I notice that
+> there's a 3.9-5.1 .deb somewhere, oh well).  If someone
+> could test that (see that the libs it uses are correct, and
+> so on), I'd be _very_ grateful. If that one seems OK, I'll
+> start uploading things to master instead, as soon as my
+> queries about PGP keys are answered.
+
+It seems OK to me, given a cursory overview---mind you, I'm allergic
+to the standalone info browser, but it didn't core dump or anything.
+
+> I'm already on the Debian developer PGP keyring (I maintain
+> the PGP package, as it happens :),
+
+<glyph of Groucho Marx waggling eyebrows> So when're we getting 5.0?
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 14:41:57 -0000
+Message-ID: <19971204144805.63247@dallas.ucd.ie>
+Date: 4 Dec 1997 14:41:57 -0000
+From: Nikita Schmidt
+Subject: Re: EGCS 1.0 is out
+
+On Thursday,  4 Dec, Christopher C Chimelis wrote:
+> 
+> What options did you pass to configure when building egcs?  I'm just
+> curious so we have a similar installation.  Plus, I've never needed a
+> second compiler on the same machine, so I'm wondering how everything will
+> work out :)
+> 
+
+Surprisingly, it works out pretty well by default.  I use configure
+--enable-shared --enable-threads.  The stuff gets installed under
+/usr/local.  After that, /usr/local/bin/gcc is egcs which knows where to
+find all its stuff, including libstdc++.  /usr/bin/gcc is the old gcc,
+which seems to be unaffected by egcs installation.
+
+Normally you can just use different PATH settings (with or without
+/usr/local/bin) to control which compiler is to be used during package
+(or kernel, or whatever else) build.
+
+By the way, the installation instructions have also been released:
+http://www.cygnus.com/egcs/install/ .
+
+> 
+> Yeah, that's what I thought.  I plan on just playing with it mostly and
+> compiling straight C stuff (normal packages) to see if the optimisation is
+> improved and some other things.  I also want to test the Fortran support
+> more (I plan on going for the gusto and trying to compile octave with it).
+> 
+
+Good.  I did not touch Fortran at all.
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 14:56:42 -0000
+Message-ID: <19971204150257.55660@dallas.ucd.ie>
+Date: 4 Dec 1997 14:56:42 -0000
+From: Nikita Schmidt
+Subject: Re: EGCS 1.0 is out
+
+On Thursday,  4 Dec, Christopher C Chimelis wrote:
+> 
+> I'll second this.  I recently found a bit of code that even Richard's
+> patches to gcc wouldn't handle correctly.  I sent the offending fragment
+> to him, so hopefully that same problem should've been fixed in egcs, but
+> it's probably better to assume it isn't for the time being.  I'll retest
+> the code with egcs sometime soon to double-check, though :)
+> 
+
+I remember a (relatively big) discussion on egcs-list initiated by
+Richard after you had sent him one of your bug reports (the one about
+qmail, if I remember correctly).  Finally Richard made a patch, but I
+don't remember if it was incorporated.  It should be somewhere in my
+egcs-list archives.
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 15:03:59 -0000
+Message-ID: <Pine.LNX.3.96.971204095846.13300B-100000@beezer.med.miami.edu>
+Date: 4 Dec 1997 15:03:59 -0000
+From: Christopher C Chimelis
+Subject: Re: EGCS 1.0 is out
+
+On Thu, 4 Dec 1997, Nikita Schmidt wrote:
+
+> Surprisingly, it works out pretty well by default.  I use configure
+> --enable-shared --enable-threads.  The stuff gets installed under
+> /usr/local.  After that, /usr/local/bin/gcc is egcs which knows where to
+> find all its stuff, including libstdc++.  /usr/bin/gcc is the old gcc,
+> which seems to be unaffected by egcs installation.
+
+Great.  I also passed it the --enable-haifa just for kicks, and also
+because I'm not sure which targets would benefit from it (hopefully, the
+Alpha will).  It's compiling now and I should be ready to install it by
+the end of today (it's a low-RAM UDB, after all).  After that, I'll start
+with the Fortran tests.
+
+> Normally you can just use different PATH settings (with or without
+> /usr/local/bin) to control which compiler is to be used during package
+> (or kernel, or whatever else) build.
+
+Have you built a kernel with it yet?  I noticed in the FAQ that it has
+some blurb about potential kernel-building problems, but I hadn't heard of
+any such problems from the people I know that already use it.
+
+> By the way, the installation instructions have also been released:
+> http://www.cygnus.com/egcs/install/ .
+
+Yep.  They're simplistic, but effective.
+
+> Good.  I did not touch Fortran at all.
+
+Admittedly, know about as much about Fortran these days as I do
+about..well...other stuff I don't know much about  :P  I used to write in
+Fortran years ago, so I could probably at least figure some things out if
+I run into them.  Hopefully, though, I shouldn't have too many problems :)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 15:05:42 -0000
+Message-ID: <Pine.LNX.3.96.971204100417.13300C-100000@beezer.med.miami.edu>
+Date: 4 Dec 1997 15:05:42 -0000
+From: Christopher C Chimelis
+Subject: Re: EGCS 1.0 is out
+
+On Thu, 4 Dec 1997, Nikita Schmidt wrote:
+
+> I remember a (relatively big) discussion on egcs-list initiated by
+> Richard after you had sent him one of your bug reports (the one about
+> qmail, if I remember correctly).  Finally Richard made a patch, but I
+> don't remember if it was incorporated.  It should be somewhere in my
+> egcs-list archives.
+
+That's the one.  It was one particular source file and, if I remember
+correctly, it wasn't a particularly unusual bit of code that caused the
+problem.  I'll look again.  Either way, that's the first bit of C to get
+handed to egcs for optimisation testing.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 15:59:33 -0000
+Message-ID: <19971204160528.35254@dallas.ucd.ie>
+Date: 4 Dec 1997 15:59:33 -0000
+From: Nikita Schmidt
+Subject: Re: EGCS 1.0 is out
+
+On Thursday,  4 Dec, Christopher C Chimelis wrote:
+> 
+> Have you built a kernel with it yet?  I noticed in the FAQ that it has
+> some blurb about potential kernel-building problems, but I hadn't heard of
+> any such problems from the people I know that already use it.
+> 
+
+I tried only once (2.0.30 + patches) and failed ("virtual memory
+exhausted" during compile).  The snapshot was rather old, though
+(somewhere from the beginning of November).
+
+> 
+> Admittedly, know about as much about Fortran these days as I do
+> about..well...other stuff I don't know much about  :P  I used to write in
+> Fortran years ago, so I could probably at least figure some things out if
+> I run into them.  Hopefully, though, I shouldn't have too many problems :)
+> 
+
+Fortran IV was my first programming language (old good days...).  F77
+seems to be quite different, though compatible.  I hope you won't have
+problems with it...
+
+Huh, it's funny to see what a thread has evolved from one mistakenly
+posted message.  :-)
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 16:16:06 -0000
+Message-ID: <Pine.LNX.3.96.971204111004.15971A-100000@beezer.med.miami.edu>
+Date: 4 Dec 1997 16:16:06 -0000
+From: Christopher C Chimelis
+Subject: Re: EGCS 1.0 is out
+
+On Thu, 4 Dec 1997, Nikita Schmidt wrote:
+
+> I tried only once (2.0.30 + patches) and failed ("virtual memory
+> exhausted" during compile).  The snapshot was rather old, though
+> (somewhere from the beginning of November).
+
+I'll try it here after this is done.  I just got the snapshot of dejagnu
+that they require for the testsuites to work properly, so that'll be
+another bit of time to compile :)  I may run the kernel compile first
+before the tests, but we'll see.
+
+> Fortran IV was my first programming language (old good days...).  F77
+> seems to be quite different, though compatible.  I hope you won't have
+> problems with it...
+
+I shouldn't.  I may even still have a book or two laying around.  With all
+of the interest in F77 and F90 that I've seen lately, I may just go ahead
+an relearn the language.  No matter what, I'll keep the list posted on how
+egcs works on the Fortran stuff.  If anything, we may be able to get a
+HUGE jump on RedHat with this (their g77 and f2c are still lackluster
+according to the AXP list).
+
+Out of curiosity, what are the chances of us being able to totally convert
+over to egcs before the 2.0 release?  I think we can probably do it now
+that we have a few faster Alphas out there to compile packages on.  If
+things work out as well as this compiler has been touted, then I suspect
+that we may benefit from a change.  I know this would probably be
+controversial "upstairs" in the Debian hierarchy, but I think it would be
+an interesting thought at the very least.
+
+> Huh, it's funny to see what a thread has evolved from one mistakenly
+> posted message.  :-)
+
+It is kinda neat :)  But I'm glad it got cross-posted since I haven't
+checked on egcs in a month and wasn't aware of the release.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 16:53:45 -0000
+Message-ID: <19971204165958.13549@dallas.ucd.ie>
+Date: 4 Dec 1997 16:53:45 -0000
+From: Nikita Schmidt
+Subject: Re: Automatic compilation: results
+
+On Sunday, 30 Nov, James Troup wrote:
+> 
+> Already done for pgcc (#13702).  Personally I don't think altgcc,
+> libpthread, libg++27, ncurses3.0 et. al should have "Arch: i386 m68k
+> sparc".  (For the same reason that I don't believe all svgalib
+> applications should have "Arch: i386 alpha")
+> 
+
+Good point.  So, then the appropriate mechanism would be source
+dependencies, when they eventually get implemented.  Anyway, it's not
+actually of much importance.
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 4 Dec 1997 21:48:03 -0000
+Message-ID: <Pine.LNX.3.96.971204164546.28161A-100000@beezer.med.miami.edu>
+Date: 4 Dec 1997 21:48:03 -0000
+From: Christopher C Chimelis
+Subject: :(
+
+Hi...
+
+Well, egcs failed all of the tested Fortran tests too :(
+I have a feeling it thinks it's using an old version of dejagnu, so I'll
+play with it before I make a judgement one way or another.
+
+I also may rebuild egcs with the "stock" options (ie, not specifying
+anything when running configure) and see if that works better.  If I do
+that, I'll just run the Fortran-77 testsuite and see if it works then
+backtrack depending.
+
+My problems could be related to putting in a new version of binutils also,
+but I really doubt that since the gcc tests mostly passed (and there were
+a few g++ tests that actually did work also).
+
+I'll keep you posted :)
+
+Forever hopeful :)
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 5 Dec 1997 12:02:04 -0000
+Message-ID: <19971205120711.23263@dallas.ucd.ie>
+Date: 5 Dec 1997 12:02:04 -0000
+From: Nikita Schmidt
+Subject: Re: :( (egcs tests)
+
+On Thursday,  4 Dec, Christopher C Chimelis wrote:
+> 
+> Well, egcs failed all of the tested Fortran tests too :(
+> I have a feeling it thinks it's using an old version of dejagnu, so I'll
+> play with it before I make a judgement one way or another.
+> 
+
+Which version of dejagnu do you use?  Is it from ftp.cygnus.com:/pub/egcs
+or some official version?
+
+> 
+> My problems could be related to putting in a new version of binutils also,
+> but I really doubt that since the gcc tests mostly passed (and there were
+> a few g++ tests that actually did work also).
+> 
+
+I attach my testsuite results for comparison:
+
+Test Run By cetus on Mon Nov 24 17:50:06 1997
+Native configuration is alpha-unknown-linux-gnu
+
+		=== gcc Summary ===
+
+# of expected passes		4874
+# of unexpected failures	9
+# of expected failures		5
+# of unsupported tests		7
+/usr/home/cetus/egcs-971122/gcc/xgcc version egcs-2.90.18 971122 (gcc2-970802 experimental)
+
+--- Note that these failures are known floating point related problems,
+and Richard Henderson is said to be working on them.
+
+		=== g++ Summary ===
+
+# of expected passes		3330
+# of unexpected failures	66
+# of unexpected successes	2
+# of expected failures		86
+# of untested testcases		6
+/usr/home/cetus/egcs-971122/gcc/testsuite/../xgcc version egcs-2.90.18 971122 (gcc2-970802 experimental)
+
+--- Not that bad.  Did you mean "_quite_ a few g++ tests" that worked?
+
+		=== libio Summary ===
+
+# of expected passes		40
+
+		=== libstdc++ Summary ===
+
+# of expected passes		30
+
+Will you please check these summaries against yours?
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 5 Dec 1997 13:23:44 -0000
+Message-ID: <Pine.LNX.3.96.971205131901.14400A-100000@amasis.trin.cam.ac.uk>
+Date: 5 Dec 1997 13:23:44 -0000
+From: Nikhil Nair
+Subject: Re: :(
+
+Hi all!
+
+Sorry for the long silence ... ("rumours of my death have been greatly
+exaggerated" - or something like that ...).
+
+On Thu, 4 Dec 1997, Christopher C Chimelis wrote:
+
+> Well, egcs failed all of the tested Fortran tests too :(
+> I have a feeling it thinks it's using an old version of dejagnu, so I'll
+> play with it before I make a judgement one way or another.
+
+Hmm, I can't even get it to compile.  My problem is in
+/usr/include/libc-lock.h.  I'm still running glibc6.1*_2.0.4-1.  Should I
+upgrade to 2.0.5c - I saw somet;hing about memory leaks with this version,
+so wasn't sure if it was considered safe ...
+
+BTW, config.guess on my machine reports `alphaev5-unknown-linux-gnu'.  I'd
+be interested to know what different alpha*-unknown-linux-gnu platforms
+there are, and what the compiler does differently for them ...
+
+Cheers,
+
+Nikhil.
+
++--------------------------------+---------------------------------+
+| Nikhil Nair                    |                                 |
+| Department of Chemistry        | Tel.:  +44 1223 336350 (lab)    |
+| University Chemical Laboratory |        +44 1223 368353 (home)   |
+| Lensfield Road                 | Email: nn201@cus.cam.ac.uk      |
+| CAMBRIDGE                      |        nxn@theor.ch.cam.ac.uk   |
+| CB2 1EW                        |        nnair@debian.org         |
+| England                        |                                 |
++--------------------------------+---------------------------------+
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 5 Dec 1997 14:12:12 -0000
+Message-ID: <Pine.OSF.3.91.971205145611.13062B-100000@angband.microb.uni.wroc.pl>
+Date: 5 Dec 1997 14:12:12 -0000
+From: Jerzy Kakol
+Subject: Re: Debian on DEC 3000
+
+Thanks for all answers. I can't figure out if this machine has Turbo 
+Channel, but if not, lets consider the following installation path which 
+seems to be the most simplest and does not require any additional 
+hardware like external SCSI cdrom or terminal:
+
+1. The actual bootable disk in Alpha Station will be replaced with the 
+   actually empty disk from DEC 3000. Now I have monitor, keyboard and cdrom.
+2. From the SRM console let's type the command of booting from CD. 
+   Question: is it possible? I.e.: does SRM console understand iso9660 
+   file system? If yes, then
+3. Installing neccesary software from CD.
+4. Disks are replaced back, the DEC's disk returns to its machine.
+5. Smoke test. And next question: does alpha kernel properly recognize 
+   new hardware it will wake up with? Especially the network card which 
+   most important device in that case.
+
+------
+
+ Jerzy Kakol
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 5 Dec 1997 14:14:20 -0000
+Message-ID: <Pine.LNX.3.96.971205091051.30734A-100000@beezer.med.miami.edu>
+Date: 5 Dec 1997 14:14:20 -0000
+From: Christopher C Chimelis
+Subject: Re: :( (egcs tests)
+
+On Fri, 5 Dec 1997, Nikita Schmidt wrote:
+
+> Which version of dejagnu do you use?  Is it from ftp.cygnus.com:/pub/egcs
+> or some official version?
+
+I used the one from cygnus.  I believe it's required since they claim the
+older one won't work (I guess expect has been hacked again :P).
+
+> I attach my testsuite results for comparison:
+
+> 		=== gcc Summary ===
+> 
+> # of expected passes		4874
+> # of unexpected failures	9
+> # of expected failures		5
+> # of unsupported tests		7
+> /usr/home/cetus/egcs-971122/gcc/xgcc version egcs-2.90.18 971122 (gcc2-970802 experimental)
+> --- Note that these failures are known floating point related problems,
+> and Richard Henderson is said to be working on them.
+
+I just wiped my results, but gcc turned in much more failures for me.  I
+believe it might've been a misconfiguration on my part.  I've rebuilt egcs
+with no options now just to test it out.
+
+> 		=== g++ Summary ===
+> 
+> # of expected passes		3330
+> # of unexpected failures	66
+> # of unexpected successes	2
+> # of expected failures		86
+> # of untested testcases		6
+> /usr/home/cetus/egcs-971122/gcc/testsuite/../xgcc version egcs-2.90.18 971122 (gcc2-970802 experimental)
+
+I didn't even pass 80 of the tests.  It's halfway through the gcc tests
+now, so I'll see how it does this time.
+
+> --- Not that bad.  Did you mean "_quite_ a few g++ tests" that worked?
+
+No, quite a few meaning more than 50 :P
+
+> 		=== libio Summary ===
+> # of expected passes		40
+> 		=== libstdc++ Summary ===
+> # of expected passes		30
+
+I passed this also before.  The libs seem to be right on :)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 5 Dec 1997 14:19:34 -0000
+Message-ID: <Pine.LNX.3.96.971205091554.30734B-100000@beezer.med.miami.edu>
+Date: 5 Dec 1997 14:19:34 -0000
+From: Christopher C Chimelis
+Subject: Re: Debian on DEC 3000
+
+On Fri, 5 Dec 1997, Jerzy Kakol wrote:
+
+> 1. The actual bootable disk in Alpha Station will be replaced with the 
+>    actually empty disk from DEC 3000. Now I have monitor, keyboard and cdrom.
+> 2. From the SRM console let's type the command of booting from CD. 
+>    Question: is it possible? I.e.: does SRM console understand iso9660 
+>    file system? If yes, then
+> 3. Installing neccesary software from CD.
+> 4. Disks are replaced back, the DEC's disk returns to its machine.
+
+Sounds good :)
+
+> 5. Smoke test. And next question: does alpha kernel properly recognize 
+>    new hardware it will wake up with? Especially the network card which 
+>    most important device in that case.
+
+If the kernel was compiled with a driver for the card included, it
+*should* recognise it on boot.  Just make sure to read the notes on the
+driver in the kernel source to make sure autoprobing works properly, etc.
+I have run into a few drivers that still require settings passed to them
+before they'll recognise cards (ie autoprobing doesn't work), so be
+careful of that.  In that case, though, most will work as modules (which
+are much easier to deal with IMO).
+
+Good luck :)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 5 Dec 1997 14:22:54 -0000
+Message-ID: <Pine.LNX.3.96.971205092055.31725B-100000@beezer.med.miami.edu>
+Date: 5 Dec 1997 14:22:54 -0000
+From: Christopher C Chimelis
+Subject: Re: :( (egcs tests)
+
+Oh, on a side note, I think that using the --enable-haifa is a bad idea on
+at least the UDB.  I think one of the reasons that the Fortran tests
+failed before was because f771 was seg faulting.  Since I recompiled egcs
+without enabling the Haifa instruction scheduler, it seems to work without
+segfaulting.  I haven't hit the Fortran tests yet, but I am hoping for
+better results.
+
+FYI, the Haifa scheduler may work better on a newer Alpha, though, so
+YMMV.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 5 Dec 1997 15:20:33 -0000
+Message-ID: <Pine.OSF.3.91.971205161825.13062C-100000@angband.microb.uni.wroc.pl>
+Date: 5 Dec 1997 15:20:33 -0000
+From: Jerzy Kakol
+Subject: Re: Debian on DEC 3000
+
+Next problem have been just arised. There is no network card. Everything 
+is integrated on the mainboard. The only separate card is the 
+proccessor's one. I found however two chips looking like part of network 
+electronics: AMD's AM79C90JC and AM79C30AJC/E. Is there a kernel image 
+compiled for something like this? If, of course, I properly identified 
+these chips as a part of network "card".
+
+  Jerzy Kakol
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 5 Dec 1997 15:40:47 -0000
+Message-ID: <Pine.LNX.3.96.971205103641.1881A-100000@beezer.med.miami.edu>
+Date: 5 Dec 1997 15:40:47 -0000
+From: Christopher C Chimelis
+Subject: Re: Debian on DEC 3000
+
+On Fri, 5 Dec 1997, Jerzy Kakol wrote:
+
+> Next problem have been just arised. There is no network card. Everything 
+> is integrated on the mainboard. The only separate card is the 
+> proccessor's one. I found however two chips looking like part of network 
+> electronics: AMD's AM79C90JC and AM79C30AJC/E. Is there a kernel image 
+> compiled for something like this? If, of course, I properly identified 
+> these chips as a part of network "card".
+
+These may be supported under the AMD PCnet32 driver.  It's the PCI version
+of the Lance chipset.  I have two of these, but they're also built into
+some PC's that I have laying around, so I can't check the chipset's
+numbers.  I would try it and see what happens.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 5 Dec 1997 15:43:11 -0000
+Message-ID: <Pine.LNX.3.96.971205104239.2145A-100000@beezer.med.miami.edu>
+Date: 5 Dec 1997 15:43:11 -0000
+From: Christopher C Chimelis
+Subject: egcs testing -- gcc test results
+
+Hi..
+
+Under a straight configuration, egcs did very well with the gcc tests:
+
+Test Run By root on Fri Dec  5 08:33:11 1997
+Native configuration is alpha-unknown-linux-gnu
+		=== gcc tests ===
+		=== gcc Summary ===
+
+# of expected passes		4875
+# of unexpected failures	8
+# of expected failures		5
+# of unsupported tests		7
+/root/in/egcs/alpha_egcs/gcc/xgcc version egcs-2.90.21 971202 (egcs-1.00 release)
+
+g++ results are due soon....
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 5 Dec 1997 17:08:32 -0000
+Message-ID: <Pine.LNX.3.96.971205120756.5459A-100000@beezer.med.miami.edu>
+Date: 5 Dec 1997 17:08:32 -0000
+From: Christopher C Chimelis
+Subject: egcs testing -- g++ tests optimistic
+
+Hi again...
+
+Here's the results from the g++ testing of egcs.  It looks really good and
+already, it's passing some F77 tests :)
+
+Test Run By root on Fri Dec  5 10:35:46 1997
+Native configuration is alpha-unknown-linux-gnu
+
+		=== g++ tests ===
+		=== g++ Summary ===
+
+# of expected passes		3393
+# of unexpected failures	2
+# of unexpected successes	4
+# of expected failures		84
+# of untested testcases		6
+/root/in/egcs/alpha_egcs/gcc/testsuite/../xgcc version egcs-2.90.21 971202 (egcs-1.00 release)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 5 Dec 1997 17:10:51 -0000
+Message-ID: <Pine.LNX.3.96.971205120951.5542A-100000@beezer.med.miami.edu>
+Date: 5 Dec 1997 17:10:51 -0000
+From: Christopher C Chimelis
+Subject: egcs testing -- g77 test GREAT!
+
+Ok...testing is done on the "stock configure" of egcs :)
+
+Here's the results from g77.  They look REALLY REALLY good to me.  I
+haven't looked at what actually failed, but I'm guessing it's probably
+related to the other FP stuff that RH is working on....
+
+Test Run By root on Fri Dec  5 12:09:16 1997
+Native configuration is alpha-unknown-linux-gnu
+
+		=== g77 tests ===
+		=== g77 Summary ===
+
+# of expected passes		126
+# of unexpected failures	6
+/root/in/egcs/alpha_egcs/gcc/g77 version egcs-2.90.21 971202 (egcs-1.00 release)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 5 Dec 1997 19:44:34 -0000
+Message-ID: <Pine.LNX.3.96.971205144419.11193A-100000@beezer.med.miami.edu>
+Date: 5 Dec 1997 19:44:34 -0000
+From: Christopher C Chimelis
+Subject: FYI - re: DU libraries
+
+---------- Forwarded message ----------
+Date: Fri, 05 Dec 97 07:48:10 -0500
+From: "Jon 'maddog' Hall, USG Senior Leader" <hall@zk3.dec.com>
+Reply-To: axp-list@redhat.com
+To: Hugo.van.der.Kooij@caiw.nl
+Cc: "Jon 'maddog' Hall, USG Senior Leader" <hall@zk3.dec.com>,
+    RedHat Alpha mailinglist <axp-list@redhat.com>, hall@zk3.dec.com
+Subject: Re: DU binaries on linux 
+Resent-Date: 5 Dec 1997 12:46:18 -0000
+Resent-From: axp-list@redhat.com
+Resent-cc: recipient list not shown: ;
+
+Hugo (et. al.),
+
+I sent this today to the Vice President in charge of our Unix group.  We will
+see what happens.  I believe this proposal would cover your needs.
+
+BTW, for those of you who have seen and appreciated my calm, cool messages
+on this list (some of which I have to take several days to write) you can
+now see how I talk to Vice Presidents.  THIS is why they call me "maddog".
+
+I would appreciate it, by the way, if this were *not* re-posted.
+
+md
+=============================================================================
+Tim,
+
+I have suggested the idea of a "non-commercial" Digital Unix license to
+various parts of product management and to Dave Pushee several times, and
+the answer always comes back "gee, kind of an interesting concept", but then
+if falls through the cracks and nothing ever comes of it.
+
+Then OpenVMS creates one, and offers it at the last DECUS.  AUGHHHHHHHHH!!!
+
+This is #$@%^$#@&* stupid.  *Unix* is supposed to be the "Open" system.  *Unix*
+is supposed to be the OS used in schools, by students, etc.
+
+Time after time I have had Alpha Linux people come to me and say:
+
+	"Gee, I bought the Alpha, and it is cool with Linux on it,
+	 but can I get Digital Unix to put on it too?  I would like
+	 to try it out."
+
+Then I tell them they have to pay as much as a motorcycle to get the
+license.......and another motorcycle to get the distribution!!
+
+The Alpha Linux people that HAVE tried Digital Unix (and can afford it) often
+switch to DU because of the application availability, or because they
+recognize that it is a freaking fine operating system (e.g. the Mindspring
+letter).  But they have to *try* it first, and the $1900. entry point ($1200.
+for the license and $700. for the distribution) is enough to deter that.
+
+Sun has a "student license".  SCO has one.  Now OpenVMS has one.
+
+No, CSLG does not cover this.  It is too hard to apply for, does not cover
+clones, does not cover student machines, does not cover hobbyists.
+
+I would like to see a "one-time" license, associated with an inexpensive
+distribution.  You buy the CD-ROM and you get the right to run Digital Unix
+on one machine.  The cost of the package:
+
+	o Installation Manual
+	o CD-ROM set (BASE CD and Documentation CD)
+	o Two-user PAK
+
+would also cover the royalties that are due to our royalty stream.  I would
+like to see the entire package under $100.
+
+It would have no warranty, nor could you buy service for it.  It would be "as
+is".  Only promoted and orderable through the web (low cost of sales).
+
+Or, let's take a look at what OpenVMS has done and mimic that.
+
+For heaven's sake, lets *DO* something.
+
+md
+
+-- 
+=============================================================================
+Jon "maddog" Hall                     Internet: maddog@zk3.dec.com
+Senior Leader, UNIX Software Group    Executive Director, Linux International
+
+Digital Equipment Corporation         Linux International
+Mailstop ZK03-2/U15                   80 Amherst St.
+110 Spit Brook Rd.                    Amherst, N.H. 03031-3032 U.S.A.
+Nashua, N.H. 03062-2698 U.S.A.
+WWW: http://www.unix.digital.com      WWW: http://www.li.org
+Voice: +1.603.884.1341                Voice: +1.603.672.4557
+FAX: +1.603.884.6424
+Office: ZK03-2/V15		      Board Member: Uniforum Association
+
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 5 Dec 1997 21:06:00 -0000
+Message-ID: <Pine.LNX.3.96.971205160245.14168A-100000@beezer.med.miami.edu>
+Date: 5 Dec 1997 21:06:00 -0000
+From: Christopher C Chimelis
+Subject: Kernel 2.1.68 and above
+
+FYI,
+
+For anyone who's been trying to keep up and use the latest development
+kernels, you'll find that 2.1.68 and above won't compile for you with any
+kind of networking support.  I've found the source of most of the trouble
+and have submitted a bug to linux.dev.kernel as of linux-2.1.70.
+
+Now, considering that it's now 2.1.71 and it still hasn't been
+fixed....who knows how long it will be before it's solved :P
+
+In short, the SO_BINDTODEVICE definition is missing out of one header
+file.  It seems to have only been added to the i386 include tree, since
+it's missing out of all of the rest of them.  Turns out that one of the
+net/core files is including this and uses SO_BINDTODEVICE in a condition,
+thereby trying to use a non-defined token/symbol/directive/whatever in a
+condition and stopping compilation.  I was going to just patch it and
+worry about it later, but I didn't want to guess at which value we could
+plug in there and hope it worked :)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 6 Dec 1997 13:33:30 -0000
+Message-ID: <Pine.LNX.3.96.971206133623.18963A-100000@amasis.trin.cam.ac.uk>
+Date: 6 Dec 1997 13:33:30 -0000
+From: Nikhil Nair
+Subject: 2.0 kernels - new alpha-patches
+
+Hi,
+
+Nikita, have you seen Jay's announcement on axp-list of alpha-patches-0.4?
+He claims to have incorporated the RTC, ap02-fixes and sound patches.
+Does this mean that we've merged with the main tree, or are there still
+glibc header file issues?
+
+Cheers,
+
+Nikhil.
+
++--------------------------------+---------------------------------+
+| Nikhil Nair                    |                                 |
+| Department of Chemistry        | Tel.:  +44 1223 336350 (lab)    |
+| University Chemical Laboratory |        +44 1223 368353 (home)   |
+| Lensfield Road                 | Email: nn201@cus.cam.ac.uk      |
+| CAMBRIDGE                      |        nxn@theor.ch.cam.ac.uk   |
+| CB2 1EW                        |        nnair@debian.org         |
+| England                        |                                 |
++--------------------------------+---------------------------------+
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 6 Dec 1997 17:36:01 -0000
+Message-ID: <19971206174235.40509@dallas.ucd.ie>
+Date: 6 Dec 1997 17:36:01 -0000
+From: Nikita Schmidt
+Subject: Re: 2.0 kernels - new alpha-patches
+
+On Saturday,  6 Dec, Nikhil Nair wrote:
+> Hi,
+> 
+> Nikita, have you seen Jay's announcement on axp-list of alpha-patches-0.4?
+> He claims to have incorporated the RTC, ap02-fixes and sound patches.
+
+Good news.  I've taken a quick look, all patches that we used in our
+kernels seem to be in there.
+
+> Does this mean that we've merged with the main tree, or are there still
+> glibc header file issues?
+
+Well, if the official kernel source plus the official alpha patches is
+what we call the main tree, then I tend to say yes, we have.  There are
+still some suspicious header files, but I hope it's OK.  Some time ago
+in response to my suggestion to get rid of glibc1 header workarounds and
+incorporate ap02-fixes Jay said he would wait for RH 5.0.  I think Jay
+has taken measures to ensure that this release of alpha-patches is
+glibc2-aware.
+
+Unfortunately I feel a bit lazy to check this in practice...
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 6 Dec 1997 18:13:51 -0000
+Message-ID: <19971206182029.47264@dallas.ucd.ie>
+Date: 6 Dec 1997 18:13:51 -0000
+From: Nikita Schmidt
+Subject: Re: :( (about alphaev*)
+
+On Friday,  5 Dec, Nikhil Nair wrote:
+> 
+> BTW, config.guess on my machine reports `alphaev5-unknown-linux-gnu'.  I'd
+> be interested to know what different alpha*-unknown-linux-gnu platforms
+> there are, and what the compiler does differently for them ...
+> 
+
+Ev5 is 21164/21164A, its main difference from ev4 (21066[A], 21064[A] -
+alpha-*) from the code generation point of view is quadruple instruction
+issue as opposed to dual issue, which makes instruction scheduling
+(an optimisation pass that reorders instructions to improve pipeline
+performance and take advantage of multiple issue) slightly different.
+There are some other internal structure differences that affect the
+scheduling.  Code compiled for ev5 should work on ev4.
+
+Ev56 is basically same as ev5, except that it features new instructions,
+word and byte load/stores.  Thus the code compiled for ev56 won't work on
+ev4/ev5.
+
+There are other variations which I don't know much about; some of them
+include multimedia instruction set extension, which is not supported by
+gcc/egcs to the best of my knowledge.
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 6 Dec 1997 18:26:58 -0000
+Message-ID: <19971206183337.29859@dallas.ucd.ie>
+Date: 6 Dec 1997 18:26:58 -0000
+From: Nikita Schmidt
+Subject: New egcs (1.0-1) uploaded to master (experimental) (fwd)
+
+Hi,
+
+I just want to make sure that this event is not left unnoticed in the
+debian-alpha world.
+
+	Nikita
+
+-- Forwarded message from Galen Hazelwood --
+
+Yes folks, here it is.  The wonderful brand new egcs compiler suite, now
+packaged and in experimental for your enjoyment!
+
+It comes with a new libstdc++2.8 package, which works with egcs but not
+with gcc.  The libstdc++2.8-dev package can't coexist with older
+libg++-dev packages, so you'll have to make up your mind.  Demands to
+make them coexist will be met with chilly silence and open contempt.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+
+Format: 1.5
+Date: Thu,  4 Dec 1997 16:30:11 -0700
+Source: egcs
+Binary: libstdc++2.8-dev eg77 egcc libstdc++2.8
+Architecture: source i386
+Version: 1.0-1
+Distribution: experimental
+Urgency: low
+Maintainer: Galen Hazelwood <galenh@micron.net>
+Description: 
+ eg77       - The EGCS experimental Fortran compiler.
+ egcc       - The EGCS experimental C compiler.
+ libstdc++2.8 - The GNU stdc++ library (egcs version)
+ libstdc++2.8-dev - The GNU stdc++ library (development files)
+Changes: 
+ egcs (1.0-1) experimental; urgency=low
+ .
+   * First official release
+Files: 
+ aa8001f85a98c22196c82130d3a061a0 643 devel standard egcs_1.0-1.dsc
+ 9732cd84ff2f8a4187774e254d8f8d2d 9971013 devel standard egcs_1.0.orig.tar.gz
+ 4876a5aad57ee2e0ca72d12ffcf0d676 4369 devel standard egcs_1.0-1.diff.gz
+ 6974fa72300648623e8a0b3944a7d18a 2471448 devel standard egcc_1.0-1_i386.deb
+ 4abd7c81aa4b6c5dee455253a4002115 955318 devel standard eg77_1.0-1_i386.deb
+ 810079646238f4f3ee635034dfd10fc2 83986 devel standard libstdc++2.8_1.0-1_i386.deb
+ 3fce67139995e702b4e3451a4e975bca 489466 devel standard libstdc++2.8-dev_1.0-1_i386.deb
+
+-----BEGIN PGP SIGNATURE-----
+Version: 2.6.3a
+Charset: noconv
+
+iQCVAwUBNIeLvhqmjSO3Sye1AQENUgP+PZxstL6a1iGf4Wqsxxswi7CjElg0l3Su
+DEwwB835MkZz/vGgylFwY8Am5OKs9OXtseDSXos2xa8xSLT4fExn9K9mvBBRaJB+
+WdCZ7P0Cf0oMLyUrbs7uvyHrxpf3PZvYqOwquzbaI6+js3zBEBsZDNZ6TQaht9sy
+cegb/n+fTNo=
+=yv4M
+-----END PGP SIGNATURE-----
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 6 Dec 1997 23:21:50 -0000
+Message-ID: <Pine.LNX.3.96.971206182009.5416A-100000@beezer.med.miami.edu>
+Date: 6 Dec 1997 23:21:50 -0000
+From: Christopher C Chimelis
+Subject: egcs test results (contd)
+
+Ok...here's the test results from egcs from a "normal" configuration
+(--enable-shared --enable-threads).  Looks pretty good...
+
+Test Run By chris on Fri Dec  5 19:30:52 1997
+Native configuration is alpha-unknown-linux-gnu
+
+		=== gcc tests ===
+		=== gcc Summary ===
+
+# of expected passes		4875
+# of unexpected failures	8
+# of expected failures		5
+# of unsupported tests		7
+/root/in/egcs/alpha_egcs_normal/gcc/xgcc version egcs-2.90.21 971202 (egcs-1.00 release)
+
+Test Run By chris on Fri Dec  5 21:37:38 1997
+Native configuration is alpha-unknown-linux-gnu
+
+		=== g++ tests ===
+		=== g++ Summary ===
+
+# of expected passes		2939
+# of unexpected failures	456
+# of unexpected successes	2
+# of expected failures		86
+# of untested testcases		6
+/root/in/egcs/alpha_egcs_normal/gcc/testsuite/../xgcc version egcs-2.90.21 971202 (egcs-1.00 release)
+
+Test Run By chris on Fri Dec  5 23:06:40 1997
+Native configuration is alpha-unknown-linux-gnu
+
+		=== g77 tests ===
+		=== g77 Summary ===
+
+# of expected passes		126
+# of unexpected failures	6
+/root/in/egcs/alpha_egcs_normal/gcc/g77 version egcs-2.90.21 971202 (egcs-1.00 release)
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 6 Dec 1997 23:48:40 -0000
+Message-ID: <Pine.LNX.3.96.971206235052.15937A-100000@amasis.trin.cam.ac.uk>
+Date: 6 Dec 1997 23:48:40 -0000
+From: Nikhil Nair
+Subject: Re: egcs test results (contd)
+
+On Sat, 6 Dec 1997, Christopher C Chimelis wrote:
+
+> Ok...here's the test results from egcs from a "normal" configuration
+> (--enable-shared --enable-threads).  Looks pretty good...
+
+I've been following similar lines to you, here.  The main difference is
+that my arch is alphaev5-unknown-linux-gnu.
+
+With no options to configure, I get identical results to you.  With
+--enable-shared (with or without --enable-threads - I've tried both) I get
+the much higher number of unexpected failures for g++, as your results
+showed.  The rest looks OK.
+
+So, it looks like --enable-shared is messing up g++ somehow.  I haven't
+looked into this in detail ...
+
+Nikhil.
+
++--------------------------------+---------------------------------+
+| Nikhil Nair                    |                                 |
+| Department of Chemistry        | Tel.:  +44 1223 336350 (lab)    |
+| University Chemical Laboratory |        +44 1223 368353 (home)   |
+| Lensfield Road                 | Email: nn201@cus.cam.ac.uk      |
+| CAMBRIDGE                      |        nxn@theor.ch.cam.ac.uk   |
+| CB2 1EW                        |        nnair@debian.org         |
+| England                        |                                 |
++--------------------------------+---------------------------------+
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 7 Dec 1997 22:08:38 -0000
+Message-ID: <Pine.LNX.3.96.971207164845.25934A-100000@beezer.med.miami.edu>
+Date: 7 Dec 1997 22:08:38 -0000
+From: Christopher C Chimelis
+Subject: Re: egcs test results (contd)
+
+On Sat, 6 Dec 1997, Nikhil Nair wrote:
+
+> I've been following similar lines to you, here.  The main difference is
+> that my arch is alphaev5-unknown-linux-gnu.
+
+I'm curious about the differences regarding that.  I know that at least
+one of the stages is further optimised towards the ev5, but I'm wondering
+how much it targets the code generated by gcc after that.  If it's
+something like the old gcc does with the x86 family (where you can pretty
+much specify the processor target), then I'm wondering what we should
+target our binaries towards....
+
+> With no options to configure, I get identical results to you.  With
+> --enable-shared (with or without --enable-threads - I've tried both) I get
+> the much higher number of unexpected failures for g++, as your results
+> showed.  The rest looks OK.
+> So, it looks like --enable-shared is messing up g++ somehow.  I haven't
+> looked into this in detail ...
+
+Yeah, I was wondering about that myself.  I haven't had time to look and
+see where the failures are occurring, but I'm sure I'll be checking into
+that within the week.  Is there any talk on the mailing list regarding
+this?  Just curious...
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 8 Dec 1997 03:51:12 -0000
+Message-ID: <Pine.LNX.3.96.971208041331.3334B-100000@leon.lander.es>
+Date: 8 Dec 1997 03:51:12 -0000
+From: Roberto Lumbreras
+Subject: raidtools-pre3-0.42 compile problem
+
+Hi all.
+
+I've compiled raidtools-pre3-0.42 in my debian alpha/linux box,
+and I've had the following problems:
+
+1) /usr/include/adm/unistd.h from libc6.1-dev_2.0.5c-0.1 and
+   linux-2.0.32/include/asm-alpha/unistd.h differ:
+
+--- /usr/include/asm/unistd.h      Sun Oct  5 22:44:52 1997
++++ /home/tmp/kernel/linux-2.0.32/include/asm-alpha/unistd.h    Sun Dec  7 05:49:31 1997
+@@ -214,7 +214,7 @@
+ type name (type1 arg1,type2 arg2,type3 arg3,type4 arg4,type5 arg5)	\
+ {									\
+	extern long syscall (int, ...);					\
+-	return syscall(__NR_##name, arg1, arg2, arg3, arg4);		\
++	return syscall(__NR_##name, arg1, arg2, arg3, arg4, arg5);	\
+ }
+
+ #endif /* __LIBRARY__ && __GNUC__ */
+
+I think the one from linux kernel is ok.
+
+2) in both /usr/include/asm/unistd.h and kernel-source/include/asm-alpha/unistd.h
+   _syscall5 (and _syscall0, 1, ...) are between
+#if defined(__LIBRARY__) && defined(__GNUC__)
+...
+#endif /* __LIBRARY__ && __GNUC__ */
+
+so I've had to add -D__LIBRARY__ (!!) so gcc doesn't complain about
+"parse error".
+
+3) definition of syscall() is different between
+/usr/include/unistd.h and ( /usr/include/asm/unistd.h or
+linux-2.0.32/include/asm-alpha/unistd.h ):
+
+/usr/include/unistd.h:
+	extern long int syscall __P ((long int __sysno, ...));
+
+/usr/include/asm/unistd.h, linux-2.0.32/include/asm-alpha/unistd.h:
+	extern long syscall (int, ...);
+
+so I get...
+raid_io.c: In function `_llseek':
+raid_io.c:88: conflicting types for `syscall'
+/usr/include/unistd.h:790: previous declaration of `syscall'
+
+I've commented out the definition in /usr/include/unistd.h, and
+then it compiles.
+
+Well... ideas?? :)
+
+Regards,
+-- 
+Roberto Lumbreras Pastor  *  mailto:rover@lander.es
+Lander Internet - Spain   *  http://www.lander.es/
+Tel +34 1 556.28.83       *  Fax +34 1 556.30.01
+
+------ Hiroshima '45 ---- Chernobyl '86 ---- Windows '95 ------------
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 8 Dec 1997 17:09:35 -0000
+Message-ID: <m2ra7oyqvs.fsf@ap-pc513b.physik.uni-karlsruhe.de>
+Date: 8 Dec 1997 17:09:35 -0000
+From: Alexander Jolk
+Subject: UDB installation report
+
+Hi, everybody
+
+I just wanted to tell you about my Debian installation experiences.
+Yesterday I carried my UDB to the university and put it on the net in
+order to try a fresh install.  Until now I used some Redhat-4.1
+installation and I wanted to give Debian a try.  I am aware of the
+fact that installation at this stage is bound to be complicated.
+
+First of all I had to figure out which boot disks to use.  Since I
+have a working MILO on a 2MB partition, this was just a matter of
+inserting a DOS formatted floppy with the correct vmlinux.gz on it and
+boot from that.  Par contre what was more complicated was to figure
+out the correct boot parameters to pass.  I eventually came up with
+`boot -t msdos fd0:vmlinux.gz root=/dev/fd0 load_ramdisk=1
+prompt_ramdisk=1', most of which I suppose is irrelevant.  I would
+appreciate if there were some kind of QuickStart file along with the
+kernel images.  We can relay on people finding SRM or MILO docs, but
+the kernel command line parameters necessary should be noted
+somewhere.
+
+Well, it asked me for a root disk afterwards, and I used the one found
+in the August 12 subdirectory without any trouble (barring unaligned
+traps, that is.  If these are not going to be fixed before release,
+perhaps put a note somewhere saying, `don't be afraid of unaligned
+traps'?).
+
+Installation went relatively smoothly, just like on i386 where I have
+done that several times before.  Well, when installing from the
+drivers and the rescue disk, no modules were found.  I assume this is
+normal?
+
+Then, upon package selection, several packages could not be installed
+due to `ncurses3.4' missing, or due to a dependence on `libc5'.  This
+last one is in the process of being resolved, AFAI understand.  As for
+the missing ncurses3.4 package, I finally found it in the
+debian-incoming directory on ftp.de.debian.org.  Is there a reason it
+has not yet been integrated into the distrib, but several packages
+dependent on it have?
+
+I also downloaded a couple of packages from beezer and installed them
+without problems.  The font packages on master were recognized to be
+newer than those on beezer:/.../to_master, though.
+
+I installed igerman from the i386-tree, using --force-architecture.
+Why isn't it in `all'?
+
+I had to force deinstall of `libreadline2', on which my old bash
+depended, before I could install `libreadlineg2' which, in turn, was
+needed for the newer bash package.  Use the `--force', Luke.
+
+Took me a couple of hours, and the system seems to be working now,
+which is very reasonable for a non-released install.  Unfortunately, I
+had to take my UDB back home without a direct net connection, so I
+can't check.  Will play around tonight, I hope.
+
+That's about everything I remember right now.  If anything of the
+above is supposed to be reported as a bug, please tell me so and I
+will check the exact settings at home and file a report.  Anyway,
+thanks for all the good work, I'm really glad I got that thing
+working.
+
+Cheers,
+	Alex
+
+-- 
+Alexander Jolk * jolk@ap-pc513b.physik.uni-karlsruhe.de * +49-721-608-3572
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 9 Dec 1997 03:46:00 -0000
+Message-ID: <Pine.LNX.3.96.971208224447.25986A-100000@beezer.med.miami.edu>
+Date: 9 Dec 1997 03:46:00 -0000
+From: Christopher C Chimelis
+Subject: Re: egcs test results (contd)
+
+On Sat, 6 Dec 1997, Nikhil Nair wrote:
+
+> With no options to configure, I get identical results to you.  With
+> --enable-shared (with or without --enable-threads - I've tried both) I get
+> the much higher number of unexpected failures for g++, as your results
+> showed.  The rest looks OK.
+> So, it looks like --enable-shared is messing up g++ somehow.  I haven't
+> looked into this in detail ...
+
+Just out of curiosity, since the menu package that you compiled is linked
+to the egcs libstd++ library and, therefore, not really usable without
+it, could you make a static version of the package for now?  I think it
+would allow the package to be included in the mainstream and would also
+allow those without libstd++ to use it....
+
+Just a thought...
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 9 Dec 1997 03:49:36 -0000
+Message-ID: <Pine.LNX.3.96.971208224845.26087B-100000@beezer.med.miami.edu>
+Date: 9 Dec 1997 03:49:36 -0000
+From: Christopher C Chimelis
+Subject: Good news!
+
+Hi all...
+
+Well, good news...I've finally gotten my password to master :)
+I only have to send a scanned copy of my id to new-maintainer and I'll be
+on the pgp keyring as well.  This will allow me to get my packages onto
+master MUCH easier :)
+
+Thanks to everyone who helped (Bdale in particular) and thanks for the
+patience in waiting for my stuff to hit the "mainstream" :)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 9 Dec 1997 17:31:39 -0000
+Message-ID: <19971209173829.58810@dallas.ucd.ie>
+Date: 9 Dec 1997 17:31:39 -0000
+From: Nikita Schmidt
+Subject: Re: egcs test results (contd)
+
+On Monday,  8 Dec, Christopher C Chimelis wrote:
+> 
+> Just out of curiosity, since the menu package that you compiled is linked
+> to the egcs libstd++ library and, therefore, not really usable without
+> it, could you make a static version of the package for now?  I think it
+> would allow the package to be included in the mainstream and would also
+> allow those without libstd++ to use it....
+> 
+
+I'm sorry for responding to question apparently directed to Nikhil, all
+I want to add is that I managed to build the menu package several weeks
+ago, and, keeping in mind that it might be useful to make it generally
+available through uploading it to master, I linked it statically with
+libstdc++-2.8.0, but dynamically with the rest of the libraries.  Then I
+uploaded it to master, but it seems to have disappeared.  I will try
+re-uploading it, though.
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 9 Dec 1997 17:35:18 -0000
+Message-ID: <Pine.LNX.3.96.971209123522.23804A-100000@beezer.med.miami.edu>
+Date: 9 Dec 1997 17:35:18 -0000
+From: Christopher C Chimelis
+Subject: Re: egcs test results (contd)
+
+On Tue, 9 Dec 1997, Nikita Schmidt wrote:
+
+> I'm sorry for responding to question apparently directed to Nikhil, all
+
+Oops...my blunder...I'm very tired (no sleep) |)
+
+> I want to add is that I managed to build the menu package several weeks
+> ago, and, keeping in mind that it might be useful to make it generally
+> available through uploading it to master, I linked it statically with
+> libstdc++-2.8.0, but dynamically with the rest of the libraries.  Then I
+> uploaded it to master, but it seems to have disappeared.  I will try
+> re-uploading it, though.
+
+I think I caught it on Incoming in the rejected area.  Something about the
+changes file and it not being able to parse one or two of the lines...
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 9 Dec 1997 21:22:06 -0000
+Message-ID: <19971209211552.31563@dallas.ucd.ie>
+Date: 9 Dec 1997 21:22:06 -0000
+From: Nikita Schmidt
+Subject: Re: egcs test results (contd)
+
+On Tuesday,  9 Dec, Christopher C Chimelis wrote:
+[about menu package]
+> 
+> I think I caught it on Incoming in the rejected area.  Something about the
+> changes file and it not being able to parse one or two of the lines...
+> 
+
+Now installed.
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 10 Dec 1997 07:45:35 -0000
+Message-ID: <348EC8E3.41C6@dlsi.ua.es>
+Date: 10 Dec 1997 07:45:35 -0000
+From: Jorge David Ortiz Fuentes
+Subject: Booting from hard disk
+
+Hello,
+
+	Does anybody know how to install MILO in the hard disk so I can reboot
+from there? I'm now rebooting my alpha using the diskette with MILO.
+
+	Thanks,
+
+			Jorge
+
+-- 
++---------------------------------------------------------------
+| Jorge David Ortiz Fuentes
+| Ing. Quimico
+| Ing. Industrial
+| Ing. Tec. Informatico de gestion
+|
+| ortiz@dlsi.ua.es		http://www.dlsi.ua.es/~ortiz/
+|
++---------------------------------------------------------------
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 10 Dec 1997 13:28:47 -0000
+Message-ID: <yleng1o12u7q.fsf@viper.law.miami.edu>
+Date: 10 Dec 1997 13:28:47 -0000
+From: Michael Alan Dorman
+Subject: New gcc for testing...
+
+On a lark yesterday, I decided to examine RedHat's gcc, to see if
+there was any chance that I could use their patches to help merge our
+Alpha gcc with the mainline one.
+
+Amazingly, it seems to have worked.
+
+However, I'm hoping that I can get a few people to test it a bit,
+because I don't want to send this out only to have it tank.  Please
+download it from:
+
+ftp://mdorman.law.miami.edu/{gcc,cpp}*deb
+
+The sooner reports come back, the sooner I can look at moving it up to
+master and sending the patches over to Galen.
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 10 Dec 1997 15:09:00 -0000
+Message-ID: <19971210151608.34748@dallas.ucd.ie>
+Date: 10 Dec 1997 15:09:00 -0000
+From: Nikita Schmidt
+Subject: Re: Booting from hard disk
+
+On Wednesday, 10 Dec, Jorge David Ortiz Fuentes wrote:
+> Hello,
+> 
+> 	Does anybody know how to install MILO in the hard disk so I can reboot
+> from there? I'm now rebooting my alpha using the diskette with MILO.
+
+Which console firmware do you use?  Is it SRM or ARC/AlphaBios?  The
+approach is quite different depending on which of them is used.
+
+	Nikita
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 10 Dec 1997 18:03:40 -0000
+Message-ID: <Pine.LNX.3.96.971210185536.25692E-100000@leon.lander.es>
+Date: 10 Dec 1997 18:03:40 -0000
+From: Roberto Lumbreras
+Subject: Re: New gcc for testing...
+
+Hi Michael...
+
+On 10 Dec 1997, Michael Alan Dorman wrote:
+
+: From: Michael Alan Dorman <mdorman@viper.law.miami.edu>
+: To: debian-alpha@lists.debian.org
+: Date: 10 Dec 1997 08:39:21 -0500
+: Subject: New gcc for testing...
+: 
+: On a lark yesterday, I decided to examine RedHat's gcc, to see if
+: there was any chance that I could use their patches to help merge our
+: Alpha gcc with the mainline one.
+: 
+: Amazingly, it seems to have worked.
+: 
+: However, I'm hoping that I can get a few people to test it a bit,
+: because I don't want to send this out only to have it tank.  Please
+: download it from:
+: 
+: ftp://mdorman.law.miami.edu/{gcc,cpp}*deb
+: 
+: The sooner reports come back, the sooner I can look at moving it up to
+: master and sending the patches over to Galen.
+: 
+: Mike.
+
+Well, cc1 sigaborts (signal 6) for me:
+
+$ gcc -v -O2 -c cdbmake_add.c
+Reading specs from /usr/lib/gcc-lib/alpha-linux/2.7.2.3/specs
+gcc version 2.7.2.3
+ /usr/lib/gcc-lib/alpha-linux/2.7.2.3/cpp -lang-c -v -undef -D__GNUC__=2 -D__GNUC_MINOR__=7 -D__alpha -D__alpha__ -D__linux__ -D__linux -D_LONGLONG -Dlinux -Dunix -D__ELF__ -D__alpha -D__alpha__ -D__linux__ -D__linux -D_LONGLONG -D__linux__ -D__unix__ -D_
+
+_ELF__ -D__linux -D__unix -Asystem(linux) -Acpu(alpha) -Amachine(alpha) -D__OPTIMIZE__ -D__LANGUAGE_C__ -D__LANGUAGE_C -DLANGUAGE_C cdbmake_add.c /tmp/cca13501.i
+GNU CPP version 2.7.2.3 (Alpha Linux/ELF)
+#include "..." search starts here:
+#include <...> search starts here:
+ /usr/local/include
+ /usr/alpha-linux/include
+ /usr/lib/gcc-lib/alpha-linux/2.7.2.3/include
+ /usr/include
+End of search list.
+ /usr/lib/gcc-lib/alpha-linux/2.7.2.3/cc1 /tmp/cca13501.i -quiet -dumpbase cdbmake_add.c -O2 -version -o /tmp/cca13501.s
+GNU C version 2.7.2.3 (Alpha Linux/ELF) compiled by GNU C version 2.7.2.1.
+gcc: Internal compiler error: program cc1 got fatal signal 6
+
+Without "-O2" (ie -O1 or without -Ox at all) it works "fine?" :)
+
+BTW, It also happens with gcc_2.7.2.1-10, so it is not your
+patches fault.
+
+I'm using libc6.1_2.0.6-0.2 (compiled by me using sources from
+ftp://ftp.ods.com/pub/linux/)
+
+The "offending" program is cdbmake_add.c from tcpserver-0.50 by Dan
+Bernstein, available at ftp://koobera.math.uic.edu/pub/software/
+
+Regards,
+-- 
+Roberto A. Lumbreras Pastor  *  mailto:rover@lander.es
+Lander Internet - Spain      *  http://www.lander.es/
+Tel +34 1 556.28.83          *  Fax +34 1 556.30.01
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 10 Dec 1997 18:29:40 -0000
+Message-ID: <ylen7m9d2ga6.fsf@viper.law.miami.edu>
+Date: 10 Dec 1997 18:29:40 -0000
+From: Michael Alan Dorman
+Subject: Re: New gcc for testing...
+
+Roberto Lumbreras <rover@lander.es> writes:
+> Without "-O2" (ie -O1 or without -Ox at all) it works "fine?" :)
+
+Known problem with that file.  Something in the optimization screws it
+up.
+
+> I'm using libc6.1_2.0.6-0.2 (compiled by me using sources from
+> ftp://ftp.ods.com/pub/linux/)
+
+Hum.  I got an error in sysdeps/stub/bsd-setjmp.c.  Would you like to
+share your solution and/or your binaries?
+
+> The "offending" program is cdbmake_add.c from tcpserver-0.50 by Dan
+> Bernstein, available at ftp://koobera.math.uic.edu/pub/software/
+
+Yep, been there, done that, I don't know what it is about the file,
+but it's in qmail to, and causes similar problems.
+
+Maybe your system is fast enough that you could reasonably recompile
+glibc with it?  That would seem to be a good test that the prior gcc
+was able to make it through.
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 10 Dec 1997 18:30:36 -0000
+Message-ID: <Pine.LNX.3.96.971210132817.12835A-100000@beezer.med.miami.edu>
+Date: 10 Dec 1997 18:30:36 -0000
+From: Christopher C Chimelis
+Subject: Re: New gcc for testing...
+
+On Wed, 10 Dec 1997, Roberto Lumbreras wrote:
+
+> Well, cc1 sigaborts (signal 6) for me:
+>  /usr/lib/gcc-lib/alpha-linux/2.7.2.3/cpp -lang-c -v -undef -D__GNUC__=2 -D__GNUC_MINOR__=7 -D__alpha -D__alpha__ -D__linux__ -D__linux -D_LONGLONG -Dlinux -Dunix -D__ELF__ -D__alpha -D__alpha__ -D__linux__ -D__linux -D_LONGLONG -D__linux__ -D__unix__ -D_
+> Without "-O2" (ie -O1 or without -Ox at all) it works "fine?" :)
+
+This also happens with qmail.  There is a problem regarding the
+optimisation that hasn't been solved yet.  I can't exactly explain where
+or why, but I forwarded a report of the qmail problem to Richard Henderson
+already (this is probably the same situation).  Most likely, this isn't
+the new gcc's fault, but more of a generalised Alpha gcc problem.
+
+> I'm using libc6.1_2.0.6-0.2 (compiled by me using sources from
+> ftp://ftp.ods.com/pub/linux/)
+
+I'm thinking of doing this, but until we get it up to master, I'm hesitant
+to since I compile quite a few packages and don't want to "assume"
+everyone else is upgraded as well (yet) :)
+
+> The "offending" program is cdbmake_add.c from tcpserver-0.50 by Dan
+> Bernstein, available at ftp://koobera.math.uic.edu/pub/software/
+
+I'll add this to my list of "things that don't work" and try it with egcs.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 10 Dec 1997 20:41:36 -0000
+Message-ID: <Pine.LNX.3.96.971210213242.25692G-100000@leon.lander.es>
+Date: 10 Dec 1997 20:41:36 -0000
+From: Roberto Lumbreras
+Subject: Re: New gcc for testing...
+
+On 10 Dec 1997, Michael Alan Dorman wrote:
+
+: From: Michael Alan Dorman <mdorman@viper.law.miami.edu>
+: To: debian-alpha@lists.debian.org
+: Date: 10 Dec 1997 13:40:17 -0500
+: Subject: Re: New gcc for testing...
+: 
+: Roberto Lumbreras <rover@lander.es> writes:
+: > Without "-O2" (ie -O1 or without -Ox at all) it works "fine?" :)
+: 
+: Known problem with that file.  Something in the optimization screws it
+: up.
+: 
+: > I'm using libc6.1_2.0.6-0.2 (compiled by me using sources from
+: > ftp://ftp.ods.com/pub/linux/)
+: 
+: Hum.  I got an error in sysdeps/stub/bsd-setjmp.c.  Would you like to
+: share your solution and/or your binaries?
+
+metoo, with version libc6.1_2.0.6-0.3 I'm now blocked at that point :-(
+
+I compiled version libc6.1_2.0.6-0.2, I had only two minor problems with
+__cabs_complex and __cabs_complexl undefined.
+
+: > The "offending" program is cdbmake_add.c from tcpserver-0.50 by Dan
+: > Bernstein, available at ftp://koobera.math.uic.edu/pub/software/
+: 
+: Yep, been there, done that, I don't know what it is about the file,
+: but it's in qmail to, and causes similar problems.
+: 
+: Maybe your system is fast enough that you could reasonably recompile
+: glibc with it?  That would seem to be a good test that the prior gcc
+: was able to make it through.
+
+I'm now building it again...
+
+: Mike.
+
+Regards,
+-- 
+Roberto A. Lumbreras     *  mailto:rover@lander.es
+Lander Internet - Spain  *  http://www.lander.es/
+Tel +34 1 556.28.83      *  Fax +34 1 556.30.01
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 10 Dec 1997 22:44:36 -0000
+Message-ID: <19971210225151.40351@dallas.ucd.ie>
+Date: 10 Dec 1997 22:44:36 -0000
+From: Nikita Schmidt
+Subject: Re: New gcc for testing...
+
+On Wednesday, 10 Dec, Christopher C Chimelis wrote:
+> 
+> This also happens with qmail.  There is a problem regarding the
+> optimisation that hasn't been solved yet.  I can't exactly explain where
+> or why, but I forwarded a report of the qmail problem to Richard Henderson
+> already (this is probably the same situation).  Most likely, this isn't
+> the new gcc's fault, but more of a generalised Alpha gcc problem.
+> 
+
+Or even more likely a general gcc problem that gets triggered by a
+combination of factors such as the code in cdbmake_add.c and the
+compilation for Alpha architecture.
+
+This should be fixed in egcs, but if anybody is interested in
+backporting it to gcc-2.7, below is the patch (may be not exactly what
+has finally made its way into egcs).
+
+Cheers,
+
+	Nikita
+
+-------------------------
+
+Tue Oct 28 01:56:39 1997  Richard Henderson  <rth@cygnus.com>
+
+	* combine.c (try_combine): Don't elim_i1 when it is used in i2src.
+
+Tue Sep 23 12:57:35 1997  Jim Wilson  <wilson@cygnus.com>
+
+        * combine.c (try_combine): When setting elim_i2, check whether newi2pat
+        sets i2dest.  When calling distribute_notes for i3dest_killed, pass
+        elim_i2 and elim_i1.
+
+Index: combine.c
+===================================================================
+RCS file: /cvs/cvsfiles/egcs/gcc/combine.c,v
+retrieving revision 1.4
+diff -u -p -d -r1.4 combine.c
+--- combine.c	1997/10/16 22:06:43	1.4
++++ combine.c	1997/10/28 18:54:33
+@@ -1246,6 +1246,7 @@ try_combine (i3, i2, i1)
+   rtx i2pat;
+   /* Indicates if I2DEST or I1DEST is in I2SRC or I1_SRC.  */
+   int i2dest_in_i2src = 0, i1dest_in_i1src = 0, i2dest_in_i1src = 0;
++  int i1dest_in_i2src = 0;
+   int i1_feeds_i3 = 0;
+   /* Notes that must be added to REG_NOTES in I3 and I2.  */
+   rtx new_i3_notes, new_i2_notes;
+@@ -1431,6 +1432,7 @@ try_combine (i3, i2, i1)
+   i2dest_in_i2src = reg_overlap_mentioned_p (i2dest, i2src);
+   i1dest_in_i1src = i1 && reg_overlap_mentioned_p (i1dest, i1src);
+   i2dest_in_i1src = i1 && reg_overlap_mentioned_p (i2dest, i1src);
++  i1dest_in_i2src = i1 && reg_overlap_mentioned_p (i1dest, i2src);
+ 
+   /* See if I1 directly feeds into I3.  It does if I1DEST is not used
+      in I2SRC.  */
+@@ -2141,10 +2143,12 @@ try_combine (i3, i2, i1)
+     rtx i3links, i2links, i1links = 0;
+     rtx midnotes = 0;
+     register int regno;
+-    /* Compute which registers we expect to eliminate.  */
+-    rtx elim_i2 = (newi2pat || i2dest_in_i2src || i2dest_in_i1src
++    /* Compute which registers we expect to eliminate.  newi2pat may be setting
++       either i3dest or i2dest, so we must check it.  */
++    rtx elim_i2 = ((newi2pat && reg_set_p (i2dest, newi2pat))
++		   || i2dest_in_i2src || i2dest_in_i1src
+ 		   ? 0 : i2dest);
+-    rtx elim_i1 = i1 == 0 || i1dest_in_i1src ? 0 : i1dest;
++    rtx elim_i1 = i1 == 0 || i1dest_in_i1src || i1dest_in_i2src ? 0 : i1dest;
+ 
+     /* Get the old REG_NOTES and LOG_LINKS from all our insns and
+        clear them.  */
+@@ -2305,7 +2309,7 @@ try_combine (i3, i2, i1)
+ 	distribute_notes (gen_rtx (EXPR_LIST, REG_DEAD, i3dest_killed,
+ 				   NULL_RTX),
+ 			  NULL_RTX, i3, newi2pat ? i2 : NULL_RTX,
+-			  NULL_RTX, NULL_RTX);
++			  elim_i2, elim_i1);
+       }
+ 
+     /* For I2 and I1, we have to be careful.  If NEWI2PAT exists and sets
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 11 Dec 1997 15:06:42 -0000
+Message-ID: <"2E1UTC.A.oRD._FAk0"@debian>
+Date: 11 Dec 1997 15:06:42 -0000
+From: Ferenc Kiraly
+Subject: is Debian Alpha ready?
+
+Hi!
+
+	I am the system administrator for our UN*X machines
+here at the Department of Physics of the Faculty for Math
+and Physics at the University of Ljubljana, Slovenia.
+
+The department wishes to purchase a couple alphas for
+computational work. As I am a Debian fan and some Linux PC
+workstations here run Debian, I would also want the new alphas
+to run Debian, the only alternative being Red Hat. I never 
+used Red Hat, so it would save me some work if I could install
+and take care of a familiar system. Besides, if these workstations
+would prove to be a success, I am sure the department would
+by more.
+
+I know Debian-alpha is still in development, so I don't
+expect a flawlessly running system. I also wouldn't mind some
+hard work when installing and maintaining the system. But I do 
+require a more or less
+usable system for the researchers for whom the system is being
+purchased.
+
+So here is my question: Is Debian-alpha ready for use in an
+environment like this, taking into account that the administrator
+is familiar with Linux and Debian in particular?
+
+All of the most important development
+packages seem to be available. The only utility that seems
+to be missing is autofs. I will need some kind of automounter.
+
+I would also expect some help from this list while installing and in 
+return I could serve as a tester for Debian-alpha.
+
+	feri.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 11 Dec 1997 15:44:41 -0000
+Message-ID: <199712111551.XAA06309@tpts5.seed.net.tw>
+Date: 11 Dec 1997 15:44:41 -0000
+From: "comte"
+Subject: qqq
+
+qqq
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 11 Dec 1997 15:44:59 -0000
+Message-ID: <Pine.LNX.3.96.971211103611.25619A-100000@beezer.med.miami.edu>
+Date: 11 Dec 1997 15:44:59 -0000
+From: Christopher C Chimelis
+Subject: Re: is Debian Alpha ready?
+In-Reply-To: <"2E1UTC.A.oRD._FAk0"@debian>
+
+On Thu, 11 Dec 1997, Ferenc Kiraly wrote:
+
+> The department wishes to purchase a couple alphas for
+> computational work. As I am a Debian fan and some Linux PC
+> workstations here run Debian, I would also want the new alphas
+> to run Debian, the only alternative being Red Hat. I never 
+> used Red Hat, so it would save me some work if I could install
+> and take care of a familiar system. Besides, if these workstations
+> would prove to be a success, I am sure the department would
+> by more.
+
+Being a Debian fan myself, you can imagine what I was like when I first
+put RedHat on my UDB -- fish out of water.  The two distributions are
+similar in alot of ways, but the "creature comforts" that I was used to on
+my Debian systems just weren't there.  That's why I work on this project
+:)
+
+> I know Debian-alpha is still in development, so I don't
+> expect a flawlessly running system. I also wouldn't mind some
+> hard work when installing and maintaining the system. But I do 
+> require a more or less
+> usable system for the researchers for whom the system is being
+> purchased.
+
+I recently reinstalled on my UDB, partially because my HD died and
+partially because I wanted to see how the install process behaved, and it
+seems rock solid after a few tweakings here and there.  I run
+bleeding-edge kernels and haven't had ANY downtime at all.  In fact, my
+UDB has been up over two months without a hiccup.
+
+> So here is my question: Is Debian-alpha ready for use in an
+> environment like this, taking into account that the administrator
+> is familiar with Linux and Debian in particular?
+
+I would say yes tentatively.  If you're willing to consider that the
+distribution is still labeled "unstable" and that alot of the software may
+not be compiled yet, then you could probably use Debian on your Alphas
+without a problem :)
+
+> All of the most important development
+> packages seem to be available. The only utility that seems
+> to be missing is autofs. I will need some kind of automounter.
+
+I'm having pretty severe problems compiling amd right now.  I hope to get
+these resolved before the new year (holidays are wrecking my free time),
+but if you want to help with it.... :P  Also, fyi, a few of us are testing
+egcs right now in hopes of having a better compiler suite to use.
+
+> I would also expect some help from this list while installing and in 
+> return I could serve as a tester for Debian-alpha.
+
+Not a problem :)  Let us know if you have any questions or problems and
+we'll see what we can do to help.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 11 Dec 1997 22:14:14 -0000
+Message-ID: <199712112221.PAA30424@chunks.gag.com>
+Date: 11 Dec 1997 22:14:14 -0000
+From: Bdale Garbee
+Subject: Re: is Debian Alpha ready?
+In-Reply-To: <_2E1UTC.A.oRD._FAk0_@debian>
+
+In article <_2E1UTC.A.oRD._FAk0_@debian> you wrote:
+
+: So here is my question: Is Debian-alpha ready for use in an
+: environment like this, taking into account that the administrator
+: is familiar with Linux and Debian in particular?
+
+I think you'd be fine.  There are lots of issues still being worked on, but
+what we have works pretty well.  As an example, last night I rebooted my UDB
+after over 66 days of uptime, and only then because I was testing a new build
+of the e2fs tools.  I don't use the system very heavily, but it gets wiggled
+enough that I think this represents a fair degree of stability.
+
+: I would also expect some help from this list while installing and in 
+: return I could serve as a tester for Debian-alpha.
+
+Hey, no problem.  We're pleased at this point to have additional users try
+things out, particularly ones who are knowledgeable and not afraid to deal
+with some "speed bumps" along the way.  We'll do what we can to help.
+
+Bdale
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 12 Dec 1997 05:04:04 -0000
+Message-ID: <Pine.LNX.3.96.971212003628.18779A-100000@sam.aisb.org>
+Date: 12 Dec 1997 05:04:04 -0000
+From: Doug DeJulio
+Subject: Install-from-scratch procedure.
+
+It never fails -- I was about to document and test a procedure for installing
+Debian/Alpha from scratch on a UDB, and I got a month long illness, and when
+that ended my company moved to a new office.  Then I had to do some emergency
+consulting for a client in New York (as a result, they now have a Debian Linux
+box in house...). I'm just now getting free time again (unless something
+critical happens tomorow morning). 
+
+Anyway, this weekend I'll be doing a whole fresh from scratch install from a
+documented procedure.  Then I'll throw the procedure up on my web site for
+comments, and get down to the work of actually contributing.
+
+In two weeks my Alpha may be on a T1, and then I'll look at that chroot-ish
+package someone mentioned so I can give out accounts to random developers.
+
+Incidentally, my boss has started dinking around with Linux PPC on his
+PowerMac clone.  Is there any word on a Debian/PPC project?
+
+-- 
+Doug DeJulio                         | mailto:ddj@aisb.org
+Ancient Illuminated Seers of Bavaria | http://www.aisb.org/~ddj/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 12 Dec 1997 10:55:51 -0000
+Message-ID: <Pine.LNX.3.96.971212055455.5345B-100000@beezer.med.miami.edu>
+Date: 12 Dec 1997 10:55:51 -0000
+From: Christopher C Chimelis
+Subject: Re: new library and compiler
+In-Reply-To: <19971211113423.19695@dot.cygnus.com>
+
+On Thu, 11 Dec 1997, Richard Henderson wrote:
+
+> This has no effect except on the Objective C runtime.
+
+That's what I figured.
+
+> > but --enable-shared caused a large amount of failures on the
+> > Alphas we've tested them on (two UDBs and a PC164).
+> If you enable this, you must provide LD_LIBRARY_PATH to make check.
+> There are no additional failures otherwise.
+
+Ah, ok.  I'll have to do this and retry.  I'll also repost this on the
+debian-alpha list since I don't think anyone's doing that during testing
+phases.
+
+> > Also, enabling the
+> > new Haifa instruction scheduler caused at least one of the egcs
+> > compilations to be totally unexecutable
+> 
+> Could you provide a test example of this?  While Haifa is not (yet)
+> enabled by default, it (is claimed to ) work and should produce better
+> results at least on ev5.  I don't know that I've got the ev4 tuned
+> properly.
+
+I did have a very good example, but it took me a day to complete the whole
+build process and, since it didn't work and I have little disk space, I
+dumped it in favour of a non-Haifa-enabled build.  Also, I'm running a
+UDB, so....  I haven't heard the results of the second test on the PC164
+yet.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 12 Dec 1997 15:13:36 -0000
+Message-ID: <199712121521.IAA31077@chunks.gag.com>
+Date: 12 Dec 1997 15:13:36 -0000
+From: Bdale Garbee
+Subject: Re: Install-from-scratch procedure.
+
+In article <[🔎] Pine.LNX.3.96.971212003628.18779A-100000@sam.aisb.org> you wrote:
+
+: Incidentally, my boss has started dinking around with Linux PPC on his
+: PowerMac clone.  Is there any word on a Debian/PPC project?
+
+Yes.  I think there is a debian-powerpc mailing list, though I don't see it
+advertised on the web pages.  There have been quite a few package uploads to
+master in the developer's change mailing list lately, so I'd have to guess 
+that means there's activity... :-)  Many of the uploads for powerpc have come
+from Martin Schulze <joey@debian.org>, who I suspect would be willing to help 
+direct you if you can't find the list...
+
+Bdale
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 12 Dec 1997 20:00:12 -0000
+Message-ID: <Pine.LNX.3.96.971212145825.26378A-100000@beezer.med.miami.edu>
+Date: 12 Dec 1997 20:00:12 -0000
+From: Christopher C Chimelis
+Subject: :)
+
+Hi all...
+
+Ok, I've uploaded about 15 packages to master today, including some
+rather important libraries (new ncurses34, libgdbmg, etc).  The good news
+is that master is now accepting my stuff and it's being inserted as we
+speak (ash and a few others have already gone into the binary-alpha tree),
+so we should have a more "dselect-friendly" tree soon!
+
+I can't seem to find my depends problem list, so if anyone can recall
+offhand what stuff had problems, let me know and I'll try to fix it soon
+:)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 13 Dec 1997 03:20:55 -0000
+Message-ID: <Pine.LNX.3.96.971212191046.28268A-100000@dreamer.accesscom.com>
+Date: 13 Dec 1997 03:20:55 -0000
+From: Robert Stone
+Subject: wu-ftpd
+
+Just in case nobody's reported it, the alpha wu-ftpd 2.4-27 on
+ftp.debian.org at the moment does not seem to support shadow passwords.
+
+	Should things like this be registered as a bug against the
+package, or should they go here on the list or what?  I'm trying very hard
+to get out of the habit of just fixing problems like this on my box and
+forgetting about it.  I'd like to just rebuild the alpha package and
+ask the maintainer to consider uploading it for us, but is that
+appropriate way to address things like this?
+
+							thanks,
+							Robert
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 15 Dec 1997 12:42:39 -0000
+Message-ID: <01bd0957$fa63ef60$46f434c3@d-guennel.iss.de>
+Date: 15 Dec 1997 12:42:39 -0000
+From: "Dominik Guennel"
+Subject: Linux on AlphaServer 800
+
+There is a question: I want to install Linux on a Alpha Server 800 DEC AXP
+800 5/400 with a 3-channel RAID-Controller DEC KZPAC-CB (Mylex DAC960) and
+two StorageWorks Boxes.
+Are there any expierences with this configuration and Linux (Red Hat)?
+Please reply to my e-mail address mailto:rs@iss.de and/or into this
+newsgroup.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 15 Dec 1997 14:05:07 -0000
+Message-ID: <Pine.LNX.3.96.971215085651.9948C-100000@beezer.med.miami.edu>
+Date: 15 Dec 1997 14:05:07 -0000
+From: Christopher C Chimelis
+Subject: Re: wu-ftpd
+
+On Fri, 12 Dec 1997, Robert Stone wrote:
+
+> 	Just in case nobody's reported it, the alpha wu-ftpd 2.4-27 on
+> ftp.debian.org at the moment does not seem to support shadow passwords.
+
+I'm aware of this since I built the package initially :)  I am planning on
+rebuilding it shortly, but can't test it unfortunately since I don't have
+shadow passwords on my system.  I'll let you know when I post the fixed
+version (should be soon).
+
+> 	Should things like this be registered as a bug against the
+> package, or should they go here on the list or what?
+
+For now, posting problems that are Alpha-related here is the best thing.
+Most of the maintainers don't have access to an Alpha to build their
+packages on, so we end up patching them and building them ourselves.
+Eventually, this will be solved with fakeroot and some "accessible"
+machines for maintainers, but until then, most of them won't even know
+about the Alpha packages.
+
+>  I'm trying very hard
+> to get out of the habit of just fixing problems like this on my box and
+> forgetting about it.  I'd like to just rebuild the alpha package and
+> ask the maintainer to consider uploading it for us, but is that
+> appropriate way to address things like this?
+
+I can rebuild it here and plan on doing it today.  I'll let you know when
+it's done :)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 15 Dec 1997 16:38:30 -0000
+Message-ID: <yleng1nuo8jr.fsf@viper.law.miami.edu>
+Date: 15 Dec 1997 16:38:30 -0000
+From: Michael Alan Dorman
+Subject: pgp on the alpha broken?
+
+Am I the only person here who has problems running pgp?
+
+Mind you, I'm running a home-compiled one, but whenever I invoke pgp,
+I get:
+
+$ pgp -ast libtermreadkey-perl_2.09-1_i386.changes
+Pretty Good Privacy(tm) 2.6.3a - Public-key encryption for the masses.
+(c) 1990-96 Philip Zimmermann, Phil's Pretty Good Software. 1996-03-04
+Uses the RSAREF(tm) Toolkit, which is copyright RSA Data Security, Inc.
+Distributed by the Massachusetts Institute of Technology.
+Export of this software may be restricted by the U.S. government.
+Current time: 2017/12/15 12:39 GMT
+
+A secret key is required to make a signature.
+You specified no user ID to select your secret key,
+so the default user ID and key will be the most recently
+added key on your secret keyring.
+
+You need a pass phrase to unlock your RSA secret key.
+Key for user ID: Michael Alan Dorman <mdorman@debian.org>
+2047-bit key, key ID E79985E5, created 1996/09/09
+
+Enter pass phrase: cannot open tty, using stdin
+
+Also, if you notice I'm doing this by hand, it's because pgp fails
+completely under dpkg-buildpackage, as -fast seems to fail because of
+the "cannot open tty, using stdin" message.
+
+Does anyone have any suggestions about this?  It's a really pain in
+the rear.
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 15 Dec 1997 16:54:15 -0000
+Message-ID: <Pine.LNX.3.96.971215115446.17240A-100000@beezer.med.miami.edu>
+Date: 15 Dec 1997 16:54:15 -0000
+From: Christopher C Chimelis
+Subject: Re: pgp on the alpha broken?
+
+On 15 Dec 1997, Michael Alan Dorman wrote:
+
+> Am I the only person here who has problems running pgp?
+
+Yes... j/k  Hehehe...I did for awhile, actually, but it's fixed now.
+
+> Also, if you notice I'm doing this by hand, it's because pgp fails
+> completely under dpkg-buildpackage, as -fast seems to fail because of
+> the "cannot open tty, using stdin" message.
+
+Hmmm....works well for me now.  I was just thinking of rebuilding mine and
+uploading it to non-us to replace the one there, so maybe I'll tack that
+onto my list of stuff to do today.  In the meantime, if you want, I can
+mail you the deb package of the one I'm using.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 15 Dec 1997 18:14:07 -0000
+Message-ID: <Pine.LNX.3.96.971215131459.20269A-100000@beezer.med.miami.edu>
+Date: 15 Dec 1997 18:14:07 -0000
+From: Christopher C Chimelis
+Subject: Re: wu-ftpd
+
+On Fri, 12 Dec 1997, Robert Stone wrote:
+
+> 	Just in case nobody's reported it, the alpha wu-ftpd 2.4-27 on
+> ftp.debian.org at the moment does not seem to support shadow passwords.
+
+I just uploaded another one, but don't know when it'll make it in.  In the
+meantime, you're welcome to pick it up off of my ftp site.  It's in:
+    beezer.med.miami.edu:/pub/chris/to_master/UPLOADED/wuftpd
+
+Let me know if it works.  I had to dig out my old patches for this and
+have since submitted them against the package as a bug report for future
+porting.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 15 Dec 1997 22:11:10 -0000
+Message-ID: <87zpm21c80.fsf@os.inf.tu-dresden.de>
+Date: 15 Dec 1997 22:11:10 -0000
+From: Sven Rudolph
+Subject: ncurses3.4 missing
+
+$ vi
+vi: error in loading shared libraries
+libncurses.so.3.4: cannot open shared object file: No such file or directory
+
+ncurses3.4 seems to be missing in debian-alpha. Any reasons? Or is
+this a simple "volunteers welcome" question?
+
+	Sven
+-- 
+Sven Rudolph <sr1@inf.tu-dresden.de>
+http://www.sax.de/~sr1/
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 15 Dec 1997 22:22:33 -0000
+Message-ID: <Pine.LNX.3.96.971215172307.29948A-100000@beezer.med.miami.edu>
+Date: 15 Dec 1997 22:22:33 -0000
+From: Christopher C Chimelis
+Subject: Re: ncurses3.4 missing
+
+On 15 Dec 1997, Sven Rudolph wrote:
+
+> ncurses3.4 seems to be missing in debian-alpha. Any reasons? Or is
+> this a simple "volunteers welcome" question?
+
+Funny you should mention this as I'm rebuilding it right now to upload :)
+I should have it uploaded tomorrow and it shouldn't be more than a day
+before it's out of incoming and into the binary-alpha directory.
+
+:)  In the meantime, I have a copy of it on my ftp site:
+	beezer.med.miami.edu:/pub/chris
+It's in there somewhere, I believe in the to_master area.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 15 Dec 1997 23:58:10 -0000
+Message-ID: <m0xhkVw-0000aEC@miles.econ.queensu.ca>
+Date: 15 Dec 1997 23:58:10 -0000
+From: Dirk Eddelbuettel
+Subject: forwarded message from Dirk Eddelbuettel
+
+Guys,
+
+Here's a reply to an inquiry I received regarding Octave under debian-alpha.
+I am not sure whether we have all the required pieces in place. Did any of
+you try to compile it ?
+
+Regards, 
+
+Dirk
+(who only has (direct) access to i386 hardware ...)
+
+--- Begin Message ---
+
+To: Peter Speier <speier@sugar-land.spc.slb.com>
+Subject: Re: octave on alpha linux?
+From: Dirk Eddelbuettel <edd@rosebud.ml.org>
+In-reply-to: <34957435.116F7CD4@sugar-land.spc.slb.com>
+References: <34957435.116F7CD4@sugar-land.spc.slb.com>
+
+Hi Peter,
+
+  Peter>  Hi Dirk, I just saw that you maintain octave-ci and octave-doc in
+  Peter> the unstable/alpha -Tree and wondered why there is no binary for
+  Peter> octave itself yet. 
+
+Well, octave-ci and octave-doc are packages without binaries, they simply get
+symbolic links from the binary-all/ tree.
+
+  Peter> Have you succeeded in getting it running or are there be basic
+  Peter> problems with compiling it on alpha linux?
+
+The way this works with Debian is a little different. I maintain the 'octave'
+package(s) and release the binary-i386 and binary-all packages.
+
+Packages for the m68k, ppc, sparc, alpha, ... architectures are then created
+by other maintainer who actually have such hardware at hand. 
+
+  Peter> I'm curious because right now I try to install octave libraries on a
+  Peter> Redhat5.0-alpha and run into problems with incompatible libc &
+  Peter> libstdc++. On RH4.2 I could not get it to run because of a broken
+  Peter> f2c.  Does it run with the current debian tree?
+
+I suggest that you get in contact with the Debian-Alpha people. There is a
+mailing list for it, you can subscribe to it from www.debian.org.
+
+Let me know how it goes --- I will do my best to help out. But given that I
+have no alpha box at hand, there is little I can do now.
+
+BTW: Wasn't there a problem with building libg++272 on alpha? That would be a
+prerequisite.
+
+Regards, Dirk
+
+--
+edd@rosebud.ml.org                   According to the latest official figures, 
+http://rosebud.ml.org/~edd        43% of all statistics are totally worthless.
+-- 
+edd@rosebud.ml.org                   According to the latest official figures, 
+http://rosebud.ml.org/~edd        43% of all statistics are totally worthless.
+
+--- End Message ---
+
+From unknown 16 Dec 1997 03:44:50 -0000
+Message-ID: <Pine.LNX.3.96.971215224309.9002A-100000@beezer.med.miami.edu>
+Date: 16 Dec 1997 03:44:50 -0000
+From: Christopher C Chimelis
+Subject: Re: forwarded message from Dirk Eddelbuettel
+
+On Mon, 15 Dec 1997, Dirk Eddelbuettel wrote:
+
+> Here's a reply to an inquiry I received regarding Octave under debian-alpha.
+> I am not sure whether we have all the required pieces in place. Did any of
+> you try to compile it ?
+
+Yes, I tried before.  Without a proper Fortran compiler, though, I
+couldn't do it.  I'm going to re-attempt with egcs soon.
+
+> Dirk
+> (who only has (direct) access to i386 hardware ...)
+
+Yeah, that makes it kinda tough :)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 16 Dec 1997 05:38:38 -0000
+Message-ID: <Pine.LNX.3.96.971215222215.11796A-100000@shiloh-a>
+Date: 16 Dec 1997 05:38:38 -0000
+From: "D. W. Wieboldt"
+Subject: Is this do-able?
+
+I read debian-alpha is experimental, but I would rather experiment than do
+red hat.  So...  
+
+On a udb (Multia) box, is it possible to boot up from floppy, install
+base, get network running, and install the rest from a CD from my local
+ether-net?  Maybe there is a howto somewhere?  Can't wait to see how it
+might run!
+
+Thanks, and sorry if this is a FAQ; just got the box and subbed...
+
+--
+dwiebold@cactus.org . . . . . . . . . THIS computer is running Linux!!
+          Linux ...  unleash the workstation in your PC!
+     Capitol Area Central Texas UNIX Society ........ cactus.org
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 16 Dec 1997 13:44:04 -0000
+Message-ID: <199712161555.OAA09037@webern.mhsg.ac.at>
+Date: 16 Dec 1997 13:44:04 -0000
+From: Guenter Geiger
+Subject: Problem with 2.1.43 kernel
+
+Hi !
+
+My newly compiled kernel stops with the message
+ 
+.... turning on virtual addressing and jumping to the Linux Kernel
+
+---------------------------------------------------------------
+
+My system is a PC164
+
+New Milo ?
+Any clues ?
+
+Guenter
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 16 Dec 1997 14:15:55 -0000
+Message-ID: <Pine.LNX.3.96.971216091648.32710A-100000@beezer.med.miami.edu>
+Date: 16 Dec 1997 14:15:55 -0000
+From: Christopher C Chimelis
+Subject: Re: Problem with 2.1.43 kernel
+
+On Tue, 16 Dec 1997, Guenter Geiger wrote:
+
+> My newly compiled kernel stops with the message
+> .... turning on virtual addressing and jumping to the Linux Kernel
+> My system is a PC164
+> New Milo ?
+> Any clues ?
+
+I've heard of this with older MILO's before, so you may want to upgrade,
+BUT don't use a 2.1 MILO yet.  I've heard really bad things that way and
+have personally stuck to my 2.0.30 version of MILO for quite some time
+now.
+
+If that's not the issue, then I'm alot more stumped :)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 16 Dec 1997 15:04:09 -0000
+Message-ID: <199712161716.QAA09211@webern.mhsg.ac.at>
+Date: 16 Dec 1997 15:04:09 -0000
+From: Guenter Geiger
+Subject: Re: Problem with 2.1.43 kernel
+
+Christopher C Chimelis writes:
+ > I've heard of this with older MILO's before, so you may want to upgrade,
+ > BUT don't use a 2.1 MILO yet.  I've heard really bad things that way and
+ > have personally stuck to my 2.0.30 version of MILO for quite some time
+ > now.
+
+ I tried 2.0.30 and pre2.0.31 .. no success
+
+ I couldn't compile a 2.1 milo version ( header file problems )
+
+ I am able to boot 2.1.13 to a certain degree though, but slowly I'm
+ getting tired of compiling every kernel that's available ....
+
+ > 
+ > If that's not the issue, then I'm alot more stumped :)
+ > 
+
+ Is anybody out there with a PC164 and working 2.1.?? kernels.
+ Anyway, I think I have too look at Redhat's ... 
+
+ Guenter
+ 
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 16 Dec 1997 15:17:16 -0000
+Message-ID: <Pine.LNX.3.96.971216101632.2189A-100000@beezer.med.miami.edu>
+Date: 16 Dec 1997 15:17:16 -0000
+From: Christopher C Chimelis
+Subject: Re: Problem with 2.1.43 kernel
+
+On Tue, 16 Dec 1997, Guenter Geiger wrote:
+
+>  I tried 2.0.30 and pre2.0.31 .. no success
+
+Hmmm..that's kinda odd then.  I'll see what I can find out about that.
+
+>  I couldn't compile a 2.1 milo version ( header file problems )
+
+Yeah, I've had some problems with compiling MILO.  I'm guessing that
+things will change now that RH5.0 is out and is glibc-2 (finally), though.
+
+>  I am able to boot 2.1.13 to a certain degree though, but slowly I'm
+>  getting tired of compiling every kernel that's available ....
+
+You should try 2.1.67.  I'm running it on my UDB and it compiled very
+nicely.  2.1.68 and above still have problems and shouldn't compile right,
+but I haven't had time to track down where the problems lie yet to submit
+the reports to linux.dev.kernel.
+
+If you can, let me know what you want included in the kernel and I can try
+to compile one for you during some spare cycles.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 16 Dec 1997 17:55:31 -0000
+Message-ID: <199712162002.TAA09514@webern.mhsg.ac.at>
+Date: 16 Dec 1997 17:55:31 -0000
+From: Guenter Geiger
+Subject: Re: Problem with 2.1.43 kernel
+
+Christopher C Chimelis writes:
+ > You should try 2.1.67.  I'm running it on my UDB and it compiled very
+
+ Nope .. it compiled fine, but gets stuck after the kernel is unzipped.
+ It seems that something changed after 2.1.13 in the startup code .. ??
+
+ Well, I have to stay with the 2.0 series :( 
+
+ > If you can, let me know what you want included in the kernel and I can try
+ > to compile one for you during some spare cycles.
+ > 
+
+ Thank you for that offer, I'll come back to it, next time before I
+ already compiled them .. :-)
+
+ Guenter
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 16 Dec 1997 18:14:18 -0000
+Message-ID: <Pine.LNX.3.96.971216131351.8692B-100000@beezer.med.miami.edu>
+Date: 16 Dec 1997 18:14:18 -0000
+From: Christopher C Chimelis
+Subject: Re: Problem with 2.1.43 kernel
+
+On Tue, 16 Dec 1997, Guenter Geiger wrote:
+
+>  Nope .. it compiled fine, but gets stuck after the kernel is unzipped.
+>  It seems that something changed after 2.1.13 in the startup code .. ??
+
+Yes, I believe the startup code did change, but can't remember how or why.
+I didn't bother with the development kernels until they were in the 2.1.30
+series.
+
+>  Well, I have to stay with the 2.0 series :( 
+
+:(  DOH!
+
+>  Thank you for that offer, I'll come back to it, next time before I
+>  already compiled them .. :-)
+
+I'll mull over some other solutions or maybe even try to retackle MILO
+compilation.  If I can get one working here, I'll see what I can do for
+the PC164's.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 17 Dec 1997 11:26:59 -0000
+Message-ID: <ylenk9d4td16.fsf@viper.law.miami.edu>
+Date: 17 Dec 1997 11:26:59 -0000
+From: Michael Alan Dorman
+Subject: New dpkg-1.4.0.19 uploaded
+
+Guy,
+
+This is simply a recompile to pick up current libraries, libg++272,
+ncurses3.4, etc.  If you could please shove it in, despite the version
+number match, I'd appreciate it.  I've cc:'d debian-alpha so they'll
+know it's there as well.
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 17 Dec 1997 20:38:22 -0000
+Message-ID: <Pine.LNX.3.96.971217153806.1409A-100000@beezer.med.miami.edu>
+Date: 17 Dec 1997 20:38:22 -0000
+From: Christopher C Chimelis
+Subject: Hiafa-enabled egcs test results
+
+I went back and rebuilt egcs with the new Hiafa instruction scheduler and
+it seemed to work this time :))))  It also seemed to complete the test
+suite a hair faster too.  Here's the results with the switches:
+--enable-hiafa --enable-shared --enable-threads
+
+Test Run By root on Wed Dec 17 10:17:08 1997
+Native configuration is alpha-unknown-linux-gnu
+
+		=== gcc tests ===
+		=== gcc Summary ===
+
+# of expected passes		4875
+# of unexpected failures	8
+# of expected failures		5
+# of unsupported tests		7
+/root/in/egcs/alpha-hiafa/gcc/xgcc version egcs-2.90.21 971202 (egcs-1.00 release)
+
+Test Run By root on Wed Dec 17 12:29:09 1997
+Native configuration is alpha-unknown-linux-gnu
+
+		=== g++ tests ===
+		=== g++ Summary ===
+
+# of expected passes		2939
+# of unexpected failures	456
+# of unexpected successes	2
+# of expected failures		86
+# of untested testcases		6
+/root/in/egcs/alpha-hiafa/gcc/testsuite/../xgcc version egcs-2.90.21 971202 (egcs-1.00 release)
+
+Test Run By root on Wed Dec 17 14:04:35 1997
+Native configuration is alpha-unknown-linux-gnu
+
+		=== g77 tests ===
+		=== g77 Summary ===
+
+# of expected passes		126
+# of unexpected failures	6
+/root/in/egcs/alpha-hiafa/gcc/g77 version egcs-2.90.21 971202 (egcs-1.00 release)
+
+Not bad overall.  I had no more failures than I did in the previous tests
+(which we know is related to the --enable-shared switch).  I'll be
+installing this copy of egcs today and should start work on octave soon
+(for a real-life g77 test).
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 18 Dec 1997 15:15:23 -0000
+Message-ID: <Pine.LNX.3.96.971218101641.9650A-100000@beezer.med.miami.edu>
+Date: 18 Dec 1997 15:15:23 -0000
+From: Christopher C Chimelis
+Subject: felt uploaded -- please test
+
+Hi all...
+
+Well, I started really USING egcs today and compiled the felt package in
+the "math" category.  If someone without egcs could please test this for
+me, I'd greatly appreciate it.  I don't know much about the package and am
+EXTREMELY low on hard drive space, otherwise, I would've tested it.
+
+I'm just curious to see how well it runs given that a portion of it was in
+Fortran :)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 18 Dec 1997 15:55:06 -0000
+Message-ID: <Pine.LNX.3.96.971218105556.11055B-100000@beezer.med.miami.edu>
+Date: 18 Dec 1997 15:55:06 -0000
+From: Christopher C Chimelis
+Subject: egcs kernel success
+
+Hello again...
+
+Well, I booted my first egcs-compiled kernel today and it works great :)
+I had to patch 2.1.72 for some discrepancies which prevented it to compile
+(tga stuff and to fix an overcompensation for the last bug I reported
+against the kernel), but it works great :)
+
+I'm not sure how well optimised it is, but it seems a hair faster on boot.
+I guess I'll find out when I start poking further at the system.
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 19 Dec 1997 22:35:41 -0000
+Message-ID: <Pine.LNX.3.96.971219233623.764B-100000@leon.lander.es>
+Date: 19 Dec 1997 22:35:41 -0000
+From: Roberto Lumbreras
+Subject: route problems...
+
+Hi all...
+
+I'm having problems with /sbin/route, when I provide a netmask to
+the "route add -net"...
+
+This works ok:
+
+ifconfig eth0 1.1.1.44 netmask 255.255.255.224 broadcast 1.1.1.63
+route add -net 1.1.1.32 netmask 255.255.255.224 dev eth0
+route add -net 1.1.1.16 netmask 255.255.255.248 gw 1.1.1.55
+
+but all these fail with "SIOCADDRT: Network is unreachable":
+
+route add -net 1.1.1.64 netmask 255.255.255.192 dev eth0
+route add -net 1.1.1.128 netmask 255.255.255.192 dev eth0
+route add -net 192.168.0.0 netmask 255.255.0.0 reject
+
+My netbase is version 3.00-1, kernel is 2.0.32 with
+alpha-patches-2.0.32-0.1.gz and raid145-971022-2.0.31.
+
+Ideas??
+
+Regards,
+
+Roberto Lumbreras
+rover@lander.es | rover@etsit.upm.es | rover@debian.org & pgp 143BE391
+Lander Internet, Madrid-Spain-UE; http://www.lander.es
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 23 Dec 1997 23:55:30 -0000
+Message-ID: <Pine.LNX.3.96.971223111342.17942A-100000@beezer.med.miami.edu>
+Date: 23 Dec 1997 23:55:30 -0000
+From: Christopher C Chimelis
+Subject: Busy!
+
+Hi all...
+
+Just wanted to check in and say that I've been one seriously busy guy when
+it comes to package compilation.  I have been keeping up with the
+debian-devel-changes list and am recompiling things as they come out now,
+meaning that we're pretty well updated on alot of things that we either
+didn't have before or were woefully outdated.
+
+I'm currently recompiling the GIMP in order to get the Sane thing working
+(no means to test it currently, fyi) and packaged.  I also have to try the
+latest development kernel (2.1.75 as of now) since I've filed a few bug
+reports on the previous ones (sooner or later, the newest stuff will
+compile cleanly :P).
+
+The only thing I wonder is if anyone has managed to compile svgalib on
+their Alpha yet.  I haven't succeeded and, frankly, I'm in no hurry to
+tackle the problems.  If it works and compiles, though, I need this to be
+done soon since a number of packages rely on it and I'd like to start on
+those.  So, any takers would be appreciated :)
+
+That's about it.  Oh, yeah, and anyone wanting an extra Alpha for
+practically nothing, I'll repost an offer for some older, slow
+motherboards that are being sold off for $200 bare.  I think it had a
+233MHz processor overclocked to 266 or something on it too.
+
+That's it :)  Happy Alpha-ing :)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 23 Dec 1997 23:55:35 -0000
+Message-ID: <Pine.LNX.3.96.971223111939.17942B-100000@beezer.med.miami.edu>
+Date: 23 Dec 1997 23:55:35 -0000
+From: Christopher C Chimelis
+Subject: "noname" blowout (fwd)
+
+Here's the offer....
+
+---------- Forwarded message ----------
+Date: Mon, 22 Dec 1997 19:35:11 -0700
+From: "Maurice W. Hilarius" <harddata@bigfoot.com>
+Subject: "noname" blowout
+Resent-From: axp-list@redhat.com
+
+We have a number of AXPpci33 / 233MHz Motherboards and CPUs to sell off.
+This is the last of the 233/266 nonames, and, quite frankly we are done
+building nonames.
+Having built and sent out over 200 of the beasties in the last 9 months,
+it's been fun. But, we're very busy, don't make very much on these, and
+have decided it is time to stick to the newer stuff. Oh , it is also
+inventory time!
+
+So, "Year-End Madness":
+
+Digital EBP22-CA : AXPpci33 motherboard, 266MHz CPU, onboard 53c810
+Symbios/NCR SCSI, onboard IDE, 2 x 16550 serial, 1 parallel port. Has PS/2
+connectors/ports for mouse and keyboard, and fits in most PC-AT style
+cases. Needs at least a 225W power supply.
+All include 1 year Digital warranty, manual, firmware CD-ROM, and the first
+5 get a shrink-wrapped copy of Red Hat 4.2 Alpha thrown in.
+
+All brand new and in the original DEC static bag, factory sealed.
+For only $200 U.S. each.
+
+See below for contact details.
+
+Seasons Greetings,
+
+Maurice W. Hilarius
+President, Hard Data Ltd.		Telephone: 01-403-456-1510
+11060 - 166 Avenue			email:harddata@bigfoot.com
+Edmonton, AB, Canada  - T5X 1Y3
+
+-- 
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 28 Dec 1997 01:26:08 -0000
+Message-ID: <yleng1neqm94.fsf@viper.law.miami.edu>
+Date: 28 Dec 1997 01:26:08 -0000
+From: Michael Alan Dorman
+Subject: New glibc, please test...
+
+Finally, we've gotten a glibc-2.0.6 pre-release that compiles on the
+alpha.
+
+I encourage everyone to try this---I'm using it with no problems, and
+the only way we can be 100% sure that it's solid is if we participate
+in testing.
+
+Mike.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 28 Dec 1997 02:57:32 -0000
+Message-ID: <ylend8iiqi0r.fsf@viper.law.miami.edu>
+Date: 28 Dec 1997 02:57:32 -0000
+From: Michael Alan Dorman
+Subject: Re: New glibc, please test...
+
+Blast,
+
+It's on mdorman.law.miami.edu/pub/glibc
+
+Michael Alan Dorman <mdorman@viper.law.miami.edu> writes:
+
+> Finally, we've gotten a glibc-2.0.6 pre-release that compiles on the
+> alpha.
+> 
+> I encourage everyone to try this---I'm using it with no problems, and
+> the only way we can be 100% sure that it's solid is if we participate
+> in testing.
+> 
+> Mike.
+> 
+> 
+> --
+> TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+> debian-alpha-request@lists.debian.org . 
+> Trouble?  e-mail to templin@bucknell.edu .
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 28 Dec 1997 21:31:51 -0000
+Message-ID: <m0xmP89-00005OC@Foma.fiz.uni-lj.si>
+Date: 28 Dec 1997 21:31:51 -0000
+From: Ferenc Kiraly
+Subject: Graphic card for an alpha
+
+Hi!
+
+Thanks for the generous response to my preveous questions. Now
+I am actualy starting with the process of purchasing an alpha. Here
+I have an offer for a 21164EV56 @ 500MHz with a RPX164-2 
+motherbord. Will this work with Linux? The motherboard contains
+a Symbios Logic 33C875 (?) SCSI controller and a DIgital 21143
+ethernet. There are also PCI slots for the graphics adaptor. They
+offered me a graphics card that costs $2500. That is way too much,
+since I need only modest graphics capabilities. Is it possible to get
+a graphics card for about $250, for example one of the ATI Mach
+cards, that would still allow me to run X. I'd rather spend that money
+on extra RAM. I am planning on getting 256 Megs of that stuff.
+
+Can you guys please share your experiences with the alpha
+hardware that runs (or does'nt) with Linux. Thanks.
+
+	feri.
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 29 Dec 1997 19:29:57 -0000
+Message-ID: <Pine.LNX.3.96.971229143233.17818A-100000@beezer.med.miami.edu>
+Date: 29 Dec 1997 19:29:57 -0000
+From: Christopher C Chimelis
+Subject: New ppp -- test please
+
+Hi all...
+
+I compiled the new ppp package the other day.  I didn't notice any changes
+offhand from the maintainer, but the upstream author may have done
+something to fix some of the routing problems experienced in the past
+without noting it.  In any case, if someone could please test it, I would
+appreciate it.  I just don't want to upload it and replace a working
+version without testing this one first.
+
+The new one is on my site:
+	beezer.med.miami.edu:/pub/chris/ppp-testme
+
+Please let me know if this works so I can upload it soon :)
+
+Thanks!  Happy holidays :)
+
+Chris
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 29 Dec 1997 23:17:26 -0000
+Message-ID: <Pine.LNX.3.93.971229172507.25939A-100000@nomad.tor.lets.net>
+Date: 29 Dec 1997 23:17:26 -0000
+From: tlmkr
+Subject: Whoops.. DEC Alpha boards?
+
+Howdy!
+
+	I remember seeing a post about DEC Alpha boards (21066A chip?).
+I deleted it thinking that I was not interested(at the time I wasn't), 
+but something has come up and I think that they might be a good solution.
+Could someone please forward to me a copy of the post or other information 
+about this offer? 
+
+	thanx -steve
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+
+From unknown 29 Dec 1997 23:19:32 -0000
+Message-ID: <Pine.LNX.3.96.971229182404.26331A-100000@beezer.med.miami.edu>
+Date: 29 Dec 1997 23:19:32 -0000
+From: Christopher C Chimelis
+Subject: Re: Whoops.. DEC Alpha boards?
+
+On Mon, 29 Dec 1997, tlmkr wrote:
+
+> 	I remember seeing a post about DEC Alpha boards (21066A chip?).
+> I deleted it thinking that I was not interested(at the time I wasn't), 
+> but something has come up and I think that they might be a good solution.
+> Could someone please forward to me a copy of the post or other information 
+> about this offer? 
+
+Sure, I'll forward it to you privately :)
+
+C
+
+--
+TO UNSUBSCRIBE FROM THIS MAILING LIST: e-mail the word "unsubscribe" to
+debian-alpha-request@lists.debian.org . 
+Trouble?  e-mail to templin@bucknell.edu .
+

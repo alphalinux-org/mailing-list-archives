@@ -1,0 +1,4936 @@
+From unknown Sat, 01 Dec 2001 02:12:20 -0600
+Message-ID: <20011201011216.A22935@tdyc.com>
+Date: Sat, 01 Dec 2001 02:12:20 -0600
+From: "Ivan E. Moore II"
+Subject: fyi build bug squashing...
+
+hey all...just a fyi that I'm digging through build logs and any that
+fail due to optimization are getting bug reports as they do not build
+from source.  The main reason I'm spouting this here is that if any of
+you are manually building packages and are working around these bugs without
+filing a bug report should stop and start filing bug reports with a severity
+of serious.  Since we are close to freeze and release we must be concerned
+that a user who installs woody can easily do a apt-get source package and
+build it without having to go hack on g++ or do anything except debian/rules
+binary.
+
+so...if you find packages that do not built from source becuase they need to 
+be built with -O0 -mieee then make sure a bug report has been filed telling
+the maintainer what is wrong ...I'll tag below what my reports say... and
+set the severity to Serious (the package *must* build from source on all
+released arch's without anything fancy).
+
+Thanks,
+
+Ivan
+
+-----
+
+g++ apps need to be build with no optimization on alpha due to some problems
+with the compiler.  It is best to pass
+
+   -O0 -mieee
+
+off to CXXFLAGS at build time for alpha builds otherwise you'll end up
+with build problems like this.
+
+-- 
+----------------
+Ivan E. Moore II
+rkrusty@tdyc.com
+http://snowcrash.tdyc.com
+GPG KeyID=90BCE0DD
+GPG Fingerprint=F2FC 69FD 0DA0 4FB8 225E 27B6 7645 8141 90BC E0DD
+
+From unknown Sat, 01 Dec 2001 02:58:35 -0600
+Message-ID: <20011201095815.A8943@alpha.of.nowhere>
+Date: Sat, 01 Dec 2001 02:58:35 -0600
+From: Jurriaan on Alpha
+Subject: any experience with voodoo 4500/5500 framebuffer @ high pixclocks?
+
+My voodoo 4500 pci doesn't work that well with 2.4.17pre1/2 and a
+resolution of 1600x1200-16@80. I did get the latest 3dfx patches, but
+they also don't work. X works perfectly. 
+
+Is there any alpha user using a voodoo 4500/5500 with a framebuffer at
+this resolution (or rather, at a pixel-clockrate of > 175 MHz) ?
+
+I'd like to compare settings.
+
+Thanks,
+Jurriaan
+-- 
+"Bother!" said Pooh, as he saw the Predator knock out Arnold cold
+GNU/Linux 2.4.17-pre1 on Debian/Alpha 64-bits 988 bogomips load:0.11 0.16 0.07
+
+From unknown Sat, 01 Dec 2001 07:03:21 -0600
+Message-ID: <87adx3cctw.fsf@student.uni-tuebingen.de>
+Date: Sat, 01 Dec 2001 07:03:21 -0600
+From: Falk Hueffner
+Subject: Re: fyi build bug squashing...
+
+"Ivan E. Moore II" <rkrusty@tdyc.com> writes:
+
+> hey all...just a fyi that I'm digging through build logs and any
+> that fail due to optimization are getting bug reports as they do not
+> build from source.
+
+Well, one of the most important here is gtk+, I'd say... The weird bug
+with panes being the wrong size is back currently. Didn't somebody
+find out once which .c file was involved? It would be nice to turn off
+optimiziation for that file specifically to avoid bloat...
+
+        Falk
+
+From unknown Sun, 02 Dec 2001 15:12:40 -0600
+Message-ID: <oaoflhxs1r.fsf@arroz.onshored.com>
+Date: Sun, 02 Dec 2001 15:12:40 -0600
+From: Adam Di Carlo
+Subject: Re: Bug#121110: boot-floppies: TFTP boot on Alpha broken
+In-Reply-To: <20011201183437.A8101@panama>
+
+pjordan@whitehorse.blackwire.com writes:
+
+> If this is the init q thing that kill syour system during an install
+> when running with initrd, I have a patch to busybox that
+> fixes it on the powerpc.
+> The problem is that ... when reboot.c
+> does 'pid_t *pid = find_pid_by_name("init");',
+> then there is code in find_pid_by_name that "makes sure" init is found
+> by passing '1' back if it couldn't find it.
+
+No, I don't think this is related to the problem reported in 121110.
+I'm guessing 121110 has been fixed along with bug#116829 -- the
+problem was the way that busybox init and telinit didn't get along
+together in the context when init wasn't pid 1.
+
+I don't think the "fix" you outlined will fix anything.
+
+Assuming the good alpha folks are installing over the network, they
+should be using sysvinit 2.84-1, in which case, this bug should have
+already gone away.
+
+-- 
+...Adam Di Carlo..<adam@onshore-devel.com>...<URL:http://www.onshored.com/>
+
+From unknown Mon, 03 Dec 2001 03:31:20 -0600
+Message-ID: <kirk-1011203102719.A0322368@hydra.colinet.de>
+Date: Mon, 03 Dec 2001 03:31:20 -0600
+From: "T. Weyergraf"
+Subject: nfsroot with kernel 2.4.x
+
+Hi list,
+
+i am trying to netboot one alpha off another, which used to work perfectly using kernels 2.2.x.
+Now, I try to boot the client using a 2.4.x kernel, which fails giving the error-message below.
+
+config notes:
+The server uses kernel 2.4.16 with the kernel-nfs server. bootp/tftp settings are correct
+too. The client is able to boot *completely* using the older 2.2.9 kernel, configured
+for this method.
+I setup the client's 2.4.15 ( yes, it has a severe bug, but for the matter of testing, it should be ok )
+according to the netboot-rules as in 2.2.9. That is, the following ( among others ) is set:
+CONFIG_NET=y
+CONFIG_UNIX=y
+CONFIG_INET=y
+CONFIG_IP_PNP_BOOTP=y
+CONFIG_IP_PNP_RARP=y
+CONFIG_NFS_FS=y
+# CONFIG_NFS_V3 is not set
+CONFIG_ROOT_NFS=y
+# CONFIG_NFSD is not set
+CONFIG_SUNRPC=y
+CONFIG_LOCKD=y
+
+The build is done traditionally using make boot && make bootpfile.
+The client is booted using:
+ boot -proto bootp ewa0 -fl "1.2.3.4:/path/to/rootfs"
+with 1.2.3.4 being the correct server IP and /path/to/rootfs the nfsroot-subdir.
+
+The IP is cofigured correctly, the kernel is being load ok. But mounting the nfsroot, it fails with this 
+message:
+NET4: Linux TCP/IP 1.0 for NET4.0
+IP Protocols: ICMP, UDP, TCP
+IP: routing cache hash table of 512 buckets, 8Kbytes
+TCP: Hash tables configured (established 8192 bind 8192)
+NET4: Unix domain sockets 1.0/SMP for Linux NET4.0.
+Looking up port of RPC 100003/2 on 194.231.113.37
+RPC: sendmsg returned error 51
+portmap: RPC call returned error 51
+Root-NFS: Unable to get nfsd port number from server, using default
+Looking up port of RPC 100005/1 on 194.231.113.37
+RPC: sendmsg returned error 51
+portmap: RPC call returned error 51
+Root-NFS: Unable to get mountd port number from server, using default
+RPC: sendmsg returned error 51
+mount: RPC call returned error 51
+Root-NFS: Server returned error -51 while mounting /home/colinet/dis
+VFS: Unable to mount root fs via NFS, trying floppy.
+request_module[block-major-2]: Root fs not mounted
+VFS: Cannot open root device "" or 02:00
+Please append a correct "root=" boot option
+Kernel panic: VFS: Unable to mount root fs on 02:00
+
+note, that rpcinfo on the server shows the relevant ports being serviced and the exports are
+setup correct.
+
+I have the unholy feeling, that I'm missing something *very stupid*.
+
+Any ideas ?
+
+Regards,
+Thomas Weyergraf
+
+-- 
+Thomas Weyergraf                                                kirk@colinet.de
+My Favorite IA64 Opcode-guess ( see arch/ia64/lib/memset.S )
+"br.ret.spnt.few" - got back from getting beer, did not spend a lot.
+
+From unknown Mon, 03 Dec 2001 06:16:01 -0600
+Message-ID: <1007381730.1800.14.camel@satan.xko.dec.com>
+Date: Mon, 03 Dec 2001 06:16:01 -0600
+From: "Aneesh Kumar K.V"
+Subject: filling up pt_regs by  myself
+
+Hi, 
+
+ Is there any functions that i can use to setup pt_regs structure
+myself. 
+
+For example how can I take a following  i386 system call  to alpha 
+
+ sys_mycall( struct pt_regs regs)
+{
+	my_function( &regs);
+
+}
+
+I tried to do it same way . But then the value of members of  regs
+structure  that i am  getting are corrupted. Later looking into the
+source i found that for most of  alpha  system call is defined something
+like 
+
+ sys_mycall( arg1, arg2, arg3.....)
+
+So i replaced the above function definition with 
+
+ sys_mycall( argument1, argument 2 argument ) here consider  it takes
+only three arguments ... 
+
+But now how i will pass the regs structure to my_function . Is there any
+already existing function that help me to do that something like
+save_regs(&regs) ? Or do i need to hand code all the saving by itself.
+Can I use SAVE_ALL #define defined in entry.S .
+
+Thanks in advance . 
+
+ -aneesh
+
+From unknown Mon, 03 Dec 2001 06:29:41 -0600
+Message-ID: <20011203122850.GA5653@riva.ucam.org>
+Date: Mon, 03 Dec 2001 06:29:41 -0600
+From: Colin Watson
+Subject: Request for build: mpg123
+
+Hi,
+
+Could somebody try to build mpg123 0.59r-10 on alpha and m68k, please?
+The old version is extremely out of date and still uses /usr/doc. It's
+non-free (non-commercial use only), but as I read the copyright file
+there's no problem with building and distributing precompiled binaries
+on multiple architectures.
+
+Thanks,
+
+-- 
+Colin Watson                                  [cjwatson@flatline.org.uk]
+
+From unknown Mon, 03 Dec 2001 06:57:21 -0600
+Message-ID: <Pine.LNX.4.10.10112031355580.22932-100000@zirkon.biophys.uni-duesseldorf.de>
+Date: Mon, 03 Dec 2001 06:57:21 -0600
+From: Michael Schmitz
+Subject: Re: Request for build: mpg123
+
+> Could somebody try to build mpg123 0.59r-10 on alpha and m68k, please?
+> The old version is extremely out of date and still uses /usr/doc. It's
+> non-free (non-commercial use only), but as I read the copyright file
+> there's no problem with building and distributing precompiled binaries
+> on multiple architectures.
+
+I can set up an m68k account for you on one of the build machines, OK?
+Just send me username/password crypt (encrypted if possible).
+
+	Michael
+
+From unknown Mon, 03 Dec 2001 07:33:29 -0600
+Message-ID: <Pine.LNX.4.21.0112030832160.17795-100000@spawn.hockeyfiend.com>
+Date: Mon, 03 Dec 2001 07:33:29 -0600
+From: "Christopher C. Chimelis"
+Subject: Re: Request for build: mpg123
+
+On Mon, 3 Dec 2001, Colin Watson wrote:
+
+> Could somebody try to build mpg123 0.59r-10 on alpha and m68k, please?
+> The old version is extremely out of date and still uses /usr/doc. It's
+> non-free (non-commercial use only), but as I read the copyright file
+> there's no problem with building and distributing precompiled binaries
+> on multiple architectures.
+
+I'm compiling it now on Alpha.  I can't test to see if it actually works,
+though, until I get home later today.
+
+C
+
+From unknown Mon, 03 Dec 2001 07:35:47 -0600
+Message-ID: <Pine.LNX.4.21.0112030834350.17795-100000@spawn.hockeyfiend.com>
+Date: Mon, 03 Dec 2001 07:35:47 -0600
+From: "Christopher C. Chimelis"
+Subject: Re: Request for build: mpg123
+
+On Mon, 3 Dec 2001, Colin Watson wrote:
+
+> Could somebody try to build mpg123 0.59r-10 on alpha and m68k, please?
+> The old version is extremely out of date and still uses /usr/doc. It's
+> non-free (non-commercial use only), but as I read the copyright file
+> there's no problem with building and distributing precompiled binaries
+> on multiple architectures.
+
+It compiles ok on Alpha (no errors at least).  I'll try to test it
+tonight.
+
+C
+
+From unknown Mon, 03 Dec 2001 07:41:58 -0600
+Message-ID: <Pine.LNX.3.96.1011203074026.6472D-100000@master.debian.org>
+Date: Mon, 03 Dec 2001 07:41:58 -0600
+From: Michael Stroucken
+Subject: Re: Request for build: mpg123
+
+On Mon, 3 Dec 2001, Christopher C. Chimelis wrote:
+
+> > Could somebody try to build mpg123 0.59r-10 on alpha and m68k, please?
+> > The old version is extremely out of date and still uses /usr/doc. It's
+> > non-free (non-commercial use only), but as I read the copyright file
+> > there's no problem with building and distributing precompiled binaries
+> > on multiple architectures.
+> It compiles ok on Alpha (no errors at least).  I'll try to test it
+> tonight.
+
+	0.59r always gave me horrible sound output, so I've kept 0.59q on
+hold for ages.
+
+Greetings,
+Michael.
+
+"I'm not just a server, but I'm also a client."		Debian GNU/Linux
+Michael Stroucken	stroucki@debian.org	 Is your penguin 64 bit?
+
+From unknown Mon, 03 Dec 2001 08:21:02 -0600
+Message-ID: <20011203142028.GA6078@riva.ucam.org>
+Date: Mon, 03 Dec 2001 08:21:02 -0600
+From: Colin Watson
+Subject: Re: Request for build: mpg123
+
+[trimmed Cc: list]
+
+On Mon, Dec 03, 2001 at 07:41:42AM -0600, Michael Stroucken wrote:
+> On Mon, 3 Dec 2001, Christopher C. Chimelis wrote:
+> > It compiles ok on Alpha (no errors at least).  I'll try to test it
+> > tonight.
+> 
+> 	0.59r always gave me horrible sound output, so I've kept 0.59q on
+> hold for ages.
+
+This isn't bug #70552, is it? mpg123 is an orphaned package, but I've
+done the last few QA uploads and can apply fixes if somebody finds them.
+
+Also check if it's fixed in CVS, if you're feeling keen. One of the CVS
+changes is:
+
+- fixed decoding bug for linux-alpha
+
+I suppose I might be able to find and backport this ... I'd like to kill
+the /usr/doc relic and then worry about that, though. :)
+
+-- 
+Colin Watson                                  [cjwatson@flatline.org.uk]
+
+From unknown Mon, 03 Dec 2001 12:12:07 -0600
+Message-ID: <261D956B13AED511AEC500805F6FE14E09318D@tus-exch1.etest.com>
+Date: Mon, 03 Dec 2001 12:12:07 -0600
+From: Jeff.Chimene@etest.com
+Subject: Booting from MILO on AS200
+
+Hi:
+ 
+On an 
+AS/200, at the MILO prompt, I should be following these instructions, from the 
+"Installing Debian GNU/Linux 2.2 for Alpha":
+
+  
+  
+
+To bootstrap the installation system, 
+  enter the following command at the MILO prompt:      MILO> boot fd0:linux.gz root=/dev/fd0 load_ramdisk=1
+
+  
+
+If you are booting from something other 
+  than a floppy, substitute fd0 in the above example with the 
+  appropriate device name in Linux notation. The help command would 
+  give you a brief MILO command reference. 
+Where is "linux.gz?" when 
+I use the path "sr0:boot/linux.", MILO complains that this is not a gzipped 
+file.
+I would prefer not to boot from floppies. Presumably I have a "bootable" 
+CD-ROM image, although LSL disclaims any responsibility for the contents of the 
+CD-ROM. 
+ 
+It looks like even though I boot MILO, and can access a CD-ROM drive, I 
+still have to boot from floppies to continue the installation? Perhaps linux.gz is the machine-specific 
+image created by the install process?
+ 
+I not that the section "Obtaining and 
+Installing Linux" at www.linuxdoc.org 
+doesn't actually mention this 
+file.
+
+From unknown Tue, 04 Dec 2001 05:15:31 -0600
+Message-ID: <01120412125905.12792@pcfyma3.fyma.ucl.ac.be>
+Date: Tue, 04 Dec 2001 05:15:31 -0600
+From: Laurent Jacques
+Subject: intel emulation
+
+Hello,
+
+Does it exist an intel emulation package under debian alpha ?
+I know already em86 under RedHat but it seems a little old (1998) and I'm 
+afraid of the old library interaction.
+
+Do you have also experiment a flash plugin emulation under alpha (with 
+mozilla, netscape or konqueror) ?
+
+L. Jacques
+
+From unknown Tue, 04 Dec 2001 10:53:09 -0600
+Message-ID: <261D956B13AED511AEC500805F6FE14E093192@tus-exch1.etest.com>
+Date: Tue, 04 Dec 2001 10:53:09 -0600
+From: Jeff.Chimene@etest.com
+Subject: Re: Booting from MILO on AS200
+
+Hi List!
+ 
+Thanks for your help! I was able to continue to research the problem. I'd 
+especially like to thank [--], [..] and most of all [  ] for their 
+insightful contributions.
+ 
+You're right! RTFM certainly is the right answer in this 
+case!
+ 
+Cheers!
+
+  -----Original Message-----
+From: Jeff.Chimene@etest.com 
+  [mailto:Jeff.Chimene@etest.com]
+Sent: Monday, December 03, 2001 
+  11:12
+To: debian-alpha@lists.debian.org
+Subject: Booting 
+  from MILO on AS200
+
+  Hi:
+   
+  On 
+  an AS/200, at the MILO prompt, I should be following these instructions, from 
+  the "Installing Debian GNU/Linux 2.2 for Alpha":
+  
+    
+    
+
+To bootstrap the installation system, 
+    enter the following command at the MILO prompt:      MILO> boot fd0:linux.gz root=/dev/fd0 load_ramdisk=1
+
+    
+
+If you are booting from something 
+    other than a floppy, substitute fd0 in the above example with 
+    the appropriate device name in Linux notation. The help command 
+    would give you a brief MILO command reference. 
+  Where is "linux.gz?" 
+  when I use the path "sr0:boot/linux.", MILO complains that this is not a 
+  gzipped file.
+  I would prefer not to boot from floppies. Presumably I have a 
+  "bootable" CD-ROM image, although LSL disclaims any responsibility for the 
+  contents of the CD-ROM. 
+   
+  It looks like even though I boot MILO, and can access a CD-ROM drive, I 
+  still have to boot from floppies to continue the installation? Perhaps linux.gz is the machine-specific 
+  image created by the install process?
+   
+  I not that the section "Obtaining and 
+  Installing Linux" at www.linuxdoc.org 
+  doesn't actually mention this 
+file.
+
+From unknown Tue, 04 Dec 2001 14:30:32 -0600
+Message-ID: <3C0D2D23.173A514B@mvista.com>
+Date: Tue, 04 Dec 2001 14:30:32 -0600
+From: george anzinger
+Subject: Re: filling up pt_regs by  myself
+
+To the best of my knowledge there is NOT a standard way to pass the
+pt_regs to a system call.  Each arch does its own thing.  Makes it REAL
+hard to write a system call that needs them.  I hope we can define a
+standard interface.
+
+George
+
+"Aneesh Kumar K.V" wrote:
+> 
+> Hi,
+> 
+>  Is there any functions that i can use to setup pt_regs structure
+> myself.
+> 
+> For example how can I take a following  i386 system call  to alpha
+> 
+>  sys_mycall( struct pt_regs regs)
+> {
+>         my_function( &regs);
+> 
+> }
+> 
+> I tried to do it same way . But then the value of members of  regs
+> structure  that i am  getting are corrupted. Later looking into the
+> source i found that for most of  alpha  system call is defined something
+> like
+> 
+>  sys_mycall( arg1, arg2, arg3.....)
+> 
+> So i replaced the above function definition with
+> 
+>  sys_mycall( argument1, argument 2 argument ) here consider  it takes
+> only three arguments ...
+> 
+> But now how i will pass the regs structure to my_function . Is there any
+> already existing function that help me to do that something like
+> save_regs(&regs) ? Or do i need to hand code all the saving by itself.
+> Can I use SAVE_ALL #define defined in entry.S .
+> 
+> Thanks in advance .
+> 
+>  -aneesh
+> 
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+
+-- 
+George           george@mvista.com
+High-res-timers: http://sourceforge.net/projects/high-res-timers/
+Real time sched: http://sourceforge.net/projects/rtsched/
+
+From unknown Wed, 05 Dec 2001 09:47:50 -0600
+Message-ID: <01120516403705.19882@pcfyma3.fyma.ucl.ac.be>
+Date: Wed, 05 Dec 2001 09:47:50 -0600
+From: Laurent Jacques
+Subject: Flash macromedia
+
+Hello,
+
+Does it exist a port the macromedia flash plugin for (debian) alpha ?
+I have already tryied the GPL flash from
+	http://www.swift-tools.com/Flash/
+but it doesn't work on mozilla and konqueror (many segfaults even if it is 
+home compiled. Why ?).
+
+I'm asking also if a Tru64 port of this plugin can be used un linux alpha ?
+
+Thanks,
+
+L. Jacques
+
+From unknown Thu, 06 Dec 2001 13:56:21 -0600
+Message-ID: <20011206192451.GA10715@alpha.of.nowhere>
+Date: Thu, 06 Dec 2001 13:56:21 -0600
+From: Jurriaan on Alpha
+Subject: libSDL and libXxf86dga.so - I'm in library hell!
+
+I'm trying to compile a patched version of mpeg2dec-0.2.0 (with an
+interleaved integer/floating point idct algorithm) in search of
+acceptable dvd-decoding speed on my alpha.
+
+I see this when compiling:
+
+c++ -L/usr/lib -L/usr/X11R6/lib -L/home/jurriaan/flintcmp/mpeg2dec-0.2.0/libmpeg2/.libs -L/home/jurriaan/flintcmp/mpeg2dec-0.2.0/libv
+o/.libs -lXxf86dga -lXxf86vm glmpeg2dec.o video_out_vtex.o -o glmpeg2dec /home/jurriaan/flintcmp/mpeg2dec-0.2.0/src/cpu_accel.o -lXxf
+86dga -lXxf86vm -lmpeg2 -lvo -lglut -lGLU -lGL -lXv -lSDL -lX11 -lpthread
+glmpeg2dec.o: In function `Init(video_texture_s *)':
+/home/jurriaan/flintcmp/glmpeg2dec.cc:494: undefined reference to `glXSwapIntervalSGI'
+/home/jurriaan/flintcmp/glmpeg2dec.cc:494: undefined reference to `glXSwapIntervalSGI'
+glmpeg2dec.o: In function `Key(unsigned char, int, int)':
+/home/jurriaan/flintcmp/glmpeg2dec.cc:704: undefined reference to `glXSwapIntervalSGI'
+/home/jurriaan/flintcmp/glmpeg2dec.cc:704: undefined reference to `glXSwapIntervalSGI'
+/home/jurriaan/flintcmp/glmpeg2dec.cc:709: undefined reference to `glXSwapIntervalSGI'
+glmpeg2dec.o:/home/jurriaan/flintcmp/glmpeg2dec.cc:709: more undefined references to `glXSwapIntervalSGI' follow
+/usr/lib/libSDL.so: undefined reference to `XF86VidModeQueryVersion'
+/usr/lib/libSDL.so: undefined reference to `XDGAOpenFramebuffer'
+/usr/lib/libSDL.so: undefined reference to `XDGAQueryModes'
+/usr/lib/libSDL.so: undefined reference to `XDGAGetViewportStatus'
+/usr/lib/libSDL.so: undefined reference to `XDGAFillRectangle'
+/usr/lib/libSDL.so: undefined reference to `XF86VidModeSetViewPort'
+/usr/lib/libSDL.so: undefined reference to `XF86VidModeSetGamma'
+/usr/lib/libSDL.so: undefined reference to `XDGAQueryVersion'
+/usr/lib/libSDL.so: undefined reference to `XDGACopyTransparentArea'
+[snip]
+
+I've installed every SDL and X -dev library package I can think of, but
+a search with google has convinced me that this means libSDL needs
+dynamic versions of some libraries (libXxf86dga and libXxf86vm have been
+mentioned) where the current X-4.1.0-9 only has static versions. I've
+tried to create dynamic versions of these libraries out of the static
+ones, but according to nm they don't have any symbols.
+
+Does anybody have any experience compiling things against libSDL?
+
+Thanks,
+Jurriaan
+-- 
+press CTRL-ALT-DEL for more information
+GNU/Linux 2.4.17-pre2 on Debian/Alpha 64-bits 988 bogomips load:0.01 0.02 0.03
+
+From unknown Thu, 06 Dec 2001 20:19:40 -0600
+Message-ID: <005c01c17ec5$3f8ac280$6701a8c0@ajf>
+Date: Thu, 06 Dec 2001 20:19:40 -0600
+From: "Andrew Forgue"
+Subject: Slllloooowwww Alpha
+
+Hello,
+ 
+I just installed debian on an Alpha Personal 
+Workstation 500a (not u)
+using the SRM console. And Every seems to be really 
+slow.  The windows
+in kde, gnome, or anywhere seem to take 4 or 5 
+seconds to completly 
+refresh... Would I get any performance benefit out 
+of compiling my own kernel
+and recompiling X from Source for this specific 
+platform? 
+
+Throw anything you have at me.. Im not a newbie 
+to linux or anything :-)
+ 
+-Andrew
+
+From unknown Thu, 06 Dec 2001 20:32:05 -0600
+Message-ID: <5.1.0.14.2.20011207133123.024a0840@pop.ozemail.com.au>
+Date: Thu, 06 Dec 2001 20:32:05 -0600
+From: Rob Byrnes
+Subject: Re: Slllloooowwww Alpha
+
+At 13:16 7/12/2001, Andrew Forgue sent this up the stick:
+
+Hello,
+
+I just installed debian on an Alpha Personal Workstation 500a (not u)
+using the SRM console. And Every seems to be really slow.  The windows
+in kde, gnome, or anywhere seem to take 4 or 5 seconds to completly
+refresh... Would I get any performance benefit out of compiling my own kernel
+and recompiling X from Source for this specific platform?
+
+Throw anything you have at me.. Im not a newbie to linux or anything :-)
+
+Interesting,  I had a similar problem, but for some reason mine were caused 
+by machine checks.  Ended up putting FreeBSD on this box and don't get 
+machine checks any more (weird)
+
+Rob
+
+From unknown Thu, 06 Dec 2001 20:43:33 -0600
+Message-ID: <Pine.LNX.4.21.0112062142090.26323-100000@spawn.hockeyfiend.com>
+Date: Thu, 06 Dec 2001 20:43:33 -0600
+From: "Christopher C. Chimelis"
+Subject: Re: Slllloooowwww Alpha
+
+On Thu, 6 Dec 2001, Andrew Forgue wrote:
+
+> I just installed debian on an Alpha Personal Workstation 500a (not u)
+> using the SRM console. And Every seems to be really slow.  The windows
+> in kde, gnome, or anywhere seem to take 4 or 5 seconds to completly 
+> refresh... Would I get any performance benefit out of compiling my own kernel
+> and recompiling X from Source for this specific platform? 
+> 
+> Throw anything you have at me.. Im not a newbie to linux or anything :-)
+
+You may get some benefit from a custom kernel.  As far as X goes, though,
+it's pretty pokey in general on 64-bit platforms (I've got two of
+them)...especially KDE and GNOME.
+
+How much RAM do you have in your machine?
+
+C
+
+From unknown Thu, 06 Dec 2001 20:45:26 -0600
+Message-ID: <Pine.LNX.4.21.0112062143210.26323-100000@spawn.hockeyfiend.com>
+Date: Thu, 06 Dec 2001 20:45:26 -0600
+From: "Christopher C. Chimelis"
+Subject: Re: Slllloooowwww Alpha
+
+On Fri, 7 Dec 2001, Rob Byrnes wrote:
+
+> Interesting,  I had a similar problem, but for some reason mine were caused 
+> by machine checks.  Ended up putting FreeBSD on this box and don't get 
+> machine checks any more (weird)
+
+Well, I'm not so sure that the FreeBSD kernel is just not showing them to
+you :-P  Machine checks can be caused by a myriad of different things, but
+I've seen more of them caused by bad RAM than anything else.  Did you
+investigate the machine checks when you got them or did you just give
+up?  (I'm curious :-P)
+
+C
+
+From unknown Thu, 06 Dec 2001 20:57:24 -0600
+Message-ID: <5.1.0.14.2.20011207135307.0254e150@pop.ozemail.com.au>
+Date: Thu, 06 Dec 2001 20:57:24 -0600
+From: Rob Byrnes
+Subject: Re: Slllloooowwww Alpha
+
+At 13:44 7/12/2001, Christopher C. Chimelis sent this up the stick:
+
+On Fri, 7 Dec 2001, Rob Byrnes wrote:
+
+> Interesting,  I had a similar problem, but for some reason mine were 
+caused
+
+> by machine checks.  Ended up putting FreeBSD on this box and don't get
+> machine checks any more (weird)
+
+Well, I'm not so sure that the FreeBSD kernel is just not showing them to
+you :-P  Machine checks can be caused by a myriad of different things, but
+I've seen more of them caused by bad RAM than anything else.  Did you
+investigate the machine checks when you got them or did you just give
+up?  (I'm curious :-P)
+
+It was brand new RAM, ordered from Crucial.  I had it replaced, but got the 
+same problems.  Checks like these *should* slow a machine down, 
+right?  Under FreeBSD, there is no noticable slowdown .... I'll try turning 
+logging on for the checks and see if I actually am getting them
+
+Debian Woody runs sweet on my PC64 though.
+
+Cheers,
+Rob
+
+From unknown Thu, 06 Dec 2001 22:10:17 -0600
+Message-ID: <Pine.LNX.4.21.0112062307540.26825-100000@spawn.hockeyfiend.com>
+Date: Thu, 06 Dec 2001 22:10:17 -0600
+From: "Christopher C. Chimelis"
+Subject: Re: Slllloooowwww Alpha
+
+On Fri, 7 Dec 2001, Rob Byrnes wrote:
+
+> It was brand new RAM, ordered from Crucial.  I had it replaced, but got the 
+> same problems.  Checks like these *should* slow a machine down, 
+> right?  Under FreeBSD, there is no noticable slowdown .... I'll try turning 
+> logging on for the checks and see if I actually am getting them
+
+It should, assuming that there's some attempt to handle the checks, IIRC
+(been a long while since I looked at that bit of the code).
+
+It may not have been the RAM, but that tends to be it in most cases.
+
+> Debian Woody runs sweet on my PC64 though.
+
+:-)
+
+C
+
+From unknown Fri, 07 Dec 2001 01:46:05 -0600
+Message-ID: <20011207084519.B31686@itp.uni-hannover.de>
+Date: Fri, 07 Dec 2001 01:46:05 -0600
+From: Helge Kreutzmann
+Subject: Re: libSDL and libXxf86dga.so - I'm in library hell!
+
+Hello !
+On Thu, Dec 06, 2001 at 08:24:51PM +0100, Jurriaan on Alpha wrote:
+> I see this when compiling:
+<snip> 
+> /home/jurriaan/flintcmp/glmpeg2dec.cc:494: undefined reference to `glXSwapIntervalSGI'
+<snip>
+
+I had that too. Does the configure script run through ? You can check
+for the missing .so by
+ldd /usr/lib/libSDL.so
+
+The reason on my machine was that I had sid pakets installed.
+"Downgrading" to woody solved the problem. You should try the latest
+*sdl1.2debian*" pakets. I can now compile SDL programmes again.
+
+Grettings
+
+          Helge
+
+-- 
+Helge Kreutzmann, Dipl.-Phys.               Helge.Kreutzmann@itp.uni-hannover.de
+  gpg signed mail preferred    gpg-key: finger kreutzm@rigel.itp.uni-hannover.de
+    64bit GNU powered                  http://www.itp.uni-hannover.de/~kreutzm
+       Help keep free software "libre": http://www.freepatents.org/
+
+Attachment:
+pgprX4Lab9bEn.pgp
+Description: PGP signature
+
+From unknown Fri, 07 Dec 2001 01:52:17 -0600
+Message-ID: <20011207084951.C31686@itp.uni-hannover.de>
+Date: Fri, 07 Dec 2001 01:52:17 -0600
+From: Helge Kreutzmann
+Subject: Enconding ogg-files
+
+Hello !
+I tried to encode ogg-files using oggencode (from oggenc) but always
+get segmentation faults on my LX. Before trying to investigate/filing
+a bug report I would like to ask if someone successfully used oggenc.
+
+Thanks
+
+       Helge
+
+P.S. Latest oggenc from woody on LX with almost latest glibc (from
+     woody)
+-- 
+Helge Kreutzmann, Dipl.-Phys.               Helge.Kreutzmann@itp.uni-hannover.de
+  gpg signed mail preferred    gpg-key: finger kreutzm@rigel.itp.uni-hannover.de
+    64bit GNU powered                  http://www.itp.uni-hannover.de/~kreutzm
+       Help keep free software "libre": http://www.freepatents.org/
+
+From unknown Fri, 07 Dec 2001 03:37:47 -0600
+Message-ID: <20011207093707.GA8554@mathphys.fsk.uni-heidelberg.de>
+Date: Fri, 07 Dec 2001 03:37:47 -0600
+From: Thimo Neubauer
+Subject: Re: Enconding ogg-files
+
+Hello,
+
+On Fri, Dec 07, 2001 at 08:49:51AM +0100, Helge Kreutzmann wrote:
+> I tried to encode ogg-files using oggencode (from oggenc) but always
+> get segmentation faults on my LX. Before trying to investigate/filing
+> a bug report I would like to ask if someone successfully used oggenc.
+
+I got exactly the same segfault and already filed bug #121995 to the
+vorbis-tools package. Strangely enough, the first replay I got to this
+report was by someone stating that oggenc runs fine on his
+Alpha... This could not the the architecture (my box is a SX164),
+could it??
+
+Puzzled
+     Thimo
+
+-- 
+Thimo Neubauer <thimo@debian.org>
+
+Attachment:
+pgpGntByBdLX4.pgp
+Description: PGP signature
+
+From unknown Fri, 07 Dec 2001 04:23:31 -0600
+Message-ID: <3C11338C.C02E9933@telegraphics.com.au>
+Date: Fri, 07 Dec 2001 04:23:31 -0600
+From: Toby Thain
+Subject: Re: Slllloooowwww Alpha
+
+> Andrew Forgue wrote:
+> 
+> Hello,
+> 
+> I just installed debian on an Alpha Personal Workstation 500a (not u)
+> using the SRM console. And Every seems to be really slow.  The windows
+> in kde, gnome, or anywhere seem to take 4 or 5 seconds to completly
+> refresh... Would I get any performance benefit out of compiling my own
+> kernel
+> and recompiling X from Source for this specific platform?
+
+Hi Andrew
+
+Having enough RAM is key - on Alpha that seems to mean >>128MB. Kernel
+2.4.14 also did a lot to improve responsiveness and KDE GUI on my
+Alphaserver 1000A 5/300 (RH7.1, 128MB). XFree86 4.1 seems to be quicker
+than the default install, on my Tseng ET-6000 card.
+
+regards
+Toby
+
+> 
+> Throw anything you have at me.. Im not a newbie to linux or anything
+> :-)
+> 
+> -Andrew
+
+From unknown Fri, 07 Dec 2001 04:38:58 -0600
+Message-ID: <Pine.LNX.4.30.0112071137210.3423-100000@linux17.zdv.uni-tuebingen.de>
+Date: Fri, 07 Dec 2001 04:38:58 -0600
+From: Falk Hueffner
+Subject: Re: Enconding ogg-files
+
+On Fri, 7 Dec 2001, Thimo Neubauer wrote:
+
+> On Fri, Dec 07, 2001 at 08:49:51AM +0100, Helge Kreutzmann wrote:
+> > I tried to encode ogg-files using oggencode (from oggenc) but always
+> > get segmentation faults on my LX. Before trying to investigate/filing
+> > a bug report I would like to ask if someone successfully used oggenc.
+>
+> I got exactly the same segfault and already filed bug #121995 to the
+> vorbis-tools package. Strangely enough, the first replay I got to this
+> report was by someone stating that oggenc runs fine on his Alpha...
+> This could not the the architecture (my box is a SX164), could it??
+
+I can reproduce this on my SX164, too. Perhaps it depends on the actual
+input? Did the reporter try with the same WAV file as you?
+
+	Falk
+
+From unknown Fri, 07 Dec 2001 05:26:40 -0600
+Message-ID: <3C10A75C.3BF86864@satx.rr.com>
+Date: Fri, 07 Dec 2001 05:26:40 -0600
+From: "Donald R. Spoon"
+Subject: Re: Slllloooowwww Alpha
+
+Toby Thain wrote:
+> 
+> > Andrew Forgue wrote:
+> >
+> > Hello,
+> >
+> > I just installed debian on an Alpha Personal Workstation 500a (not u)
+> > using the SRM console. And Every seems to be really slow.  The windows
+> > in kde, gnome, or anywhere seem to take 4 or 5 seconds to completly
+> > refresh... Would I get any performance benefit out of compiling my own
+> > kernel
+> > and recompiling X from Source for this specific platform?
+> 
+> Hi Andrew
+> 
+> Having enough RAM is key - on Alpha that seems to mean >>128MB. Kernel
+> 2.4.14 also did a lot to improve responsiveness and KDE GUI on my
+> Alphaserver 1000A 5/300 (RH7.1, 128MB). XFree86 4.1 seems to be quicker
+> than the default install, on my Tseng ET-6000 card.
+> 
+> regards
+> Toby
+> 
+
+I'll second that!  I recently upgraded from 64 Megs to 256 Megs of
+memory and the improvement was quite dramatic!  I have never seen such
+an improvement with a memory upgrade before on other computers.  It went
+from being almost un-usable with KDE to being quite decent!  BTW, I was
+getting a LOT of Hard Disk access with the lower memory and KDE. 
+Mozilla just wouldn't start from within KDE (I quit waiting after 2-3
+minutes).  Surprisingly, GNOME ran somwhat acceptably with only 64 Megs.
+
+Cheers,
+-Don Spoon-
+
+From unknown Fri, 07 Dec 2001 06:40:56 -0600
+Message-ID: <Pine.LNX.3.96.1011207063848.6472K-100000@master.debian.org>
+Date: Fri, 07 Dec 2001 06:40:56 -0600
+From: Michael Stroucken
+Subject: Re: Enconding ogg-files
+
+On Fri, 7 Dec 2001, Helge Kreutzmann wrote:
+
+> Hello !
+> I tried to encode ogg-files using oggencode (from oggenc) but always
+> get segmentation faults on my LX. Before trying to investigate/filing
+> a bug report I would like to ask if someone successfully used oggenc.
+
+> P.S. Latest oggenc from woody on LX with almost latest glibc (from
+>      woody)
+
+	I do, without any problems. Do you have kernel FP completion
+enabled? It was hidden under another section in the config for 2.4.16, so
+if you just make oldconfig, you won't have it. Same with magic SysRq.
+
+Greetings,
+Michael.
+
+"I'm not just a server, but I'm also a client."		Debian GNU/Linux
+Michael Stroucken	stroucki@debian.org	 Is your penguin 64 bit?
+
+From unknown Fri, 07 Dec 2001 06:44:47 -0600
+Message-ID: <Pine.LNX.3.96.1011207064200.6472L-100000@master.debian.org>
+Date: Fri, 07 Dec 2001 06:44:47 -0600
+From: Michael Stroucken
+Subject: Re: Slllloooowwww Alpha
+
+On Thu, 6 Dec 2001, Christopher C. Chimelis wrote:
+
+> It should, assuming that there's some attempt to handle the checks, IIRC
+> (been a long while since I looked at that bit of the code).
+> 
+> It may not have been the RAM, but that tends to be it in most cases.
+
+	My processor was throwing checks around because it was spending
+half its time swapping, and overheating. Vacuuming the fan / heat sink
+helped temporarily, but I'll be happier when I have more than my 64MB.
+
+Greetings,
+Michael.
+
+"I'm not just a server, but I'm also a client."		Debian GNU/Linux
+Michael Stroucken	stroucki@debian.org	 Is your penguin 64 bit?
+
+From unknown Fri, 07 Dec 2001 06:47:06 -0600
+Message-ID: <Pine.LNX.3.96.1011207064507.6472M-100000@master.debian.org>
+Date: Fri, 07 Dec 2001 06:47:06 -0600
+From: Michael Stroucken
+Subject: Re: Enconding ogg-files
+
+On Fri, 7 Dec 2001, Thimo Neubauer wrote:
+
+> I got exactly the same segfault and already filed bug #121995 to the
+> vorbis-tools package. Strangely enough, the first replay I got to this
+> report was by someone stating that oggenc runs fine on his
+> Alpha... This could not the the architecture (my box is a SX164),
+> could it??
+
+That was me, and I have an LX164. I have all the vorbis packages from
+debian (not selfcompiled). I encoded a file before I appended to the bug
+report, and yes, everything's working fine on my box. Did you check out
+your kernel's config?
+
+Greetings,
+Michael.
+
+"I'm not just a server, but I'm also a client."		Debian GNU/Linux
+Michael Stroucken	stroucki@debian.org	 Is your penguin 64 bit?
+
+From unknown Fri, 07 Dec 2001 06:49:51 -0600
+Message-ID: <001a01c17f1d$498fbb20$6701a8c0@ajf>
+Date: Fri, 07 Dec 2001 06:49:51 -0600
+From: "Andrew Forgue"
+Subject: Re: Slllloooowwww Alpha
+
+Allright, So
+
+The manual says this:
+a.. ECC-protected Synchronous DRAM (SDRAM) main memory (SRAMs mounted on
+DIMMs).
+
+Any idea what speed this should run? PC133 or PC100
+It does have to be ECC right?
+
+-Andrew
+
+----- Original Message -----
+From: "Toby Thain" <toby@telegraphics.com.au>
+To: "Andrew Forgue" <aforgue@agitated.net>
+Cc: <debian-alpha@lists.debian.org>
+Sent: Friday, December 07, 2001 4:24 PM
+Subject: Re: Slllloooowwww Alpha
+
+> > Andrew Forgue wrote:
+> >
+> > Hello,
+> >
+> > I just installed debian on an Alpha Personal Workstation 500a (not u)
+> > using the SRM console. And Every seems to be really slow.  The windows
+> > in kde, gnome, or anywhere seem to take 4 or 5 seconds to completly
+> > refresh... Would I get any performance benefit out of compiling my own
+> > kernel
+> > and recompiling X from Source for this specific platform?
+>
+> Hi Andrew
+>
+> Having enough RAM is key - on Alpha that seems to mean >>128MB. Kernel
+> 2.4.14 also did a lot to improve responsiveness and KDE GUI on my
+> Alphaserver 1000A 5/300 (RH7.1, 128MB). XFree86 4.1 seems to be quicker
+> than the default install, on my Tseng ET-6000 card.
+>
+> regards
+> Toby
+>
+> >
+> > Throw anything you have at me.. Im not a newbie to linux or anything
+> > :-)
+> >
+> > -Andrew
+>
+>
+> --
+> To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+> with a subject of "unsubscribe". Trouble? Contact
+listmaster@lists.debian.org
+>
+>
+>
+
+From unknown Fri, 07 Dec 2001 06:56:07 -0600
+Message-ID: <Pine.LNX.3.96.1011207065103.6472N-100000@master.debian.org>
+Date: Fri, 07 Dec 2001 06:56:07 -0600
+From: Michael Stroucken
+Subject: Re: Enconding ogg-files
+
+On Fri, 7 Dec 2001, Falk Hueffner wrote:
+
+> I can reproduce this on my SX164, too. Perhaps it depends on the actual
+> input? Did the reporter try with the same WAV file as you?
+
+Picking a random file:
+marsupilami:/tmp/Alles Prima 1/CD1> oggenc -b 128 "Extrabreit - Flieger,
+gruess' mir die Sonne.wav"
+Opening with wav module: WAV file reader
+Encoding "Extrabreit - Flieger, gruess' mir die Sonne.ogg" [ 99.9%] [
+0m00s remaining] /
+
+Done encoding file "Extrabreit - Flieger, gruess' mir die Sonne.ogg"
+
+        File length:  2m 50.0s
+        Elapsed time: 2m 47.0s
+        Rate:         1.0177
+        Average bitrate: 130.5 kb/s
+
+/proc/cpuinfo:
+cpu                     : Alpha
+cpu model               : EV56
+cpu variation           : 7
+cpu revision            : 0
+cpu serial number       :
+system type             : EB164
+system variation        : LX164
+system revision         : 0
+system serial number    :
+cycle frequency [Hz]    : 533333333
+timer frequency [Hz]    : 1024.00
+page size [bytes]       : 8192
+phys. address bits      : 40
+max. addr. space #      : 127
+BogoMIPS                : 1059.80
+kernel unaligned acc    : 5549012
+(pc=fffffc000099f204,va=fffffc0000a40b93)
+user unaligned acc      : 2 (pc=1200cf3b4,va=200003cbd12)
+platform string         : Digital AlphaPC 164LX 533 MHz
+cpus detected           : 1
+
+Greetings,
+Michael.
+
+"I'm not just a server, but I'm also a client."		Debian GNU/Linux
+Michael Stroucken	stroucki@debian.org	 Is your penguin 64 bit?
+
+From unknown Fri, 07 Dec 2001 07:07:38 -0600
+Message-ID: <Pine.LNX.3.96.1011207070515.6472O-100000@master.debian.org>
+Date: Fri, 07 Dec 2001 07:07:38 -0600
+From: Michael Stroucken
+Subject: Upload file (Re: Enconding ogg-files)
+
+On Fri, 7 Dec 2001, Falk Hueffner wrote:
+
+> On Fri, 7 Dec 2001, Thimo Neubauer wrote:
+> > I got exactly the same segfault and already filed bug #121995 to the
+> > vorbis-tools package. Strangely enough, the first replay I got to this
+> > report was by someone stating that oggenc runs fine on his Alpha...
+> > This could not the the architecture (my box is a SX164), could it??
+> I can reproduce this on my SX164, too. Perhaps it depends on the actual
+> input? Did the reporter try with the same WAV file as you?
+
+	I checked the bug report again, and since you still have a problem
+after recompiling, can you make the wav available (bzipped, flacced or
+shortened), and I'll try to figure it out.
+
+Greetings,
+Michael
+
+"I'm not just a server, but I'm also a client."		Debian GNU/Linux
+Michael Stroucken	stroucki@debian.org	 Is your penguin 64 bit?
+
+From unknown Fri, 07 Dec 2001 07:24:58 -0600
+Message-ID: <20011207082427.A21404@jekyl.doug.ties.org>
+Date: Fri, 07 Dec 2001 07:24:58 -0600
+From: Doug Larrick
+Subject: Re: Slllloooowwww Alpha
+
+A couple more things to think about that haven't been mentioned so far:
+
+* There was a bug in some 2.4 kernels that caused some systems to get 
+massively inflated BogoMIPS ratings, causing the system to seem slow.  
+Check /proc/cpuinfo and make sure the cycle frequency is close to right.
+
+* Video card.  Make sure yours doesn't suck :-)  I've personally had good 
+(performance) experiences with Matrox Millennium II, Elsa Gloria, and 
+Voodoo 3000 cards.  Old Cirrus or TGA cards may not be up to your 
+expectations.  Also, make sure you're using the accellerated driver in 
+XFree86, not the vanilla framebuffer driver.
+
+* Check /var/log.  Is there some file that is growing immense?  Nothing 
+slows down a system like massive logging I/O.
+
+HTH,
+-Doug
+
+From unknown Fri, 07 Dec 2001 07:49:32 -0600
+Message-ID: <20011207132316.GA23564@alpha.of.nowhere>
+Date: Fri, 07 Dec 2001 07:49:32 -0600
+From: Jurriaan on Alpha
+Subject: Re: Slllloooowwww Alpha
+
+On Fri, Dec 07, 2001 at 07:47:09AM -0500, Andrew Forgue wrote:
+> Allright, So
+> 
+> The manual says this:
+> a.. ECC-protected Synchronous DRAM (SDRAM) main memory (SRAMs mounted on
+> DIMMs).
+> 
+> Any idea what speed this should run? PC133 or PC100
+> It does have to be ECC right?
+> 
+ECC is necessary, I installed PC133, but IIRC the alpha accesses it at
+83 MHz (but 2 dimms at a time) so PC100 is fast enough. My PWS500au
+flies, after installing 6x 256 Mb dimms :-)
+
+Good luck,
+Jurriaan
+-- 
+You could make all this wrong seem right
+Why don't you answer me?
+	Queensryche - Breaking the Silence
+GNU/Linux 2.4.17-pre4 on Debian/Alpha 64-bits 988 bogomips load:2.11 2.14 1.59
+
+From unknown Fri, 07 Dec 2001 07:56:42 -0600
+Message-ID: <3C10C9B7.B1563C0E@satx.rr.com>
+Date: Fri, 07 Dec 2001 07:56:42 -0600
+From: "Donald R. Spoon"
+Subject: Re: Slllloooowwww Alpha
+
+Andrew Forgue wrote:
+> 
+> Allright, So
+> 
+> The manual says this:
+> a.. ECC-protected Synchronous DRAM (SDRAM) main memory (SRAMs mounted on
+> DIMMs).
+> 
+> Any idea what speed this should run? PC133 or PC100
+> It does have to be ECC right?
+> 
+> -Andrew
+> 
+>--snip--<
+ECC = yes
+
+Speed = I would go for the PC133, mainly because it will work even if
+the specs only call for PC100, and PC133 is cheaper (and more plentiful)
+around here.  YMMV.  Several on this list have mentioned getting some
+good prices on E-Bay.
+
+Note:  Some Alphas require "matched" sets if you buy several sticks. 
+"Matched" = same speed and from the same Mfgr.  That was a big
+consideration on upgrading my machine.
+
+Cheers,
+-Don Spoon-
+
+From unknown Fri, 07 Dec 2001 08:47:01 -0600
+Message-ID: <20011207144652.GB28237@mathphys.fsk.uni-heidelberg.de>
+Date: Fri, 07 Dec 2001 08:47:01 -0600
+From: Thimo Neubauer
+Subject: Re: Upload file (Re: Enconding ogg-files)
+
+On Fri, Dec 07, 2001 at 07:07:01AM -0600, Michael Stroucken wrote:
+> On Fri, 7 Dec 2001, Falk Hueffner wrote:
+> 
+> > On Fri, 7 Dec 2001, Thimo Neubauer wrote:
+> > > I got exactly the same segfault and already filed bug #121995 to the
+> > > vorbis-tools package. Strangely enough, the first replay I got to this
+> > > report was by someone stating that oggenc runs fine on his Alpha...
+> > > This could not the the architecture (my box is a SX164), could it??
+> > I can reproduce this on my SX164, too. Perhaps it depends on the actual
+> > input? Did the reporter try with the same WAV file as you?
+> 
+> 	I checked the bug report again, and since you still have a problem
+> after recompiling, can you make the wav available (bzipped, flacced or
+> shortened), and I'll try to figure it out.
+
+There is no need anymore to check this because I've found the error
+and filed a patch against libvorbis. The error was that an array of
+pointers was sorted with qsort and as size of the members sizeof(int)
+was used :(
+
+CU
+    Thimo
+
+-- 
+Thimo Neubauer <thimo@debian.org>
+
+Attachment:
+pgpOfq27Reqxk.pgp
+Description: PGP signature
+
+From unknown Fri, 07 Dec 2001 08:52:22 -0600
+Message-ID: <20011207154815.A14011@garloff.etpnet.phys.tue.nl>
+Date: Fri, 07 Dec 2001 08:52:22 -0600
+From: Kurt Garloff
+Subject: Re: IDE DMA on AXP & barriers
+In-Reply-To: <20011207170341.A9959@jurassic.park.msu.ru>
+
+Hi Ivan,
+
+On Fri, Dec 07, 2001 at 05:03:41PM +0300, Ivan Kokshaysky wrote:
+> On Fri, Dec 07, 2001 at 01:25:05PM +0100, Kurt Garloff wrote:
+> > So I  wonder where the bug actually is. Somewhere in hardware; but I wonder
+> > whether the CMD646 or the 2117x (PYXIS/CIA) is to blame. The QLogicISP seems
+> > to happily do BM-DMA, so I'd point to the CMD646.
+> 
+> Hmm, it seems to be a pyxis bug; the hardware workaround exists, but
+> I guess that it might be not implemented properly on early miatas.
+> This also explains why I don't have that problem on lx164 and sx164.
+> >From pyxis manual:
+> "A.1 Read Page Problem
+>  PCI DMA reads that attempt to cross 8K page boundaries cause data corruption
+>  problems. A fix has been implemented with an Altera 7032 and two Pericom
+>  PI5C3400 bus switches and a diode."
+
+Hey, where did you find that manual? I could not find one at Compaq's web
+site.
+
+I wouldn't mind to solder a diode on my board, but I don't know about the
+rest ... The software workaround is even preferable, as it helps more people
+than just me.
+
+How do I recognize the broken PYXIS in software? (Except for waiting for
+your hard disk to be corrupted?)
+
+Unfortunately, I see no 21174 on my PCI bus where I could just check the
+revision.
+garloff@pws:~ $ /sbin/lspci 
+00:03.0 Ethernet controller: Digital Equipment Corporation DECchip 21142/43 (rev 30)
+00:04.0 IDE interface: CMD Technology Inc PCI0646 (rev 01)
+00:07.0 Non-VGA unclassified device: Intel Corporation 82378IB [SIO ISA Bridge] (rev 43)
+00:0c.0 VGA compatible controller: Matrox Graphics, Inc. MGA 2064W [Millennium] (rev 01)
+00:14.0 PCI bridge: Digital Equipment Corporation DECchip 21152 (rev 02)
+01:09.0 SCSI storage controller: Q Logic ISP1020 (rev 05)
+
+Can I draw conclusions from the revision of the 21152?
+
+Or should I just put an #ifdef CONFIG_ALPHA_PYXIS in my patch?
+What about the users of generic alpha kernels?
+Or a config option?
+
+Attached is my current version of a workaround. It checks for CMD646, which
+should probably be removed, because the bug is in PYXIS according to your
+docs. It runs stably since a couple of hours with DMA on, now.
+
+Could people test it? 
+Please report back to me whether you have that problem on your PWS ar
+another Miata(PYXIS) board.
+If the workaround helps you as well, I will prepare a nice patch and submit
+it to Linux/Marcelo/Alan.
+
+Regards,
+-- 
+Kurt Garloff  <garloff@suse.de>                          Eindhoven, NL
+GPG key: See mail header, key servers         Linux kernel development
+SuSE GmbH, Nuernberg, DE                                SCSI, Security
+--- linux-2.4.16.SuSE-2/drivers/ide/ide-dma.c	Mon Dec  3 01:28:08 2001
++++ linux-2.4.16.SuSE-2.axp/drivers/ide/ide-dma.c	Fri Dec  7 13:24:08 2001
+@@ -379,6 +379,21 @@
+ 			xcount = bcount & 0xffff;
+ 			if (is_trm290_chipset)
+ 				xcount = ((xcount >> 2) - 1) << 16;
++#ifdef CONFIG_ALPHA_PYXIS
++			/* Don't cross page boundaries on PYXIS && CMD646 && write */
++			if (HWIF(drive)->chipset == ide_cmd646 && func == ide_dma_write) {
++				if (xcount ==0) 
++					xcount = 0x10000;
++				while ((cur_addr & (PAGE_SIZE-1)) + xcount > PAGE_SIZE) {
++					u32 newcnt = PAGE_SIZE - (cur_addr & (PAGE_SIZE-1));
++					if (count++ >= PRD_ENTRIES)
++						goto use_pio_instead;
++					*table++ = cpu_to_le32(newcnt);
++					*table++ = cpu_to_le32(cur_addr += newcnt);
++					xcount -= newcnt;
++				}
++			}
++#endif
+ 			if (xcount == 0x0000) {
+ 				/* 
+ 				 * Most chipsets correctly interpret a length
+@@ -391,12 +406,14 @@
+ 					goto use_pio_instead;
+ 
+ 				*table++ = cpu_to_le32(0x8000);
+-				*table++ = cpu_to_le32(cur_addr + 0x8000);
++				*table++ = cpu_to_le32(cur_addr += 0x8000);
+ 				xcount = 0x8000;
+ 			}
+-			*table++ = cpu_to_le32(xcount);
+-			cur_addr += bcount;
++			cur_addr += xcount;
+ 			cur_len -= bcount;
++			/* KG, 2001-12-07: Mark EOT (bit 31 in length field) */
++			// *table++ = cpu_to_le32(xcount | (cur_len? 0: 0x80000000));
++			*table++ = cpu_to_le32(xcount);
+ 		}
+ 
+ 		sg++;
+@@ -654,6 +692,10 @@
+ 			reading = 1 << 3;
+ 		case ide_dma_write:
+ 			SELECT_READ_WRITE(hwif,drive,func);
++#if 0 //def __alpha__
++			if (HWIF(drive)->chipset == ide_cmd646 && func == ide_dma_write)
++				return 1; /* For now, disable DMA writing CMD64x on AXP */
++#endif
+ 			if (!(count = ide_build_dmatable(drive, func)))
+ 				return 1;	/* try PIO instead of DMA */
+ 			outl(hwif->dmatable_dma, dma_base + 4); /* PRD table */
+
+Attachment:
+pgpKspKS2WEmH.pgp
+Description: PGP signature
+
+From unknown Fri, 07 Dec 2001 10:34:20 -0600
+Message-ID: <Pine.BSO.4.33.0112071028210.8895-100000@campus.iztacala.unam.mx>
+Date: Fri, 07 Dec 2001 10:34:20 -0600
+From: Gunnar Wolf
+Subject: Re: Slllloooowwww Alpha
+
+> > I just installed debian on an Alpha Personal Workstation 500a (not u)
+> > using the SRM console. And Every seems to be really slow.  The windows
+> > in kde, gnome, or anywhere seem to take 4 or 5 seconds to completly
+> > refresh... Would I get any performance benefit out of compiling my own kernel
+> > and recompiling X from Source for this specific platform?
+> >
+> > Throw anything you have at me.. Im not a newbie to linux or anything :-)
+>
+> You may get some benefit from a custom kernel.  As far as X goes, though,
+> it's pretty pokey in general on 64-bit platforms (I've got two of
+> them)...especially KDE and GNOME.
+
+Yup. 64-bit support has REALLY become better in XFree 4.1 - When I had
+3.3.6, I had at least one crash a day, and it was considerably slower. I
+now use XFree 4.1 (on Sid), and it works MUCH better. Still, ocassionally
+I get an X freeze, and it still feels slower than on a regular PC... But
+not like before.
+
+--
+Gunnar Wolf - gwolf@campus.iztacala.unam.mx - (+52-55)5623-1118
+
+From unknown Fri, 07 Dec 2001 10:44:22 -0600
+Message-ID: <20011207194347.A2718@jurassic.park.msu.ru>
+Date: Fri, 07 Dec 2001 10:44:22 -0600
+From: Ivan Kokshaysky
+Subject: Re: IDE DMA on AXP & barriers
+
+On Fri, Dec 07, 2001 at 03:48:15PM +0100, Kurt Garloff wrote:
+> > Hmm, it seems to be a pyxis bug; the hardware workaround exists, but
+> > I guess that it might be not implemented properly on early miatas.
+> > This also explains why I don't have that problem on lx164 and sx164.
+> > >From pyxis manual:
+> > "A.1 Read Page Problem
+> >  PCI DMA reads that attempt to cross 8K page boundaries cause data corruption
+> >  problems. A fix has been implemented with an Altera 7032 and two Pericom
+> >  PI5C3400 bus switches and a diode."
+> 
+> Hey, where did you find that manual? I could not find one at Compaq's web
+> site.
+
+IIRC, few years ago someone posted a link on axp-list, and I picked it up.
+Anyway, I've placed it on
+ftp://ftp.park.msu.ru/ink/docs/21174_SI.pdf
+
+> How do I recognize the broken PYXIS in software? (Except for waiting for
+> your hard disk to be corrupted?)
+
+Put the chip into PCI loopback mode, read some memory (crossing the
+page boundary) via direct PCI window and check for corruption -
+perhaps this will work.
+
+> Unfortunately, I see no 21174 on my PCI bus where I could just check the
+> revision.
+
+Checking the revision won't help - that bug should be fixed with some
+off-chip logic.
+
+> Or should I just put an #ifdef CONFIG_ALPHA_PYXIS in my patch?
+> What about the users of generic alpha kernels?
+
+#ifdef CONFIG_ALPHA_PYXIS won't work for them.
+
+> Or a config option?
+
+Maybe...
+Jay, your opinion? Perhaps you have the info which systems are affected?
+
+Ivan.
+
+From unknown Fri, 07 Dec 2001 12:36:50 -0600
+Message-ID: <Pine.LNX.4.21.0112071224330.3441-100000@spawn.hockeyfiend.com>
+Date: Fri, 07 Dec 2001 12:36:50 -0600
+From: "Christopher C. Chimelis"
+Subject: Re: Slllloooowwww Alpha
+
+On Fri, 7 Dec 2001, Gunnar Wolf wrote:
+
+> Yup. 64-bit support has REALLY become better in XFree 4.1 - When I had
+> 3.3.6, I had at least one crash a day, and it was considerably slower. I
+> now use XFree 4.1 (on Sid), and it works MUCH better. Still, ocassionally
+> I get an X freeze, and it still feels slower than on a regular PC... But
+> not like before.
+
+Yes, 4.x is MUCH better than 3.3.6 was, mostly thanks to the hard work of
+Jay (credit where credit is due...there are others, but Jay's largely been
+the champion of XFree86 on Alpha).  The DRI code in 4.x also helps out
+quite a bit.  My SX with a Voodoo3 can tear up my Intel with a Rage Fury
+128 in 3D performance.
+
+I'm currently working on something that may make at least KDE load apps
+quite a bit faster (prelinking).  It's not ready for Debian yet, though,
+so it won't make it into woody and I have a bit more work to do before
+it's even ready for sid.
+
+C
+
+From unknown Fri, 07 Dec 2001 13:05:16 -0600
+Message-ID: <87y9kf40uc.fsf@student.uni-tuebingen.de>
+Date: Fri, 07 Dec 2001 13:05:16 -0600
+From: Falk Hueffner
+Subject: Re: Upload file (Re: Enconding ogg-files)
+
+Michael Stroucken <stroucki@master.debian.org> writes:
+
+> On Fri, 7 Dec 2001, Falk Hueffner wrote:
+> 
+> > On Fri, 7 Dec 2001, Thimo Neubauer wrote:
+> > > I got exactly the same segfault and already filed bug #121995 to the
+> > > vorbis-tools package. Strangely enough, the first replay I got to this
+> > > report was by someone stating that oggenc runs fine on his Alpha...
+> > > This could not the the architecture (my box is a SX164), could it??
+> > I can reproduce this on my SX164, too. Perhaps it depends on the actual
+> > input? Did the reporter try with the same WAV file as you?
+> 
+> 	I checked the bug report again, and since you still have a problem
+> after recompiling, can you make the wav available (bzipped, flacced or
+> shortened), and I'll try to figure it out.
+
+For example,
+
+falk@borkum:~% dd if=/dev/zero of=zero.raw bs=1M count=1
+1+0 records in
+1+0 records out
+falk@borkum:~% oggenc -r zero.raw                       
+zsh: segmentation fault (core dumped)  oggenc -r zero.raw
+
+or
+
+falk@borkum:~% touch empty.raw
+falk@borkum:~% oggenc -r empty.raw 
+zsh: segmentation fault (core dumped)  oggenc -r empty.raw
+
+        Falk
+
+From unknown Fri, 07 Dec 2001 13:56:51 -0600
+Message-ID: <Pine.LNX.3.96.1011207133744.6472Q-100000@master.debian.org>
+Date: Fri, 07 Dec 2001 13:56:51 -0600
+From: Michael Stroucken
+Subject: Re: Upload file (Re: Enconding ogg-files)
+
+On 7 Dec 2001, Falk Hueffner wrote:
+
+> For example,
+> 
+> falk@borkum:~% dd if=/dev/zero of=zero.raw bs=1M count=1
+> 1+0 records in
+> 1+0 records out
+> falk@borkum:~% oggenc -r zero.raw                       
+> zsh: segmentation fault (core dumped)  oggenc -r zero.raw
+
+	Duh! Stupid me, this is the bug I fixed back in August!
+http://www.xiph.org/archives/vorbis-dev/200108/0088.html
+
+	Sorry I couldn't remember earlier -- Its been ages since rc2 came
+out and I've since been waiting for rc3.
+
+Sorry! :)
+Michael.
+
+"I'm not just a server, but I'm also a client."		Debian GNU/Linux
+Michael Stroucken	stroucki@debian.org	 Is your penguin 64 bit?
+
+From unknown Fri, 07 Dec 2001 15:58:36 -0600
+Message-ID: <20011207155942.D10162@linux04.mro.cpqcorp.net>
+Date: Fri, 07 Dec 2001 15:58:36 -0600
+From: Jay Estabrook
+Subject: Re: Slllloooowwww Alpha
+
+On Fri, Dec 07, 2001 at 10:29:49AM -0600, Gunnar Wolf wrote:
+> 
+> Yup. 64-bit support has REALLY become better in XFree 4.1 - When I had
+> 3.3.6, I had at least one crash a day, and it was considerably slower. I
+> now use XFree 4.1 (on Sid), and it works MUCH better. Still, ocassionally
+> I get an X freeze, and it still feels slower than on a regular PC... But
+> not like before.
+
+What card are you using?
+
+Also, any additional details (re: machine) would be helpful... ;-}
+
+--Jay++
+
+-----------------------------------------------------------------------------
+Jay A Estabrook                            Alpha Engineering - LINUX Project
+Compaq Computer Corp. - MRO1-2/K15         (508) 467-2080
+200 Forest Street, Marlboro MA 01752       Jay.Estabrook@compaq.com
+-----------------------------------------------------------------------------
+
+From unknown Fri, 07 Dec 2001 16:28:19 -0600
+Message-ID: <Pine.BSO.4.33.0112071559500.8895-100000@campus.iztacala.unam.mx>
+Date: Fri, 07 Dec 2001 16:28:19 -0600
+From: Gunnar Wolf
+Subject: Re: Slllloooowwww Alpha
+
+> > Yup. 64-bit support has REALLY become better in XFree 4.1 - When I had
+> > 3.3.6, I had at least one crash a day, and it was considerably slower. I
+> > now use XFree 4.1 (on Sid), and it works MUCH better. Still, ocassionally
+> > I get an X freeze, and it still feels slower than on a regular PC... But
+> > not like before.
+>
+> What card are you using?
+>
+> Also, any additional details (re: machine) would be helpful... ;-}
+
+Right now, I am pretty happy with it, so I would not tweak it too much ;-)
+
+I am using an ATI Mach32; I had used this card and a S3 Virge, with more
+or less the same results. It is a 600MHz LX164, 128MB RAM
+
+--
+Gunnar Wolf - gwolf@campus.iztacala.unam.mx - (+52-55)5623-1118
+
+From unknown Fri, 07 Dec 2001 16:41:57 -0600
+Message-ID: <20011207172855.A619@zero>
+Date: Fri, 07 Dec 2001 16:41:57 -0600
+From: Tom Vier
+Subject: Re: Slllloooowwww Alpha
+
+On Fri, Dec 07, 2001 at 08:24:27AM -0500, Doug Larrick wrote:
+> * Video card.  Make sure yours doesn't suck :-)  I've personally had good 
+> (performance) experiences with Matrox Millennium II, Elsa Gloria, and 
+> Voodoo 3000 cards.  Old Cirrus or TGA cards may not be up to your 
+> expectations.  Also, make sure you're using the accellerated driver in 
+> XFree86, not the vanilla framebuffer driver.
+
+what's up with mill ii support, anyway? the fbdev xserver scrolling is
+incredibly slow. the standard svga server is MUCH faster. the kernel has
+experimental accell, but the fbdev xserver says the driver doesn't support
+it.
+
+-- 
+Tom Vier <tmv5@home.com>
+DSA Key id 0x27371A2C
+
+From unknown Fri, 07 Dec 2001 19:43:08 -0600
+Message-ID: <Pine.LNX.3.96.1011207194053.6472R-100000@master.debian.org>
+Date: Fri, 07 Dec 2001 19:43:08 -0600
+From: Michael Stroucken
+Subject: Re: Slllloooowwww Alpha
+
+On Fri, 7 Dec 2001, Tom Vier wrote:
+
+> what's up with mill ii support, anyway? the fbdev xserver scrolling is
+> incredibly slow. the standard svga server is MUCH faster. the kernel has
+> experimental accell, but the fbdev xserver says the driver doesn't support
+> it.
+
+	Don't know about the framebuffer support since I don't use it, but
+I get this interesting effect when I scroll around the virtual screen, as
+the brightness darkens and lightens depending on what subset is displayed.
+
+Greetings,
+Michael.
+
+"I'm not just a server, but I'm also a client."		Debian GNU/Linux
+Michael Stroucken	stroucki@debian.org	 Is your penguin 64 bit?
+
+From unknown Sat, 08 Dec 2001 15:15:34 -0600
+Message-ID: <20011208211530.GA19802@tdyc.com>
+Date: Sat, 08 Dec 2001 15:15:34 -0600
+From: "Ivan E. Moore II"
+Subject: gentoo build
+
+Hey,
+
+    Can someone take a look at the gentoo build.  (http://buildd.debian.org) 
+It fails to build on unstable (either through the buildd or manually) however
+it's maintainer was able to build it successfully on faure...so my only
+idea is faure isn't up to date sid and there's something broken in the
+newer packages.
+
+Ivan
+-- 
+----------------
+Ivan E. Moore II
+rkrusty@tdyc.com
+http://snowcrash.tdyc.com
+GPG KeyID=90BCE0DD
+GPG Fingerprint=F2FC 69FD 0DA0 4FB8 225E 27B6 7645 8141 90BC E0DD
+
+From unknown Sat, 08 Dec 2001 16:09:10 -0600
+Message-ID: <Pine.LNX.4.21.0112081700080.20719-100000@spawn.hockeyfiend.com>
+Date: Sat, 08 Dec 2001 16:09:10 -0600
+From: "Christopher C. Chimelis"
+Subject: Re: gentoo build
+
+On Sat, 8 Dec 2001, Ivan E. Moore II wrote:
+
+>     Can someone take a look at the gentoo build.  (http://buildd.debian.org) 
+> It fails to build on unstable (either through the buildd or manually) however
+> it's maintainer was able to build it successfully on faure...so my only
+> idea is faure isn't up to date sid and there's something broken in the
+> newer packages.
+
+IIRC, I sent the maintainer a patch.  It might've compiled with the patch,
+but it certainly doesn't without it (just tried).  I'm retrying now with
+the patch to children.c to see if it works this time around.
+
+Upstream's changes to children.c should've worked, but I think the
+contents of gentoo.h are causing problems.  I'll look at it.
+
+C
+
+From unknown Sat, 08 Dec 2001 16:23:44 -0600
+Message-ID: <Pine.LNX.4.21.0112081720410.20719-100000@spawn.hockeyfiend.com>
+Date: Sat, 08 Dec 2001 16:23:44 -0600
+From: "Christopher C. Chimelis"
+Subject: Re: gentoo build
+
+On Sat, 8 Dec 2001, Ivan E. Moore II wrote:
+
+>     Can someone take a look at the gentoo build.  (http://buildd.debian.org) 
+> It fails to build on unstable (either through the buildd or manually) however
+> it's maintainer was able to build it successfully on faure...so my only
+> idea is faure isn't up to date sid and there's something broken in the
+> newer packages.
+
+Try it again with the patch below....it's a long story :-P  I haven't
+finished the compilation yet, so I haven't tested it fully, but it does
+allow children.c to compile (I need to go holiday shopping).
+
+Here's the patch:
+
+diff -burN gentoo-0.11.18/src/gentoo.h gentoo-patched/src/gentoo.h
+--- gentoo-0.11.18/src/gentoo.h	Sat Sep  1 15:21:37 2001
++++ gentoo-patched/src/gentoo.h	Sat Dec  8 17:19:21 2001
+@@ -13,14 +13,14 @@
+ 
+ #include "config.h"
+ 
+-#if !defined __alpha		/* I've heard this helps on Alpha systems... */
++#if !(defined(__alpha) && defined(__osf__))	/* I've heard this helps on Alpha systems... */
+ #define __EXTENSIONS__
+ #define _POSIX_C_SOURCE	3	/* This is for Solaris. */
+ #define	POSIX_C_SOURCE	3
+ 
+-#endif				/* !__alpha */
++#endif				/* !__alpha && !__osf__ */
+ 
+-#if defined __osf__ && defined __alpha__		/* On Tru64, this should bring in mknod(). */
++#if defined(__osf__) && defined(__alpha__)		/* On Tru64, this should bring in mknod(). */
+ #define	_XOPEN_SOURCE_EXTENDED
+ #define	_OSF_SOURCE					/* For MAXNAMLEN on Tru64. */
+ #endif
+
+From unknown Sat, 08 Dec 2001 16:27:26 -0600
+Message-ID: <Pine.LNX.4.21.0112081726500.23240-100000@spawn.hockeyfiend.com>
+Date: Sat, 08 Dec 2001 16:27:26 -0600
+From: "Christopher C. Chimelis"
+Subject: Re: gentoo build
+
+BTW, if this works, please send it to the maintainer as well...I won't
+have time to follow up on this, unfortunately (trying to work on some
+binutils issues on hppa atm).
+
+C
+
+On Sat, 8 Dec 2001, Christopher C. Chimelis wrote:
+
+> 
+> 
+> On Sat, 8 Dec 2001, Ivan E. Moore II wrote:
+> 
+> >     Can someone take a look at the gentoo build.  (http://buildd.debian.org) 
+> > It fails to build on unstable (either through the buildd or manually) however
+> > it's maintainer was able to build it successfully on faure...so my only
+> > idea is faure isn't up to date sid and there's something broken in the
+> > newer packages.
+> 
+> Try it again with the patch below....it's a long story :-P  I haven't
+> finished the compilation yet, so I haven't tested it fully, but it does
+> allow children.c to compile (I need to go holiday shopping).
+> 
+> Here's the patch:
+> 
+> diff -burN gentoo-0.11.18/src/gentoo.h gentoo-patched/src/gentoo.h
+> --- gentoo-0.11.18/src/gentoo.h	Sat Sep  1 15:21:37 2001
+> +++ gentoo-patched/src/gentoo.h	Sat Dec  8 17:19:21 2001
+> @@ -13,14 +13,14 @@
+>  
+>  #include "config.h"
+>  
+> -#if !defined __alpha		/* I've heard this helps on Alpha systems... */
+> +#if !(defined(__alpha) && defined(__osf__))	/* I've heard this helps on Alpha systems... */
+>  #define __EXTENSIONS__
+>  #define _POSIX_C_SOURCE	3	/* This is for Solaris. */
+>  #define	POSIX_C_SOURCE	3
+>  
+> -#endif				/* !__alpha */
+> +#endif				/* !__alpha && !__osf__ */
+>  
+> -#if defined __osf__ && defined __alpha__		/* On Tru64, this should bring in mknod(). */
+> +#if defined(__osf__) && defined(__alpha__)		/* On Tru64, this should bring in mknod(). */
+>  #define	_XOPEN_SOURCE_EXTENDED
+>  #define	_OSF_SOURCE					/* For MAXNAMLEN on Tru64. */
+>  #endif
+> 
+> 
+> -- 
+> To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+> with a subject of "unsubscribe". Trouble? Contact listmaster@lists.debian.org
+> 
+> 
+>
+
+From unknown Sat, 08 Dec 2001 16:29:04 -0600
+Message-ID: <20011208222858.GA3825@tdyc.com>
+Date: Sat, 08 Dec 2001 16:29:04 -0600
+From: "Ivan E. Moore II"
+Subject: Re: gentoo build
+
+I'm building now and will follow up with the maintainer if it works..if it
+doesn't I'll let you all know.
+
+Ivan
+
+On Sat, Dec 08, 2001 at 05:27:20PM -0500, Christopher C. Chimelis wrote:
+> 
+> BTW, if this works, please send it to the maintainer as well...I won't
+> have time to follow up on this, unfortunately (trying to work on some
+> binutils issues on hppa atm).
+> 
+> C
+> 
+> On Sat, 8 Dec 2001, Christopher C. Chimelis wrote:
+> 
+> > 
+> > 
+> > On Sat, 8 Dec 2001, Ivan E. Moore II wrote:
+> > 
+> > >     Can someone take a look at the gentoo build.  (http://buildd.debian.org) 
+> > > It fails to build on unstable (either through the buildd or manually) however
+> > > it's maintainer was able to build it successfully on faure...so my only
+> > > idea is faure isn't up to date sid and there's something broken in the
+> > > newer packages.
+> > 
+> > Try it again with the patch below....it's a long story :-P  I haven't
+> > finished the compilation yet, so I haven't tested it fully, but it does
+> > allow children.c to compile (I need to go holiday shopping).
+> > 
+> > Here's the patch:
+> > 
+> > diff -burN gentoo-0.11.18/src/gentoo.h gentoo-patched/src/gentoo.h
+> > --- gentoo-0.11.18/src/gentoo.h	Sat Sep  1 15:21:37 2001
+> > +++ gentoo-patched/src/gentoo.h	Sat Dec  8 17:19:21 2001
+> > @@ -13,14 +13,14 @@
+> >  
+> >  #include "config.h"
+> >  
+> > -#if !defined __alpha		/* I've heard this helps on Alpha systems... */
+> > +#if !(defined(__alpha) && defined(__osf__))	/* I've heard this helps on Alpha systems... */
+> >  #define __EXTENSIONS__
+> >  #define _POSIX_C_SOURCE	3	/* This is for Solaris. */
+> >  #define	POSIX_C_SOURCE	3
+> >  
+> > -#endif				/* !__alpha */
+> > +#endif				/* !__alpha && !__osf__ */
+> >  
+> > -#if defined __osf__ && defined __alpha__		/* On Tru64, this should bring in mknod(). */
+> > +#if defined(__osf__) && defined(__alpha__)		/* On Tru64, this should bring in mknod(). */
+> >  #define	_XOPEN_SOURCE_EXTENDED
+> >  #define	_OSF_SOURCE					/* For MAXNAMLEN on Tru64. */
+> >  #endif
+> > 
+> > 
+> > -- 
+> > To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+> > with a subject of "unsubscribe". Trouble? Contact listmaster@lists.debian.org
+> > 
+> > 
+> > 
+---end quoted text---
+
+-- 
+----------------
+Ivan E. Moore II
+rkrusty@tdyc.com
+http://snowcrash.tdyc.com
+GPG KeyID=90BCE0DD
+GPG Fingerprint=F2FC 69FD 0DA0 4FB8 225E 27B6 7645 8141 90BC E0DD
+
+From unknown Sat, 08 Dec 2001 19:35:32 -0600
+Message-ID: <20011208202134.A11306@linux04.mro.cpqcorp.net>
+Date: Sat, 08 Dec 2001 19:35:32 -0600
+From: Jay Estabrook
+Subject: Re: Slllloooowwww Alpha
+
+On Fri, Dec 07, 2001 at 04:01:23PM -0600, Gunnar Wolf wrote:
+> 
+> I am using an ATI Mach32; I had used this card and a S3 Virge, with more
+> or less the same results. It is a 600MHz LX164, 128MB RAM
+
+Yow! Both of those are really *old* and *slow*; a 600MHz LX could make
+something newer/better really fly, even do 3D with a Voodoo3 or Rage128
+or Radeon...
+
+--Jay++
+
+-----------------------------------------------------------------------------
+Jay A Estabrook                            Alpha Engineering - LINUX Project
+Compaq Computer Corp. - MRO1-2/K15         (508) 467-2080
+200 Forest Street, Marlboro MA 01752       Jay.Estabrook@compaq.com
+-----------------------------------------------------------------------------
+
+From unknown Sat, 08 Dec 2001 21:54:34 -0600
+Message-ID: <20011208225356.A8421@zero>
+Date: Sat, 08 Dec 2001 21:54:34 -0600
+From: Tom Vier
+Subject: potato -> testing problem
+
+i decided to give testing a try, but ran into a bit of a problem:
+
+Template parse error near "" at /usr/lib/perl5/Debian/DebConf/Template.pm line 102, <TEMPLATES> chunk 2.
+E: Sub-process /usr/sbin/dpkg-preconfigure --apt returned an error code (29)
+E: Failure running script /usr/sbin/dpkg-preconfigure --apt
+
+-- 
+Tom Vier <tmv5@home.com>
+DSA Key id 0x27371A2C
+
+From unknown Sun, 09 Dec 2001 08:09:54 -0600
+Message-ID: <20011209135949.A36248@alf2.tcd.ie>
+Date: Sun, 09 Dec 2001 08:09:54 -0600
+From: Steffen Higel
+Subject: problems with samba 2.0.7
+
+Hi,
+
+I've been having problems with the samba package on my Ruffian running
+Debian stable. Here is what happened:
+
+The machine was being kept up to date against Woody, but I decided to go
+back to Potato. This resulted in my using an older version of samba (2.0.7
+as opposed to 2.0.8). Right after I downgraded, I started to get errors
+like this in /var/log/smb:
+
+[2001/12/09 13:36:41, 0] lib/util_sec.c:assert_gid(72)
+Failed to set gid privileges to (-1,1001) now set to (0,0) uid=(0,0)
+[2001/12/09 13:36:41, 0] lib/util.c:smb_panic(2381)
+PANIC: failed to set gid
+
+[2001/12/09 13:36:41, 0] lib/util_sec.c:assert_gid(72)
+Failed to set gid privileges to (-1,1001) now set to (0,0) uid=(0,0)
+[2001/12/09 13:36:41, 0] lib/util.c:smb_panic(2381)
+PANIC: failed to set gid
+
+It appears that smbd is the one causing the problems here. Group 1001 is
+ssh, which is the group of the user who has read and write access to a
+publicly accessible smb share.
+
+Since then, I have tried compiling from source samba 2.0.7 and 2.2.2, both
+of which result in the same errors. I'm beginning to wonder do I have a
+broken /etc/group or something, because the only reference I have seen to
+this problem when searching on google is when someone was having a problem
+using a 2.0.x kernel with a version of samba compiled against a 2.2.x
+kernel. The other reference I found to this was from Donald R. Spoon, to
+this list. No one replied to his mail then, but I'm hoping maybe someone
+else has come across this in the meantime.
+
+Thanks in advance,
+
+Steffen
+
+-- 
+Steffen Higel | "They're called 'commas' George, and they want to be
+higels@tcd.ie |  your friend"
+
+From unknown Sun, 09 Dec 2001 18:25:18 -0600
+Message-ID: <20011209192303.A18828@zero>
+Date: Sun, 09 Dec 2001 18:25:18 -0600
+From: Tom Vier
+Subject: cia machine check
+
+while running wipe (my version) on a couple drives, i got a machine check.
+is this a dram ecc check or pci? (does pci use ecc?)
+
+Dec  9 19:16:11 zero kernel: CIA machine check: vector=0x630 pc=0xfffffc0000a03348 code=0x86
+Dec  9 19:16:11 zero kernel: machine check type: correctable ECC error (retryable)
+Dec  9 19:16:11 zero kernel: pc = [__copy_user+264/468]  ra = [generic_file_write+1328/2048]  ps = 0000    Not tainted
+Dec  9 19:16:11 zero kernel: v0 = 0000000000000090  t0 = 5555555555555555  t1 = fffffc0004313dc8
+Dec  9 19:16:11 zero kernel: t2 = 0000000000000000  t3 = 0000000000000088  t4 = 00000000003fdc04
+Dec  9 19:16:11 zero kernel: t5 = fffffc0002379f70  t6 = 00000200005b9f80  t7 = fffffc0004310000
+Dec  9 19:16:11 zero kernel: a0 = fffffc0015d93860  a1 = 000000000000817f  a2 = fffffc0015d93860
+Dec  9 19:16:11 zero kernel: a3 = 0000000000000001  a4 = fffffc00008565e0  a5 = 000000000000000f
+Dec  9 19:16:11 zero kernel: t8 = 0000000000000000  t9 = 00000200001e45f8  t10= 0000000000000008
+Dec  9 19:16:11 zero kernel: t11= 000000000000000a  pv = fffffc0000a03240  at = fffffc000083e81c
+Dec  9 19:16:11 zero kernel: gp = fffffc0000b1de70  sp = fffffc0004313e48
+
+-- 
+Tom Vier <tmv5@home.com>
+DSA Key id 0x27371A2C
+
+From unknown Sun, 09 Dec 2001 21:27:57 -0600
+Message-ID: <5.1.0.14.2.20011210140559.025c81f0@pop.ozemail.com.au>
+Date: Sun, 09 Dec 2001 21:27:57 -0600
+From: Rob Byrnes
+Subject: Re: Slllloooowwww Alpha
+
+At 15:09 7/12/2001, Christopher C. Chimelis sent this up the stick:
+
+On Fri, 7 Dec 2001, Rob Byrnes wrote:
+
+> It was brand new RAM, ordered from Crucial.  I had it replaced, but got 
+the
+
+> same problems.  Checks like these *should* slow a machine down,
+> right?  Under FreeBSD, there is no noticable slowdown .... I'll try 
+turning
+
+> logging on for the checks and see if I actually am getting them
+
+It should, assuming that there's some attempt to handle the checks, IIRC
+(been a long while since I looked at that bit of the code).
+
+It may not have been the RAM, but that tends to be it in most cases.
+
+Well, after running the PWS for a while now, I'm not seeing any machine 
+checks being logged at all.  It seems odd, considering the checks made 
+Debian unusable.
+
+Also checked what sort of memory Crucial are shipping, seems to be a little 
+slower than (what most people consider) spec at 66MHz.  Wonder if this has 
+anything to do with it?
+
+Cheers,
+Rob
+
+From unknown Sun, 09 Dec 2001 23:34:02 -0600
+Message-ID: <Pine.LNX.4.21.0112100022140.25275-100000@spawn.hockeyfiend.com>
+Date: Sun, 09 Dec 2001 23:34:02 -0600
+From: "Christopher C. Chimelis"
+Subject: Re: Slllloooowwww Alpha
+
+On Mon, 10 Dec 2001, Rob Byrnes wrote:
+
+> Well, after running the PWS for a while now, I'm not seeing any machine 
+> checks being logged at all.  It seems odd, considering the checks made 
+> Debian unusable.
+> 
+> Also checked what sort of memory Crucial are shipping, seems to be a little 
+> slower than (what most people consider) spec at 66MHz.  Wonder if this has 
+> anything to do with it?
+
+Probably not.  66MHz should be fine for PWS, IIRC.  I don't think that any
+systems before PC164-SX/LX needed 100MHz.
+
+C
+
+From unknown Sun, 09 Dec 2001 23:55:28 -0600
+Message-ID: <000701c1813f$3f900390$0301a8c0@omegasupreme>
+Date: Sun, 09 Dec 2001 23:55:28 -0600
+From: "Anish Patel"
+Subject: RE: Slllloooowwww Alpha
+
+It might just be that I'm an idiot, but I have an SX164 that when I
+installed any distro of linux that it would fail on some error, I can't
+remember what error it was though, the last install that was good was
+about 5 years ago w/ red hat 5.2 (I think) but I placed FreeBSD on it
+and it has no problems now
+
+-----Original Message-----
+From: Christopher C. Chimelis [mailto:chris@spawn.hockeyfiend.com] On
+Behalf Of Christopher C. Chimelis
+Sent: Thursday, December 06, 2001 11:09 PM
+To: Rob Byrnes
+Cc: debian-alpha@lists.debian.org
+Subject: Re: Slllloooowwww Alpha 
+
+On Fri, 7 Dec 2001, Rob Byrnes wrote:
+
+> It was brand new RAM, ordered from Crucial.  I had it replaced, but
+got the 
+> same problems.  Checks like these *should* slow a machine down, 
+> right?  Under FreeBSD, there is no noticable slowdown .... I'll try
+turning 
+> logging on for the checks and see if I actually am getting them
+
+It should, assuming that there's some attempt to handle the checks, IIRC
+(been a long while since I looked at that bit of the code).
+
+It may not have been the RAM, but that tends to be it in most cases.
+
+> Debian Woody runs sweet on my PC64 though.
+
+:-)
+
+C
+
+-- 
+To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+with a subject of "unsubscribe". Trouble? Contact
+listmaster@lists.debian.org
+
+From unknown Mon, 10 Dec 2001 00:04:49 -0600
+Message-ID: <Pine.LNX.4.21.0112100101060.11021-100000@spawn.hockeyfiend.com>
+Date: Mon, 10 Dec 2001 00:04:49 -0600
+From: "Christopher C. Chimelis"
+Subject: RE: Slllloooowwww Alpha
+
+On Mon, 10 Dec 2001, Anish Patel wrote:
+
+> It might just be that I'm an idiot, but I have an SX164 that when I
+> installed any distro of linux that it would fail on some error, I can't
+> remember what error it was though, the last install that was good was
+> about 5 years ago w/ red hat 5.2 (I think) but I placed FreeBSD on it
+> and it has no problems now
+
+The linux kernel is not as forgiving as the *BSD kernel, mostly because
+we've gotten farther in porting than they have (many apologies if this
+offends the BSD folks, but it's true...we support more machine types).
+
+Either way, if you're happy with *BSD, then that's great :-)  If you're
+technically aware of how the BSD kernel works on Alpha, I'd be interested
+in hearing their approach to machine check situations since it appears
+that we, on the Linux side, are not doing a good enough job at letting the
+users know what's going on with their systems.
+
+C
+
+From unknown Mon, 10 Dec 2001 01:58:54 -0600
+Message-ID: <20011210085730.A10687@itp.uni-hannover.de>
+Date: Mon, 10 Dec 2001 01:58:54 -0600
+From: Helge Kreutzmann
+Subject: Re: Upload file (Re: Enconding ogg-files)
+
+Hello !
+On Fri, Dec 07, 2001 at 01:39:20PM -0600, Michael Stroucken wrote:
+> 	Duh! Stupid me, this is the bug I fixed back in August!
+> http://www.xiph.org/archives/vorbis-dev/200108/0088.html
+> 
+> 	Sorry I couldn't remember earlier -- Its been ages since rc2 came
+> out and I've since been waiting for rc3.
+
+Ok, I do an apt-get source tonight, patch it and see how it works.
+
+Greetings
+
+       Helge
+-- 
+Helge Kreutzmann, Dipl.-Phys.               Helge.Kreutzmann@itp.uni-hannover.de
+  gpg signed mail preferred    gpg-key: finger kreutzm@rigel.itp.uni-hannover.de
+    64bit GNU powered                  http://www.itp.uni-hannover.de/~kreutzm
+       Help keep free software "libre": http://www.freepatents.org/
+
+Attachment:
+pgp7_MWvgivOe.pgp
+Description: PGP signature
+
+From unknown Mon, 10 Dec 2001 03:18:10 -0600
+Message-ID: <20011210101747.B7130@antares.tat.physik.uni-tuebingen.de>
+Date: Mon, 10 Dec 2001 03:18:10 -0600
+From: Daniel Kobras
+Subject: Re: Bug#123164: kino_0.50-1(alpha/unstable): fails to build from source
+In-Reply-To: <20011210000011.GN24208@tdyc.com>
+
+Moi!
+
+Can someone please lend me a hand on this one?
+
+On Sun, Dec 09, 2001 at 05:00:11PM -0700, Ivan E. Moore II wrote:
+> Package: kino
+> Version: 0.50-1
+> Severity: serious
+> 
+> There was an error while trying to autobuild your package:
+> 
+> > Automatic build of kino_0.50-1 on flatline by sbuild/alpha 1.159
+> > Build started at 20011209-1557
+[...]
+> > c++ -DHAVE_CONFIG_H -I. -I. -I.. -I../intl 	-I/usr/include
+> > -DNEED_GNOMESUPPORT_H -I/usr/lib/gnome-libs/include
+> > -I/usr/include/glib-1.2 -I/usr/lib/glib/include
+> > -I/usr/include/orbit-1.0 -I/usr/include/gtk-1.2 -I/usr/X11R6/include
+> > -I/usr/include/libdv 	-I/usr/local/include/libdv
+> > -I/usr/include/gtk-1.2 -I/usr/include/glib-1.2
+> > -I/usr/lib/glib/include  -Wall -g -O2 -D_FILE_OFFSET_BITS=64
+> > -D_REENTRANT -DWITH_LIBDV
+> > -DKINO_PIXMAPSDIR=\""/usr/share/pixmaps/kino"\"
+> > -I/usr/include/libxml2/libxml -I/usr/include/libxml2 -I/include -c
+> > page_editor.cc page_editor.cc: In function `void * audioThread(void
+> > *)': page_editor.cc:1279: Internal compiler error in
+> > `dwarf2out_frame_debug_expr', at dwarf2out.c:1332
+
+The package compiles fine on all the other archs but dies with an
+internal compiler error on alpha. I'd like to know if this is caused by
+the optimisation failures Krusty talked about on the list on Dec 1st.
+I.e. if the package builds fine if you CFLAGS="-O0 -mieee" ./configure.
+
+NB: Is there developer access for any alphas running unstable? db.d.o
+    only lists faure and lully which are on potato.
+
+> A full build log can be found at:
+> http://buildd.debian.org/build.php?arch=alpha&pkg=kino&ver=0.50-1
+
+Thanks,
+
+Daniel.
+
+From unknown Mon, 10 Dec 2001 04:57:20 -0600
+Message-ID: <87ofl7qr7u.fsf@student.uni-tuebingen.de>
+Date: Mon, 10 Dec 2001 04:57:20 -0600
+From: Falk Hueffner
+Subject: Re: Bug#123164: kino_0.50-1(alpha/unstable): fails to build from source
+
+Daniel Kobras <kobras@tat.physik.uni-tuebingen.de> writes:
+
+> On Sun, Dec 09, 2001 at 05:00:11PM -0700, Ivan E. Moore II wrote:
+> > Package: kino
+> > Version: 0.50-1
+> > Severity: serious
+> > 
+> > There was an error while trying to autobuild your package:
+> > 
+> > > Automatic build of kino_0.50-1 on flatline by sbuild/alpha 1.159
+> > > Build started at 20011209-1557
+> [...]
+> > > c++ -DHAVE_CONFIG_H -I. -I. -I.. -I../intl 	-I/usr/include
+> > > -DNEED_GNOMESUPPORT_H -I/usr/lib/gnome-libs/include
+> > > -I/usr/include/glib-1.2 -I/usr/lib/glib/include
+> > > -I/usr/include/orbit-1.0 -I/usr/include/gtk-1.2 -I/usr/X11R6/include
+> > > -I/usr/include/libdv 	-I/usr/local/include/libdv
+> > > -I/usr/include/gtk-1.2 -I/usr/include/glib-1.2
+> > > -I/usr/lib/glib/include  -Wall -g -O2 -D_FILE_OFFSET_BITS=64
+> > > -D_REENTRANT -DWITH_LIBDV
+> > > -DKINO_PIXMAPSDIR=\""/usr/share/pixmaps/kino"\"
+> > > -I/usr/include/libxml2/libxml -I/usr/include/libxml2 -I/include -c
+> > > page_editor.cc page_editor.cc: In function `void * audioThread(void
+> > > *)': page_editor.cc:1279: Internal compiler error in
+> > > `dwarf2out_frame_debug_expr', at dwarf2out.c:1332
+> 
+> The package compiles fine on all the other archs but dies with an
+> internal compiler error on alpha. I'd like to know if this is caused by
+> the optimisation failures Krusty talked about on the list on Dec 1st.
+> I.e. if the package builds fine if you CFLAGS="-O0 -mieee" ./configure.
+
+No. It is being caused by Frame objects being too large. The data
+there should be allocated dynamically, objects that large are a
+problem on many platforms.
+
+> NB: Is there developer access for any alphas running unstable? db.d.o
+>     only lists faure and lully which are on potato.
+
+I could provide one if needed.
+
+        Falk
+
+From unknown Mon, 10 Dec 2001 05:01:57 -0600
+Message-ID: <Pine.LNX.3.96.1011210045720.6472S-100000@master.debian.org>
+Date: Mon, 10 Dec 2001 05:01:57 -0600
+From: Michael Stroucken
+Subject: Re: cia machine check
+
+On Sun, 9 Dec 2001, Tom Vier wrote:
+
+> while running wipe (my version) on a couple drives, i got a machine check.
+> is this a dram ecc check or pci? (does pci use ecc?)
+> 
+> Dec  9 19:16:11 zero kernel: CIA machine check: vector=0x630 pc=0xfffffc0000a03348 code=0x86
+
+As Jay noted in
+   http://www.alphalinux.org/archives/axp-list/1998/January1998/0389.html
+
+   630 Processor Correctable correctable cache and TLB errors
+
+For a while I got vector=0x670 machine checks, which are processor
+uncorrectable cache and TLB errors. I found that in my case it was due to
+overheating because the cpu fan and heat sink assembly had become full of
+dust. After I blew out the parts with compressed air, I've not had the
+problems since.
+
+Greetings,
+Michael.
+
+"I'm not just a server, but I'm also a client."		Debian GNU/Linux
+Michael Stroucken	stroucki@debian.org	 Is your penguin 64 bit?
+
+From unknown Mon, 10 Dec 2001 08:12:25 -0600
+Message-ID: <3C14C2B1.8237F209@injec.com>
+Date: Mon, 10 Dec 2001 08:12:25 -0600
+From: Phil Lamovie
+Subject: Re:Re 66 MHz ram
+
+Re 66 MHz ram the specs talk of an 83 MHz memory bus.
+
+Seems that 66 is a little on the shy side EE wise.
+
+phil
+
+From unknown Mon, 10 Dec 2001 10:14:12 -0600
+Message-ID: <6B8B98B7BD27D311B9D600508B09B8A105A8DBEE@sx3080.l080.vdogrp.de>
+Date: Mon, 10 Dec 2001 10:14:12 -0600
+From: "Bayer, Christoph"
+Subject: unaligned traps
+
+Hi all,
+
+I'm using Debian 2.2r4 on a noname board (ev4).
+Almost everything works well, but I have one
+problem: Two programs produced unaligned
+traps: dnrd and pinger (squid package). Who
+maintains these packages? It would be possible
+for me to re-compile these packages, but someone
+else will have the same problems too...
+
+Thanks in advance!
+
+Best regards,
+
+Christoph Bayer
+
+From unknown Mon, 10 Dec 2001 11:18:55 -0600
+Message-ID: <Pine.LNX.4.21.0112101215170.27194-100000@spawn.hockeyfiend.com>
+Date: Mon, 10 Dec 2001 11:18:55 -0600
+From: "Christopher C. Chimelis"
+Subject: Re: unaligned traps
+
+On Mon, 10 Dec 2001, Bayer, Christoph wrote:
+
+> I'm using Debian 2.2r4 on a noname board (ev4).
+> Almost everything works well, but I have one
+> problem: Two programs produced unaligned
+> traps: dnrd and pinger (squid package). Who
+> maintains these packages? It would be possible
+> for me to re-compile these packages, but someone
+> else will have the same problems too...
+
+Those packages will need more than just a recompile to get rid of
+unaligned traps.  In short, the traps are just warnings that the program
+is trying to access data that isn't aligned properly.  The warnings are
+just warnings, but they are ugly and bugs should be filed against the
+packages in question so that the code can be looked at again (and bug
+reports also give us a reference for testing future versions for the same
+problem).  Also, unaligned accesses do take additional processor cycles to
+perform the fixups needed to get the data in question, so it's also a
+performance hit.  If you're not too concerned with the latter and just
+want to disable seeing the warnings, I can probably either dig out or
+write a kernel patch to do so and sent it to you.
+
+C
+
+From unknown Tue, 11 Dec 2001 01:23:10 -0600
+Message-ID: <20011211071920.GI22487@tdyc.com>
+Date: Tue, 11 Dec 2001 01:23:10 -0600
+From: "Ivan E. Moore II"
+Subject: Re: Bug#123164: kino_0.50-1(alpha/unstable): fails to build from source
+
+On Mon, Dec 10, 2001 at 11:55:49AM +0100, Falk Hueffner wrote:
+> Daniel Kobras <kobras@tat.physik.uni-tuebingen.de> writes:
+> 
+> > On Sun, Dec 09, 2001 at 05:00:11PM -0700, Ivan E. Moore II wrote:
+> > > Package: kino
+> > > Version: 0.50-1
+> > > Severity: serious
+> > > 
+> > > There was an error while trying to autobuild your package:
+> > > 
+> > > > Automatic build of kino_0.50-1 on flatline by sbuild/alpha 1.159
+> > > > Build started at 20011209-1557
+> > [...]
+> > > > c++ -DHAVE_CONFIG_H -I. -I. -I.. -I../intl 	-I/usr/include
+> > > > -DNEED_GNOMESUPPORT_H -I/usr/lib/gnome-libs/include
+> > > > -I/usr/include/glib-1.2 -I/usr/lib/glib/include
+> > > > -I/usr/include/orbit-1.0 -I/usr/include/gtk-1.2 -I/usr/X11R6/include
+> > > > -I/usr/include/libdv 	-I/usr/local/include/libdv
+> > > > -I/usr/include/gtk-1.2 -I/usr/include/glib-1.2
+> > > > -I/usr/lib/glib/include  -Wall -g -O2 -D_FILE_OFFSET_BITS=64
+> > > > -D_REENTRANT -DWITH_LIBDV
+> > > > -DKINO_PIXMAPSDIR=\""/usr/share/pixmaps/kino"\"
+> > > > -I/usr/include/libxml2/libxml -I/usr/include/libxml2 -I/include -c
+> > > > page_editor.cc page_editor.cc: In function `void * audioThread(void
+> > > > *)': page_editor.cc:1279: Internal compiler error in
+> > > > `dwarf2out_frame_debug_expr', at dwarf2out.c:1332
+> > 
+> > The package compiles fine on all the other archs but dies with an
+> > internal compiler error on alpha. I'd like to know if this is caused by
+> > the optimisation failures Krusty talked about on the list on Dec 1st.
+> > I.e. if the package builds fine if you CFLAGS="-O0 -mieee" ./configure.
+> 
+> No. It is being caused by Frame objects being too large. The data
+> there should be allocated dynamically, objects that large are a
+> problem on many platforms.
+> 
+> > NB: Is there developer access for any alphas running unstable? db.d.o
+> >     only lists faure and lully which are on potato.
+> 
+
+just send me your ssh public key, sign the message, and I'll set you up
+an account on the buildd box.
+
+Ivan
+
+-- 
+----------------
+Ivan E. Moore II
+rkrusty@tdyc.com
+http://snowcrash.tdyc.com
+GPG KeyID=90BCE0DD
+GPG Fingerprint=F2FC 69FD 0DA0 4FB8 225E 27B6 7645 8141 90BC E0DD
+
+From unknown Tue, 11 Dec 2001 02:17:34 -0600
+Message-ID: <20011211091703.B13875@itp.uni-hannover.de>
+Date: Tue, 11 Dec 2001 02:17:34 -0600
+From: Helge Kreutzmann
+Subject: Re: Upload file (Re: Enconding ogg-files)
+
+On Mon, Dec 10, 2001 at 08:57:30AM +0100, Helge Kreutzmann wrote:
+> Hello !
+> On Fri, Dec 07, 2001 at 01:39:20PM -0600, Michael Stroucken wrote:
+> > 	Duh! Stupid me, this is the bug I fixed back in August!
+> > http://www.xiph.org/archives/vorbis-dev/200108/0088.html
+> > 
+> > 	Sorry I couldn't remember earlier -- Its been ages since rc2 came
+> > out and I've since been waiting for rc3.
+> 
+> Ok, I do an apt-get source tonight, patch it and see how it works.
+
+No, it does not work. I tried wav's created by cdparanoia, various
+small samples (including reference samples for the Frauenhofer
+mp3-Standard). It always aborts (Segmentation Fault) and leaves 0 byte
+files. Only one wav-file I got was partially converted - and here
+`file` says something weired (not the usually wav-stuff but something
+with Macintosh -sorry, I forgot to copy this down).
+
+Can you post a "working" wav-file somewhere so I can try that ? 
+
+I can also post a "strace" call if this helps.
+
+Greetings
+
+       Helge
+
+-- 
+Helge Kreutzmann, Dipl.-Phys.               Helge.Kreutzmann@itp.uni-hannover.de
+  gpg signed mail preferred    gpg-key: finger kreutzm@rigel.itp.uni-hannover.de
+    64bit GNU powered                  http://www.itp.uni-hannover.de/~kreutzm
+       Help keep free software "libre": http://www.freepatents.org/
+
+Attachment:
+pgpOFSrxgDckZ.pgp
+Description: PGP signature
+
+From unknown Tue, 11 Dec 2001 07:08:28 -0600
+Message-ID: <6B8B98B7BD27D311B9D600508B09B8A105A8DC8F@sx3080.l080.vdogrp.de>
+Date: Tue, 11 Dec 2001 07:08:28 -0600
+From: "Bayer, Christoph"
+Subject: RE: unaligned traps
+
+Thank you very much for answering!
+Of curse I would prefer that the code is corrected
+and the warnings do not need to appear, but it would
+although be wonderful to get rid of this disturbing
+warnings! I would be pleased, if you can send me
+such a patch!
+
+Best regards,
+
+Christoph Bayer
+
+> 
+> Those packages will need more than just a recompile to get rid of
+> unaligned traps. In short, the traps are just warnings that the program
+> is trying to access data that isn't aligned properly. The warnings are
+> just warnings, but they are ugly and bugs should be filed against the
+> packages in question so that the code can be looked at again (and bug
+> reports also give us a reference for testing future versions for the same
+> problem). Also, unaligned accesses do take additional processor cycles to
+> perform the fixups needed to get the data in question, so it's also a
+> performance hit. If you're not too concerned with the latter and just
+> want to disable seeing the warnings, I can probably either dig out or
+> write a kernel patch to do so and sent it to you.
+> 
+> C
+
+From unknown Tue, 11 Dec 2001 09:31:16 -0600
+Message-ID: <20011211162940.F10188@antares.tat.physik.uni-tuebingen.de>
+Date: Tue, 11 Dec 2001 09:31:16 -0600
+From: Daniel Kobras
+Subject: Re: Bug#123164: kino_0.50-1(alpha/unstable): fails to build from source
+
+On Mon, Dec 10, 2001 at 11:55:49AM +0100, Falk Hueffner wrote:
+> No. It is being caused by Frame objects being too large. The data
+> there should be allocated dynamically, objects that large are a
+> problem on many platforms.
+
+Once you know what to look for, the problem is pretty obvious.
+Fix needs a little bit of bashing still, but the bug is nailed.
+
+Thanks!
+
+Daniel.
+
+From unknown Tue, 11 Dec 2001 15:22:42 -0600
+Message-ID: <Pine.LNX.3.96.1011211130304.4692A-100000@master.debian.org>
+Date: Tue, 11 Dec 2001 15:22:42 -0600
+From: Michael Stroucken
+Subject: Re: Upload file (Re: Enconding ogg-files)
+
+On Tue, 11 Dec 2001, Helge Kreutzmann wrote:
+
+> No, it does not work. I tried wav's created by cdparanoia, various
+> small samples (including reference samples for the Frauenhofer
+> mp3-Standard). It always aborts (Segmentation Fault) and leaves 0 byte
+> files. Only one wav-file I got was partially converted - and here
+> `file` says something weired (not the usually wav-stuff but something
+> with Macintosh -sorry, I forgot to copy this down).
+
+	Are you sure you are installing and holding the libvorbis0 and
+libvorbis-dev packages that you've made? Otherwise they'll be overwritten
+on update.
+
+> Can you post a "working" wav-file somewhere so I can try that ? 
+Try http://www.ascient.net/~stroucki/spmg54_1.wav.bz2 .
+
+> I can also post a "strace" call if this helps.
+gdb output of a library compiled with -g would help more.
+
+Greetings,
+Michael.
+
+"I'm not just a server, but I'm also a client."		Debian GNU/Linux
+Michael Stroucken	stroucki@debian.org	 Is your penguin 64 bit?
+
+From unknown Tue, 11 Dec 2001 16:26:06 -0600
+Message-ID: <E8C532D801BE5B479B28B626184E8CDD010B8704@tayexc14.americas.cpqcorp.net>
+Date: Tue, 11 Dec 2001 16:26:06 -0600
+From: "Donsbach, Jeff"
+Subject: RE: Slllloooowwww Alpha
+
+Actually, that might not be enough. The PWS a/au ran the memory at 83
+Mhz. At the time these machines were new, very few RAM vendors made
+memory that could be used in these puppies and Digital had a rigourous
+qual for the vendors to pass.
+
+Just get PC100 (or better) ECC, unregistered DIMMS and you should be
+fine.
+
+Jeff Donsbach
+
+> -----Original Message-----
+> From: Christopher C. Chimelis [mailto:chris@debian.org]
+> Sent: Monday, December 10, 2001 12:34 AM
+> To: Rob Byrnes
+> Cc: debian-alpha@lists.debian.org
+> Subject: Re: Slllloooowwww Alpha 
+> 
+> 
+> 
+> On Mon, 10 Dec 2001, Rob Byrnes wrote:
+> 
+> > Well, after running the PWS for a while now, I'm not seeing 
+> any machine 
+> > checks being logged at all.  It seems odd, considering the 
+> checks made 
+> > Debian unusable.
+> > 
+> > Also checked what sort of memory Crucial are shipping, 
+> seems to be a little 
+> > slower than (what most people consider) spec at 66MHz.  
+> Wonder if this has 
+> > anything to do with it?
+> 
+> Probably not.  66MHz should be fine for PWS, IIRC.  I don't 
+> think that any
+> systems before PC164-SX/LX needed 100MHz.
+> 
+> C
+> 
+>
+
+From unknown Tue, 11 Dec 2001 17:36:04 -0600
+Message-ID: <20011211233536.EIHZ10725.tomts10-srv.bellnexxia.net@there>
+Date: Tue, 11 Dec 2001 17:36:04 -0600
+From: Ghozlane Toumi
+Subject: kernel build targets
+
+Hi all ...
+
+I'm in the process of porting the upcomming kbuild-2.5 kernel build system to 
+the alpha arch , and I'd like to know what are the targets people use when 
+building a shiny new kernel .
+
+I personnaly use make boot , but there is also a
+rawboot,  bootimage, srmboot, msb and bootpfile
+
+which ones are realy used and wich ones are just dead meat ?
+
+thank you for your ... eeer ... collaboration ...
+
+ghoz
+
+From unknown Tue, 11 Dec 2001 18:35:24 -0600
+Message-ID: <87ofl5wa2f.fsf@student.uni-tuebingen.de>
+Date: Tue, 11 Dec 2001 18:35:24 -0600
+From: Falk Hueffner
+Subject: Re: kernel build targets
+
+Ghozlane Toumi <ghoz@sympatico.ca> writes:
+
+> I'm in the process of porting the upcomming kbuild-2.5 kernel build
+> system to the alpha arch , and I'd like to know what are the targets
+> people use when building a shiny new kernel .
+> 
+> I personnaly use make boot , but there is also a rawboot, bootimage,
+> srmboot, msb and bootpfile
+> 
+> which ones are realy used and wich ones are just dead meat ?
+
+Will Woods <will.woods@compaq.com> told me he is working on adding
+bootp image creation support to the aboot distribution, where it
+actually makes a lot more sense.  So I wouldn't bother porting the
+netboot stuff currently.
+
+        Falk
+
+From unknown Wed, 12 Dec 2001 16:10:46 -0600
+Message-ID: <Pine.A41.4.10.10112121445390.141056-100000@lamar.ColoState.EDU>
+Date: Wed, 12 Dec 2001 16:10:46 -0600
+From: Martin Gelfand
+Subject: kernels I build just won't boot, what's the trick?
+
+After much head-scratching and teeth-gnashing (mostly involved
+with the bootstrap process) I managed to install 2.2r2 on an
+LX164 machine (533MHz 21164A, 256Meg, ncr53c875 controller
+for an all-scsi system, DECchip ethernet) which has an 
+AlphaBIOS console.  I then promptly upgraded it to woody.
+
+The problem I am having now concerned custom kernels.
+The generic 2.2.18pre21 and 2.2.20 kernel images work
+fine.  However, taking the 2.2.20 source and the config
+file associated with the generic image, changing only the
+subarchitecture (?) from generic to lx164, gives a kernel
+which just won't boot.  No problems compiling, fortunately,
+but MILO just complains that the kernel can't be booted, period.
+(If anyone wan't the exact error message I can cause it
+to be generated again, but it really didn't have more information.)
+
+Is there any "magic" I need to know about to make an alpha
+kernel bootable via MILO? 
+
+Thanks,
+Marty Gelfand
+Dept of Physics, Colorado State University
+
+From unknown Wed, 12 Dec 2001 16:36:46 -0600
+Message-ID: <20011212222528.14084.qmail@fiesta.cqe.nwu.edu>
+Date: Wed, 12 Dec 2001 16:36:46 -0600
+From: marty@fiesta.cqe.nwu.edu
+Subject: Renice 20
+
+On the debian alpha and intel machines I have, renice seems to ignore
+my requests to renice a process to 20. According to the renice man
+page, a nice level of 20 should restrict the process to running only
+when no other processes are running. However, on the debian systems, a
+command like
+
+renice 20 [jobno]
+
+doesn't seem to do it. When I look at the processes using top, the
+given job is listed as nice 19 and is using about 10% of the CPU. This
+does not appear to be the case on the RedHat alpha machine I have,
+where top reports 0% CPU usage and nice 20 when other user jobs are
+running. 
+
+Is this a bug, or is top just wrong? I know top has problems reporting
+memory usage, so does it have problems with nice levels, too? Though,
+if I look at the reniced process (in this case setiathome) output, I can see
+it is still running even if there are other user jobs.
+
+Thanks.
+
+Marty Sanborn
+
+-- 
+
+| Martin Sanborn		     |	email	m-sanborn@nwu.edu	   |
+| Department of Chemical Engineering |	phone	(847)467-1653		   |
+| Northwestern University	     |	web	zeolites.cqe.nwu.edu/marty |
+
+From unknown Thu, 13 Dec 2001 01:27:30 -0600
+Message-ID: <sc18663d.067@mail.baerum.kommune.no>
+Date: Thu, 13 Dec 2001 01:27:30 -0600
+From: "Idar Tollefsen"
+Subject: Re: kernels I build just won't boot, what's the trick?
+
+Marty,
+
+> However, taking the 2.2.20 source and the config
+> file associated with the generic image, changing only the
+> subarchitecture (?) from generic to lx164, gives a kernel
+> which just won't boot.  No problems compiling, fortunately,
+> but MILO just complains that the kernel can't be booted, period.
+
+Try configuring it as a PC164 instead of an LX164.
+
+I vaguely remember this problem. I don't remember what I did to
+solve it tough, but I can think of three tings I changed from the
+time I had it to the time it went away:
+1. Upgraded to a never kernel
+2. Upgraded to a never version of MILO
+3. Changed from AlphaBIOS to SRM
+You might want to try one or all of these options.
+
+I don't know what the consequences are of choosing
+PC164 instead of LX164, but at least mine booted ;)
+
+- IT
+
+From unknown Thu, 13 Dec 2001 06:33:44 -0600
+Message-ID: <20011213073215.A25479@jekyl.doug.ties.org>
+Date: Thu, 13 Dec 2001 06:33:44 -0600
+From: Doug Larrick
+Subject: Re: kernels I build just won't boot, what's the trick?
+
+However, taking the 2.2.20 source and the config
+file associated with the generic image, changing only the
+subarchitecture (?) from generic to lx164, gives a kernel
+which just won't boot.  No problems compiling, fortunately,
+but MILO just complains that the kernel can't be booted, period.
+
+You need to disable "Use SRM as bootloader."  I believe a generic kernel 
+can boot from either SRM or MILO, but machine-specific kernels need this 
+option set properly.
+
+-Doug
+
+From unknown Thu, 13 Dec 2001 08:38:39 -0600
+Message-ID: <20011213143758.D29479@cnds.ucd.ie>
+Date: Thu, 13 Dec 2001 08:38:39 -0600
+From: Nikita Schmidt
+Subject: Re: Renice 20
+
+On Wednesday, 12 Dec, marty@fiesta.cqe.nwu.edu wrote:
+> However, on the debian systems, a
+> command like
+> 
+> renice 20 [jobno]
+> 
+> doesn't seem to do it. When I look at the processes using top, the
+> given job is listed as nice 19 and is using about 10% of the CPU. This
+> does not appear to be the case on the RedHat alpha machine I have,
+> where top reports 0% CPU usage and nice 20 when other user jobs are
+> running. 
+
+I think this is dependent on the kernel version, rathen than distribution.
+I've noticed that Linux 2.2.x lets you do nice 20 and the job then keeps
+consuming 0.9% CPU (still not a complete halt), whereas Linux 2.4.x can
+only do nice 19 with the corresponding increase in CPU consumption.  I've
+noticed no difference in Intel vs Alpha or Debian vs RedHat comparisons.
+BTW, FreeBSD's nice 20 does stop the job completely.
+
+> Is this a bug, or is top just wrong?
+
+Looks like a kernel bug to me.
+
+Nikita
+
+From unknown Thu, 13 Dec 2001 11:11:53 -0600
+Message-ID: <Pine.A41.4.10.10112131010080.378310-100000@lamar.ColoState.EDU>
+Date: Thu, 13 Dec 2001 11:11:53 -0600
+From: Martin Gelfand
+Subject: Re: kernels I build just won't boot, what's the trick?
+
+The "Use SRM as bootloader" option was already disabled.
+--Marty
+
+On Thu, 13 Dec 2001, Doug Larrick wrote:
+
+> > However, taking the 2.2.20 source and the config
+> > file associated with the generic image, changing only the
+> > subarchitecture (?) from generic to lx164, gives a kernel
+> > which just won't boot.  No problems compiling, fortunately,
+> > but MILO just complains that the kernel can't be booted, period.
+> 
+> You need to disable "Use SRM as bootloader."  I believe a generic kernel 
+> can boot from either SRM or MILO, but machine-specific kernels need this 
+> option set properly.
+> 
+> -Doug
+> 
+> 
+> --
+> To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+> with a subject of "unsubscribe". Trouble? Contact listmaster@lists.debian.org
+>
+
+From unknown Thu, 13 Dec 2001 14:02:13 -0600
+Message-ID: <20011213200053.GA21385@houseag.com>
+Date: Thu, 13 Dec 2001 14:02:13 -0600
+From: Henry House
+Subject: memory upgrade advice for PWS 500a?
+
+I want to upgrade my Personal Workstation 500a, which supposedly supports up
+to 1.5 gigs of RAM (6 x 256M). Alas, the biggest 66Mhz ECC modules that
+Crucial has are 128M. PC133 modules are cheap and available:
+
+	http://www.crucial.com/store/PartSpecs.asp?imodule=CT32M72S4D7E
+
+Would these work in a Miata? Any problem mixing these with the 66Mhz modules
+already installed? Many thanks.
+
+-- 
+Henry House
+The attached file is a digital signature. See <http://romana.hajhouse.org/pgp>
+for information.  My OpenPGP key: <http://romana.hajhouse.org/hajhouse.asc>.
+
+Attachment:
+pgpk5eANckwJ4.pgp
+Description: PGP signature
+
+From unknown Thu, 13 Dec 2001 14:23:11 -0600
+Message-ID: <20011213201438.GB21385@houseag.com>
+Date: Thu, 13 Dec 2001 14:23:11 -0600
+From: Henry House
+Subject: Re: memory upgrade advice for PWS 500a?
+
+On Thu, Dec 13, 2001 at 12:00:53PM -0800, Henry House wrote:
+> I want to upgrade my Personal Workstation 500a, which supposedly supports up
+> to 1.5 gigs of RAM (6 x 256M). Alas, the biggest 66Mhz ECC modules that
+> Crucial has are 128M. PC133 modules are cheap and available:
+> 
+> 	http://www.crucial.com/store/PartSpecs.asp?imodule=CT32M72S4D7E
+> 
+> Would these work in a Miata? Any problem mixing these with the 66Mhz modules
+> already installed? Many thanks.
+
+Nevermind, I just read the thread 'Help with ethernet and ram' and I see that
+PC133 memory works just fine :-).
+
+-- 
+Henry House
+The attached file is a digital signature. See <http://romana.hajhouse.org/pgp>
+for information.  My OpenPGP key: <http://romana.hajhouse.org/hajhouse.asc>.
+
+Attachment:
+pgpwCOgh6blkT.pgp
+Description: PGP signature
+
+From unknown Thu, 13 Dec 2001 14:45:30 -0600
+Message-ID: <01121314141300.00914@delirium>
+Date: Thu, 13 Dec 2001 14:45:30 -0600
+From: Martin Sanborn
+Subject: Re: Renice 20
+
+On Thursday 13 December 2001 08:37 am, Nikita Schmidt wrote:
+> I think this is dependent on the kernel version, rathen than distribution.
+> I've noticed that Linux 2.2.x lets you do nice 20 and the job then keeps
+
+Oops, my mistake. The RedHat machine is running 2.2.14, not a 2.4.x kernel, 
+so your observation is correct.
+
+> BTW, FreeBSD's nice 20 does stop the job completely.
+
+As does DEC Unix (or Tru64 or whatever the latest name is).
+
+> Looks like a kernel bug to me.
+
+It's good to know top is right about something.
+
+Marty Sanborn
+
+-- 
+| Martin Sanborn - Dept. of Chemical Engineering - Northwestern University |
+| m-sanborn@nwu.edu - (847)467-1653 - http://zeolites.cqe.nwu.edu/marty |
+
+From unknown Thu, 13 Dec 2001 14:56:17 -0600
+Message-ID: <DCECIGNOJPHCHHHCDNKICEJJCBAA.jfoe@nc.rr.com>
+Date: Thu, 13 Dec 2001 14:56:17 -0600
+From: "Jason J. Foe"
+Subject: alphaserver 800 5/500
+
+I just purchased two AlphaServer 800 5/500's, and I'd like to install debian
+on one of them (I'd like to sell the other).  I looked on the debian
+website, but couldn't find any mention of the AlphaServer 800.  Could
+someone point me in the right direction?
+
+Thanks,
+Jason
+---
+Outgoing mail is certified Virus Free.
+Checked by AVG anti-virus system (http://www.grisoft.com).
+Version: 6.0.306 / Virus Database: 166 - Release Date: 12/4/2001
+
+From unknown Thu, 13 Dec 2001 17:38:53 -0600
+Message-ID: <Pine.BSO.4.33.0112131732280.14120-100000@campus.iztacala.unam.mx>
+Date: Thu, 13 Dec 2001 17:38:53 -0600
+From: Gunnar Wolf
+Subject: Re: alphaserver 800 5/500
+
+> I just purchased two AlphaServer 800 5/500's, and I'd like to install debian
+> on one of them (I'd like to sell the other).  I looked on the debian
+> website, but couldn't find any mention of the AlphaServer 800.  Could
+> someone point me in the right direction?
+
+It is one of the fairly recent machines, so it must be supported. Which
+kind of Alpha chip/chipset does it have?
+
+By the way, how much are you selling it for? What does it have? Would you
+send it to Mexico? (please answer this by private mail)
+
+--
+Gunnar Wolf - gwolf@campus.iztacala.unam.mx - (+52-55)5623-1118
+
+From unknown Thu, 13 Dec 2001 17:41:38 -0600
+Message-ID: <20011214104038.B23344@eye-net.com.au>
+Date: Thu, 13 Dec 2001 17:41:38 -0600
+From: csmall@eye-net.com.au (Craig Small)
+Subject: Weird javascript problem?
+
+Hello,
+  I have some javascript that calculates the md5sum of a word.  It's
+used in things like encrypting passwords etc.  Anyhow it works fine on
+my i386 netscpae and i386 IE on the windows box.
+
+Running Galeon on the alpha, the md5sum is always a series of 0 and 8's
+no other numbers or letters.  I was wondering why this would be the
+case.  I'm not sure if it is an alpha problem, a gaelon problem or
+a galon on the alpha problem.
+
+There is a test page at 
+http://www.boao.re.kr/~yukis/javascript/jv_md5.html
+
+ - Craig
+-- 
+Craig Small VK2XLZ  GnuPG:1C1B D893 1418 2AF4 45EE  95CB C76C E5AC 12CA DFA5
+Eye-Net Consulting http://www.eye-net.com.au/        <csmall@eye-net.com.au>
+MIEEE <csmall@ieee.org>                 Debian developer <csmall@debian.org>
+
+From unknown Thu, 13 Dec 2001 19:53:09 -0600
+Message-ID: <878zc6d0uh.fsf@student.uni-tuebingen.de>
+Date: Thu, 13 Dec 2001 19:53:09 -0600
+From: Falk Hueffner
+Subject: Re: alphaserver 800 5/500
+
+"Jason J. Foe" <jfoe@nc.rr.com> writes:
+
+> I just purchased two AlphaServer 800 5/500's, and I'd like to
+> install debian on one of them (I'd like to sell the other).  I
+> looked on the debian website, but couldn't find any mention of the
+> AlphaServer 800.  Could someone point me in the right direction?
+
+http://www.debian.org/ports/alpha/sys_types
+
+        Falk
+
+From unknown Thu, 13 Dec 2001 22:29:26 -0600
+Message-ID: <5.1.0.14.2.20011214151611.03f15050@pop.ozemail.com.au>
+Date: Thu, 13 Dec 2001 22:29:26 -0600
+From: Rob Byrnes
+Subject: Winamp MP3 player for Linux alpha
+
+For those who are interested
+
+The Winamp MP3 (and more) player has a preview release for Alpha Linux 
+available at:
+
+http://www.winamp.com/download/wasabi/
+
+Cheers,
+Rob
+
+From unknown Fri, 14 Dec 2001 02:01:08 -0600
+Message-ID: <20011214020337.A16196@vomjom>
+Date: Fri, 14 Dec 2001 02:01:08 -0600
+From: Jonathan Hseu
+Subject: Request for build
+
+Hey,
+For the sbcl package to undergo automatic compilation, it must be compiled for
+the first time and depend on itself.
+
+To compile it for the first time, I have to bootstrap it and doing so requires
+access to a debian sid alpha machine.
+
+Is there any way I could get access to a debian sid alpha  or give instructions to someone on how to build the package and have them build it?
+
+-- 
+Jonathan Hseu <vomjom@vomjom.org, vomjom@debian.org, jh4@cec.wustl.edu>
+GPG ID:          5228D713
+GPG fingerprint: 220B A4EF 70FE B884 CB38  F93F EA8A 1024 5228 D713
+
+Attachment:
+pgpKPL1SyX3YX.pgp
+Description: PGP signature
+
+From unknown Fri, 14 Dec 2001 02:43:09 -0600
+Message-ID: <20011214084302.GA29546@tdyc.com>
+Date: Fri, 14 Dec 2001 02:43:09 -0600
+From: "Ivan E. Moore II"
+Subject: Re: Request for build
+
+send me your pub ssh key
+
+On Fri, Dec 14, 2001 at 02:03:37AM -0600, Jonathan Hseu wrote:
+> Hey,
+> For the sbcl package to undergo automatic compilation, it must be compiled for
+> the first time and depend on itself.
+> 
+> To compile it for the first time, I have to bootstrap it and doing so requires
+> access to a debian sid alpha machine.
+> 
+> Is there any way I could get access to a debian sid alpha  or give instructions to someone on how to build the package and have them build it?
+> 
+> -- 
+> Jonathan Hseu <vomjom@vomjom.org, vomjom@debian.org, jh4@cec.wustl.edu>
+> GPG ID:          5228D713
+> GPG fingerprint: 220B A4EF 70FE B884 CB38  F93F EA8A 1024 5228 D713
+
+---end quoted text---
+
+-- 
+----------------
+Ivan E. Moore II
+rkrusty@tdyc.com
+http://snowcrash.tdyc.com
+GPG KeyID=90BCE0DD
+GPG Fingerprint=F2FC 69FD 0DA0 4FB8 225E 27B6 7645 8141 90BC E0DD
+
+From unknown Fri, 14 Dec 2001 03:00:16 -0600
+Message-ID: <0112140957250C.06303@pcfyma3.fyma.ucl.ac.be>
+Date: Fri, 14 Dec 2001 03:00:16 -0600
+From: Laurent Jacques
+Subject: Re: Winamp MP3 player for Linux alpha
+
+On Friday 14 December 2001 05:29, Rob Byrnes wrote:
+> For those who are interested
+>
+> The Winamp MP3 (and more) player has a preview release for Alpha Linux
+> available at:
+>
+> http://www.winamp.com/download/wasabi/
+
+It doesn't work for me.
+Notice that it's a bit strange to call the executable Winamp.exe inside the 
+the linux archive (No, I don't save the windows version ;-)
+
+In fact, there is a shell script Winamp placed into /usr/local/bin and 
+calling the binary Winamp.exe in /usr/local/Winamp/Winamp.exe
+
+A direct execution of Winamp.exe gives:
+	bash: ./Winamp.exe: cannot execute binary file
+
+Any Idea ?
+
+Laurent.
+
+From unknown Fri, 14 Dec 2001 04:12:34 -0600
+Message-ID: <20011214101230.GA7435@wurtel.net>
+Date: Fri, 14 Dec 2001 04:12:34 -0600
+From: Paul Slootman
+Subject: Re: unaligned traps
+
+On Tue 11 Dec 2001, Bayer, Christoph wrote:
+
+> Of curse I would prefer that the code is corrected
+> and the warnings do not need to appear, but it would
+> although be wonderful to get rid of this disturbing
+> warnings! I would be pleased, if you can send me
+> such a patch!
+
+FWIW I recommend against dnrd. I used to use it, but I ran into more and
+more bugs. I even tried at one stage to fix up the code to get rid of
+the alignment problems, but due to the horrible coding I didn't really
+succeed.
+
+I now use pdnsd which is a lot cleaner.
+
+Paul Slootman
+
+From unknown Fri, 14 Dec 2001 05:25:58 -0600
+Message-ID: <Pine.OSF.4.33.0112140623260.2159-100000@funsan.biomed.mcgill.ca>
+Date: Fri, 14 Dec 2001 05:25:58 -0600
+From: Robert Funnell
+Subject: Re: Winamp MP3 player for Linux alpha
+
+It looks to me as though they mean 'alpha' as in 'before beta' rather
+than as in 'better computer'. And that they're using the common
+definition of 'Linux' as 'Linux-x86'.
+
+- Robert
+
+On Fri, 14 Dec 2001, Laurent Jacques wrote:
+
+> On Friday 14 December 2001 05:29, Rob Byrnes wrote:
+> > For those who are interested
+> >
+> > The Winamp MP3 (and more) player has a preview release for Alpha Linux
+> > available at:
+> >
+> > http://www.winamp.com/download/wasabi/
+>
+> It doesn't work for me.
+> Notice that it's a bit strange to call the executable Winamp.exe inside the
+> the linux archive (No, I don't save the windows version ;-)
+>
+> In fact, there is a shell script Winamp placed into /usr/local/bin and
+> calling the binary Winamp.exe in /usr/local/Winamp/Winamp.exe
+>
+> A direct execution of Winamp.exe gives:
+> 	bash: ./Winamp.exe: cannot execute binary file
+>
+> Any Idea ?
+>
+> Laurent.
+
+From unknown Fri, 14 Dec 2001 06:48:27 -0600
+Message-ID: <0112141345330F.06303@pcfyma3.fyma.ucl.ac.be>
+Date: Fri, 14 Dec 2001 06:48:27 -0600
+From: Laurent Jacques
+Subject: Re: Winamp MP3 player for Linux alpha
+
+On Friday 14 December 2001 12:25, Robert Funnell wrote:
+> It looks to me as though they mean 'alpha' as in 'before beta' rather
+> than as in 'better computer'. And that they're using the common
+> definition of 'Linux' as 'Linux-x86'.
+>
+> - Robert
+
+You're right. 
+It was a nonsens that Nullsoft produced a player for alpha linux only before 
+any i386 port ! 
+
+Laurent.
+
+From unknown Fri, 14 Dec 2001 07:08:06 -0600
+Message-ID: <20011214140158.A1830@itp.uni-hannover.de>
+Date: Fri, 14 Dec 2001 07:08:06 -0600
+From: Helge Kreutzmann
+Subject: Re: Winamp MP3 player for Linux alpha
+
+On Fri, Dec 14, 2001 at 01:45:33PM +0100, Laurent Jacques wrote:
+> On Friday 14 December 2001 12:25, Robert Funnell wrote:
+> > It looks to me as though they mean 'alpha' as in 'before beta' rather
+> > than as in 'better computer'. And that they're using the common
+> > definition of 'Linux' as 'Linux-x86'.
+> >
+> > - Robert
+
+just do file winamp.exe and you'll see that it is a x86 binary.
+
+Greetings
+
+            Helge
+-- 
+Helge Kreutzmann, Dipl.-Phys.               Helge.Kreutzmann@itp.uni-hannover.de
+  gpg signed mail preferred    gpg-key: finger kreutzm@rigel.itp.uni-hannover.de
+    64bit GNU powered                  http://www.itp.uni-hannover.de/~kreutzm
+       Help keep free software "libre": http://www.freepatents.org/
+
+Attachment:
+pgpdBQPYXKGU8.pgp
+Description: PGP signature
+
+From unknown Fri, 14 Dec 2001 09:10:56 -0600
+Message-ID: <3C1A1660.8040905@etpc87.mar.lmco.com>
+Date: Fri, 14 Dec 2001 09:10:56 -0600
+From: Daniel Green
+Subject: Re: Winamp MP3 player for Linux alpha
+
+I think they mean alpha preview as opposed to beta preview.  Thet are 
+not specific about architecture so I am guessing it is for i386.  
+
+Rob Byrnes wrote:
+
+For those who are interested
+
+The Winamp MP3 (and more) player has a preview release for Alpha Linux 
+available at:
+
+http://www.winamp.com/download/wasabi/
+
+Cheers,
+Rob
+
+_______________________________________________
+Axp-list mailing list
+Axp-list@redhat.com
+https://listman.redhat.com/mailman/listinfo/axp-list
+
+From unknown Fri, 14 Dec 2001 09:57:26 -0600
+Message-ID: <20011214155722.GD11398@wurtel.net>
+Date: Fri, 14 Dec 2001 09:57:26 -0600
+From: Paul Slootman
+Subject: Re: Winamp MP3 player for Linux alpha
+
+On Fri 14 Dec 2001, Daniel Green wrote:
+
+> I think they mean alpha preview as opposed to beta preview.  Thet are 
+> not specific about architecture so I am guessing it is for i386.  
+
+I've filled in a feedback form there to point out their misleading text
+:-)
+
+Paul Slootman
+
+From unknown Fri, 14 Dec 2001 10:05:55 -0600
+Message-ID: <ilR9vC.A.jfE.LMiG8@murphy>
+Date: Fri, 14 Dec 2001 10:05:55 -0600
+From: 이노커뮤니케이션
+Subject: =?ks_c_5601-1987?B?W7GksO1dIGRlYmlhbi1hbHBoYbTUIL7Is+fHz7y8v+QuILSpsbg/ILfOufbGrsfSuK6woS4uubk/ILy8vbq/tb7uVEFQRbimLi6+87i2PyCw+MKlt84uLiA=?=
+
+Title: 샘플교재(테이프)를받아보고싶으신분은주소를기재하신후.아래의신청하기버튼을클릭하세요.
+
+    
+
+ 
+
+  
+
+샘플테이프 신청자는 주소확인과 함께 무료로 교재 
+                                        및 프로그램
+상담을 곧바로 받으실 수 있습니다. 
+
+ 
+ 
+ 
+
+ 
+
+                                    
+
+    
+        
+            
+
+                
+                    
+                        >>> 
+                        원치 않는 메일을 받으셨다면 이점 양해해 주시기 바랍니다. 
+                        
+                               수신을 
+                        원치 않으시면 아래 이메일 주소를 입력하시고 수신거부 
+                        버튼을 클릭해 주시기 바랍니다. 
+                               문의 
+                        : 이노커뮤니케이션 (02)6351-7500        webmaster@mailpartner.co.kr
+                    
+                
+					 
+                
+                    
+                        
+
+         이메일 
+                            입력
+
+From unknown Fri, 14 Dec 2001 12:16:07 -0600
+Message-ID: <874rmtada6.fsf@student.uni-tuebingen.de>
+Date: Fri, 14 Dec 2001 12:16:07 -0600
+From: Falk Hueffner
+Subject: Re: unaligned traps
+
+Paul Slootman <paul+nospam@wurtel.net> writes:
+
+> FWIW I recommend against dnrd. I used to use it, but I ran into more
+> and more bugs. I even tried at one stage to fix up the code to get
+> rid of the alignment problems, but due to the horrible coding I
+> didn't really succeed.
+
+Hm, weird, I have it running all the time, and don't get any unaligned
+access. That is with version 2.10-2.
+
+        Falk
+
+From unknown Fri, 14 Dec 2001 19:04:27 -0600
+Message-ID: <20011215010423.GA15145@riva.ucam.org>
+Date: Fri, 14 Dec 2001 19:04:27 -0600
+From: Colin Watson
+Subject: Re: Request for build: mpg123
+
+On Mon, Dec 03, 2001 at 08:35:45AM -0500, Christopher C. Chimelis wrote:
+> On Mon, 3 Dec 2001, Colin Watson wrote:
+> > Could somebody try to build mpg123 0.59r-10 on alpha and m68k, please?
+> > The old version is extremely out of date and still uses /usr/doc. It's
+> > non-free (non-commercial use only), but as I read the copyright file
+> > there's no problem with building and distributing precompiled binaries
+> > on multiple architectures.
+> 
+> It compiles ok on Alpha (no errors at least).  I'll try to test it
+> tonight.
+
+Any word on this?
+
+Thanks,
+
+-- 
+Colin Watson                                  [cjwatson@flatline.org.uk]
+
+From unknown Sat, 15 Dec 2001 10:14:02 -0600
+Message-ID: <20011215161356.GL24920@nyongwa.montreal.qc.ca>
+Date: Sat, 15 Dec 2001 10:14:02 -0600
+From: "Steve M. Robbins"
+Subject: alpha/sid machine available?
+
+Hi,
+
+I'd like to understand why coin failed to build on alpha
+
+http://buildd.debian.org/fetch.php?&pkg=coin&ver=1.0.1-1&arch=alpha&stamp=1008211606&file=log&as=raw
+
+but the only alpha debian machines listed are "potato".  And
+faure doesn't even have a C++ compiler...
+
+Any help appreciated,
+-Steve
+
+-- 
+by Rocket to the Moon,
+by Airplane to the Rocket,
+by Taxi to the Airport,
+by Frontdoor to the Taxi,
+by throwing back the blanket and laying down the legs ...
+- They Might Be Giants
+
+From unknown Sat, 15 Dec 2001 11:42:09 -0600
+Message-ID: <87ofl0xwyi.fsf@student.uni-tuebingen.de>
+Date: Sat, 15 Dec 2001 11:42:09 -0600
+From: Falk Hueffner
+Subject: Re: alpha/sid machine available?
+
+"Steve M. Robbins" <steven.robbins@videotron.ca> writes:
+
+> Hi,
+> 
+> I'd like to understand why coin failed to build on alpha
+> 
+> http://buildd.debian.org/fetch.php?&pkg=coin&ver=1.0.1-1&arch=alpha&stamp=1008211606&file=log&as=raw
+
+It misdetects vsnprintf. It tries to compile
+
+        (void)vsnprintf(0L, 0, 0L, 0L);
+
+which yields
+
+        conversion from `long int' to non-scalar type `__gnuc_va_list' requested
+
+A correct test would be:
+
+        #include <stdarg.h>
+        va_list args;
+        (void) vsnprintf(NULL, (size_t) 0, NULL, args);
+
+        Falk
+
+From unknown Sat, 15 Dec 2001 11:56:35 -0600
+Message-ID: <20011215175625.GN24920@nyongwa.montreal.qc.ca>
+Date: Sat, 15 Dec 2001 11:56:35 -0600
+From: "Steve M. Robbins"
+Subject: Re: alpha/sid machine available?
+
+Hello,
+
+On Sat, Dec 15, 2001 at 05:35:49PM +0100, Falk Hueffner wrote:
+> "Steve M. Robbins" <steven.robbins@videotron.ca> writes:
+> 
+> > Hi,
+> > 
+> > I'd like to understand why coin failed to build on alpha
+> > 
+> > http://buildd.debian.org/fetch.php?&pkg=coin&ver=1.0.1-1&arch=alpha&stamp=1008211606&file=log&as=raw
+> 
+> It misdetects vsnprintf. It tries to compile
+> 
+>         (void)vsnprintf(0L, 0, 0L, 0L);
+> 
+> which yields
+> 
+>         conversion from `long int' to non-scalar type `__gnuc_va_list' requested
+> 
+> A correct test would be:
+> 
+>         #include <stdarg.h>
+>         va_list args;
+>         (void) vsnprintf(NULL, (size_t) 0, NULL, args);
+> 
+>         Falk
+
+Thanks very much Falk!
+
+Lars: there is also a macro for vsnprintf() at
+  http://ac-archive.sourceforge.net/C_Support/ac_func_vsnprintf.html
+that you might consider snarfing.
+
+-Steve
+
+-- 
+by Rocket to the Moon,
+by Airplane to the Rocket,
+by Taxi to the Airport,
+by Frontdoor to the Taxi,
+by throwing back the blanket and laying down the legs ...
+- They Might Be Giants
+
+From unknown Sat, 15 Dec 2001 15:18:51 -0600
+Message-ID: <DCECIGNOJPHCHHHCDNKICEJNCBAA.jfoe@nc.rr.com>
+Date: Sat, 15 Dec 2001 15:18:51 -0600
+From: "Jason J. Foe"
+Subject: Problem installing Debian on an AlphaServer 800 with 2 DE500 nics
+
+I'm having trouble getting debian installed on my AlphaServer.  It's an 800
+5/500 with 2 DE500-BA nics.  The problem is that from what I've found on the
+internet, I need to use the de4x5 module, but it's not listed under the
+'net' section when configuring modules.  I've tried the tulip and old_tulip
+modules as well, but I get device busy.  When I try to pass the irq and io
+addresses I get an error stating invalid parameter.  Does anyone have any
+ideas?
+
+Thanks,
+Jason
+---
+Outgoing mail is certified Virus Free.
+Checked by AVG anti-virus system (http://www.grisoft.com).
+Version: 6.0.307 / Virus Database: 168 - Release Date: 12/11/2001
+
+From unknown Sat, 15 Dec 2001 16:27:59 -0600
+Message-ID: <87bsh0glvd.fsf@student.uni-tuebingen.de>
+Date: Sat, 15 Dec 2001 16:27:59 -0600
+From: Falk Hueffner
+Subject: Re: Problem installing Debian on an AlphaServer 800 with 2 DE500 nics
+
+"Jason J. Foe" <jfoe@nc.rr.com> writes:
+
+> I'm having trouble getting debian installed on my AlphaServer.  It's
+> an 800 5/500 with 2 DE500-BA nics.  The problem is that from what
+> I've found on the internet, I need to use the de4x5 module, but it's
+> not listed under the 'net' section when configuring modules.  I've
+> tried the tulip and old_tulip modules as well, but I get device
+> busy.  When I try to pass the irq and io addresses I get an error
+> stating invalid parameter.  Does anyone have any ideas?
+
+I think the de4x5 is compiled into the standard kernel. Have a look at
+the dmesg output, or just try to configure the network.
+
+        Falk
+
+From unknown Sat, 15 Dec 2001 23:18:34 -0600
+Message-ID: <DCECIGNOJPHCHHHCDNKIGEJOCBAA.jfoe@nc.rr.com>
+Date: Sat, 15 Dec 2001 23:18:34 -0600
+From: "Jason J. Foe"
+Subject: boot problems
+
+I've finally got the installer to recognize the nics, and everything seemed
+to work until the reboot.  I told the installer to make debian boot from the
+hard disk, and now when I boot I get to an aboot> prompt.  If I type in 'l'
+I get:
+
+0:2/vmlinuz ro root=/dev/sda2
+
+So I type 0 and press enter, and I get vmlinuz: file not found.  So I type d
+and see that there is, in fact, a file named vmlinuz, but no boot.  Next I
+type p 1 to look in the first partition for configuration/kernel.  Then I
+type d and see that the kernel is named vmlinuz-2.2.18pre21-generic.  Ok, so
+I try:
+
+aboot> boot vmlinuz-2.2.18pre21-generic ro root=/dev/sda2
+
+Things look ok until right after the partition check the last couple of
+lines on the screen say:
+
+VFS: Cannot open root device 00:de
+Kernel panic: VFS: Unable to mount root fs on 00:de
+
+  I can boot fine if I use the boot disk I created during install (>>> boot
+dva0 from srm).  When partitioning my hard disk, I started the fist
+partition at the second cylinder as recommended in the installation docs.
+Is there something else that I missed?
+
+Thanks,
+Jason
+---
+Outgoing mail is certified Virus Free.
+Checked by AVG anti-virus system (http://www.grisoft.com).
+Version: 6.0.307 / Virus Database: 168 - Release Date: 12/11/2001
+
+From unknown Sun, 16 Dec 2001 06:57:32 -0600
+Message-ID: <20011216135713.B31450@sim.no>
+Date: Sun, 16 Dec 2001 06:57:32 -0600
+From: "Lars J. Aas"
+Subject: Re: alpha/sid machine available?
+
+On Sat, Dec 15, 2001 at 12:56:25PM -0500, Steve M. Robbins wrote:
+: Hello,
+: 
+: On Sat, Dec 15, 2001 at 05:35:49PM +0100, Falk Hueffner wrote:
+: > "Steve M. Robbins" <steven.robbins@videotron.ca> writes:
+: > 
+: > > Hi,
+: > > 
+: > > I'd like to understand why coin failed to build on alpha
+: > > 
+: > > http://buildd.debian.org/fetch.php?&pkg=coin&ver=1.0.1-1&arch=alpha&stamp=1008211606&file=log&as=raw
+: > 
+: > It misdetects vsnprintf. It tries to compile
+: > 
+: >         (void)vsnprintf(0L, 0, 0L, 0L);
+: > 
+: > which yields
+: > 
+: >         conversion from `long int' to non-scalar type `__gnuc_va_list' requested
+: > 
+: > A correct test would be:
+: > 
+: >         #include <stdarg.h>
+: >         va_list args;
+: >         (void) vsnprintf(NULL, (size_t) 0, NULL, args);
+: > 
+: >         Falk
+: 
+: Thanks very much Falk!
+
+Yes, thanks a bunch, both of you.  I've commited the new test to CVS.
+
+: Lars: there is also a macro for vsnprintf() at
+:   http://ac-archive.sourceforge.net/C_Support/ac_func_vsnprintf.html
+: that you might consider snarfing.
+
+We're actually considdering snarfing a complete snprintf implementation to
+get around all the troubles it has caused.  Haven't gone there yet though,
+and right now it's a bit down on the priority list.
+
+  Lars J
+
+From unknown Sun, 16 Dec 2001 07:19:22 -0600
+Message-ID: <3C1C9F4C.AC6A0682@satx.rr.com>
+Date: Sun, 16 Dec 2001 07:19:22 -0600
+From: "Donald R. Spoon"
+Subject: Compiler in "testing"
+
+During one of my periodic updates of my Alpha "testing" install
+recently, I noticed that it yanked the gcc-2.95-4 package and replaced
+it with gcc-3.0.  Now when I do a "gcc -v" I get the default version to
+be "gcc version 3.0.2 (Debian)".  
+
+Has the Alpha "Woody" moved entirely to gcc-3.0.2 or have I messed
+something up on this end?  The 2.95 version seems to still be the
+"standard" for Woody on my i386 machines.  Sorry if this has been
+discussed elsewhere and is common knowledge, but I only follow this
+mailing list + Debian User + Debian testing + Debian KDE.  
+
+Cheers,
+-Don Spoon-
+
+From unknown Sun, 16 Dec 2001 08:22:16 -0600
+Message-ID: <Pine.LNX.4.21.0112160920380.6191-100000@spawn.hockeyfiend.com>
+Date: Sun, 16 Dec 2001 08:22:16 -0600
+From: "Christopher C. Chimelis"
+Subject: Re: Compiler in "testing"
+
+On Sun, 16 Dec 2001, Donald R. Spoon wrote:
+
+> During one of my periodic updates of my Alpha "testing" install
+> recently, I noticed that it yanked the gcc-2.95-4 package and replaced
+> it with gcc-3.0.  Now when I do a "gcc -v" I get the default version to
+> be "gcc version 3.0.2 (Debian)".  
+> 
+> Has the Alpha "Woody" moved entirely to gcc-3.0.2 or have I messed
+> something up on this end?  The 2.95 version seems to still be the
+> "standard" for Woody on my i386 machines.  Sorry if this has been
+> discussed elsewhere and is common knowledge, but I only follow this
+> mailing list + Debian User + Debian testing + Debian KDE.  
+
+That's odd...especially considering how there was never a version of
+gcc-defaults built that pointed to gcc-3.0.  Can you send me the output
+of:
+	dpkg -l gcc
+	dpkg -l gcc-2.95
+	dpkg -l gcc-3.0
+
+C
+
+From unknown Sun, 16 Dec 2001 09:42:48 -0600
+Message-ID: <3C1CC0F5.43BC68E4@satx.rr.com>
+Date: Sun, 16 Dec 2001 09:42:48 -0600
+From: "Donald R. Spoon"
+Subject: Re: Compiler in "testing"
+
+"Christopher C. Chimelis" wrote:
+> 
+> On Sun, 16 Dec 2001, Donald R. Spoon wrote:
+> 
+> > During one of my periodic updates of my Alpha "testing" install
+> > recently, I noticed that it yanked the gcc-2.95-4 package and replaced
+> > it with gcc-3.0.  Now when I do a "gcc -v" I get the default version to
+> > be "gcc version 3.0.2 (Debian)".
+> >
+> > Has the Alpha "Woody" moved entirely to gcc-3.0.2 or have I messed
+> > something up on this end?  The 2.95 version seems to still be the
+> > "standard" for Woody on my i386 machines.  Sorry if this has been
+> > discussed elsewhere and is common knowledge, but I only follow this
+> > mailing list + Debian User + Debian testing + Debian KDE.
+> 
+> That's odd...especially considering how there was never a version of
+> gcc-defaults built that pointed to gcc-3.0.  Can you send me the output
+> of:
+>         dpkg -l gcc
+
+dad@bilbo:~$ dpkg -l gcc
+Desired=Unknown/Install/Remove/Purge/Hold
+|
+Status=Not/Installed/Config-files/Unpacked/Failed-config/Half-installed
+|/ Err?=(none)/Hold/Reinst-required/X=both-problems (Status,Err:
+uppercase=bad)
+||/ Name           Version        Description
++++-==============-==============-============================================
+pn  gcc            <none>         (no description available)
+
+>         dpkg -l gcc-2.95
+
+dad@bilbo:~$ dpkg -l gcc-2.95
+Desired=Unknown/Install/Remove/Purge/Hold
+|
+Status=Not/Installed/Config-files/Unpacked/Failed-config/Half-installed
+|/ Err?=(none)/Hold/Reinst-required/X=both-problems (Status,Err:
+uppercase=bad)
+||/ Name           Version        Description
++++-==============-==============-============================================
+pn  gcc-2.95       <none>         (no description available)
+
+>         dpkg -l gcc-3.0
+
+dad@bilbo:~$ dpkg -l gcc-3.0
+Desired=Unknown/Install/Remove/Purge/Hold
+|
+Status=Not/Installed/Config-files/Unpacked/Failed-config/Half-installed
+|/ Err?=(none)/Hold/Reinst-required/X=both-problems (Status,Err:
+uppercase=bad)
+||/ Name           Version        Description
++++-==============-==============-============================================
+ii  gcc-3.0        3.0.2-4        The GNU C compiler.
+
+Chris,
+
+The requested output is inserted above per your request.  This happened
+about 2-3 nights ago, and several other packages were "removed".  I
+cannot recall exactly which ones, but one of them was the kernel-source
+for 2.2.19.  None were anthing "critical" so I let it go ahead.
+
+Another thing that might be responsible, is that I was fooling around
+with the Compaq C compiler a few months ago and I DID change the gcc
+pointer to point to it.  I have NOT removed it (CCC) to the best of my
+recollection.  This might have messed up something in the package
+installer...dunno.  Currently /usr/bin/gcc is linked to gcc-3.0 and I
+can't really find any reference to the Compaq C Compiler anymore....  I
+forget if I have done a re-install since then or not.  I suspect I have,
+which would have wiped out the previous CCC install.   
+
+I just re-installed gcc-2.95 and all is well now.  The responses to the
+above "dpkg -l" commands show it there and linked properly.
+
+Cheers,
+-Don Spoon-
+
+From unknown Sun, 16 Dec 2001 19:13:56 -0600
+Message-ID: <Pine.BSO.4.33.0112161746320.20833-100000@campus.iztacala.unam.mx>
+Date: Sun, 16 Dec 2001 19:13:56 -0600
+From: Gunnar Wolf
+Subject: Re: alpha/sid machine available?
+
+Hi,
+
+If you want, I can try to build it on mine.
+
+I tried to get the URL you posted, but it seems to be down.
+
+> Hi,
+>
+> I'd like to understand why coin failed to build on alpha
+>
+> http://buildd.debian.org/fetch.php?&pkg=coin&ver=1.0.1-1&arch=alpha&stamp=1008211606&file=log&as=raw
+>
+> but the only alpha debian machines listed are "potato".  And
+> faure doesn't even have a C++ compiler...
+>
+> Any help appreciated,
+> -Steve
+>
+>
+
+--
+Gunnar Wolf - gwolf@campus.iztacala.unam.mx - (+52-55)5623-1118
+
+From unknown Mon, 17 Dec 2001 05:08:43 -0600
+Message-ID: <ouf_XC.A.qiE.RIdH8@murphy>
+Date: Mon, 17 Dec 2001 05:08:43 -0600
+From: 오피스프라자
+Subject: =?ks_c_5601-1987?B?W7GksO1dIENEufjIo7rOIDIwMDIgw+K9wyy287qnUy9XILmrt+EhIQ==?=
+
+안녕하세요!
+     
+  
+   
+     
+     
+
+      DM/TM, 창업홍보, 영업에 있어서 꼭 필요한 [전국판 CD번호부 2002]를 소개해 드립니다.
+
+      이제 전국의 기업체 및 지역별 고객(인명)을 여러분의 고객으로 만들어 보세요.
+     
+  
+  
+     
+     
+     
+  
+   
+     
+     
+      
+
+
+         
+        1. CD번호부2002 제품 종류(2가지)안내
+
+        ① [상호/업종편] : 11월 5일 출시
+
+           - 전국 400만 상호/업종 데이타 수록
+
+        ② [인명편] : 11월 10일 출시
+
+           - 전국 1,200만 인명 데이타 수록
+
+        
+
+        [CD번호부 2002]는 영업사원 100명의 몫을 충분히 해낼 것입니다.
+
+        
+
+        현재 주문하실 수 있으며 선착순 300분께는 사은품을 드리고 있습니다.
+      
+
+◀ 옆의 그림을 클릭하시면 보다 자세한 내용을 보실 수 있습니다.(www.label.co.kr)
+    
+     
+  
+   
+     
+    
+
+      2. 라벨프로그램 무료!!(새우편번호 자동입력)
+
+      CD번호부2002년판에 내장된 전국 주요 우체국에서 새우편번호 홍보용으로 채택한 라벨프로그램이며, 우편용 주소라벨, 명함, CD라벨, 
+      상품표시용 라벨, 오디오/비디오 테잎 라벨 등을 제작할 때 훌륭한 도구가 될 것입니다.
+
+      여기를 클릭하시면 자세한 
+      내용을 보실 수 있으며, 무료로 다운받으실 수 있습니다.
+
+      날짜나 기능제한이 없는 정품 freeware입니다.
+
+    
+     
+  
+   
+     
+     
+      
+       이메일 주소는 인터넷 서핑을 통해 수집하였으며, 이메일 주소 외에는 어떠한 정보도 가지고 있지 않습니다.
+        더이상 메일을 원치 않으시면 수신거부를 클릭해주세요.좋은 하루 보내세요.
+
+        [수신거부]
+
+From unknown Mon, 17 Dec 2001 16:34:17 -0600
+Message-ID: <20011217223348.GA31378@xgs.dhs.org>
+Date: Mon, 17 Dec 2001 16:34:17 -0600
+From: raptor-32@xgs.dhs.org
+Subject: Video Card Problem
+
+Hello, i ran into a little problem with my alpha, and i was hoping htat
+one of you could give me a hand here.
+
+I bought myself a used Digital Server 3305 off of ebay, and it came with
+no documentation.  I managed to install Debian on it, and it works quite
+well.  I had Potato with XF3, but i upgraded to Woody with XF4.  This
+caused a few problems.  XF4 doesnt have support for the S3 Trio which is
+what the alpha has onboard.  So i decided to buy a video card for it, an
+ATI Radeon 32Meg SDR for PCI.  I put it in the first slot, moved the
+jumper needed to disable onboard video, turned the box on, and the
+monitor gets no signal.  I looked up on ATI's site, and they said that
+the card requires PCI 2.2, so i figured that the box was just too old
+for that.  So i tried the TNT based card i have in this computer to
+test, same thing.  I tried with and old S3 Trio64, same thing.  I read
+(i think on this ML's archives) that video cards need to be in the 64bit
+slot, so i tried that, didnt help.  I dont know how far the boot goes,
+nor do i have a VT100 dumb terminal to hook to the port in the back to
+check.  
+
+Another problem i had is with a SB Live (yes, im a sucker for marketing
+when it comes to hardware).  Debian detects it, when i do cat /proc/pci,
+i see it, the driver installs just fine, i can do "cat /dev/sda >
+/dev/dsp" and no error occurs, but no sound comes out of the card. 
+
+The specifics of the box (it it helps) are:
+
+Digital Server 3305 - Model : 6500A
+21164 (Noritake according to cpuinfo) at 500Mhz
+AlphaBIOS firmware version 5.64
+I dont know the SRM version.
+
+Thanks
+
+Richard Fillion
+
+From unknown Mon, 17 Dec 2001 22:01:41 -0600
+Message-ID: <20011218040136.GB6922@ucc.gu.uwa.edu.au>
+Date: Mon, 17 Dec 2001 22:01:41 -0600
+From: Jean-Paul Blaquiere
+Subject: Re: Video Card Problem
+
+> On Dec 17, raptor-32@xgs.dhs.org illuminated :
+
+<can't help with video card :( >
+
+> Another problem i had is with a SB Live (yes, im a sucker for marketing
+> when it comes to hardware).  Debian detects it, when i do cat /proc/pci,
+> i see it, the driver installs just fine, i can do "cat /dev/sda >
+> /dev/dsp" and no error occurs, but no sound comes out of the card. 
+> 
+yep, that doesn't do diddly on any of my boxes either.   try cat'ing a
+wav down /dev/dsp.  or apt-get install wavtools, and then wavp <wav_file>
+check the volume settings (aumix or similar)
+
+what kernel version are you running?
+
+./jp
+-- 
+Jean-Paul Blaquière             ||   Avatar of Computational 
+   japester@ucc.gu.uwa.edu.au   ||   Thaumaturgy
+   http://japester.ucc.asn.au   ||   IHTFP
+    "The male ego is a puppet master with a black sense of humour"
+
+From unknown Mon, 17 Dec 2001 23:26:46 -0600
+Message-ID: <3C1ED394.CD29E376@satx.rr.com>
+Date: Mon, 17 Dec 2001 23:26:46 -0600
+From: "Donald R. Spoon"
+Subject: Re: Compiler in "testing"
+
+Just some follow up:
+
+While updating via dselect, my system AGAIN tried to remove the gcc and
+gcc-2.95 packages tonight (17 Dec 01).  It didn't do this with a
+"apt-get upgrade" command I had just run previously.  The reason for
+running dselect was some packages were held back, and I wanted to see
+why.  
+
+I did some investigating and it appeared to be a conflict between the
+"gcc-doc" package and these two packages and my system REALLY wanted to
+update the gcc-doc program in the worst way!
+
+I noticed a "task-c-dev" package on my system, which suggested the
+gcc-doc package. I removed it (task-c-dev) but the system still wanted
+to install the gcc-doc package.  Further investigation revealed the
+presence of a "task-devel-common" package, which also suggested the
+gcc-doc package.  Both of these were listed in the "obsolete" section of
+dselect.  I removed this second "task" package and things reverted to
+normal.  Apparently these two "obsolete" packages were somehow
+indirectly taking precedence over the gcc and gcc-2.95 packages that I
+wanted to keep, even though the "gcc-doc" package was only "suggested". 
+There seems to be an error in logic here...somewhere.   
+
+This raises a question.  What is the correct way to handle these
+"obsolete" packges?  Does dselect just list them for reference/info, or
+will it actively try to remove them??  I recall one past experience
+where I tried to remove them manually and got into some serious
+dependency problems.
+
+Cheers,
+-Don Spoon-
+
+From unknown Tue, 18 Dec 2001 07:50:55 -0600
+Message-ID: <Pine.LNX.4.21.0112180842460.30347-100000@talisman.mv.com>
+Date: Tue, 18 Dec 2001 07:50:55 -0600
+From: Rich Payne
+Subject: Re: Video Card Problem
+
+On Mon, 17 Dec 2001 raptor-32@xgs.dhs.org wrote:
+
+> I bought myself a used Digital Server 3305 off of ebay, and it came with
+> no documentation.  I managed to install Debian on it, and it works quite
+> well.  I had Potato with XF3, but i upgraded to Woody with XF4.  This
+> caused a few problems.  XF4 doesnt have support for the S3 Trio which is
+> what the alpha has onboard.  So i decided to buy a video card for it, an
+> ATI Radeon 32Meg SDR for PCI.  I put it in the first slot, moved the
+> jumper needed to disable onboard video, turned the box on, and the
+> monitor gets no signal.  I looked up on ATI's site, and they said that
+> the card requires PCI 2.2, so i figured that the box was just too old
+> for that.  So i tried the TNT based card i have in this computer to
+> test, same thing.
+
+Both those cards are to new to be supported by the BIOS emulator. The
+Alphas have an x86 emulator in the firmware that allows them the run and
+initialize your video cards.....Radeon's only work with the newest SRMs
+and TNTs just started working before that, and I'm sure neither of those
+versions are available for your machine.
+
+>  I tried with and old S3 Trio64, same thing.  I read
+> (i think on this ML's archives) that video cards need to be in the 64bit
+> slot, so i tried that, didnt help.  I dont know how far the boot goes,
+> nor do i have a VT100 dumb terminal to hook to the port in the back to
+> check.  
+
+Well, I don't know the bus layout of this machine, but usually you want
+the video card to be on the first PCI bus, and not behind any PCI bridges
+as the emulator doesn't handle that. Again, I don't know about the slots
+on this machine. It's probably worth getting the latest firmware for your
+machine...it's available from:
+ ftp://ftp.digital.com/pub/DEC/Alpha/firmware/v6.1/
+
+I think the 3300 series was the white box (aka NT) version of the AS800,
+but you might want to check on that. 
+
+> Another problem i had is with a SB Live (yes, im a sucker for marketing
+> when it comes to hardware).  Debian detects it, when i do cat /proc/pci,
+> i see it, the driver installs just fine, i can do "cat /dev/sda >
+> /dev/dsp" and no error occurs, but no sound comes out of the card. 
+
+Interesting test.....have you started a mixer and checked the volume
+levels? You may also want to just try playing a CD or MP3 file.
+
+--rdp
+
+-- 
+Rich Payne
+rpayne@alphalinux.org			www.alphalinux.org
+
+From unknown Tue, 18 Dec 2001 07:52:31 -0600
+Message-ID: <007d01c187cb$5c6665d0$0301a8c0@precht02>
+Date: Tue, 18 Dec 2001 07:52:31 -0600
+From: "Christian Precht-Jensen"
+Subject: unsuscribe
+
+Med Venlig Hilsen
+Christian Precht Jensen
+christian@precht-jensen.dk
+
+From unknown Tue, 18 Dec 2001 08:21:34 -0600
+Message-ID: <20011218142054.GA3697@xgs.dhs.org>
+Date: Tue, 18 Dec 2001 08:21:34 -0600
+From: raptor-32@xgs.dhs.org
+Subject: Re: Video Card Problem
+
+OK, that would make sense for the video card, now i just gotta get my
+alpha-fu going high enough to be able to know how to upgrade the
+firmware.  
+
+As for the sound card, yes, i tried with mpg123 as well as play, which
+produced nothing still.  I got rid of that card (traded for a 4x SCSI
+burner), and i installed my 386's SB16 in there, it works fine.
+
+Thanks for the help guys, really appreciated.
+
+Richard Fillion
+
+On Tue, Dec 18, 2001 at 08:49:49AM -0500, Rich Payne wrote:
+> On Mon, 17 Dec 2001 raptor-32@xgs.dhs.org wrote:
+> 
+> > I bought myself a used Digital Server 3305 off of ebay, and it came with
+> > no documentation.  I managed to install Debian on it, and it works quite
+> > well.  I had Potato with XF3, but i upgraded to Woody with XF4.  This
+> > caused a few problems.  XF4 doesnt have support for the S3 Trio which is
+> > what the alpha has onboard.  So i decided to buy a video card for it, an
+> > ATI Radeon 32Meg SDR for PCI.  I put it in the first slot, moved the
+> > jumper needed to disable onboard video, turned the box on, and the
+> > monitor gets no signal.  I looked up on ATI's site, and they said that
+> > the card requires PCI 2.2, so i figured that the box was just too old
+> > for that.  So i tried the TNT based card i have in this computer to
+> > test, same thing.
+> 
+> Both those cards are to new to be supported by the BIOS emulator. The
+> Alphas have an x86 emulator in the firmware that allows them the run and
+> initialize your video cards.....Radeon's only work with the newest SRMs
+> and TNTs just started working before that, and I'm sure neither of those
+> versions are available for your machine.
+> 
+> >  I tried with and old S3 Trio64, same thing.  I read
+> > (i think on this ML's archives) that video cards need to be in the 64bit
+> > slot, so i tried that, didnt help.  I dont know how far the boot goes,
+> > nor do i have a VT100 dumb terminal to hook to the port in the back to
+> > check.  
+> 
+> Well, I don't know the bus layout of this machine, but usually you want
+> the video card to be on the first PCI bus, and not behind any PCI bridges
+> as the emulator doesn't handle that. Again, I don't know about the slots
+> on this machine. It's probably worth getting the latest firmware for your
+> machine...it's available from:
+>  ftp://ftp.digital.com/pub/DEC/Alpha/firmware/v6.1/
+> 
+> I think the 3300 series was the white box (aka NT) version of the AS800,
+> but you might want to check on that. 
+> 
+> > Another problem i had is with a SB Live (yes, im a sucker for marketing
+> > when it comes to hardware).  Debian detects it, when i do cat /proc/pci,
+> > i see it, the driver installs just fine, i can do "cat /dev/sda >
+> > /dev/dsp" and no error occurs, but no sound comes out of the card. 
+> 
+> Interesting test.....have you started a mixer and checked the volume
+> levels? You may also want to just try playing a CD or MP3 file.
+> 
+> --rdp
+> 
+> -- 
+> Rich Payne
+> rpayne@alphalinux.org			www.alphalinux.org
+> 
+> 
+> -- 
+> To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+> with a subject of "unsubscribe". Trouble? Contact listmaster@lists.debian.org
+>
+
+From unknown Tue, 18 Dec 2001 17:15:20 -0600
+Message-ID: <20011218231451.GA6070@xgs.dhs.org>
+Date: Tue, 18 Dec 2001 17:15:20 -0600
+From: raptor-32@xgs.dhs.org
+Subject: Firmware Updates
+
+Well, i found documentation on how to upgrade the firmware on compaqs
+site and it seemed pretty simple.  But it also requries that i have
+access to a Digital UNIX machine running on an alpha which i most
+definately dont have.  
+
+Here is what i DO have access to :
+Debian Linux on the alpha
+Debian Linux on this Pentium 120
+
+Could someone give me a link to where i could find the tools needed to
+build the floppies needed to upgrade the bios which would work on either
+of those 2 boxes?  
+
+Thanks
+
+Richard Fillion
+
+From unknown Tue, 18 Dec 2001 21:22:03 -0600
+Message-ID: <20011218222132.A8814@jekyl.doug.ties.org>
+Date: Tue, 18 Dec 2001 21:22:03 -0600
+From: Doug Larrick
+Subject: Fwd: Reopen bug #115315 (libgtk1.2) please
+
+[Originally sent to BTS by me --Doug]
+
+I am afraid that the source code changes kindly done by the maintainer 
+have not fixed this problem entirely on Alpha.  The problems can be seen 
+in the Balsa mail reader in the HPaned widget (as originally reported) and 
+also in the GAIM application in the VPaned widget.  The nature of the 
+problem is different with the changes applied, but the root cause is the 
+same: code generation bugs in GCC on Alpha.  Until such time as the gtk+ 
+libraries can be built with GCC version 3 on this platform (which fixes 
+the problem), the only sure solution is to build with -O0 for Alpha.
+
+Thanks for your attention.
+
+-Doug
+
+From unknown Tue, 18 Dec 2001 21:48:28 -0600
+Message-ID: <20011219034800.GA7564@xgs.dhs.org>
+Date: Tue, 18 Dec 2001 21:48:28 -0600
+From: raptor-32@xgs.dhs.org
+Subject: Video Card Success
+
+WooHoo!  SRM update did the trick, got my radeon going.  But it only
+works with the 2.4 kernel i made, dunno why.  I also have a few other
+problems, maybe you can help me out.  
+
+The SBLive! issue is not only there with the SBLive, its also there for
+the SB16 i put in it.  It detects the io port correctly (0x220), but
+when i go to play, no sound comes out of the sound card.  It works with
+the potato stock kernel, but not my custom 2.4.17 kernel.  I tried
+putting right into the kernel, with ISA PnP support, but ISA PnP couldnt
+find it.  So i put it as a module also with PnP in the kernel.  When i
+went to modprobe it, it told me that ISA PnP couldnt find the card.  So
+i gave it the exact params for it, it didnt give an error.  But no
+sound.  So i tried with the sb module as a module and PnP out all
+together.  When i modprobe it, it finds the card at 0x220, but once
+again no sound.
+
+Another quirk...PPP.  To get PPP going with my Pentium, i had to make
+sure that PPP was all modules.  The potato stock kernel does this fine.
+And i tried as best i could to make PPP all modules with my 2.4.17
+kernel, but once im connected to my ISP, pppd dies right away.  Know of
+any reasons why it could be doing that?
+
+Richard Fillion
+
+From unknown Wed, 19 Dec 2001 20:23:25 -0600
+Message-ID: <1008814753.14901.9.camel@t0ffen>
+Date: Wed, 19 Dec 2001 20:23:25 -0600
+From: chris qvigstad
+Subject: How many disks on a PWS-433a? and more.
+
+Hi!
+
+I just bought a PWS 433a last week, and I've spent most of my time
+messing with it. However, I haven't been able to find all the
+information I need, mostly probably because www.alphalinux.org /
+www.linuxalpha.org are down.
+If anyone could answer any of the questions below I'd be very grateful,
+and I'll buy you a beer next time you visit Oslo (Norway);)
+
+* How many disks can I add to the 433a? The manual seems to say the PWS
+has a 300W powersupply. I would like to add at least 2 udma100 ide disks
+to a Promise Ultra100TX2 controller, and 2 older 9.1gb scsi disks to an
+Adaptec 2940u2w or 2940 controller. There is a small ide disk on the
+onboard ide controller and a cdrom there already.
+
+* I have a "very-fullsize" gfx card that I think is a powerstorm, which
+uses both 64pci slots, and has 2 vga connectors. It's basically a huge
+card with a small card screwed onto its side. However, only one of the
+cards seems to be detected by linux. lspci only lists the gd5440, which
+is the small card. Can anyone tell me why only one card is detected, and
+the exact name/model of the powerstorm(Intergraph) card?
+
+My system info:
+
+Digital Personal Workstation 443a "Miata"
+433Mhz Prosessor (21164 EV56)
+256mb ECC RAM
+Running Debian 2.2 unstable
+
+Chris Qvigstad
+
+From unknown Wed, 19 Dec 2001 22:42:31 -0600
+Message-ID: <20011220044202.GA15004@xgs.dhs.org>
+Date: Wed, 19 Dec 2001 22:42:31 -0600
+From: raptor-32@xgs.dhs.org
+Subject: Sound + Alpha = Hell
+
+I'm sorry to be flooding your seemingly pretty quiet mailing list with
+my problems.  But this sound card problem seems to have created quite a
+stir, and i think that it would be in the interest of everyone that runs
+an alpha that the reason for all the sound card issues be resolved.  
+
+I've tried my AWE64, with PNP and without PNP enabled in the kernel and
+in the kernel and as modules.  It couldnt find the card.  I find it
+strange how it couldnt find a card that is PNP compatible.  pnpdump saw
+it, so its properly plugged in, and working.  I tried modprobing it
+manually with all the parameters, it said that no card was found, which
+is what it also said when i put it right in the kernel.  
+
+So far i've tried: 
+-SBLive!
+-Creative AWE64
+-Creative Sound Blaster 16
+-Crystal Sound 4280
+
+all with no success.  I am running linux kernel 2.4.17 (for those of you
+that didnt know it existed its 2.4.16 with a patch to allow woody's
+binutils to compile it).  I run 2.4 cause the Radeon driver seems to
+require it.
+
+And in case you were wondering, yes, i got ppp going, just need sound
+and all the hardware will be working 100%.
+
+Thanks
+
+Richard Fillion
+
+From unknown Thu, 20 Dec 2001 05:42:23 -0600
+Message-ID: <20011220064121.C4617@jekyl.doug.ties.org>
+Date: Thu, 20 Dec 2001 05:42:23 -0600
+From: Doug Larrick
+Subject: Re: Sound + Alpha = Hell
+
+On 2001.12.19 23:42 raptor-32@xgs.dhs.org wrote:
+
+I'm sorry to be flooding your seemingly pretty quiet mailing list with
+my problems.  But this sound card problem seems to have created quite a
+stir, and i think that it would be in the interest of everyone that runs
+an alpha that the reason for all the sound card issues be resolved.
+
+So far i've tried:
+-SBLive!
+-Creative AWE64
+-Creative Sound Blaster 16
+-Crystal Sound 4280
+
+I run an AWE64 in my LX.  2.4.16 under mostly testing/some unstable.  
+Config:
+
+CONFIG_SOUND=m
+CONFIG_SOUND_OSS=m
+CONFIG_SOUND_DMAP=y
+CONFIG_SOUND_SB=m
+CONFIG_SOUND_AWE32_SYNTH=m
+CONFIG_SOUND_YM3812=m
+CONFIG_PNP=y
+CONFIG_ISAPNP=y
+
+lsmod:
+Module                  Size  Used by    Tainted: P [...]
+sb                      9816   2 sb_lib                 49926   0  [sb]
+uart401                 8064   0  [sb_lib]
+sound                  85216   2  [sb_lib uart401]
+soundcore               6016   5  [sb_lib sound]
+[...]
+
+dmesg excerpts:
+Linux version 2.4.16 (root@jekyl) (gcc version 2.95.4 20011006 (Debian 
+prerelease)) #1 Mon Dec 3 21:36:56 EST 2001
+
+Booting on EB164 variation LX164 using machine vector LX164 from SRM
+[...]
+isapnp: Scanning for PnP cards...
+isapnp: Calling quirk for 01:00
+isapnp: SB audio device quirk - increasing port range
+isapnp: Calling quirk for 01:02
+isapnp: AWE32 quirk - adding two ports
+isapnp: Card 'Creative SB AWE64  PnP'
+isapnp: 1 Plug & Play card detected total
+[...]
+Soundblaster audio driver Copyright (C) by Hannu Savolainen 1993-1996
+sb: Creative SB AWE64  PnP detected
+sb: ISAPnP reports 'Creative SB AWE64  PnP' at i/o 0x220, irq 5, dma 1, 5
+SB 4.16 detected OK (220)
+sb: 1 Soundblaster PnP card(s) found.
+
+I'm running isapnptools version 1.26-1.  I don't think this version needs 
+an isapnp.conf, but I do have a straightforward one for this card left 
+over from before.
+
+Hope this helps.
+-Doug
+
+From unknown Fri, 21 Dec 2001 00:23:26 -0600
+Message-ID: <KlljjB.A.JzD.WVtI8@murphy>
+Date: Fri, 21 Dec 2001 00:23:26 -0600
+From: webmaster
+Subject: ¢º¢º´Ù¸¥°÷¿£ ¾ø½À´Ï´Ù!!¢¸¢¸[±³À°¼­ºñ½º±¤°í]
+
+Title: Web Expert Edu. Center
+
+From unknown Fri, 21 Dec 2001 05:07:03 -0600
+Message-ID: <200112211112.MAA18262@fyma.fyma.ucl.ac.be>
+Date: Fri, 21 Dec 2001 05:07:03 -0600
+From: Laurent Jacques
+Subject: Optimize X
+
+Hello,
+
+Do you have some hints to optimize the X server on alpha ?
+I have just installed debian on my Alpha PW au433 (miata) after a RedHat 7.1 
+axp configuration and X seems quite slow now.
+
+My configuration is:
+	Video card: Matrox (mga)
+	Depth: 16
+	XFree 4.1.0
+	Kernel linux 2.2.19
+
+Does I have to upgrade my kernel ?
+If yes, does a debian package for kernel 2.4 exist, or does I have to compile 
+the sources ?
+
+Thanks a lot,
+Laurent.
+
+From unknown Fri, 21 Dec 2001 05:47:31 -0600
+Message-ID: <20011221114711.GA813@alpha.of.nowhere>
+Date: Fri, 21 Dec 2001 05:47:31 -0600
+From: Jurriaan on Alpha
+Subject: Re: Optimize X
+
+On Fri, Dec 21, 2001 at 11:04:52AM +0100, Laurent Jacques wrote:
+> Hello,
+> 
+> Do you have some hints to optimize the X server on alpha ?
+> I have just installed debian on my Alpha PW au433 (miata) after a RedHat 7.1 
+> axp configuration and X seems quite slow now.
+> 
+> My configuration is:
+> 	Video card: Matrox (mga)
+> 	Depth: 16
+> 	XFree 4.1.0
+> 	Kernel linux 2.2.19
+> 
+How much memory do you have, and what window-manager are you using?
+X is quite fast here, on my PWS500au, but I have loaded it with 1.5 Gb
+of ram - not that you'd need that much to get X going :-)
+I'm using fvwm95.
+
+Good luck,
+Jurriaan
+-- 
+De-linting a program which has never been linted before is often a cleaning of
+the stables such as thou wouldst not wish on thy worst enemies.
+	Henry Spencer - The Ten Commandments for C programmers (Annotated Ed.)
+GNU/Linux 2.4.17-rc2 on Debian/Alpha 64-bits 994 bogomips load:0.03 0.03 0.00
+
+From unknown Fri, 21 Dec 2001 06:16:06 -0600
+Message-ID: <200112211221.NAA21644@fyma.fyma.ucl.ac.be>
+Date: Fri, 21 Dec 2001 06:16:06 -0600
+From: Laurent Jacques
+Subject: Re: Optimize X
+
+On Friday 21 December 2001 12:47, Jurriaan on Alpha wrote:
+> How much memory do you have, and what window-manager are you using?
+> X is quite fast here, on my PWS500au, but I have loaded it with 1.5 Gb
+> of ram - not that you'd need that much to get X going :-)r
+> I'm using fvwm95.
+
+I have 256MB of ram and I use kde 2.2.2. 
+It is slower than fvwm95 but it was quicker on redhat 7.1 axp than now on my 
+debian woody. This explains my question.
+
+Laurent.
+
+From unknown Fri, 21 Dec 2001 08:07:10 -0600
+Message-ID: <20011221140634.GA24950@xgs.dhs.org>
+Date: Fri, 21 Dec 2001 08:07:10 -0600
+From: raptor-32@xgs.dhs.org
+Subject: Re: Optimize X
+
+Get a video card that is supported properly by XF4, and install the
+proper driver for it.  Im using an ATI Radeon 32Meg SDR, with 128Megs of
+RAM X is pretty damn quick for me, then again im used to running it with
+48 with my other computer. :P
+
+I hear of people putting insane amount s of memory in their alphas, like
+the 1.5gigs i just read.  Where do you guys buy this memory?  Or do i
+have the only alpha that doesnt take normal SD ram?
+
+You can create 2.4.x kernel debian packages, but i would advise against
+it.  Download the sources, read the kernel how-to, or ask someone to
+help you out for getting into menuconfig,the rest is easy.  
+
+Good Luck,
+
+Richard  Fillion
+
+PS: sound still aint working, but getting closer, does anyone know if
+maybe the Digital Server 3000s didnt have ISAPnP compatible
+motherboards?
+
+On Fri, Dec 21, 2001 at 12:13:58PM +0100, Laurent Jacques wrote:
+> On Friday 21 December 2001 12:47, Jurriaan on Alpha wrote:
+> > How much memory do you have, and what window-manager are you using?
+> > X is quite fast here, on my PWS500au, but I have loaded it with 1.5 Gb
+> > of ram - not that you'd need that much to get X going :-)r
+> > I'm using fvwm95.
+> 
+> I have 256MB of ram and I use kde 2.2.2. 
+> It is slower than fvwm95 but it was quicker on redhat 7.1 axp than now on my 
+> debian woody. This explains my question.
+> 
+> Laurent.
+> 
+> 
+> -- 
+> To UNSUBSCRIBE, email to debian-alpha-request@lists.debian.org
+> with a subject of "unsubscribe". Trouble? Contact listmaster@lists.debian.org
+>
+
+From unknown Fri, 21 Dec 2001 08:07:26 -0600
+Message-ID: <200112211412.PAA25635@fyma.fyma.ucl.ac.be>
+Date: Fri, 21 Dec 2001 08:07:26 -0600
+From: Laurent Jacques
+Subject: kmail & alpha
+
+Hello,
+
+A very little thing : 
+Have you the same problem than me to include a file signature 
+$HOME/.signature to mail written with kmail ? Is it a bug of the debian-alpha 
+compilation ?
+
+Laurent.
+
+From unknown Fri, 21 Dec 2001 08:45:38 -0600
+Message-ID: <200112211447.PAA29343@fyma.fyma.ucl.ac.be>
+Date: Fri, 21 Dec 2001 08:45:38 -0600
+From: Laurent Jacques
+Subject: Re: kmail & alpha
+
+On Friday 21 December 2001 15:04, Laurent Jacques wrote:
+> Hello,
+>
+> A very little thing :
+> Have you the same problem than me to include a file signature
+> $HOME/.signature to mail written with kmail ? Is it a bug of the
+> debian-alpha compilation ?
+
+Forget about this.
+I'm very stupid. I didn't see the "Append signature option".
+
+Sorry,
+Laurent.
+
+From unknown Fri, 21 Dec 2001 12:40:30 -0600
+Message-ID: <20011221183747.GA1223@alpha.of.nowhere>
+Date: Fri, 21 Dec 2001 12:40:30 -0600
+From: Jurriaan on Alpha
+Subject: Re: Optimize X
+
+On Fri, Dec 21, 2001 at 08:06:34AM -0600, raptor-32@xgs.dhs.org wrote:
+> Get a video card that is supported properly by XF4, and install the
+> proper driver for it.  Im using an ATI Radeon 32Meg SDR, with 128Megs of
+> RAM X is pretty damn quick for me, then again im used to running it with
+> 48 with my other computer. :P
+
+I must assume any matrox card is properly supported in XF4. However, the
+original poster could always try to run Xstone or some such benchmark to
+find out if it's really X that's slow.
+
+> 
+> I hear of people putting insane amount s of memory in their alphas, like
+> the 1.5gigs i just read.  Where do you guys buy this memory?  Or do i
+> have the only alpha that doesnt take normal SD ram?
+> 
+As a matter of fact, my PWS500au ate straight ECC PC133 dimms, which I
+got on Ebay at $34 per dimm (256 megabytes each).
+
+Good luck,
+Jurriaan
+-- 
+Murgen seemed to smile. "I will cite first, the Wastes of Falax; second,
+the Flesh Cape of Miscus; third, the Totness Squalings. Reflect; then go
+your way, and be grateful for my restraint."
+	Jack Vance - Lyonesse
+GNU/Linux 2.4.17-rc2 on Debian/Alpha 64-bits 992 bogomips load:0.44 0.43 0.24
+
+From unknown Fri, 21 Dec 2001 15:01:02 -0600
+Message-ID: <200112212100.fBLL0ki20065@picard.skynet.be>
+Date: Fri, 21 Dec 2001 15:01:02 -0600
+From: Laurent Jacques
+Subject: Re: Optimize X
+
+On Friday 21 December 2001 19:37, Jurriaan on Alpha wrote:
+> I must assume any matrox card is properly supported in XF4. However, the
+> original poster could always try to run Xstone or some such benchmark to
+> find out if it's really X that's slow.
+
+Where can I obtain this benchmarking program ?
+Is it a part of Xfree because I don't see it anywhere ?
+
+Thanks,
+Laurent.
+
+From unknown Sat, 22 Dec 2001 00:04:05 -0600
+Message-ID: <20011222060358.GA4901@alpha.of.nowhere>
+Date: Sat, 22 Dec 2001 00:04:05 -0600
+From: Jurriaan on Alpha
+Subject: Re: Optimize X
+
+On Fri, Dec 21, 2001 at 10:03:26PM +0100, Laurent Jacques wrote:
+> On Friday 21 December 2001 19:37, Jurriaan on Alpha wrote:
+> > I must assume any matrox card is properly supported in XF4. However, the
+> > original poster could always try to run Xstone or some such benchmark to
+> > find out if it's really X that's slow.
+> 
+> Where can I obtain this benchmarking program ?
+> Is it a part of Xfree because I don't see it anywhere ?
+> 
+> Thanks,
+> Laurent.
+> 
+Try searching google for 'xstone benchmark'.
+
+Good luck,
+Jurriaan
+-- 
+...you might as well skip the Xmas celebration completely, and instead
+sit in front of your linux computer playing with the all-new-and-improved 
+linux kernel version.
+	Linus Torvalds
+GNU/Linux 2.4.17-rc2 on Debian/Alpha 64-bits 990 bogomips load:0.01 0.26 0.43
+
+From unknown Sat, 22 Dec 2001 07:38:27 -0600
+Message-ID: <Pine.SOL.3.96.1011222143209.11341A-100000@campfire.rrz.Uni-Koeln.DE>
+Date: Sat, 22 Dec 2001 07:38:27 -0600
+From: Kerstin Hoef-Emden
+Subject: PostgreSQL 7?
+
+Hi everybody,
+
+did somebody succeed in compiling PostreSQL 7.1.3 for Alpha? I
+downloaded the sources of PostgreSQL and with a little help from a
+friend had the compile running through until a specified target for arch
+was needed, but wasn't found in the package. 
+
+Best wishes,
+
+Kerstin
+
+-- 
+
+Dr. Kerstin Hoef-Emden			Gyrhofstr. 15
+Universität zu Köln			50931 Köln
+Botanisches Institut			Germany
+
+From unknown Sun, 23 Dec 2001 06:08:40 -0600
+Message-ID: <E16I7Qi-00045f-00@auric.debian.org>
+Date: Sun, 23 Dec 2001 06:08:40 -0600
+From: joey@infodrom.org (Martin Schulze)
+Subject: 8 package(s) to rebuild on alpha/stable
+
+These packages have to be rebuilt for stable on alpha in order to let
+the packages go into 2.2r5.
+
+Please find URLs to source packages attached below for convenience.
+When uploading, please take care of the distribution, which should
+contain 'stable' and nothing else.
+
+For further explanation please check the detailed report at
+<http://master.debian.org/~joey/2.2r5/>.
+
+http://ftp.debian.org/debian/pool/main/b/bwbasic/bwbasic_2.20pl2.orig.tar.gz
+http://ftp.debian.org/debian/pool/main/b/bwbasic/bwbasic_2.20pl2-3.2.dsc
+http://ftp.debian.org/debian/pool/main/b/bwbasic/bwbasic_2.20pl2-3.2.diff.gz
+
+http://ftp.debian.org/debian/pool/main/m/mailman/mailman_1.1.orig.tar.gz
+http://ftp.debian.org/debian/pool/main/m/mailman/mailman_1.1-10.dsc
+http://ftp.debian.org/debian/pool/main/m/mailman/mailman_1.1-10.diff.gz
+
+http://ftp.debian.org/debian/pool/main/n/netkit-telnet/netkit-telnet_0.16.orig.tar.gz
+http://ftp.debian.org/debian/pool/main/n/netkit-telnet/netkit-telnet_0.16-4potato.3.dsc
+http://ftp.debian.org/debian/pool/main/n/netkit-telnet/netkit-telnet_0.16-4potato.3.diff.gz
+
+http://ftp.debian.org/debian/pool/main/o/openldap/openldap_1.2.12-2.dsc
+http://ftp.debian.org/debian/pool/main/o/openldap/openldap_1.2.12.orig.tar.gz
+http://ftp.debian.org/debian/pool/main/o/openldap/openldap_1.2.12-2.diff.gz
+
+http://ftp.debian.org/debian/pool/main/p/php4/php4_4.0.3pl1.orig.tar.gz
+http://ftp.debian.org/debian/pool/main/p/php4/php4_4.0.3pl1-0potato2.dsc
+http://ftp.debian.org/debian/pool/main/p/php4/php4_4.0.3pl1-0potato2.diff.gz
+
+http://ftp.debian.org/debian/pool/main/p/postgresql/postgresql_6.5.3.orig.tar.gz
+http://ftp.debian.org/debian/pool/main/p/postgresql/postgresql_6.5.3-27.dsc
+http://ftp.debian.org/debian/pool/main/p/postgresql/postgresql_6.5.3-27.diff.gz
+
+http://ftp.debian.org/debian/pool/main/x/xxgdb/xxgdb_1.12.orig.tar.gz
+http://ftp.debian.org/debian/pool/main/x/xxgdb/xxgdb_1.12-9.4potato.dsc
+http://ftp.debian.org/debian/pool/main/x/xxgdb/xxgdb_1.12-9.4potato.diff.gz
+
+http://ftp.debian.org/debian/pool/main/y/yabasic/yabasic_2.53.orig.tar.gz
+http://ftp.debian.org/debian/pool/main/y/yabasic/yabasic_2.53-2.dsc
+http://ftp.debian.org/debian/pool/main/y/yabasic/yabasic_2.53-2.diff.gz
+
+Thank you for your contribution,
+
+	Joey
+
+-- 
+This mail was generated automatically.
+
+From unknown Sun, 23 Dec 2001 08:35:19 -0600
+Message-ID: <004d01c18bbe$bffa8d00$0b64a8c0@becca>
+Date: Sun, 23 Dec 2001 08:35:19 -0600
+From: "Rob Byrnes"
+Subject: how to use kernel-package and patch kernel for xfs?
+
+I'm going to try a journalled filesystem on my Alpha, and I need some
+assistance.
+
+I'm running Testing at the moment, and I have downloaded the kernel 2.4.14
+source and xfs-patch and installed it via apt.  I notice in the
+kernel-package documentation, there is reference to patch_the_kernel, but
+not a lot is explained about this option, such as where it is used.
+
+Any pointers?
+
+Cheers and Merry Christmas
+Rob
+
+From unknown Wed, 26 Dec 2001 17:08:01 -0600
+Message-ID: <-w3ucD.A._aG.cdlK8@murphy>
+Date: Wed, 26 Dec 2001 17:08:01 -0600
+From: "Happy Hanukka"
+Subject: 
+
+Title: NOVEMBER
+
+  
+  DECEMBER'S CLOSEOUT: 
+  
+  JUDAICA ART
+  - JUST IN TIME FOR THE HOLIDAYS
+  For a Limited Time Only!!!
+  
+    
+      David Yochanan 
+  - Colors
+      
+   
+  David Yochanan 
+  - Micro Calligraphy
+      
+
+ 
+    
+    
+      
+  
+      
+  
+    
+    
+       
+
+  "Beloved Jerusalem"
+      
+
+  (English and Hebrew Versions available)
+      
+
+ 
+      
+   
+  
+  "Wailing Wall"
+      
+
+ 
+    
+    
+      
+      Retail for $85 - Buy 
+  it Today for Only 
+      $19.99!!
+    
+  
+   
+  
+  Limited Quantities!!!  Click Here to Order!!!
+  
+  More 
+  pictures to choose from - Click Here!!
+   
+  
+  CALL NOW!!! (877) 240-8501
+  
+  
+  (Toll Free In the US)
+   
+  
+  Excellent Gifts for ANY Occasion!!
+  
+  CALL FOR WHOLESALE
+   
+  
+
+David Yochanan is an 
+  inspiring Jewish/Israeli artist from Tiberia, who captures Jewish art and 
+  mystic symbols in beautiful vivid colors and micro calligraphy.  
+  
+  
+
+Pictures are 
+  individually signed, and are pre-matted, meaning they are ready for framing in 
+  11X13 frame mouldings (available in most stores), or by custom framers (to fit 
+  in with your decour).  
+  
+
+We bring you huge discounts by buying out entire stocks 
+  of closeout and clearanced items.  
+  Items are in limited quantities, so ORDER TODAY! using our secure online 
+  shopping cart!!! 
+  
+
+ 
+  
+  CALL NOW!!!  (877) 240-8501  (Toll Free In the US)
+  
+
+ 
+  
+
+To be removed 
+  from receiving further discount offers please respond to this email with 
+  REMOVE in the subject line, no message necessary.  
+  
+
+To subscribe 
+  to our mailing list please respond to this email with SUBSCRIBE in the subject 
+  line, no message necessary.
+
+From unknown Thu, 27 Dec 2001 05:14:08 -0600
+Message-ID: <200112271117.MAA31843@fyma.fyma.ucl.ac.be>
+Date: Thu, 27 Dec 2001 05:14:08 -0600
+From: Laurent Jacques
+Subject: Xemacs frozen
+
+Hello,
+
+Strange bug in Xemacs 21.4 (patch 1) on debian alpha.
+In the standard bibtex mode, C-k (delete the whole line) freezes my xemacs 
+forever ?
+
+Any ideas of what happens ?
+Thanks, 
+Laurent.
+
+From unknown Thu, 27 Dec 2001 17:49:23 -0600
+Message-ID: <3C2BB369.8090907@vicsfamily.net>
+Date: Thu, 27 Dec 2001 17:49:23 -0600
+From: "Victor R. Cain"
+Subject: Kernel Compile Problem
+
+I'm trying to compile kernel 2.4.16 on a LX164 machine.  All the compiles
+go fine, but when it tries to link to create "vmlinux", I get four 
+identical
+
+errors, one from char.o, something like this:
+drivers/char/char.o   undefined reference to 'local symbols in 
+discarded section .text.exit'
+
+and, in three different places in net.o:
+drivers/net/net.o      undefined reference to 'local symbols in 
+discarded section .text.exit'
+
+Any help would be appreciated,
+Vic Cain
+
+--
+I have the simplest tastes.  I am always satisfied with the best. 
+-------------------                            -- Oscar Wilde
+Victor R. Cain                             E: vic@vicsfamily.net
+
+From unknown Thu, 27 Dec 2001 18:21:53 -0600
+Message-ID: <F8WLEkYkhv2r1obf7Bg00010493@hotmail.com>
+Date: Thu, 27 Dec 2001 18:21:53 -0600
+From: "Matt Jones"
+Subject: Alpha performance?
+
+Does anyone know of a program that will allow me to compare the performance 
+compared to an intel machine? I am just curious to know exactly how much 
+faster it is going.
+
+Thanks
+
+_________________________________________________________________
+Join the world?s largest e-mail service with MSN Hotmail. 
+http://www.hotmail.com
+
+From unknown Thu, 27 Dec 2001 19:02:46 -0600
+Message-ID: <Pine.LNX.4.21.0112271756010.9801-100000@magellan.rkirkpat.net>
+Date: Thu, 27 Dec 2001 19:02:46 -0600
+From: Ryan Kirkpatrick
+Subject: Re: PostgreSQL 7?
+
+On Sat, 22 Dec 2001, Kerstin Hoef-Emden wrote:
+
+> did somebody succeed in compiling PostreSQL 7.1.3 for Alpha? I
+> downloaded the sources of PostgreSQL and with a little help from a
+> friend had the compile running through until a specified target for arch
+> was needed, but wasn't found in the package. 
+
+	I just pulled down PostgreSQL 7.1.3 onto my XL366 Alpha running
+stock Potato (2.2.19 kernel). With a './configure' and a 'make all', it
+built without problem. There were a handful of warnings, but that is
+pretty standard for pgsql on Linux/Alpha. 
+	Next I ran the regression tests in ./src/test/regress as 'make
+check' and they all passed. When 7.1 was in beta I tested it a number of
+times on Linux/Alpha and submitted a few patches to make sure it was
+pretty bullet proof. Therefore the additional incremental releases
+should not have broken anything, which my test just now proves. :)
+	If you can email some more detailed description of what is
+breaking, what compiler version you are using (and distribution,
+i.e. potato/woody/etc...), and even error messages from the compile, I
+will do my best to help you out. TTYL.
+
+---------------------------------------------------------------------------
+|   "For to me to live is Christ, and to die is gain."                    |
+|                                            --- Philippians 1:21 (KJV)   |
+---------------------------------------------------------------------------
+|   Ryan Kirkpatrick  |  Boulder, Colorado  |  http://www.rkirkpat.net/   |
+---------------------------------------------------------------------------
+
+From unknown Fri, 28 Dec 2001 13:46:00 -0600
+Message-ID: <Pine.SOL.4.30.0112282142180.16250-100000@alya.utu.fi>
+Date: Fri, 28 Dec 2001 13:46:00 -0600
+From: Juha Jäykkä
+Subject: =?ISO-8859-1?B?UmU6IMTEx7vFzbfOIMfateXG+cC7IMPmwPzH0rz2IMDWvcC0z7TZLg==?= =?ISO-8859-1?B?IVuxpLDtXQ==?=
+In-Reply-To: <E16JvvU-0000IL-00@master.debian.org>
+
+Just a quick question, off topic: since we are getting a hell of a
+lot of these korean character set emails that are (presumably) spam,
+could we just start filtering out any email in that charset? The
+language of the list is english so there is no need of non-latin
+alphabets, certainly not korean. Or is there..?
+
+-- 
+		 -----------------------------------------------
+		| Juha Jäykkä, juolja@utu.fi			|
+		| home: http://www.utu.fi/~juolja/		|
+		 -----------------------------------------------
+
+From unknown Fri, 28 Dec 2001 14:33:23 -0600
+Message-ID: <20011228123251.A10799@slimy.com>
+Date: Fri, 28 Dec 2001 14:33:23 -0600
+From: Jon Leonard
+Subject: Re: Alpha performance?
+
+On Fri, Dec 28, 2001 at 12:21:21AM +0000, Matt Jones wrote:
+> Does anyone know of a program that will allow me to compare the performance 
+> compared to an intel machine? I am just curious to know exactly how much 
+> faster it is going.
+
+This depends a great deal on what you're doing, since the processors have
+different strengths.
+
+A randomly selected program of mine (a physics sim, one that takes a
+measurable time with a small stepsize) took 14.4 seconds on my Alpha
+(a 21164A), and 10.8 seconds on my 850 MHz Pentium III laptop.  Since the
+Alpha is two generations old (and the newer ones are about twice as fast
+per MHz), it holds up fairly well.
+
+On the other hand, I have some pathological programs (doing an excessive
+amount of integer division) where my old 150 MHz laptop beat the same Alpha.
+
+And of course, if you need to do a lot of 64-bit integer math, an alpha
+will have a big advantage.
+
+If for some reason you just want a number to compare, then
+http://www.specbench.org/ is probably the best place to look.  But
+individually comparing the apps of interest to you is far better.
+
+Jon Leonard
+
+From unknown Fri, 28 Dec 2001 15:19:43 -0600
+Message-ID: <Pine.LNX.3.96.1011228140706.25420B-100000@master.debian.org>
+Date: Fri, 28 Dec 2001 15:19:43 -0600
+From: Michael Stroucken
+Subject: =?ISO-8859-1?B?UmU6IMTEx7vFzbfOIMfateXG+cC7IMPmwPzH0rz2IMDWvcC0z7TZLg==?= =?ISO-8859-1?B?IVuxpLDtXQ==?=
+
+On Fri, 28 Dec 2001, Juha Jäykkä wrote:
+
+>   Just a quick question, off topic: since we are getting a hell of a
+> lot of these korean character set emails that are (presumably) spam,
+> could we just start filtering out any email in that charset? The
+> language of the list is english so there is no need of non-latin
+> alphabets, certainly not korean. Or is there..?
+
+	By including him on the reply, you just confirmed your address. 
+You're going to see much more of that 'pleasure diamond ring coupling set'
+:).
+
+	Anyway, by filtering against ks_c_5601-1987 or euc-kr outright,
+submissions by koreans could be silently rejected. They may write in
+English, but their name is sent in the local korean character sets. Maybe
+it would be better to just reject html mail, as most spammers seem to be
+using that, and there is no real reason to use it on this mailing list.
+
+Greetings,
+Michael.
+
+"I'm not just a server, but I'm also a client."		Debian GNU/Linux
+Michael Stroucken	stroucki@debian.org	 Is your penguin 64 bit?
+
+From unknown Fri, 28 Dec 2001 18:06:06 -0600
+Message-ID: <Pine.SOL.3.96.1011229000317.1455A-100000@campfire.rrz.Uni-Koeln.DE>
+Date: Fri, 28 Dec 2001 18:06:06 -0600
+From: Kerstin Hoef-Emden
+Subject: Re: PostgreSQL 7?
+
+Hi,
+
+On Thu, 27 Dec 2001, Ryan Kirkpatrick wrote:
+
+> > did somebody succeed in compiling PostreSQL 7.1.3 for Alpha? I
+> > downloaded the sources of PostgreSQL and with a little help from a
+> > friend had the compile running through until a specified target for arch
+> > was needed, but wasn't found in the package. 
+> 
+> 	I just pulled down PostgreSQL 7.1.3 onto my XL366 Alpha running
+> stock Potato (2.2.19 kernel). With a './configure' and a 'make all', it
+> built without problem. There were a handful of warnings, but that is
+> pretty standard for pgsql on Linux/Alpha. 
+
+Unfortunately, it did not work out that smoothly when I tried to compile
+it.
+
+> 	If you can email some more detailed description of what is
+> breaking, what compiler version you are using (and distribution,
+> i.e. potato/woody/etc...), and even error messages from the compile, I
+> will do my best to help you out. TTYL.
+
+Here is a more complete report:
+
+I am also running potato with kernel 2.2.19 and gcc 2.95.2, but on an
+AlphaPC LX164.
+
+The following sources and additional files were downloaded from 
+http://non-us.debian.org/debian-non-US/pool/non-US/main/p/postgresql/
+
+postgresql_7.1.3-4.dsc
+postgresql_7.1.3-4.diff.gz
+postgresql_7.1.3.orig.tar.gz
+
+To have it managed by dpkg/apt, we wanted to make it directly a
+debian-package with
+
+dpkg-source -x postgresql_7.1.3-4.dsc
+
+then changed into the newly opened directory and did
+
+dpkg-buildpackage -us -uc
+
+The configure procedure started and stopped first when tkConfig.sh and
+later when tclConfig.sh were needed, but for unknown reasons were not
+found. We overcame it by exporting the path e. g. "export
+TK_CONFIG_SH=/usr/lib/tkConfig.sh". Several other less dirty tricks
+didn't work out. 
+
+The compilation started and ran for while, reporting a lot of "no
+previous prototype" warnings for fdimf, __fdimf, __fdim and fdim, then
+stopped with these error message: 
+
+make[5]: Entering directory
+`/database/postgres/postgresql-7.1.3/src/interfaces/perl5'
+make[5]: *** No rule to make target `pure_vendor_install', needed by
+`pure_install'.  Stop.
+make[5]: Leaving directory
+`/database/postgres/postgresql-7.1.3/src/interfaces/perl5'
+make[4]: *** [install] Error 2
+make[4]: Leaving directory
+`/database/postgres/postgresql-7.1.3/src/interfaces/perl5'
+make[3]: *** [install] Error 2
+make[3]: Leaving directory
+`/database/postgres/postgresql-7.1.3/src/interfaces'
+make[2]: *** [install] Error 2
+make[2]: Leaving directory `/database/postgres/postgresql-7.1.3/src'
+make[1]: *** [install] Error 2
+make[1]: Leaving directory
+`/database/postgres/postgresql-7.1.3'
+make: *** [binary-arch] Error 2
+
+That was the point where we stopped trying further.
+
+Thank you for offering your help,
+
+a happy new year,
+
+Kerstin
+
+-- 
+
+Dr. Kerstin Hoef-Emden			Gyrhofstr. 15
+Universität zu Köln			50931 Köln
+Botanisches Institut			Germany
+
