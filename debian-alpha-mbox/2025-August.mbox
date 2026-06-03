@@ -1,0 +1,1438 @@
+From dave@parisc-linux.org Tue Aug 12 18:00:29 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: John David Anglin <dave@parisc-linux.org>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Bug#1110956: lapack: FTBFS on hppa and alpha - segmentation fault in testsuite
+Date: Tue, 12 Aug 2025 18:00:29 -0400
+Approved: news@gmane.org
+Message-ID: <175503602947.29429.8121365816042258017.reportbug__41603.8901706756$1755036566$gmane$org@mx3210>
+Reply-To: John David Anglin <dave@parisc-linux.org>, 1110956@bugs.debian.org
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============0676010021=="
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="31029"; mail-complaints-to="usenet@ciao.gmane.io"
+To: Debian Bug Tracking System <submit@bugs.debian.org>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Wed Aug 13 00:09:21 2025
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1ulxBI-0007yv-KQ
+	for debian-alpha@m.gmane-mx.org; Wed, 13 Aug 2025 00:09:20 +0200
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id 4880720623; Tue, 12 Aug 2025 22:09:20 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Tue Aug 12 22:09:20 2025
+Old-Return-Path: <debbugs@buxtehude.debian.org>
+X-Original-To: lists-debian-alpha@bendel.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id 7331F2061F
+	for <lists-debian-alpha@bendel.debian.org>; Tue, 12 Aug 2025 22:09:10 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-7.999 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, DKIM_INVALID=0.1, DKIM_SIGNED=0.1, FOURLA=0.1,
+	HEADER_FROM_DIFFERENT_DOMAINS=0.001, RCVD_IN_DNSWL_MED=-2.3,
+	XMAILER_REPORTBUG=-4] autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id k8drIzo7hPwo for <lists-debian-alpha@bendel.debian.org>;
+	Tue, 12 Aug 2025 22:09:05 +0000 (UTC)
+Original-Received: from buxtehude.debian.org (buxtehude.debian.org [IPv6:2607:f8f0:614:1::1274:39])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange ECDHE (P-256) server-signature RSA-PSS (2048 bits) server-digest SHA256
+	 client-signature RSA-PSS (2048 bits) client-digest SHA256)
+	(Client CN "buxtehude.debian.org", Issuer "Debian SMTP CA" (not verified))
+	by bendel.debian.org (Postfix) with ESMTPS id CE6AF2061D;
+	Tue, 12 Aug 2025 22:09:05 +0000 (UTC)
+Original-Received: from debbugs by buxtehude.debian.org with local (Exim 4.96)
+	(envelope-from <debbugs@buxtehude.debian.org>)
+	id 1ulxB0-00CcxH-1I;
+	Tue, 12 Aug 2025 22:09:02 +0000
+X-Loop: owner@bugs.debian.org
+Resent-From: John David Anglin <dave@parisc-linux.org>
+Resent-To: debian-bugs-dist@lists.debian.org
+Resent-CC: debian-alpha@lists.debian.org, Debian Science Team <debian-science-maintainers@lists.alioth.debian.org>
+X-Loop: owner@bugs.debian.org
+Resent-Date: Tue, 12 Aug 2025 22:09:01 +0000
+Resent-Message-ID: <handler.1110956.B.17550363743007588@bugs.debian.org>
+X-Debian-PR-Message: report 1110956
+X-Debian-PR-Package: src:lapack
+X-Debian-PR-Keywords: patch
+X-Debian-PR-Source: lapack
+Original-Received: via spool by submit@bugs.debian.org id=B.17550363743007588
+          (code B); Tue, 12 Aug 2025 22:09:01 +0000
+Original-Received: (at submit) by bugs.debian.org; 12 Aug 2025 22:06:14 +0000
+Original-Received: from paco.parisc-linux.org ([2a02:c206:3015:3002::1]:35794)
+	by buxtehude.debian.org with esmtps (TLS1.3:ECDHE_X25519__RSA_PSS_RSAE_SHA256__AES_256_GCM:256)
+	(Exim 4.96)
+	(envelope-from <dave@parisc-linux.org>)
+	id 1ulx8H-00CcP8-1S
+	for submit@bugs.debian.org;
+	Tue, 12 Aug 2025 22:06:14 +0000
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=parisc-linux.org;
+	s=2021; t=1755036035;
+	bh=fN7uWJcG9q16c7D7LidecUITKsNXPdFr2cjxc12In88=;
+	h=From:To:Subject:Date:From;
+	b=TBlqzuTvdh/KJEPqkp+II1r26IWIzIQfyjlN6Zb1cxlJj1dPPn0djxMX+aTA1wrLt
+	 Kj5/WVpNBneeayFmetIoErAK1P/pOKywl0lCTResr1mHVKkclakXNx2wDM3+JsTHMV
+	 KmIYWMP9iRnwm/SbDPnI4CouqBU/z8qm49gyxOg0ncvdPGFnF0Ifw8HJyT0tKrb5NP
+	 JUtvNHqVoQ0mXM/sdlm+xFNlY7HyxS76uEQmykCXvb2ETqyfAGclrED5kjTqJfRIjC
+	 EajsjOlvBDGRPiw4rpmM+F8gsrx0+LmD5dC65tD50sbE4kVkBzrIjfpGyLsp/Z96EU
+	 xIlQjwwlD5HwQ==
+Original-Received: from mx3210.localdomain (bras-base-otwaon0906w-grc-05-142-126-136-104.dsl.bell.ca [142.126.136.104])
+	by paco.parisc-linux.org (Postfix) with ESMTPSA id A398417E0272;
+	Tue, 12 Aug 2025 22:00:35 +0000 (UTC)
+Original-Received: by mx3210.localdomain (Postfix, from userid 1000)
+	id BD0B4D63916; Tue, 12 Aug 2025 18:00:29 -0400 (EDT)
+X-Mailer: reportbug 13.2.0
+X-Greylist: delayed 333 seconds by postgrey-1.37 at buxtehude; Tue, 12 Aug 2025 22:06:13 UTC
+Delivered-To: submit@bugs.debian.org
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20115
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/175503602947.29429.8121365816042258017.reportbug@mx3210
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10436
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10436>
+
+This is a multi-part MIME message sent by reportbug.
+
+
+--===============0676010021==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+Source: lapack
+Version: 3.12.1-6
+Severity: normal
+Tags: patch
+X-Debbugs-Cc: debian-alpha@lists.debian.org
+User: debian-alpha@lists.debian.org
+Usertags: alpha
+
+Dear Maintainer,
+
+Since version 3.12.0-4, the build fails on hppa.  See:
+https://buildd.debian.org/status/fetch.php?pkg=lapack&arch=hppa&ver=3.12.1-4&stamp=1753202248&raw=0
+
+The build fails here:
+# Run CBLAS tests, output the result, and stop if one test fails
+LD_LIBRARY_PATH=$(pwd):$LD_LIBRARY_PATH /usr/bin/make -C CBLAS/testing run BLASLIB="../../libblas.so" CBLASLIB=""
+make[2]: Entering directory '/build/reproducible-path/lapack-3.12.1/CBLAS/testing'
+--> TESTING CBLAS 1 - SINGLE PRECISION REAL <--
+--> TESTING CBLAS 1 - DOUBLE PRECISION REAL <--
+--> TESTING CBLAS 1 - SINGLE PRECISION COMPLEX <--
+--> TESTING CBLAS 1 - DOUBLE PRECISION COMPLEX <--
+--> TESTING CBLAS 2 - SINGLE PRECISION REAL <--
+--> TESTING CBLAS 2 - DOUBLE PRECISION REAL <--
+--> TESTING CBLAS 2 - SINGLE PRECISION COMPLEX <--
+--> TESTING CBLAS 2 - DOUBLE PRECISION COMPLEX <--
+--> TESTING CBLAS 3 - SINGLE PRECISION REAL <--
+
+Program received signal SIGSEGV: Segmentation fault - invalid memory reference.
+
+Backtrace for this error:
+#0  0xf8841d4f in ???
+Segmentation fault
+make[2]: *** [Makefile:97: run] Error 139
+
+Upstream bug report is here:
+https://github.com/Reference-LAPACK/lapack/issues/1151
+
+The attached patch skips the problematic code.
+
+Regards,
+Dave Anglin
+
+-- System Information:
+Debian Release: forky/sid
+  APT prefers unreleased
+  APT policy: (500, 'unreleased'), (500, 'unstable')
+Architecture: hppa (parisc64)
+
+Kernel: Linux 6.12.41-dirty (SMP w/4 CPU threads)
+Kernel taint flags: TAINT_WARN
+Locale: LANG=en_CA.UTF-8, LC_CTYPE=en_CA.UTF-8 (charmap=UTF-8), LANGUAGE=en_CA:en
+Shell: /bin/sh linked to /usr/bin/dash
+Init: systemd (via /run/systemd/system)
+
+--===============0676010021==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="c_sblat3.d"
+
+--- ./CBLAS/testing/c_sblat3.f.save	2024-12-03 06:39:11.000000000 -0500
++++ ./CBLAS/testing/c_sblat3.f	2025-08-12 10:12:44.225827555 -0400
+@@ -290,7 +290,7 @@
+             INFOT = 0
+             OK = .TRUE.
+             FATAL = .FALSE.
+-            GO TO ( 140, 150, 160, 160, 170, 180, 185 )ISNUM
++            GO TO ( 140, 150, 160, 160, 170, 180, 190 )ISNUM
+ *           Test SGEMM, 01.
+   140       IF (CORDER) THEN
+             CALL SCHK1( SNAMES( ISNUM ), EPS, THRESH, NOUT, NTRA, TRACE,
+
+--===============0676010021==--
+
+
+
+From dr@jones.dk Sat Aug 16 12:12:10 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jonas Smedegaard <dr@jones.dk>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Bug#1111268: uscan: regression in v5 format: treats tag 0.1.0-alpha-4 as version 4 with template Github
+Date: Sat, 16 Aug 2025 12:12:10 +0200
+Approved: news@gmane.org
+Message-ID: <175533913020.326096.17157601032769567252.reportbug__48110.3610641853$1755339329$gmane$org@cairon.jones.dk>
+Reply-To: Jonas Smedegaard <dr@jones.dk>, 1111268@bugs.debian.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="24760"; mail-complaints-to="usenet@ciao.gmane.io"
+To: Debian Bug Tracking System <submit@bugs.debian.org>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Sat Aug 16 12:15:24 2025
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1unDwZ-0006Jh-G7
+	for debian-alpha@m.gmane-mx.org; Sat, 16 Aug 2025 12:15:23 +0200
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id 359F320880; Sat, 16 Aug 2025 10:15:23 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Sat Aug 16 10:15:23 2025
+Old-Return-Path: <debbugs@buxtehude.debian.org>
+X-Original-To: lists-debian-alpha@bendel.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id 7BF3E20919
+	for <lists-debian-alpha@bendel.debian.org>; Sat, 16 Aug 2025 10:15:13 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-21.579 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, BODY_INCLUDES_PACKAGE=-5, FOURLA=0.1,
+	FVGT_m_MULTI_ODD=0.02, HEADER_FROM_DIFFERENT_DOMAINS=0.001,
+	LDO_WHITELIST=-5, PGPSIGNATURE=-5, RCVD_IN_DNSWL_LOW=-0.7,
+	XMAILER_REPORTBUG=-4] autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id 2WosVqiUru4Z for <lists-debian-alpha@bendel.debian.org>;
+	Sat, 16 Aug 2025 10:15:08 +0000 (UTC)
+Original-Received: from buxtehude.debian.org (buxtehude.debian.org [IPv6:2607:f8f0:614:1::1274:39])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange ECDHE (P-256) server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(Client did not present a certificate)
+	by bendel.debian.org (Postfix) with ESMTPS id 55ADF2090F;
+	Sat, 16 Aug 2025 10:15:07 +0000 (UTC)
+Original-Received: from debbugs by buxtehude.debian.org with local (Exim 4.96)
+	(envelope-from <debbugs@buxtehude.debian.org>)
+	id 1unDwE-007eQe-3A;
+	Sat, 16 Aug 2025 10:15:02 +0000
+X-Loop: owner@bugs.debian.org
+Resent-From: Jonas Smedegaard <dr@jones.dk>
+Resent-To: debian-bugs-dist@lists.debian.org
+Resent-CC: debian-alpha@lists.debian.org, Devscripts Maintainers <devscripts@packages.debian.org>
+X-Loop: owner@bugs.debian.org
+Resent-Date: Sat, 16 Aug 2025 10:15:02 +0000
+Resent-Message-ID: <handler.1111268.B.17553391481821040@bugs.debian.org>
+X-Debian-PR-Message: report 1111268
+X-Debian-PR-Package: devscripts
+X-Debian-PR-Source: devscripts
+Original-Received: via spool by submit@bugs.debian.org id=B.17553391481821040
+          (code B); Sat, 16 Aug 2025 10:15:02 +0000
+Original-Received: (at submit) by bugs.debian.org; 16 Aug 2025 10:12:28 +0000
+Original-Received: from graograman.jones.dk ([87.104.249.100]:59790 helo=xayide.jones.dk)
+	by buxtehude.debian.org with utf8esmtps (TLS1.3:ECDHE_X25519__RSA_PSS_RSAE_SHA256__AES_256_GCM:256)
+	(Exim 4.96)
+	(envelope-from <dr@jones.dk>)
+	id 1unDtj-007diL-2d
+	for submit@bugs.debian.org;
+	Sat, 16 Aug 2025 10:12:28 +0000
+Original-Received: from localhost (localhost [127.0.0.1])
+	by xayide.jones.dk (Postfix) with UTF8SMTP id 2AFF68F60
+	for <submit@bugs.debian.org>; Sat, 16 Aug 2025 12:11:49 +0200 (CEST)
+Original-Received: from xayide.jones.dk ([127.0.0.1])
+ by localhost (xayide.jones.dk [127.0.0.1]) (amavis, port 10024) with UTF8LMTP
+ id 8Eu2v8sJpzTC; Sat, 16 Aug 2025 12:11:39 +0200 (CEST)
+Original-Received: from localhost (unknown [192.168.222.33])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by xayide.jones.dk (Postfix) with UTF8SMTPSA id 7155E8F49;
+	Sat, 16 Aug 2025 12:11:39 +0200 (CEST)
+X-Mailer: reportbug 13.2.0
+Delivered-To: submit@bugs.debian.org
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20116
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/175533913020.326096.17157601032769567252.reportbug@cairon.jones.dk
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10437
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10437>
+
+Package: devscripts
+Version: 2.25.18
+Severity: important
+X-Debbugs-Cc: debian-alpha@lists.debian.org
+User: debian-alpha@lists.debian.org
+Usertags: alpha
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+The package btm works fine with this watch file:
+
+version=4
+opts=\
+downloadurlmangle=s!api.github.com/repos/[^/]+/[^/]+/\Kgit/!tarball/!g,\
+searchmode=plain \
+https://api.github.com/repos/ClementTsang/bottom/git/matching-refs/tags/ \
+https://api.github.com/repos/[^/]+/[^/]+/git/refs/tags/@ANY_VERSION@
+
+$ uscan
+Newest version of btm on remote site is 0.11.1, local version is 0.10.2+20250107
+ => Newer package available from:
+        => https://api.github.com/repos/ClementTsang/bottom/tarball/refs/tags/0.11.1
+uscan warn: Parameter ../0.11.1 does not have a file extension, guessed a tarball compressed with gzip.
+uscan warn: Missing debian/source/format, switch compression to gzip
+Leaving ../btm_0.11.1.orig.tar.gz where it is.
+
+Upgrading to v5, however, bogusly treats tag 0.1.0-alpha-4 as newer
+release 4:
+
+version: 5
+
+Template: Github
+Owner: ClementTsang
+Project: bottom
+
+$ uscan
+Newest version of btm on remote site is 4, local version is 0.10.2+20250107
+ => Newer package available from:
+        => https://api.github.com/repos/ClementTsang/bottom/tarball/refs/tags/0.1.0-alpha-4
+uscan warn: Missing debian/source/format, switch compression to gzip
+Successfully symlinked ../btm-4.tar.gz to ../btm_4.orig.tar.gz.
+
+Explicitly adding Matching-Pattern as I assumed would be already a
+necessary part of the used template makes it behave as expected:
+
+version: 5
+
+Template: Github
+Owner: ClementTsang
+Project: bottom
+Matching-Pattern: https://api.github.com/repos/[^/]+/[^/]+/git/refs/tags/@ANY_VERSION@
+
+$ uscan
+Newest version of btm on remote site is 0.11.1, local version is 0.10.2+20250107
+ => Newer package available from:
+        => https://api.github.com/repos/ClementTsang/bottom/tarball/refs/tags/0.11.1
+uscan warn: Missing debian/source/format, switch compression to gzip
+Successfully symlinked ../btm-0.11.1.tar.gz to ../btm_0.11.1.orig.tar.gz.
+
+I recommend to setup the template to behave the same as the pattern
+documented as the equivalent non-template pattern for Github.
+
+I recommend to document in uscan-templates manpage what exactly each
+template does.
+
+I recommend to expose in `uscan --report --verbose` the expansion of
+templates into patterns.
+
+ - Jonas
+
+- -- Package-specific info:
+
+- --- /etc/devscripts.conf ---
+Empty.
+
+- --- ~/.devscripts ---
+Not present
+
+- -- System Information:
+Debian Release: forky/sid
+  APT prefers buildd-unstable
+  APT policy: (500, 'buildd-unstable'), (500, 'unstable'), (1, 'buildd-experimental'), (1, 'experimental')
+Architecture: amd64 (x86_64)
+
+Kernel: Linux 6.12.22-amd64 (SMP w/8 CPU threads; PREEMPT)
+Locale: LANG=da_DK.UTF-8, LC_CTYPE=da_DK.UTF-8 (charmap=UTF-8), LANGUAGE not set
+Shell: /bin/sh linked to /usr/bin/dash
+Init: systemd (via /run/systemd/system)
+LSM: AppArmor: enabled
+
+Versions of packages devscripts depends on:
+ii  dpkg-dev              1.22.21
+ii  file                  1:5.46-5
+ii  gpg                   2.4.8-2
+ii  gpg-agent             2.4.8-2
+ii  gpg-from-sq [gpg]     0.13.1-3
+ii  gpgv                  2.4.8-2
+ii  gpgv-from-sq [gpgv]   0.13.1-3
+ii  libdpkg-perl          1.22.21
+ii  libfile-dirlist-perl  0.05-3
+ii  libfile-homedir-perl  1.006-2
+ii  libfile-touch-perl    0.12-2
+ii  libmoo-perl           2.005005-1
+ii  libwww-perl           6.78-1
+ii  patchutils            0.4.2-1
+ii  perl                  5.40.1-6
+ii  python3               3.13.5-1
+ii  sensible-utils        0.0.25
+ii  wdiff                 1.2.2-9
+
+Versions of packages devscripts recommends:
+ii  apt                         3.1.4
+ii  curl                        8.15.0-1
+ii  dctrl-tools                 2.24-3+b1
+ii  debian-keyring              2025.07.26
+ii  debian-tag2upload-keyring   1.1
+ii  dput                        1.2.4
+ii  equivs                      2.3.2
+ii  git-debpush                 13.12
+ii  libdistro-info-perl         1.14
+ii  libencode-locale-perl       1.05-3
+ii  libgitlab-api-v4-perl       0.27-1
+ii  libio-string-perl           1.08-4
+ii  libjson-perl                4.10000-1
+ii  liblwp-protocol-https-perl  6.14-1
+ii  libsoap-lite-perl           1.27-3
+ii  libstring-shellquote-perl   1.04-3
+ii  liburi-perl                 5.30-1
+ii  licensecheck                3.3.9-1
+ii  lintian                     2.122.0
+ii  lzip                        1.25-3
+ii  man-db                      2.13.1-1
+ii  patch                       2.8-2
+ii  pristine-tar                1.50+nmu2
+ii  python3-apt                 3.0.0
+ii  python3-debian              1.0.1
+ii  python3-magic               2:0.4.27-3
+ii  python3-requests            2.32.3+dfsg-5
+ii  python3-unidiff             0.7.5-2
+ii  python3-xdg                 0.28-2
+ii  strace                      6.16+ds-2
+ii  unzip                       6.0-29
+ii  wget                        1.25.0-2
+ii  xz-utils                    5.8.1-1
+
+Versions of packages devscripts suggests:
+pn  adequate                     <none>
+pn  at                           <none>
+pn  autopkgtest                  <none>
+pn  bls-standalone               <none>
+pn  bsd-mailx | mailx            <none>
+ii  build-essential              12.12
+pn  check-all-the-things         <none>
+ii  debhelper                    13.25
+pn  diffoscope                   <none>
+pn  disorderfs                   <none>
+pn  docker.io                    <none>
+ii  dose-extra                   7.0.0-6+b2
+pn  duck                         <none>
+pn  elpa-devscripts              <none>
+pn  faketime                     <none>
+pn  gnuplot                      <none>
+pn  how-can-i-help               <none>
+ii  libauthen-sasl-perl          2.1900-1
+pn  libdbd-pg-perl               <none>
+pn  libmetacpan-client-perl      <none>
+pn  libterm-size-perl            <none>
+ii  libtimedate-perl             2.3300-2
+ii  libyaml-libyaml-perl         0.903.0+ds-1
+ii  mmdebstrap                   1.5.7-3
+pn  mutt                         <none>
+ii  openssh-client [ssh-client]  1:10.0p1-8
+pn  piuparts                     <none>
+pn  postgresql-client            <none>
+pn  pristine-lfs                 <none>
+ii  python3-debianbts            4.1.1
+pn  python3-pycurl               <none>
+ii  quilt                        0.68-1
+pn  ratt                         <none>
+pn  reprotest                    <none>
+pn  svn-buildpackage             <none>
+ii  w3m                          0.5.3+git20230121-2.1
+
+- -- no debconf information
+
+
+-----BEGIN PGP SIGNATURE-----
+
+wsG7BAEBCgBvBYJooFl3CRAsfDFGwaABIUcUAAAAAAAeACBzYWx0QG5vdGF0aW9u
+cy5zZXF1b2lhLXBncC5vcmcS7ObxpHYhxldcBPHbxjhDgraUemsm+UXRj9n51LAb
+DRYhBJ/j6cNmkaaf9TzGhCx8MUbBoAEhAADTpQ//Wbx3gvmCUKEOHeedVv3MIuzl
+Wb+7nnIX2g81XXk1xBhr0+UFvMAIkpywXH+9TwNcmhManPr1W/iyQB9+/zUzd2KD
+APC2ru7uwQpZR8Q55qLO7VA4OwPhnJA3D6uTwJMs/ZUGHgXnPq3j1sMNOfX0dkWM
+M/YHxxRLX3OIZvv/1AB+6Uvp1tJjQHxuH5fm2hY0PYxZ2ueYl1Z1G5MMIafGW0rK
+6h+pORHusCvhoJQzHqdlb1hjdtOlqWF2lhYg27S0DJEjCnX/lvmOzEh3PGzKMcvm
+9gUZZpGfqB2ur01/CVuNomdNk//tSd5fFOeIWRtXRW7mripl9HX4dlAM7nDFP+zy
+73cJG56RtxDUagNIk6+JOVYU5a41aItqtYFggnT1aJTG73rZ8aBZBhysa5akU0rl
+ql2xJzdychfp1EwU3qlg4gU/ZDJ4Jhx1fOZn60e8JLUy/6gqnzwLXYwAVs+Z6Dgp
+7d6jXqZrC6E83hGrbud+olJnPYempPctYIHYLVnkkc2OygUFVkJP6mpogg3X7l4h
+x/TMgLKqABrBTezkgWi+yCdqqxAKSx3qH3HyP8r8VjwI7c7KCqs3d7kSUxmK5sPx
+7SsPDxNf4NnUEVFFXvFrNllzgfqIGgr6wMn6r63lYWm0WYa+beqsNtHZw+EZ0FRI
+jkZuVQawakPqN7fdiKg=
+=qh+N
+-----END PGP SIGNATURE-----
+
+
+
+From glaubitz@physik.fu-berlin.de Thu Aug 21 00:31:10 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Updated Debian Ports installation images 2025-08-21
+Date: Thu, 21 Aug 2025 00:31:10 +0200
+Approved: news@gmane.org
+Message-ID: <aaca652b88e3dd4d8074829e53352c835de540fd.camel@physik.fu-berlin.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="23336"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Evolution 3.56.2
+To: debian-alpha <debian-alpha@lists.debian.org>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Thu Aug 21 00:31:32 2025
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1uorL8-0005xp-LC
+	for debian-alpha@m.gmane-mx.org; Thu, 21 Aug 2025 00:31:30 +0200
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id 090C0205F5; Wed, 20 Aug 2025 22:31:30 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Wed Aug 20 22:31:29 2025
+Old-Return-Path: <glaubitz@zedat.fu-berlin.de>
+X-Original-To: lists-debian-alpha@bendel.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id 04DD320601
+	for <lists-debian-alpha@bendel.debian.org>; Wed, 20 Aug 2025 22:31:20 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-8.759 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, DKIM_SIGNED=0.1, DKIM_VALID=-0.1,
+	DKIM_VALID_EF=-0.1, LDO_WHITELIST=-5, RCVD_IN_DNSWL_MED=-2.3,
+	RCVD_IN_MSPIKE_H3=0.001, RCVD_IN_MSPIKE_WL=0.001,
+	RCVD_IN_VALIDITY_RPBL_BLOCKED=0.001,
+	RCVD_IN_VALIDITY_SAFE_BLOCKED=0.001, SARE_MSGID_LONG40=0.637]
+	autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id RC0HV6nc2mw1 for <lists-debian-alpha@bendel.debian.org>;
+	Wed, 20 Aug 2025 22:31:14 +0000 (UTC)
+X-policyd-weight: using cached result; rate: -5.5
+Original-Received: from outpost1.zedat.fu-berlin.de (outpost1.zedat.fu-berlin.de [130.133.4.66])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(Client did not present a certificate)
+	by bendel.debian.org (Postfix) with ESMTPS id 1ABE6205CB
+	for <debian-alpha@lists.debian.org>; Wed, 20 Aug 2025 22:31:14 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=fu-berlin.de; s=fub01; h=MIME-Version:Content-Transfer-Encoding:
+	Content-Type:Date:To:From:Subject:Message-ID:From:Reply-To:Subject:Date:
+	Message-ID:To:Cc:MIME-Version:Content-Type:Content-Transfer-Encoding:
+	Content-ID:Content-Description:In-Reply-To:References;
+	bh=d1xdkLK9onJtWakzXNE91urW3cnegy8Ng1uYKoBUY44=; t=1755729074; x=1756333874; 
+	b=d0ejrFp2x3pA0ePsFUMQFJ2+V4xE5vBypf1tNnTPyeRDF6RSr/7PVW7ZW4qibcsS5aE/SLF3NRW
+	XFomJ0Wd+CHPDmk/MkDtgxEW4x3pirksZ1BRdQkN+0Q/qJyhS485LjcMCznw/koSoopwrVJbjZTIo
+	XhLIIGVtIZOAtlIMIU0/NjiWnI7jVfXe33VwItGh3QE8vaLlJIJyB6p4t5sEsBNDIc7GjGEf3niuS
+	FJ5Gx+haH+nVq3i6erN+sdvrBkMlxOdqs5ypHo7WScz2+QabjX8uSksl+kpRR5r//zciByjzessmz
+	mKAbYF2QTBg8ypDI/j77UyArcsfUiRKh1bLw==;
+Original-Received: from inpost2.zedat.fu-berlin.de ([130.133.4.69])
+          by outpost.zedat.fu-berlin.de (Exim 4.98)
+          for debian-alpha@lists.debian.org with esmtps (TLS1.3)
+          tls TLS_AES_256_GCM_SHA384
+          (envelope-from <glaubitz@zedat.fu-berlin.de>)
+          id 1uorKp-0000000155N-1zbS; Thu, 21 Aug 2025 00:31:11 +0200
+Original-Received: from dynamic-077-011-128-137.77.11.pool.telefonica.de ([77.11.128.137] helo=[192.168.178.50])
+          by inpost2.zedat.fu-berlin.de (Exim 4.98)
+          for debian-alpha@lists.debian.org with esmtpsa (TLS1.3)
+          tls TLS_AES_256_GCM_SHA384
+          (envelope-from <glaubitz@physik.fu-berlin.de>)
+          id 1uorKp-00000002DsM-1Au5; Thu, 21 Aug 2025 00:31:11 +0200
+X-Original-Sender: glaubitz@physik.fu-berlin.de
+X-Originating-IP: 77.11.128.137
+X-ZEDAT-Hint: PO
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <_92m7edAYwI.A.ilRN.BzkpoB@bendel>
+Resent-From: debian-alpha@lists.debian.org
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20117
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/aaca652b88e3dd4d8074829e53352c835de540fd.camel@physik.fu-berlin.de
+Resent-Date: Wed, 20 Aug 2025 22:31:30 +0000 (UTC)
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10438
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10438>
+
+Hello,
+
+I just created updated Debian Ports installation images based on
+kernel 6.12.38. These are using the debian-installer from Trixie.
+
+They can be downloaded from here:
+
+https://cdimage.debian.org/cdimage/ports/snapshots/2025-08-21/
+
+Please test and report back.
+
+Known issues are kernel instabilities on sun4u (sparc64) machines
+which are currently being investigated. I will write a separate
+mail on the issue.
+
+Adrian
+
+--=20
+ .''`.  John Paul Adrian Glaubitz
+: :' :  Debian Developer
+`. `'   Physicist
+  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+
+
+
+From tg@debian.org Sat Aug 23 16:19:29 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Thorsten Glaser <tg@debian.org>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: qemu-user viability (was Re: [SECURITY] [DSA 5983-1] qemu security
+ update)
+Date: Sat, 23 Aug 2025 16:19:29 +0200 (CEST)
+Approved: news@gmane.org
+Message-ID: <119d5858-52f4-ce1b-9ee7-9615ce2054b9__23184.2020921007$1755958840$gmane$org@debian.org>
+References: <aKi6IWVX2uIlGKnw@seger.debian.org> <Pine.BSM.4.64L.2508230023030.21591@herc.mirbsd.org> <6abe2750-5e2c-43a1-be57-1dc2ccabdd91@tls.msk.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="7481"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: security@debian.org, 
+    Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>, 
+    debian-ports@lists.debian.org
+To: Michael Tokarev <mjt@tls.msk.ru>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Sat Aug 23 16:20:35 2025
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1upp6h-0001ro-IX
+	for debian-alpha@m.gmane-mx.org; Sat, 23 Aug 2025 16:20:35 +0200
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id 32E4F20546; Sat, 23 Aug 2025 14:20:35 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Sat Aug 23 14:20:35 2025
+Old-Return-Path: <list@bendel.debian.org>
+X-Original-To: debian-alpha@lists.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: by bendel.debian.org (Postfix, from userid 38)
+	id E2A9620661; Sat, 23 Aug 2025 14:20:09 +0000 (UTC)
+Old-Return-Path: <tg@debian.org>
+X-Amavis-Spam-Status: No, score=-10.5 required=4.0 tests=FOURLA,KHOP_HELO_FCRDNS,
+	LDOSUBSCRIBER,LDO_WHITELIST autolearn=unavailable autolearn_force=no
+	version=3.4.6
+X-Original-To: lists-debian-ports@bendel.debian.org
+Delivered-To: lists-debian-ports@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id 688F120638
+	for <lists-debian-ports@bendel.debian.org>; Sat, 23 Aug 2025 14:20:00 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-6.501 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, FOURLA=0.1, KHOP_HELO_FCRDNS=0.399,
+	LDO_WHITELIST=-5] autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id 7kcfSXitVwE3 for <lists-debian-ports@bendel.debian.org>;
+	Sat, 23 Aug 2025 14:19:56 +0000 (UTC)
+X-policyd-weight: NOT_IN_SBL_XBL_SPAMHAUS=-1.5 CL_IP_EQ_HELO_MX=-3.1 (check from: .debian. - helo: .evolvis. - helo-domain: .evolvis.)  FROM/MX_MATCHES_NOT_HELO(DOMAIN)=0; rate: -4.6
+Original-Received: from evolvis.org (vevo.mirbsd.org [IPv6:2a02:a00:2000:f::1])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X448 server-signature RSA-PSS (2048 bits) server-digest SHA256
+	 client-signature RSA-PSS (2048 bits) client-digest SHA256)
+	(Client CN "evolvis.org", Issuer "R10" (not verified))
+	by bendel.debian.org (Postfix) with ESMTPS id 2678220629
+	for <debian-ports@lists.debian.org>; Sat, 23 Aug 2025 14:19:55 +0000 (UTC)
+Original-Received: from x61p.mirbsd.org (x61p.mirbsd.org [IPv6:2001:470:1f15:10c:21d:e0ff:fe77:c17b])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X448 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(Client did not present a certificate)
+	(Authenticated sender: x61p@relay.evolvis.org)
+	by evolvis.org (Postfix) with ESMTPSA id 8D4A010014D;
+	Sat, 23 Aug 2025 14:19:30 +0000 (UTC)
+Original-Received: by x61p.mirbsd.org (Postfix, from userid 1000)
+	id 64F8014BD46; Sat, 23 Aug 2025 16:19:29 +0200 (CEST)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by x61p.mirbsd.org (Postfix) with ESMTP id 6055E14BD2E;
+	Sat, 23 Aug 2025 16:19:29 +0200 (CEST)
+In-Reply-To: <6abe2750-5e2c-43a1-be57-1dc2ccabdd91@tls.msk.ru>
+Content-Language: de-Zsym-DE-1901-u-em-text-rg-denw-tz-utc, en-Zsym-GB-u-cu-eur-em-text-fw-mon-hc-h23-ms-metric-mu-celsius-rg-denw-tz-utc-va-posix
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <FR_1Uc7jYNG.A.PfVL.Z4cqoB@bendel>
+Resent-From: debian-ports@lists.debian.org
+X-Loop: debian-ports@lists.debian.org
+Resent-Date: Sat, 23 Aug 2025 14:20:09 +0000 (UTC)
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20118
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/119d5858-52f4-ce1b-9ee7-9615ce2054b9@debian.org
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10439
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10439>
+
+(Cc porters, for the arches where some buildds use qemu-user)
+
+On Sat, 23 Aug 2025, Michael Tokarev wrote:
+
+>> Does this entirely break things like running sudo within a
+>> qemu-user-emulated chroot (or buildd/cowbuilder/schroot)?
+
+> It discontinues elevating (changing) privileges using qemu-user binfmt
+> handler.  Things like /foreign/chroot//bin/su and /foreign/chroot/bin/sud=
+o
+> does not work anymore.  If you run sudo /foreign/chroot/bin/bash,
+> your bash will continue run as root under qemu-user, as before.
+
+But the use case is:
+
+prompt> chroot /foreign/chroot su - user
+chroot> do something
+chroot> sudo do something else   # this step
+[=E2=80=A6]
+chroot> exit
+
+This needs to work, or at least be enablable (with a documentation
+in at least README.Debian, with a NEWS.Debian entry pointing to it
+saying precisely how, not vague =E2=80=9Cthis will require changes to your
+deployment=E2=80=9D).
+
+> There are no alternatives - qemu is unique in this regard.  And
+> it has never been designed for this usage.  What we had for 15+
+> years, unnoticed, is like `chmod u+s /bin/sh`, which is never
+> supposed to be used like this.
+
+Perhaps, but there=E2=80=99s shades in between.
+
+> If you rely on suid/sgid *foreign* binaries, that's where the
+> problem lies.
+
+Yes. People expect to be able to run foreign-arch chroots.
+Entire buildd setups partly rely on this, too=E2=80=A6
+
+> I'm sorry if you disappointed you, but here's how things work.
+
+That is a bad cop-out.
+
+> As stated in the announcement, if you relied on this feature,
+> you have to rework your setup.
+
+And that is both too vague and not in README.Debian so that
+people installing qemu-user later can find that.
+
+
+
+From waldi@debian.org Sun Aug 24 00:53:05 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Bastian Blank <waldi@debian.org>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Re: qemu-user viability (was Re: [SECURITY] [DSA 5983-1] qemu
+ security update)
+Date: Sun, 24 Aug 2025 00:53:05 +0200
+Approved: news@gmane.org
+Message-ID: <20250823225305.rwvkaqsg5xcdryfr__40173.3122112759$1755990598$gmane$org@shell.thinkmo.de>
+References: <aKi6IWVX2uIlGKnw@seger.debian.org>
+ <Pine.BSM.4.64L.2508230023030.21591@herc.mirbsd.org>
+ <6abe2750-5e2c-43a1-be57-1dc2ccabdd91@tls.msk.ru>
+ <119d5858-52f4-ce1b-9ee7-9615ce2054b9@debian.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="3248"; mail-complaints-to="usenet@ciao.gmane.io"
+To: Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>,
+	debian-ports@lists.debian.org
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Sun Aug 24 01:09:52 2025
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1upxMu-0000kL-Dx
+	for debian-alpha@m.gmane-mx.org; Sun, 24 Aug 2025 01:09:52 +0200
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id 5B50720775; Sat, 23 Aug 2025 23:09:44 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Sat Aug 23 23:09:44 2025
+Old-Return-Path: <list@bendel.debian.org>
+X-Original-To: debian-alpha@lists.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: by bendel.debian.org (Postfix, from userid 38)
+	id D39BE206ED; Sat, 23 Aug 2025 23:09:13 +0000 (UTC)
+Old-Return-Path: <waldi@debian.org>
+X-Amavis-Spam-Status: No, score=-107.5 required=4.0 tests=DKIMWL_WL_HIGH,DKIM_SIGNED,
+	DKIM_VALID,DKIM_VALID_AU,DKIM_VALID_EF,FOURLA,LDO_WHITELIST,
+	RCVD_IN_DNSWL_MED,USER_IN_DKIM_WELCOMELIST,USER_IN_DKIM_WHITELIST
+	autolearn=unavailable autolearn_force=no version=3.4.6
+X-Original-To: lists-debian-ports@bendel.debian.org
+Delivered-To: lists-debian-ports@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id 6B87220755
+	for <lists-debian-ports@bendel.debian.org>; Sat, 23 Aug 2025 22:53:17 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-109.411 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, DKIMWL_WL_HIGH=-0.001, DKIM_SIGNED=0.1,
+	DKIM_VALID=-0.1, DKIM_VALID_AU=-0.1, DKIM_VALID_EF=-0.1, FOURLA=0.1,
+	LDO_WHITELIST=-5, RCVD_IN_DNSWL_MED=-2.3,
+	USER_IN_DKIM_WELCOMELIST=-0.01, USER_IN_DKIM_WHITELIST=-100]
+	autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id txxwAIMljaPR for <lists-debian-ports@bendel.debian.org>;
+	Sat, 23 Aug 2025 22:53:11 +0000 (UTC)
+Original-Received: from mail.thinkmo.de (mail.thinkmo.de [IPv6:2a01:4f8:271:3f5c:0:25:1:1])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(Client did not present a certificate)
+	by bendel.debian.org (Postfix) with ESMTPS id E67052074A
+	for <debian-ports@lists.debian.org>; Sat, 23 Aug 2025 22:53:11 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.thinkmo.de (Postfix) with ESMTP id 4c8XQY2vyVzyc9;
+	Sat, 23 Aug 2025 22:53:09 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=debian.org; h=
+	in-reply-to:content-transfer-encoding:content-disposition
+	:content-type:content-type:mime-version:references:message-id
+	:subject:subject:from:from:date:date:received:received; s=
+	mail202007.waldi.user; t=1755989589; bh=cTLIstlxrMjIvmUvJUiMHq5N
+	H3efPD+u7GJYd8dWDz4=; b=YiB11qt/oxNXLkhzZe+a/JfdN8yxoSlZCb9fZcQf
+	Pt8NfU1NLbBzyGVfzvX7qM4iyjJavJSWmFEiXl+OnmaANaJXFPb2doAdQZuu07xn
+	Kc3jCOUq3x8FMYtEPLmbPZJrZrENm0O1FRegDqxWnI2m7adwG7mQfMdAMamk4kF+
+	uGYJm68MX0U2ltYMNOczOIcMYArtzOtf6XlXXqocaziuU7bu5X+/wzQ6EC7N8pCy
+	nPQLQ35B9WkJmx15+hXSURjblA4Up6b51+bHyEU8TGEyas7b2VDAZQl1UQfS4YBb
+	Vy5OIJj5AyJ1yKPMXjc6kiYCT6uXoOEOeNaqWfqbA9XItQ==
+X-Virus-Scanned: Debian amavis at 
+Original-Received: from mail.thinkmo.de ([127.0.0.1])
+ by localhost (mail.thinkmo.de [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id mkFzb2I9Cf1Z; Sat, 23 Aug 2025 22:53:09 +0000 (UTC)
+Original-Received: from shell.thinkmo.de (shell.thinkmo.de [IPv6:2a01:4f8:271:3f5c:0:22:0:1])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange ECDHE (prime256v1) server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by mail.thinkmo.de (Postfix) with ESMTPS id 4c8XQY1w32zyVL;
+	Sat, 23 Aug 2025 22:53:09 +0000 (UTC)
+Mail-Followup-To: Bastian Blank <waldi@debian.org>,
+	Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>,
+	debian-ports@lists.debian.org
+Content-Disposition: inline
+In-Reply-To: <119d5858-52f4-ce1b-9ee7-9615ce2054b9@debian.org>
+X-Rc-Spam: 2008-11-04_01
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <ZPUeb4vApNJ.A.vFbP.ZokqoB@bendel>
+Resent-From: debian-ports@lists.debian.org
+X-Loop: debian-ports@lists.debian.org
+Resent-Date: Sat, 23 Aug 2025 23:09:13 +0000 (UTC)
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20119
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/20250823225305.rwvkaqsg5xcdryfr@shell.thinkmo.de
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10440
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10440>
+
+On Sat, Aug 23, 2025 at 04:19:29PM +0200, Thorsten Glaser wrote:
+> On Sat, 23 Aug 2025, Michael Tokarev wrote:
+> 
+> >> Does this entirely break things like running sudo within a
+> >> qemu-user-emulated chroot (or buildd/cowbuilder/schroot)?
+> 
+> > It discontinues elevating (changing) privileges using qemu-user binfmt
+> > handler.  Things like /foreign/chroot//bin/su and /foreign/chroot/bin/sudo
+> > does not work anymore.  If you run sudo /foreign/chroot/bin/bash,
+> > your bash will continue run as root under qemu-user, as before.
+> 
+> But the use case is:
+> prompt> chroot /foreign/chroot su - user
+> chroot> do something
+> chroot> sudo do something else   # this step
+> [â¦]
+> chroot> exit
+
+So you don't need elevation at all, as chroot already requires
+privileges.  Please show the log of such a broken use-case.
+
+Also "su - user", seriously?
+
+> This needs to work, or at least be enablable (with a documentation
+> in at least README.Debian, with a NEWS.Debian entry pointing to it
+> saying precisely how, not vague âthis will require changes to your
+> deploymentâ).
+
+You need to fix the implementation to not require elevation.
+
+> > There are no alternatives - qemu is unique in this regard.  And
+> > it has never been designed for this usage.  What we had for 15+
+> > years, unnoticed, is like `chmod u+s /bin/sh`, which is never
+> > supposed to be used like this.
+> Perhaps, but thereâs shades in between.
+
+No, there are not.  qemu-user is not expected to be used in this way.
+
+> > If you rely on suid/sgid *foreign* binaries, that's where the
+> > problem lies.
+> Yes. People expect to be able to run foreign-arch chroots.
+> Entire buildd setups partly rely on this, tooâ¦
+
+And they can still do that.  They just can't jump from user back to
+root.  So replace sudo with ctrl-d.
+
+> > As stated in the announcement, if you relied on this feature,
+> > you have to rework your setup.
+> And that is both too vague and not in README.Debian so that
+> people installing qemu-user later can find that.
+
+Please provide patches.
+
+Bastian
+
+
+From rob@landley.net Sun Aug 24 13:07:41 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Rob Landley <rob@landley.net>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Re: qemu-user viability (was Re: [SECURITY] [DSA 5983-1] qemu
+ security update)
+Date: Sun, 24 Aug 2025 13:07:41 -0500
+Approved: news@gmane.org
+Message-ID: <79f14fef-123f-4938-b069-10f07e7d0405@landley.net>
+References: <aKi6IWVX2uIlGKnw@seger.debian.org>
+ <Pine.BSM.4.64L.2508230023030.21591@herc.mirbsd.org>
+ <6abe2750-5e2c-43a1-be57-1dc2ccabdd91@tls.msk.ru>
+ <119d5858-52f4-ce1b-9ee7-9615ce2054b9@debian.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="23529"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla Thunderbird
+Cc: security@debian.org,
+ Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>,
+ debian-ports@lists.debian.org
+To: Thorsten Glaser <tg@debian.org>, Michael Tokarev <mjt@tls.msk.ru>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Sun Aug 24 20:24:21 2025
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1uqFO9-00062b-5i
+	for debian-alpha@m.gmane-mx.org; Sun, 24 Aug 2025 20:24:21 +0200
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id DA12220616; Sun, 24 Aug 2025 18:24:20 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Sun Aug 24 18:24:20 2025
+Old-Return-Path: <list@bendel.debian.org>
+X-Original-To: debian-alpha@lists.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: by bendel.debian.org (Postfix, from userid 38)
+	id 4321D20609; Sun, 24 Aug 2025 18:24:11 +0000 (UTC)
+Old-Return-Path: <rob@landley.net>
+X-Amavis-Spam-Status: No, score=-5.3 required=4.0 tests=DKIM_SIGNED,DKIM_VALID,
+	DKIM_VALID_AU,DKIM_VALID_EF,LDO_WHITELIST,RCVD_IN_DNSWL_NONE,
+	RCVD_IN_MSPIKE_H4,RCVD_IN_MSPIKE_WL,RCVD_IN_VALIDITY_CERTIFIED_BLOCKED,
+	RCVD_IN_VALIDITY_RPBL_BLOCKED autolearn=unavailable autolearn_force=no
+	version=3.4.6
+X-Original-To: lists-debian-ports@bendel.debian.org
+Delivered-To: lists-debian-ports@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id E8DC5205E3
+	for <lists-debian-ports@bendel.debian.org>; Sun, 24 Aug 2025 18:07:57 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-7.196 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, DKIM_SIGNED=0.1, DKIM_VALID=-0.1,
+	DKIM_VALID_AU=-0.1, DKIM_VALID_EF=-0.1, LDO_WHITELIST=-5,
+	RCVD_IN_DNSWL_NONE=-0.0001, RCVD_IN_MSPIKE_H4=0.001,
+	RCVD_IN_MSPIKE_WL=0.001, RCVD_IN_VALIDITY_RPBL_BLOCKED=0.001,
+	RCVD_IN_VALIDITY_SAFE_BLOCKED=0.001] autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id 052KhOI-4Jsr for <lists-debian-ports@bendel.debian.org>;
+	Sun, 24 Aug 2025 18:07:51 +0000 (UTC)
+X-policyd-weight: NOT_IN_SBL_XBL_SPAMHAUS=-1.5 CL_IP_EQ_HELO_IP=-2 (check from: .landley. - helo: .slategray.cherry.relay.mailchannels. - helo-domain: .mailchannels.)  FROM/MX_MATCHES_NOT_HELO(DOMAIN)=0; rate: -3.5
+Original-Received: from slategray.cherry.relay.mailchannels.net (slategray.cherry.relay.mailchannels.net [23.83.223.169])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(Client did not present a certificate)
+	by bendel.debian.org (Postfix) with ESMTPS id 34EA9205E2
+	for <debian-ports@lists.debian.org>; Sun, 24 Aug 2025 18:07:47 +0000 (UTC)
+X-Sender-Id: dreamhost|x-authsender|rob@landley.net
+Original-Received: from relay.mailchannels.net (localhost [127.0.0.1])
+	by relay.mailchannels.net (Postfix) with ESMTP id 70D2932442C;
+	Sun, 24 Aug 2025 18:07:43 +0000 (UTC)
+Original-Received: from pdx1-sub0-mail-a284.dreamhost.com (100-102-63-62.trex-nlb.outbound.svc.cluster.local [100.102.63.62])
+	(Authenticated sender: dreamhost)
+	by relay.mailchannels.net (Postfix) with ESMTPA id 0C0E3324404;
+	Sun, 24 Aug 2025 18:07:43 +0000 (UTC)
+ARC-Seal: i=1; s=arc-2022; d=mailchannels.net; t=1756058863; a=rsa-sha256;
+	cv=none;
+	b=gW5kdkCwSm6WSNVq3y3Wo+gjQ3Bp+iWxrbUU8wYvNwVYFba0XtGvMVJHo5VfBsrD+B+qXr
+	EwAnD050mTP4ry9mgGOeWegfdL2DfT9ox6gT9xVuTU+TVe24JF0jwBF+8GbeBRJJIAofsv
+	w+tANgYVBHTt6Ryyn7tmhJ2t+5alNYMhaCR1pcrdhOcDgiHy/5o426e/gcQjEmaKar/Sc+
+	MAH8sd+AEIyY/XtS+IhLg/nDXCgw5Z8CdVBh1i9D5JBeNJmPwy4ZIy3g+lqzmmsoF1klDb
+	MbUj97NZ23J7w1+dl65m1A5rVxP/EYgIxHlN7Z5+p9urRsRV+hGlgBSuZYdApQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=mailchannels.net;
+	s=arc-2022; t=1756058863;
+	h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
+	 to:to:cc:cc:mime-version:mime-version:content-type:content-type:
+	 content-transfer-encoding:content-transfer-encoding:
+	 in-reply-to:in-reply-to:references:references:dkim-signature;
+	bh=dSURbrHtF4IjpOe+6NcYnT92K0lR7QpT0EwolEPJ1R8=;
+	b=Zw5U56q/kwiv4kQMLtPK8ZX3APYjzpS5Iqkm9jfGPs++OYm8Rqop/ZeAGRmxMnBxHprauz
+	0ntFKVSqRcsWXOiNu+3pY+WYej4ejCk6U3ipcPkZuv9SrmJElPVuXcJhPMSTtdozRoK4Sf
+	GGzzfyFD47MZrRzoEv2kN+j8+Jcv+SQoLYh/GOAPg15Pu5dQ692zMGaZHaBin505UenYFc
+	9gz54WbemyxOsU577DqbsInEoqlLEK8B9FH60Tfoh4bjhLueUdpJbaN9UDd7dzZYn+tpWO
+	17BCEPP92IOvA000AYjg5RBjEynfYH02ZBcDqOAEmxLzDvjauQuCWzJphfdpww==
+ARC-Authentication-Results: i=1;
+	rspamd-69d7766bb5-b6vkl;
+	auth=pass smtp.auth=dreamhost smtp.mailfrom=rob@landley.net
+X-Sender-Id: dreamhost|x-authsender|rob@landley.net
+X-MC-Relay: Neutral
+X-MailChannels-SenderId: dreamhost|x-authsender|rob@landley.net
+X-MailChannels-Auth-Id: dreamhost
+X-Cooing-Gusty: 16eee3f02850f3cb_1756058863300_1673111097
+X-MC-Loop-Signature: 1756058863300:2218323904
+X-MC-Ingress-Time: 1756058863300
+Original-Received: from pdx1-sub0-mail-a284.dreamhost.com (pop.dreamhost.com
+ [64.90.62.162])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384)
+	by 100.102.63.62 (trex/7.1.3);
+	Sun, 24 Aug 2025 18:07:43 +0000
+Original-Received: from [192.168.88.7] (unknown [209.81.127.98])
+	(using TLSv1.3 with cipher TLS_AES_128_GCM_SHA256 (128/128 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	(Authenticated sender: rob@landley.net)
+	by pdx1-sub0-mail-a284.dreamhost.com (Postfix) with ESMTPSA id 4c922k40W5z49;
+	Sun, 24 Aug 2025 11:07:42 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=landley.net;
+	s=dreamhost; t=1756058862;
+	bh=dSURbrHtF4IjpOe+6NcYnT92K0lR7QpT0EwolEPJ1R8=;
+	h=Date:Subject:To:Cc:From:Content-Type:Content-Transfer-Encoding;
+	b=uID5n+GGnt9wijli3WFbKdggSKKaBTMyQ2U8K8tm6SX3Qy1f5ySap5X+4lfrtg73u
+	 zvC7wHgQKqkVTvSomn9WKvQGGQTZFFO6IRWrYWixf0X/CD8d9Vx/1mtN9KKjzYfiMX
+	 zS8667alGkMqXTLxa+95IIkghdr8ulHv7vmQjDvjp1E7ZVUg7x3CLNdm9jyIpuWl6T
+	 dqvGKNhtZPaTGT86t7Z7UC6z9I20AabUJYaMi/tLR9tY99eSV1hATXJurNwRR6khW7
+	 Dz76z3dbe/yRQlLCR/Zp9Ya9Zo5vhu/cZGRRWg2JMqg8KCQPxB7AFNx+OHy4gBMWLo
+	 cVGA8r/cdzxPw==
+Content-Language: en-US
+In-Reply-To: <119d5858-52f4-ce1b-9ee7-9615ce2054b9@debian.org>
+X-Rc-Spam: 2008-11-04_01
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <xWeDQ0HSkIE.A.uEfB.Lj1qoB@bendel>
+Resent-From: debian-ports@lists.debian.org
+X-Loop: debian-ports@lists.debian.org
+Resent-Date: Sun, 24 Aug 2025 18:24:11 +0000 (UTC)
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20120
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/79f14fef-123f-4938-b069-10f07e7d0405@landley.net
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10441
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10441>
+
+On 8/23/25 09:19, Thorsten Glaser wrote:
+>> There are no alternatives - qemu is unique in this regard.  And
+>> it has never been designed for this usage.  What we had for 15+
+>> years, unnoticed, is like `chmod u+s /bin/sh`, which is never
+>> supposed to be used like this.
+> 
+> Perhaps, but thereâs shades in between.
+
+I find qemu system emulation a LOT less problematic.
+
+For sh4 I boot qemu-system-sh4 and then use a network block device to 
+provide swap (so the 64mb limitation of the board isn't a limiting 
+factor). The sh4 build in toybox's mkroot works fine for this (binaries 
+at https://landley.net/bin/mkroot if you'd like to try). It also works 
+with -hda but I think can only provide _one_ of those so you have to 
+partition it, which I generally don't bother.
+
+qemu-system-sh4: -hdb hdb.img: machine type does not support 
+if=ide,bus=0,unit=1
+qemu-system-sh4: -hdc hdc.img: machine type does not support 
+if=ide,bus=1,unit=0
+qemu-system-sh4: -hdd hdd.img: machine type does not support 
+if=ide,bus=1,unit=1
+
+(You'd think it could at least do -hdb since that's just master/slave on 
+the same controller but the qemu guys never bothered to wire it up. 
+Anyway, I stick a 4gb ext3 image in /dev/sda so I have lots of scratch 
+space for builds because building on network filesystems tends to have 
+strange permission hiccups for me, or rm -rf fails because nfs didn't 
+_really_ delete a file that's still open but just renamed it, or...)
+
+Anyway, this works fine on little endian, but the qemu-system-sh4eb 
+build has something hinky in the ethernet, I haven't tackled it myself 
+because I don't know whether the device emulation or the driver is 
+what's missing an endian swap. (I don't want to fix it the "wrong way", 
+and don't have big endian physical hardware lying around to try it on. I 
+moved _again_ at the start of the month, just unpacked the storage space 
+with those boxes into my sister's garage last weekend, but haven't 
+sorted very far yet.)
+
+In theory I could use a swap _file_ instead of swap partition, and thus 
+a single /dev/hda would be plenty without partitioning it, but I haven't 
+tried? (When the network doesn't work I can't upload the results of the 
+build in an automated fashion anyway, so...)
+
+You can speed this build process up further by hooking up distcc to call 
+out to the cross compiler, which lets you keep about -j3 busy before the 
+preprocessing, data transmission, and linking become the bottleneck. (I 
+mean ./configure is _always_ the bottleneck but that's because autoconf 
+is really stupid and largely pointless.) I had that distcc setup working 
+(and even automated) back in https://landley.net/aboriginal/about.html 
+and can help anyone interested fish the relevant bits out of those old 
+build scripts.
+
+>> If you rely on suid/sgid *foreign* binaries, that's where the
+>> problem lies.
+> 
+> Yes. People expect to be able to run foreign-arch chroots.
+> Entire buildd setups partly rely on this, tooâ¦
+
+A qemu-system vm doesn't require any weird translation. As far as the 
+kernel running in the emulator is concerned, everything is entirely 
+native. :)
+
+Rob
+
+
+
+From glaubitz@physik.fu-berlin.de Sat Aug 30 00:00:24 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Updated Debian Ports installation images 2025-08-29
+Date: Sat, 30 Aug 2025 00:00:24 +0200
+Approved: news@gmane.org
+Message-ID: <ba27bd3f882c4f13d2bd31d9ff367f3b9a3d40cc.camel@physik.fu-berlin.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="7511"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Evolution 3.56.2
+To: debian-alpha <debian-alpha@lists.debian.org>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Sat Aug 30 00:00:48 2025
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1us79K-0001oM-Gu
+	for debian-alpha@m.gmane-mx.org; Sat, 30 Aug 2025 00:00:46 +0200
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id ED4732067C; Fri, 29 Aug 2025 22:00:45 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Fri Aug 29 22:00:45 2025
+Old-Return-Path: <glaubitz@zedat.fu-berlin.de>
+X-Original-To: lists-debian-alpha@bendel.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id DEDA6205A5
+	for <lists-debian-alpha@bendel.debian.org>; Fri, 29 Aug 2025 22:00:35 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-8.759 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, DKIM_SIGNED=0.1, DKIM_VALID=-0.1,
+	DKIM_VALID_EF=-0.1, LDO_WHITELIST=-5, RCVD_IN_DNSWL_MED=-2.3,
+	RCVD_IN_MSPIKE_H3=0.001, RCVD_IN_MSPIKE_WL=0.001,
+	RCVD_IN_VALIDITY_RPBL_BLOCKED=0.001,
+	RCVD_IN_VALIDITY_SAFE_BLOCKED=0.001, SARE_MSGID_LONG40=0.637]
+	autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id ukMw-zxxrqof for <lists-debian-alpha@bendel.debian.org>;
+	Fri, 29 Aug 2025 22:00:28 +0000 (UTC)
+X-policyd-weight: using cached result; rate: -5.5
+Original-Received: from outpost1.zedat.fu-berlin.de (outpost1.zedat.fu-berlin.de [130.133.4.66])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(Client did not present a certificate)
+	by bendel.debian.org (Postfix) with ESMTPS id 722A320571
+	for <debian-alpha@lists.debian.org>; Fri, 29 Aug 2025 22:00:28 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=fu-berlin.de; s=fub01; h=MIME-Version:Content-Transfer-Encoding:
+	Content-Type:Date:To:From:Subject:Message-ID:From:Reply-To:Subject:Date:
+	Message-ID:To:Cc:MIME-Version:Content-Type:Content-Transfer-Encoding:
+	Content-ID:Content-Description:In-Reply-To:References;
+	bh=SdtdXuGT5ArWz6XZ9Y00yxRGYW2w8CUzkXlDpJpNygM=; t=1756504828; x=1757109628; 
+	b=MO4O8oyQ91+ut8l/uFuSN1XJ4xL1c8qQ5VD94uaCe1DXFNL5TreJ0laZ8ZPneEhcqsyfFQz8gs6
+	NUqduMqbTRKj+/KWDEb35yptaKYP/vSA6BzwKo3AhQ8QfsB3tPgnePI1pbYAaq/uX37R03+nY61hg
+	xMS5uag18rw6hpnabgIP7eHeqNV+LrR+lHtnlpZM5+oxYj/EX7fbhJ+MfWCJHrK6OxH/GRE1eMpCq
+	UPU4vgTyvYbDRkMlDVj1deOBqeMpx06fblGhpVzpdNO2aGlDrdZ/157Iw6SlnGM5NqvvcJPXz1+va
+	heD+bQwSDvYaS1zvSMxT6zaUiwjL/pw6xDBg==;
+Original-Received: from inpost2.zedat.fu-berlin.de ([130.133.4.69])
+          by outpost.zedat.fu-berlin.de (Exim 4.98)
+          for debian-alpha@lists.debian.org with esmtps (TLS1.3)
+          tls TLS_AES_256_GCM_SHA384
+          (envelope-from <glaubitz@zedat.fu-berlin.de>)
+          id 1us78z-00000003lg3-1c8A; Sat, 30 Aug 2025 00:00:25 +0200
+Original-Received: from p57bd96d0.dip0.t-ipconnect.de ([87.189.150.208] helo=[192.168.178.61])
+          by inpost2.zedat.fu-berlin.de (Exim 4.98)
+          for debian-alpha@lists.debian.org with esmtpsa (TLS1.3)
+          tls TLS_AES_256_GCM_SHA384
+          (envelope-from <glaubitz@physik.fu-berlin.de>)
+          id 1us78z-00000000RW6-0mI8; Sat, 30 Aug 2025 00:00:25 +0200
+X-Original-Sender: glaubitz@physik.fu-berlin.de
+X-Originating-IP: 87.189.150.208
+X-ZEDAT-Hint: PO
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <H3qikRBj4IB.A.2U5C.NMisoB@bendel>
+Resent-From: debian-alpha@lists.debian.org
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20121
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/ba27bd3f882c4f13d2bd31d9ff367f3b9a3d40cc.camel@physik.fu-berlin.de
+Resent-Date: Fri, 29 Aug 2025 22:00:45 +0000 (UTC)
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10442
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10442>
+
+Hello,
+
+I just uploaded freshly generated Debian Ports installation images:
+
+https://cdimage.debian.org/cdimage/ports/snapshots/2025-08-29/
+
+These are based on kernel 6.16.3 meaning that they contain all stability
+fixes for alpha such that installing even on SMP systems should finally
+just work again.
+
+The recently posted fixes for SPARC [1][2] are not part of these images
+yet, but I will try to include those patches as soon as possible.
+
+The images still bear the version number "12.0.0" in their filenames, but
+those images are based on Debian unstable and therefore "13.0.0" is more
+accurate. I have therefore bumped the version to 13.0.0 for upcoming
+images now.
+
+Please test and report back.
+
+Adrian
+
+> [1] https://lore.kernel.org/all/20250826160312.2070-1-kernel@mkarcher.dia=
+lup.fu-berlin.de/
+> [2] https://lore.kernel.org/all/20250828130456.2335-1-kernel@mkarcher.dia=
+lup.fu-berlin.de/
+
+--=20
+ .''`.  John Paul Adrian Glaubitz
+: :' :  Debian Developer
+`. `'   Physicist
+  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+
+
+
+From glaubitz@physik.fu-berlin.de Sun Aug 31 21:38:28 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Re: Bug#1107581: openblas: Please enable build on alpha
+Date: Sun, 31 Aug 2025 21:38:28 +0200
+Approved: news@gmane.org
+Message-ID: <fbe970050c3ebfcbed59a1ea6db334bb1f5dbee6.camel@physik.fu-berlin.de>
+References: <174954214933.2872766.13587917800612038742.reportbug@z6>
+	 <831a19d293bb269f84c8fd1cb076dd74fb82094e.camel@debian.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="31697"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Evolution 3.56.2
+Cc: 1107581@bugs.debian.org, debian-alpha <debian-alpha@lists.debian.org>
+To: =?ISO-8859-1?Q?S=E9bastien?= Villemot <sebastien@debian.org>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Sun Aug 31 21:38:48 2025
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1usnt1-0008B1-W8
+	for debian-alpha@m.gmane-mx.org; Sun, 31 Aug 2025 21:38:48 +0200
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id DE694205FB; Sun, 31 Aug 2025 19:38:46 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Sun Aug 31 19:38:46 2025
+Old-Return-Path: <glaubitz@zedat.fu-berlin.de>
+X-Original-To: lists-debian-alpha@bendel.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id 4AFF6205E3
+	for <lists-debian-alpha@bendel.debian.org>; Sun, 31 Aug 2025 19:38:37 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-8.759 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, DKIM_SIGNED=0.1, DKIM_VALID=-0.1,
+	DKIM_VALID_EF=-0.1, LDO_WHITELIST=-5, RCVD_IN_DNSWL_MED=-2.3,
+	RCVD_IN_MSPIKE_H3=0.001, RCVD_IN_MSPIKE_WL=0.001,
+	RCVD_IN_VALIDITY_RPBL_BLOCKED=0.001,
+	RCVD_IN_VALIDITY_SAFE_BLOCKED=0.001, SARE_MSGID_LONG40=0.637]
+	autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id L6fxLL1wLQWi for <lists-debian-alpha@bendel.debian.org>;
+	Sun, 31 Aug 2025 19:38:31 +0000 (UTC)
+X-policyd-weight: using cached result; rate: -5.5
+Original-Received: from outpost1.zedat.fu-berlin.de (outpost1.zedat.fu-berlin.de [130.133.4.66])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(Client did not present a certificate)
+	by bendel.debian.org (Postfix) with ESMTPS id E1394205C1
+	for <debian-alpha@lists.debian.org>; Sun, 31 Aug 2025 19:38:31 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=fu-berlin.de; s=fub01; h=MIME-Version:Content-Transfer-Encoding:
+	Content-Type:References:In-Reply-To:Date:Cc:To:From:Subject:Message-ID:From:
+	Reply-To:Subject:Date:Message-ID:To:Cc:MIME-Version:Content-Type:
+	Content-Transfer-Encoding:Content-ID:Content-Description:In-Reply-To:
+	References; bh=BPs/UdUKyvROUdpuwjaK3qljDshHepdThWa69pekkFI=; t=1756669111;
+	x=1757273911; b=OklPSe4q/9lAintF/P3zqwQzrLLv9jBG5M+YXqpw6iY/oLCpvjrOObn+Qd14l
+	szdMUpnWjPH5n7a//i9sIu/DUPercH7SnzcU5TQ67q31Ju7OqRE0uqsz4e9/byPB9XZ0nzCYef7YN
+	tmRZp3ihEQsgP4J7swNQtn6vTdtjc+GOxngDj/zsb2wz4sGUmjT0xVQiufKLKR5zO1Y4k8+vhY6MQ
+	kLiQCC4SWP2zQUHYx/c/ocWgI9LvWCeg3mKty6dJPDZVwyuarxqRDVjM1zLfiXx0wc7I1UgQtiHQP
+	LKbTtqsGYEjjUpTdbjqL26PksH4iVaBcj83ayJn4LU75HBzE8Q==;
+Original-Received: from inpost2.zedat.fu-berlin.de ([130.133.4.69])
+          by outpost.zedat.fu-berlin.de (Exim 4.98)
+          with esmtps (TLS1.3)
+          tls TLS_AES_256_GCM_SHA384
+          (envelope-from <glaubitz@zedat.fu-berlin.de>)
+          id 1usnsj-00000002yvc-0gZH; Sun, 31 Aug 2025 21:38:29 +0200
+Original-Received: from p5b13aa34.dip0.t-ipconnect.de ([91.19.170.52] helo=suse-laptop.fritz.box)
+          by inpost2.zedat.fu-berlin.de (Exim 4.98)
+          with esmtpsa (TLS1.3)
+          tls TLS_AES_256_GCM_SHA384
+          (envelope-from <glaubitz@physik.fu-berlin.de>)
+          id 1usnsi-00000000vxH-3xk8; Sun, 31 Aug 2025 21:38:29 +0200
+In-Reply-To: <831a19d293bb269f84c8fd1cb076dd74fb82094e.camel@debian.org>
+X-Original-Sender: glaubitz@physik.fu-berlin.de
+X-Originating-IP: 91.19.170.52
+X-ZEDAT-Hint: PO
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <tBN__-26euE.A.LTIN.GTKtoB@bendel>
+Resent-From: debian-alpha@lists.debian.org
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20122
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/fbe970050c3ebfcbed59a1ea6db334bb1f5dbee6.camel@physik.fu-berlin.de
+Resent-Date: Sun, 31 Aug 2025 19:38:46 +0000 (UTC)
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10443
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10443>
+
+Hi S=C3=A9bastien,
+
+On Sun, 2025-08-31 at 21:16 +0200, S=C3=A9bastien Villemot wrote:
+> However, it declares that alpha has so-called =E2=80=9CDYNAMIC_ARCH=E2=80=
+=9D selection,
+> and at the same time it enforces a TARGET. This is inconsistent, it is
+> one or the other, but it can=E2=80=99t be both.
+
+Makes sense. Thanks for catching this!
+
+> My understanding is that there is no DYNAMIC_ARCH support for alpha, so
+> it should be removed from that line.
+
+OK.
+
+> Since there is no DYNAMIC_ARCH, TARGET should be used to specify the
+> specific CPU=E2=80=AFfor which the library will be compiled. It should
+> correspond to the Debian baseline. EV4, EV5 and EV6 are the possible
+> choices, and you set it to EV5, so it implicitly means that EV4 chips
+> are not supported by Debian.
+
+Correct. Debian's baseline is EV56, so the closest is EV5. Choosing EV6
+would be too high.
+
+Adrian
+
+--=20
+ .''`.  John Paul Adrian Glaubitz
+: :' :  Debian Developer
+`. `'   Physicist
+  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+
+
+

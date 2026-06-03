@@ -1,0 +1,1823 @@
+From bunk@debian.org Tue Mar 5 17:42:45 2024
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Adrian Bunk <bunk@debian.org>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: imago killed by io_uring?
+Date: Tue, 5 Mar 2024 17:42:45 +0200
+Approved: news@gmane.org
+Message-ID: <Zec9ddvCdl1AT3Im@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="8992"; mail-complaints-to="usenet@ciao.gmane.io"
+To: debian-alpha@lists.debian.org
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Tue Mar 05 17:00:14 2024
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1rhXDC-0002D0-Kj
+	for debian-alpha@m.gmane-mx.org; Tue, 05 Mar 2024 17:00:14 +0100
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id A3CE8205F8; Tue,  5 Mar 2024 16:00:13 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Tue Mar  5 16:00:13 2024
+Old-Return-Path: <bunk@debian.org>
+X-Original-To: lists-debian-alpha@bendel.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id EC6C4205F5
+	for <lists-debian-alpha@bendel.debian.org>; Tue,  5 Mar 2024 15:42:58 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-109.607 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, DKIMWL_WL_HIGH=-0.088, DKIM_SIGNED=0.1,
+	DKIM_VALID=-0.1, DKIM_VALID_AU=-0.1, DKIM_VALID_EF=-0.1,
+	LDO_WHITELIST=-5, RCVD_IN_DNSWL_MED=-2.3, T_SCC_BODY_TEXT_LINE=-0.01,
+	UNPARSEABLE_RELAY=0.001, USER_IN_DKIM_WELCOMELIST=-0.01,
+	USER_IN_DKIM_WHITELIST=-100] autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id jiuKORewOT47 for <lists-debian-alpha@bendel.debian.org>;
+	Tue,  5 Mar 2024 15:42:48 +0000 (UTC)
+Original-Received: from stravinsky.debian.org (stravinsky.debian.org [IPv6:2001:41b8:202:deb::311:108])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange ECDHE (P-256) server-signature RSA-PSS (2048 bits) server-digest SHA256
+	 client-signature RSA-PSS (2048 bits) client-digest SHA256)
+	(Client CN "stravinsky.debian.org", Issuer "Debian SMTP CA" (not verified))
+	by bendel.debian.org (Postfix) with ESMTPS id BD7F6205DE
+	for <debian-alpha@lists.debian.org>; Tue,  5 Mar 2024 15:42:48 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed; d=debian.org;
+	s=smtpauto.stravinsky; h=X-Debian-User:Content-Type:MIME-Version:Message-ID:
+	Subject:To:From:Date:Reply-To:Cc:Content-Transfer-Encoding:Content-ID:
+	Content-Description:In-Reply-To:References;
+	bh=u9KiCCZ+3DdDtfQ+1cNxnkACxdk0wJm0sZhkNpplD70=; b=nBwQFL+JAmG6u4iCdtH4HQD3Ye
+	Cf3l9FkkF2rsexvAwJi+fnoO1KjzWUyHnvL1tK1H62Wnjp39jEAUl59OfuQz2YGPR1V7Hr+o/k3qg
+	OQ3UtWFpFtFJFnngKZgYHWoK/dFHiwBkbmluT1i0jwzyEIppvD3wrru5DYVGm5ZfLkErUwXUGn+dq
+	og7bpHclshM+eMwSSEGD42vv/yy3QB/38skDY+9o06B8g/lvZLARRM+vFWhv3ZNG/GEj4ljf/Z331
+	yfEu7Xgw43qDTkUmcl0KurXW5nenWn3KBrZwg7v8lDlMiPs4BpFFrhR9omUrP3kp5HfVQjbbH+MH9
+	WEwANf0w==;
+Original-Received: from authenticated user
+	by stravinsky.debian.org with esmtpsa (TLS1.3:ECDHE_SECP256R1__RSA_PSS_RSAE_SHA256__AES_256_GCM:256)
+	(Exim 4.94.2)
+	(envelope-from <bunk@debian.org>)
+	id 1rhWwI-003uBf-Bi
+	for debian-alpha@lists.debian.org; Tue, 05 Mar 2024 15:42:46 +0000
+Content-Disposition: inline
+X-Debian-User: bunk
+X-Rc-Spam: 2008-11-04_01
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <UGYaU5QkWKE.A.26F.NG05lB@bendel>
+Resent-From: debian-alpha@lists.debian.org
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20062
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/Zec9ddvCdl1AT3Im@localhost
+Resent-Date: Tue,  5 Mar 2024 16:00:13 +0000 (UTC)
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10383
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10383>
+
+Hi,
+
+liburing is Not-For-Us on Alpha since 2022, and if I saw it correctly 
+imago was recently twice killed by bfs (which now uses io_uring).
+
+Recent kernels do contain io_uring fixes (e.g. in 5.10.186),
+which might or might not be related.
+
+Blacklisting liburing and packages build depending on it on imago might 
+be a (not necessarily complete) short-term workaround, currently these 
+would be:
+
+Reverse-Build-Depends
+=====================
+* bfs                           (for liburing-dev)
+* ceph                          (for liburing-dev)
+* libdex                        (for liburing-dev)
+* mariadb                       (for liburing-dev)
+* mpd                           (for liburing-dev)
+* plocate                       (for liburing-dev)
+
+This is not necessarily a complete workaround since libdex and 
+libmariadbd are linked with liburing, but it might be a short-term
+workaround.
+
+cu
+Adrian
+
+
+
+From mcree@orcon.net.nz Thu Mar 7 08:53:10 2024
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Michael Cree <mcree@orcon.net.nz>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Re: imago killed by io_uring?
+Date: Thu, 7 Mar 2024 08:53:10 +1300
+Approved: news@gmane.org
+Message-ID: <ZejJpqeWbAoOTJzj@creeky>
+References: <Zec9ddvCdl1AT3Im@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="34690"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: debian-alpha@lists.debian.org
+To: Adrian Bunk <bunk@debian.org>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Wed Mar 06 21:19:45 2024
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1rhxjt-0008sq-HO
+	for debian-alpha@m.gmane-mx.org; Wed, 06 Mar 2024 21:19:45 +0100
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id 329AD20586; Wed,  6 Mar 2024 20:19:45 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Wed Mar  6 20:19:45 2024
+Old-Return-Path: <mcree@orcon.net.nz>
+X-Original-To: lists-debian-alpha@bendel.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id 1FDED20541
+	for <lists-debian-alpha@bendel.debian.org>; Wed,  6 Mar 2024 20:19:34 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-7.709 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, FREEMAIL_FROM=0.001, LDO_WHITELIST=-5,
+	RCVD_IN_DNSWL_LOW=-0.7, T_SCC_BODY_TEXT_LINE=-0.01]
+	autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id c5YHIrKQhYUl for <lists-debian-alpha@bendel.debian.org>;
+	Wed,  6 Mar 2024 20:19:26 +0000 (UTC)
+X-policyd-weight: using cached result; rate: -5.5
+X-Greylist: delayed 1566 seconds by postgrey-1.36 at bendel; Wed, 06 Mar 2024 20:19:26 UTC
+Original-Received: from smtp-4.orcon.net.nz (smtp-4.orcon.net.nz [60.234.4.59])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(Client did not present a certificate)
+	by bendel.debian.org (Postfix) with ESMTPS id 7E5392053F
+	for <debian-alpha@lists.debian.org>; Wed,  6 Mar 2024 20:19:26 +0000 (UTC)
+Original-Received: from [121.99.247.178] (port=28163 helo=creeky)
+	by smtp-4.orcon.net.nz with esmtpa (Exim 4.90_1)
+	(envelope-from <mcree@orcon.net.nz>)
+	id 1rhxKF-0002T1-2Z; Thu, 07 Mar 2024 08:53:15 +1300
+Mail-Followup-To: Michael Cree <mcree@orcon.net.nz>,
+	Adrian Bunk <bunk@debian.org>, debian-alpha@lists.debian.org
+Content-Disposition: inline
+In-Reply-To: <Zec9ddvCdl1AT3Im@localhost>
+X-GeoIP: NZ
+X-Spam_score: -2.9
+X-Spam_score_int: -28
+X-Spam_bar: --
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <E2P4GG_5DhL.A.hfH.h_M6lB@bendel>
+Resent-From: debian-alpha@lists.debian.org
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20063
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/ZejJpqeWbAoOTJzj@creeky
+Resent-Date: Wed,  6 Mar 2024 20:19:45 +0000 (UTC)
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10384
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10384>
+
+On Tue, Mar 05, 2024 at 05:42:45PM +0200, Adrian Bunk wrote:
+> liburing is Not-For-Us on Alpha since 2022, and if I saw it correctly 
+> imago was recently twice killed by bfs (which now uses io_uring).
+> 
+> Recent kernels do contain io_uring fixes (e.g. in 5.10.186),
+> which might or might not be related.
+
+Still running a 5.8.y kernel on Imago because of rare random memory
+corruption issues with later kernels, but have recently tracked that
+down to the use of CONFIG_COMPACTION, so will work on getting a newer
+kernel installed and can test io_uring.
+
+> Blacklisting liburing and packages build depending on it on imago might 
+> be a (not necessarily complete) short-term workaround, currently these 
+> would be:
+> 
+> Reverse-Build-Depends
+> =====================
+> * bfs                           (for liburing-dev)
+> * ceph                          (for liburing-dev)
+> * libdex                        (for liburing-dev)
+> * mariadb                       (for liburing-dev)
+> * mpd                           (for liburing-dev)
+> * plocate                       (for liburing-dev)
+> 
+> This is not necessarily a complete workaround since libdex and 
+> libmariadbd are linked with liburing, but it might be a short-term
+> workaround.
+
+Yeah, I put bfs into the no-auto-build list on Imago because it
+kept crashing the machine hard.  It does seem to build on the qemu
+instances which I think are running newer kernels, so that might be
+an indication that getting a newer kernel onto Imago might be the
+solution.
+
+Cheers
+Michael.
+
+
+
+From tg@debian.org Mon Mar 11 19:05:52 2024
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Thorsten Glaser <tg@debian.org>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: python-cryptography vs. stainless steel ports
+Date: Mon, 11 Mar 2024 19:05:52 +0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <Pine.BSM.4.64L.2403111834110.3585__25715.3580126882$1710185367$gmane$org@herc.mirbsd.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="16358"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: debian-ports@lists.debian.org
+To: Debian Python Team <team+python@tracker.debian.org>,
+        =?utf-8?Q?J=C3=A9r=C3=A9my_Lal?= <kapouer@melix.org>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Mon Mar 11 20:29:22 2024
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1rjlKs-0004Bl-Oi
+	for debian-alpha@m.gmane-mx.org; Mon, 11 Mar 2024 20:29:22 +0100
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id E02A020730; Mon, 11 Mar 2024 19:29:19 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Mon Mar 11 19:29:19 2024
+Old-Return-Path: <list@bendel.debian.org>
+X-Original-To: debian-alpha@lists.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: by bendel.debian.org (Postfix, from userid 38)
+	id CC80C206F5; Mon, 11 Mar 2024 19:29:06 +0000 (UTC)
+Old-Return-Path: <tg@debian.org>
+X-Amavis-Spam-Status: No, score=-10.9 required=4.0 tests=FOURLA,LDOSUBSCRIBER,
+	LDO_WHITELIST,T_HDRS_LCASE,T_SCC_BODY_TEXT_LINE autolearn=unavailable
+	autolearn_force=no version=3.4.2
+X-Original-To: lists-debian-ports@bendel.debian.org
+Delivered-To: lists-debian-ports@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id 9997A20720
+	for <lists-debian-ports@bendel.debian.org>; Mon, 11 Mar 2024 19:28:55 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-6.9 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, FOURLA=0.1, LDO_WHITELIST=-5, T_HDRS_LCASE=0.01,
+	T_SCC_BODY_TEXT_LINE=-0.01] autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id FQHL_KQJxIs8 for <lists-debian-ports@bendel.debian.org>;
+	Mon, 11 Mar 2024 19:28:47 +0000 (UTC)
+X-policyd-weight: using cached result; rate:hard: -3.5
+X-Greylist: delayed 693 seconds by postgrey-1.36 at bendel; Mon, 11 Mar 2024 19:28:46 UTC
+Original-Received: from herc.mirbsd.org (herc.mirbsd.org [IPv6:2001:470:1f15:10c:202:b3ff:feb7:54e8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client CN "herc.mirbsd.org", Issuer "R3" (not verified))
+	by bendel.debian.org (Postfix) with ESMTPS id D6E6B206F5
+	for <debian-ports@lists.debian.org>; Mon, 11 Mar 2024 19:28:46 +0000 (UTC)
+Original-Received: from herc.mirbsd.org (tg@herc.mirbsd.org [192.168.0.82])
+	by herc.mirbsd.org (8.14.9/8.14.5) with ESMTP id 42BJ5qrX030971
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO);
+	Mon, 11 Mar 2024 19:05:59 GMT
+X-X-Sender: tg@herc.mirbsd.org
+Content-Language: de-Zsym-DE-1901-u-em-text-rg-denw-tz-utc, en-Zsym-GB-u-cu-eur-em-text-fw-mon-hc-h23-ms-metric-mu-celsius-rg-denw-tz-utc-va-posix
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <-u3IsWQQsAG.A.ZQB.Cu17lB@bendel>
+Resent-From: debian-ports@lists.debian.org
+X-Loop: debian-ports@lists.debian.org
+Resent-Date: Mon, 11 Mar 2024 19:29:06 +0000 (UTC)
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20064
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/Pine.BSM.4.64L.2403111834110.3585@herc.mirbsd.org
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10385
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10385>
+
+Hi,
+
+we have still the situation that the current python-cryptography,
+having rather heavy rust ecosystem dependencies, cannot be built
+on some debian-ports architectures.
+
+This situation is not likely to go away:
+
+=E2=80=A2 some ports are unlikely to meet the dependencies soon
+=E2=80=A2 new ports won=E2=80=99t meet them at first even if they may meet
+  them later (riscv64 and loong64 now meet them)
+
+For the t64 transition, I *think* I can just binNMU the last
+version that worked and porter-upload that, but that=E2=80=99s not a
+workable long-term solution, especially when python transitions
+come, etc.
+
+Is there a chance your team could fork the old python-cryptography
+source package (3.4.8-2) and do something like:
+
+=E2=80=A2 rename its python3-cryptography binary package to
+  python3-cryptography-rustless or something
+=E2=80=A2 let that Provide python3-cryptography in the same version
+
+Making python3-cryptography-rustless available on all arches
+has the benefit that people can test that their code will work
+on ports arches without having to bother installing one of them.
+
+I=E2=80=99m not entirely sure that having python3-cryptography-rustless
+Provides python3-cryptography, then other packages B-D/Depends
+python3-cryptography will work; IIRC, there was something about
+the first alternative must not be virtual and buildds won=E2=80=99t use
+second+ alternatives. In that case, we=E2=80=99ll instead need the
+python3-cryptography-rustless source package to build a second
+binary package python3-cryptography either as arch:all but in a
+lower version than the python-cryptography=E2=80=99s (if that=E2=80=99s oka=
+y),
+or as arch:any on just the affected architectures (which will
+end up being an annoying to maintain whitelist) that Depends
+python3-cryptography-rustless, to keep things installable on
+the buildds.
+
+With this in unstable proper, debian-ports will have a much
+easier job, and maintainers (both of the python3-cryptography
+ecosystem/packages and of software using it) can more easily
+test things work, and your team can apply whatever new policy
+changes, dh-* helpers, etc. to the 3.4.8-based package, and
+backport bugfixes, etc. (and perhaps there=E2=80=99s even an upstream
+fork?).
+
+The arches currently split as:
+
+=E2=80=A2 alpha=09=093.4.8-2
+=E2=80=A2 hppa=09=093.4.8-2
+=E2=80=A2 hurd-amd64=093.4.8-2
+=E2=80=A2 hurd-arm64=09unknown, probably 3.x
+=E2=80=A2 hurd-i386=093.4.8-2
+=E2=80=A2 ia64=09=093.4.8-2
+=E2=80=A2 loong64=0941.0.7-5
+=E2=80=A2 m68k=09=093.4.8-2
+=E2=80=A2 powerpc=0941.0.7-3
+=E2=80=A2 ppc64=09=0941.0.7-5
+=E2=80=A2 sh4=09=093.4.8-2
+=E2=80=A2 sparc64=0941.0.7-5
+=E2=80=A2 x32=09=0938.0.4-4
+
+(x32 seems to be lagging in the rust department, too=E2=80=A6)
+
+Since this exists mostly to help d-ports, it would be fine to
+open an RC bug against it early to prevent it from showing up
+in releases, if desired.
+
+Thanks for considering,
+//mirabilos, helping out m68k for the time_t transition again
+--=20
+When he found out that the m68k port was in a pretty bad shape, he did
+not, like many before him, shrug and move on; instead, he took it upon
+himself to start compiling things, just so he could compile his shell.
+How's that for dedication. -- Wouter, about my Debian/m68k revival
+
+
+
+From kapouer@melix.org Mon Mar 11 21:31:35 2024
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: =?UTF-8?B?SsOpcsOpbXkgTGFs?= <kapouer@melix.org>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Re: python-cryptography vs. stainless steel ports
+Date: Mon, 11 Mar 2024 21:31:35 +0100
+Approved: news@gmane.org
+Message-ID: <CAJxTCxwA-xVtPm7QbyycGi_q0or1O2YUn-3WUuO=zaq1zDwwgg__17762.5044527062$1710189191$gmane$org@mail.gmail.com>
+References: <Pine.BSM.4.64L.2403111834110.3585@herc.mirbsd.org>
+Mime-Version: 1.0
+Content-Type: multipart/alternative; boundary="000000000000ac72200613686f01"
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="23916"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: Debian Python Team <team+python@tracker.debian.org>, debian-ports@lists.debian.org
+To: Thorsten Glaser <tg@debian.org>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Mon Mar 11 21:33:05 2024
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1rjmKX-00061W-6S
+	for debian-alpha@m.gmane-mx.org; Mon, 11 Mar 2024 21:33:05 +0100
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id 8B77E206EC; Mon, 11 Mar 2024 20:32:55 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Mon Mar 11 20:32:55 2024
+Old-Return-Path: <list@bendel.debian.org>
+X-Original-To: debian-alpha@lists.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: by bendel.debian.org (Postfix, from userid 38)
+	id 26B7820439; Mon, 11 Mar 2024 20:32:42 +0000 (UTC)
+Old-Return-Path: <SRS0=F7E8=KR=melix.org=kapouer@bounces.m4x.org>
+X-Amavis-Spam-Status: No, score=-5.2 required=4.0 tests=DKIM_SIGNED,DKIM_VALID,
+	DKIM_VALID_AU,FOURLA,HEADER_FROM_DIFFERENT_DOMAINS,HTML_MESSAGE,
+	LDO_WHITELIST,RCVD_IN_DNSWL_MED,RCVD_IN_MSPIKE_H3,RCVD_IN_MSPIKE_WL,
+	T_SCC_BODY_TEXT_LINE autolearn=unavailable autolearn_force=no
+	version=3.4.2
+X-Original-To: lists-debian-ports@bendel.debian.org
+Delivered-To: lists-debian-ports@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id 4A89D20750
+	for <lists-debian-ports@bendel.debian.org>; Mon, 11 Mar 2024 20:32:28 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-7.082 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, DKIM_SIGNED=0.1, DKIM_VALID=-0.1,
+	DKIM_VALID_AU=-0.1, FOURLA=0.1, HEADER_FROM_DIFFERENT_DOMAINS=0.248,
+	HTML_MESSAGE=2, LDO_WHITELIST=-5, RCVD_IN_DNSWL_MED=-2.3,
+	RCVD_IN_MSPIKE_H3=-0.01, RCVD_IN_MSPIKE_WL=-0.01,
+	T_SCC_BODY_TEXT_LINE=-0.01] autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id gxQtApRJHErx for <lists-debian-ports@bendel.debian.org>;
+	Mon, 11 Mar 2024 20:32:19 +0000 (UTC)
+X-policyd-weight: using cached result; rate: -5.5
+Original-Received: from mx1.polytechnique.org (mx1.polytechnique.org [129.104.30.34])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(Client CN "*.polytechnique.org", Issuer "R3" (not verified))
+	by bendel.debian.org (Postfix) with ESMTPS id 2D126206EC
+	for <debian-ports@lists.debian.org>; Mon, 11 Mar 2024 20:32:16 +0000 (UTC)
+Original-Received: from mail-yw1-f170.google.com (mail-yw1-f170.google.com [209.85.128.170])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by ssl.polytechnique.org (Postfix) with ESMTPSA id 60875564796
+	for <debian-ports@lists.debian.org>; Mon, 11 Mar 2024 21:32:12 +0100 (CET)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=melix.org; s=svoboda;
+	t=1710189132; bh=SbE/ceoFLgSFN6piTbxURN5XQR+X7/XKOXKQX3L2Z5w=;
+	h=References:In-Reply-To:From:Date:Message-ID:Subject:To:Cc;
+	b=MqCaSoTUIhe64auwz+SvVshGWRh5F0HvZSiNddWilVQqDVjWgDRyAVtwNygl6q8MH
+	 0lw6Zn606efwY/DggkwN27oqFod8+s2STrKgWnynpvj8F20OiaqhW5Gw7NpNHHznXF
+	 NcXT3vm5Y40Wn8/zp6c8krU/HH7cg3K/GNu6ljdc=
+Original-Received: by mail-yw1-f170.google.com with SMTP id 00721157ae682-60a0579a914so34712977b3.3
+        for <debian-ports@lists.debian.org>; Mon, 11 Mar 2024 13:32:12 -0700 (PDT)
+X-Forwarded-Encrypted: i=1; AJvYcCVfWVr9LcFf1a+rdNSk4brzhOtzMY4xu72tRanehEvUeRNHbFpjSloycP6si41IcZS3Kxhd/f1JyMwf1b9RfgXk46mAXHoFrKHc0YT4IA==
+X-Gm-Message-State: AOJu0Yxa0uELIy1lbQSqNELFXlIalmBw3Gl2JLQ6XGsR3OKFv5H3BJ8f
+	9EGsLjysPNqQ8NrPDf+dB/d2mOoed5Wumx0S7AgkrhAeOEEgVmOCBJ0Wm/nKAiq3rzrmiy+7L4v
+	t6HJZjfjIIYI17ATNsg5E04AorJlqTmaPMEql
+X-Google-Smtp-Source: AGHT+IG2cIw6ZEW32XJmYhmuJnTkB9rd8Q1M3sklL+sllWaT9495eshaJP6V95BAYQucHJtkoKmI65AmyVR8zcV+fpA=
+X-Received: by 2002:a81:b602:0:b0:60a:50ec:afbc with SMTP id
+ u2-20020a81b602000000b0060a50ecafbcmr1454756ywh.41.1710189131353; Mon, 11 Mar
+ 2024 13:32:11 -0700 (PDT)
+In-Reply-To: <Pine.BSM.4.64L.2403111834110.3585@herc.mirbsd.org>
+X-Gmail-Original-Message-ID: <CAJxTCxwA-xVtPm7QbyycGi_q0or1O2YUn-3WUuO=zaq1zDwwgg@mail.gmail.com>
+X-AV-Checked: ClamAV using ClamSMTP at svoboda.polytechnique.org (Mon Mar 11 21:32:12 2024 +0100 (CET))
+X-Org-Mail: jeremy.lal.1997@polytechnique.org
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <m1lPyW0zvKC.A.PMC.qp27lB@bendel>
+Resent-From: debian-ports@lists.debian.org
+X-Loop: debian-ports@lists.debian.org
+Resent-Date: Mon, 11 Mar 2024 20:32:42 +0000 (UTC)
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20065
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/CAJxTCxwA-xVtPm7QbyycGi_q0or1O2YUn-3WUuO=zaq1zDwwgg@mail.gmail.com
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10386
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10386>
+
+--000000000000ac72200613686f01
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+Le lun. 11 mars 2024 =C3=A0 20:17, Thorsten Glaser <tg@debian.org> a =C3=A9=
+crit :
+
+> Hi,
+>
+> we have still the situation that the current python-cryptography,
+> having rather heavy rust ecosystem dependencies, cannot be built
+> on some debian-ports architectures.
+>
+> This situation is not likely to go away:
+>
+> =E2=80=A2 some ports are unlikely to meet the dependencies soon
+> =E2=80=A2 new ports won=E2=80=99t meet them at first even if they may mee=
+t
+>   them later (riscv64 and loong64 now meet them)
+>
+> For the t64 transition, I *think* I can just binNMU the last
+> version that worked and porter-upload that, but that=E2=80=99s not a
+> workable long-term solution, especially when python transitions
+> come, etc.
+>
+> Is there a chance your team could fork the old python-cryptography
+> source package (3.4.8-2) and do something like:
+>
+> =E2=80=A2 rename its python3-cryptography binary package to
+>   python3-cryptography-rustless or something
+> =E2=80=A2 let that Provide python3-cryptography in the same version
+>
+> Making python3-cryptography-rustless available on all arches
+> has the benefit that people can test that their code will work
+> on ports arches without having to bother installing one of them.
+>
+> I=E2=80=99m not entirely sure that having python3-cryptography-rustless
+> Provides python3-cryptography, then other packages B-D/Depends
+> python3-cryptography will work; IIRC, there was something about
+> the first alternative must not be virtual and buildds won=E2=80=99t use
+> second+ alternatives. In that case, we=E2=80=99ll instead need the
+> python3-cryptography-rustless source package to build a second
+> binary package python3-cryptography either as arch:all but in a
+> lower version than the python-cryptography=E2=80=99s (if that=E2=80=99s o=
+kay),
+> or as arch:any on just the affected architectures (which will
+> end up being an annoying to maintain whitelist) that Depends
+> python3-cryptography-rustless, to keep things installable on
+> the buildds.
+>
+> With this in unstable proper, debian-ports will have a much
+> easier job, and maintainers (both of the python3-cryptography
+> ecosystem/packages and of software using it) can more easily
+> test things work, and your team can apply whatever new policy
+> changes, dh-* helpers, etc. to the 3.4.8-based package, and
+> backport bugfixes, etc. (and perhaps there=E2=80=99s even an upstream
+> fork?).
+>
+> The arches currently split as:
+>
+> =E2=80=A2 alpha         3.4.8-2
+> =E2=80=A2 hppa          3.4.8-2
+> =E2=80=A2 hurd-amd64    3.4.8-2
+> =E2=80=A2 hurd-arm64    unknown, probably 3.x
+> =E2=80=A2 hurd-i386     3.4.8-2
+> =E2=80=A2 ia64          3.4.8-2
+> =E2=80=A2 loong64       41.0.7-5
+> =E2=80=A2 m68k          3.4.8-2
+> =E2=80=A2 powerpc       41.0.7-3
+> =E2=80=A2 ppc64         41.0.7-5
+> =E2=80=A2 sh4           3.4.8-2
+> =E2=80=A2 sparc64       41.0.7-5
+> =E2=80=A2 x32           38.0.4-4
+>
+> (x32 seems to be lagging in the rust department, too=E2=80=A6)
+>
+> Since this exists mostly to help d-ports, it would be fine to
+> open an RC bug against it early to prevent it from showing up
+> in releases, if desired.
+>
+> Thanks for considering,
+> //mirabilos, helping out m68k for the time_t transition again
+> --
+> When he found out that the m68k port was in a pretty bad shape, he did
+> not, like many before him, shrug and move on; instead, he took it upon
+> himself to start compiling things, just so he could compile his shell.
+> How's that for dedication. -- Wouter, about my Debian/m68k revival
+>
+
+While I'm very much concerned about architectures and compatibility,
+it seems that for python-cryptography, it's a sinking boat:
+The end of a very discussion dates from february, 2021 - 3 years ago:
+https://github.com/pyca/cryptography/issues/5771#issuecomment-775990406
+
+--000000000000ac72200613686f01
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr"><div dir=3D"ltr"><br></div><br><div class=3D"gmail_quote">=
+<div dir=3D"ltr" class=3D"gmail_attr">Le=C2=A0lun. 11 mars 2024 =C3=A0=C2=
+=A020:17, Thorsten Glaser &lt;<a href=3D"mailto:tg@debian.org">tg@debian.or=
+g</a>&gt; a =C3=A9crit=C2=A0:<br></div><blockquote class=3D"gmail_quote" st=
+yle=3D"margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padd=
+ing-left:1ex">Hi,<br>
+<br>
+we have still the situation that the current python-cryptography,<br>
+having rather heavy rust ecosystem dependencies, cannot be built<br>
+on some debian-ports architectures.<br>
+<br>
+This situation is not likely to go away:<br>
+<br>
+=E2=80=A2 some ports are unlikely to meet the dependencies soon<br>
+=E2=80=A2 new ports won=E2=80=99t meet them at first even if they may meet<=
+br>
+=C2=A0 them later (riscv64 and loong64 now meet them)<br>
+<br>
+For the t64 transition, I *think* I can just binNMU the last<br>
+version that worked and porter-upload that, but that=E2=80=99s not a<br>
+workable long-term solution, especially when python transitions<br>
+come, etc.<br>
+<br>
+Is there a chance your team could fork the old python-cryptography<br>
+source package (3.4.8-2) and do something like:<br>
+<br>
+=E2=80=A2 rename its python3-cryptography binary package to<br>
+=C2=A0 python3-cryptography-rustless or something<br>
+=E2=80=A2 let that Provide python3-cryptography in the same version<br>
+<br>
+Making python3-cryptography-rustless available on all arches<br>
+has the benefit that people can test that their code will work<br>
+on ports arches without having to bother installing one of them.<br>
+<br>
+I=E2=80=99m not entirely sure that having python3-cryptography-rustless<br>
+Provides python3-cryptography, then other packages B-D/Depends<br>
+python3-cryptography will work; IIRC, there was something about<br>
+the first alternative must not be virtual and buildds won=E2=80=99t use<br>
+second+ alternatives. In that case, we=E2=80=99ll instead need the<br>
+python3-cryptography-rustless source package to build a second<br>
+binary package python3-cryptography either as arch:all but in a<br>
+lower version than the python-cryptography=E2=80=99s (if that=E2=80=99s oka=
+y),<br>
+or as arch:any on just the affected architectures (which will<br>
+end up being an annoying to maintain whitelist) that Depends<br>
+python3-cryptography-rustless, to keep things installable on<br>
+the buildds.<br>
+<br>
+With this in unstable proper, debian-ports will have a much<br>
+easier job, and maintainers (both of the python3-cryptography<br>
+ecosystem/packages and of software using it) can more easily<br>
+test things work, and your team can apply whatever new policy<br>
+changes, dh-* helpers, etc. to the 3.4.8-based package, and<br>
+backport bugfixes, etc. (and perhaps there=E2=80=99s even an upstream<br>
+fork?).<br>
+<br>
+The arches currently split as:<br>
+<br>
+=E2=80=A2 alpha=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A03.4.8-2<br>
+=E2=80=A2 hppa=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 3.4.8-2<br>
+=E2=80=A2 hurd-amd64=C2=A0 =C2=A0 3.4.8-2<br>
+=E2=80=A2 hurd-arm64=C2=A0 =C2=A0 unknown, probably 3.x<br>
+=E2=80=A2 hurd-i386=C2=A0 =C2=A0 =C2=A03.4.8-2<br>
+=E2=80=A2 ia64=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 3.4.8-2<br>
+=E2=80=A2 loong64=C2=A0 =C2=A0 =C2=A0 =C2=A041.0.7-5<br>
+=E2=80=A2 m68k=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 3.4.8-2<br>
+=E2=80=A2 powerpc=C2=A0 =C2=A0 =C2=A0 =C2=A041.0.7-3<br>
+=E2=80=A2 ppc64=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A041.0.7-5<br>
+=E2=80=A2 sh4=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A03.4.8-2<br>
+=E2=80=A2 sparc64=C2=A0 =C2=A0 =C2=A0 =C2=A041.0.7-5<br>
+=E2=80=A2 x32=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A038.0.4-4<br>
+<br>
+(x32 seems to be lagging in the rust department, too=E2=80=A6)<br>
+<br>
+Since this exists mostly to help d-ports, it would be fine to<br>
+open an RC bug against it early to prevent it from showing up<br>
+in releases, if desired.<br>
+<br>
+Thanks for considering,<br>
+//mirabilos, helping out m68k for the time_t transition again<br>
+-- <br>
+When he found out that the m68k port was in a pretty bad shape, he did<br>
+not, like many before him, shrug and move on; instead, he took it upon<br>
+himself to start compiling things, just so he could compile his shell.<br>
+How&#39;s that for dedication. -- Wouter, about my Debian/m68k revival<br><=
+/blockquote><div><br></div><div>While I&#39;m very much concerned about arc=
+hitectures and compatibility,</div><div>it seems that for python-cryptograp=
+hy, it&#39;s a sinking boat:</div><div>The end of a very discussion dates f=
+rom february, 2021 - 3 years ago:</div><div><a href=3D"https://github.com/p=
+yca/cryptography/issues/5771#issuecomment-775990406">https://github.com/pyc=
+a/cryptography/issues/5771#issuecomment-775990406</a></div><div>=C2=A0</div=
+></div></div>
+
+--000000000000ac72200613686f01--
+
+
+
+From tg@debian.org Mon Mar 11 20:46:29 2024
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Thorsten Glaser <tg@debian.org>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Re: python-cryptography vs. stainless steel ports
+Date: Mon, 11 Mar 2024 20:46:29 +0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <Pine.BSM.4.64L.2403112045110.7336__40506.2881343596$1710190456$gmane$org@herc.mirbsd.org>
+References: <Pine.BSM.4.64L.2403111834110.3585@herc.mirbsd.org>
+ <CAJxTCxwA-xVtPm7QbyycGi_q0or1O2YUn-3WUuO=zaq1zDwwgg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="12520"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: Debian Python Team <team+python@tracker.debian.org>,
+        debian-ports@lists.debian.org
+To: =?UTF-8?B?SsOpcsOpbXkgTGFs?= <kapouer@melix.org>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Mon Mar 11 21:54:09 2024
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1rjmet-00033O-Vh
+	for debian-alpha@m.gmane-mx.org; Mon, 11 Mar 2024 21:54:07 +0100
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id AA917207A0; Mon, 11 Mar 2024 20:54:06 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Mon Mar 11 20:53:58 2024
+Old-Return-Path: <list@bendel.debian.org>
+X-Original-To: debian-alpha@lists.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: by bendel.debian.org (Postfix, from userid 38)
+	id 3EC1620787; Mon, 11 Mar 2024 20:53:21 +0000 (UTC)
+Old-Return-Path: <tg@debian.org>
+X-Amavis-Spam-Status: No, score=-11.0 required=4.0 tests=LDOSUBSCRIBER,LDO_WHITELIST,
+	T_SCC_BODY_TEXT_LINE autolearn=unavailable autolearn_force=no
+	version=3.4.2
+X-Original-To: lists-debian-ports@bendel.debian.org
+Delivered-To: lists-debian-ports@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id F11932077E
+	for <lists-debian-ports@bendel.debian.org>; Mon, 11 Mar 2024 20:53:09 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-7.01 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, LDO_WHITELIST=-5, T_SCC_BODY_TEXT_LINE=-0.01]
+	autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id vZDQOOaYDtQz for <lists-debian-ports@bendel.debian.org>;
+	Mon, 11 Mar 2024 20:53:02 +0000 (UTC)
+X-policyd-weight: using cached result; rate:hard: -3.5
+Original-Received: from herc.mirbsd.org (herc.mirbsd.org [IPv6:2001:470:1f15:10c:202:b3ff:feb7:54e8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client CN "herc.mirbsd.org", Issuer "R3" (not verified))
+	by bendel.debian.org (Postfix) with ESMTPS id 1A33E2076A
+	for <debian-ports@lists.debian.org>; Mon, 11 Mar 2024 20:53:02 +0000 (UTC)
+Original-Received: from herc.mirbsd.org (tg@herc.mirbsd.org [192.168.0.82])
+	by herc.mirbsd.org (8.14.9/8.14.5) with ESMTP id 42BKkTOc022757
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO);
+	Mon, 11 Mar 2024 20:46:35 GMT
+X-X-Sender: tg@herc.mirbsd.org
+In-Reply-To: <CAJxTCxwA-xVtPm7QbyycGi_q0or1O2YUn-3WUuO=zaq1zDwwgg@mail.gmail.com>
+Content-Language: de-Zsym-DE-1901-u-em-text-rg-denw-tz-utc, en-Zsym-GB-u-cu-eur-em-text-fw-mon-hc-h23-ms-metric-mu-celsius-rg-denw-tz-utc-va-posix
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <gW664mcfAAB.A.4Q.B927lB@bendel>
+Resent-From: debian-ports@lists.debian.org
+X-Loop: debian-ports@lists.debian.org
+Resent-Date: Mon, 11 Mar 2024 20:53:21 +0000 (UTC)
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20066
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/Pine.BSM.4.64L.2403112045110.7336@herc.mirbsd.org
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10387
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10387>
+
+J=C3=A9r=C3=A9my Lal dixit:
+
+>While I'm very much concerned about architectures and compatibility,
+>it seems that for python-cryptography, it's a sinking boat:
+>The end of a very discussion dates from february, 2021 - 3 years ago:
+>https://github.com/pyca/cryptography/issues/5771#issuecomment-775990406
+
+Ouch.
+
+cbmuser also has hopes for rustc_codegen_gcc, but I believe that
+quite a way off for regular use in Debian yet and won=E2=80=99t hold my
+breath.
+
+So, perhaps at least do palliative care for the 3.8-based package
+in the meantime?
+
+Porters can help, but we don=E2=80=99t know the python ecosystem well.
+
+bye,
+//mirabilos
+--=20
+Gast: =E2=80=9EEin Bier, bitte!=E2=80=9C
+Wirt: =E2=80=9EGeht auch alkoholfrei?=E2=80=9C
+Gast: =E2=80=9EGeht auch Spielgeld?=E2=80=9C
+
+
+
+From kapouer@melix.org Mon Mar 11 22:15:45 2024
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: =?UTF-8?B?SsOpcsOpbXkgTGFs?= <kapouer@melix.org>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Re: python-cryptography vs. stainless steel ports
+Date: Mon, 11 Mar 2024 22:15:45 +0100
+Approved: news@gmane.org
+Message-ID: <CAJxTCxwDQrrQkd8=A3Xnf9NXvkreBePK+TTGauaQaqzDPi2a2A__10057.9806299478$1710191854$gmane$org@mail.gmail.com>
+References: <Pine.BSM.4.64L.2403111834110.3585@herc.mirbsd.org>
+ <CAJxTCxwA-xVtPm7QbyycGi_q0or1O2YUn-3WUuO=zaq1zDwwgg@mail.gmail.com> <Pine.BSM.4.64L.2403112045110.7336@herc.mirbsd.org>
+Mime-Version: 1.0
+Content-Type: multipart/alternative; boundary="0000000000009c74710613690db8"
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="11198"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: Debian Python Team <team+python@tracker.debian.org>, debian-ports@lists.debian.org
+To: Thorsten Glaser <tg@debian.org>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Mon Mar 11 22:17:25 2024
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1rjn1R-0002gx-HN
+	for debian-alpha@m.gmane-mx.org; Mon, 11 Mar 2024 22:17:25 +0100
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id AE7EA207B2; Mon, 11 Mar 2024 21:17:21 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Mon Mar 11 21:17:21 2024
+Old-Return-Path: <list@bendel.debian.org>
+X-Original-To: debian-alpha@lists.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: by bendel.debian.org (Postfix, from userid 38)
+	id DA49E20755; Mon, 11 Mar 2024 21:16:47 +0000 (UTC)
+Old-Return-Path: <SRS0=F7E8=KR=melix.org=kapouer@bounces.m4x.org>
+X-Amavis-Spam-Status: No, score=-5.3 required=4.0 tests=DKIM_SIGNED,DKIM_VALID,
+	DKIM_VALID_AU,HEADER_FROM_DIFFERENT_DOMAINS,HTML_MESSAGE,LDO_WHITELIST,
+	RCVD_IN_DNSWL_MED,RCVD_IN_MSPIKE_H3,RCVD_IN_MSPIKE_WL,
+	T_SCC_BODY_TEXT_LINE autolearn=unavailable autolearn_force=no
+	version=3.4.2
+X-Original-To: lists-debian-ports@bendel.debian.org
+Delivered-To: lists-debian-ports@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id 446C720755
+	for <lists-debian-ports@bendel.debian.org>; Mon, 11 Mar 2024 21:16:34 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-7.182 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, DKIM_SIGNED=0.1, DKIM_VALID=-0.1,
+	DKIM_VALID_AU=-0.1, HEADER_FROM_DIFFERENT_DOMAINS=0.248,
+	HTML_MESSAGE=2, LDO_WHITELIST=-5, RCVD_IN_DNSWL_MED=-2.3,
+	RCVD_IN_MSPIKE_H3=-0.01, RCVD_IN_MSPIKE_WL=-0.01,
+	T_SCC_BODY_TEXT_LINE=-0.01] autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id JsVYWZdPQt-1 for <lists-debian-ports@bendel.debian.org>;
+	Mon, 11 Mar 2024 21:16:25 +0000 (UTC)
+X-policyd-weight: using cached result; rate:hard: -5.5
+Original-Received: from mx1.polytechnique.org (mx1.polytechnique.org [129.104.30.34])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(Client CN "*.polytechnique.org", Issuer "R3" (not verified))
+	by bendel.debian.org (Postfix) with ESMTPS id 92F3320754
+	for <debian-ports@lists.debian.org>; Mon, 11 Mar 2024 21:16:25 +0000 (UTC)
+Original-Received: from mail-yw1-f177.google.com (mail-yw1-f177.google.com [209.85.128.177])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by ssl.polytechnique.org (Postfix) with ESMTPSA id 1B54256129E
+	for <debian-ports@lists.debian.org>; Mon, 11 Mar 2024 22:16:22 +0100 (CET)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=melix.org; s=svoboda;
+	t=1710191782; bh=OtimAcGlp0f1zKo2JMxC9XAMjTAizhbjFI8BCeAwnhM=;
+	h=References:In-Reply-To:From:Date:Message-ID:Subject:To:Cc;
+	b=4uBe2hQuY++1aTrm5+azogJ/yzPPQFzCwVS6vVNGFFWrlHblDysPB34UptvyEdKiP
+	 Crw1XdgT/xahbKMf44ZfBsL7ic2yDnef+ivvp1FSw0RBeCWEqpcPQPZisJ2F2RkY3r
+	 LY9VstFMLiExvnvrv637lztcW092rlyk8czf+q7o=
+Original-Received: by mail-yw1-f177.google.com with SMTP id 00721157ae682-60a0579a968so33874667b3.3
+        for <debian-ports@lists.debian.org>; Mon, 11 Mar 2024 14:16:22 -0700 (PDT)
+X-Forwarded-Encrypted: i=1; AJvYcCXce2y3aXLOAJFFnlHWOdXS00c5d+ewok8J6x1eG+WhTfrLsqqFHNd9IQRgEo0WRfp8WqZ3WTwCTLVSHuDWW6OJHi7CUzdMfbzqRkJw9Q==
+X-Gm-Message-State: AOJu0YyQ3a1TuF06WOJo4oC671VtMQjW7Tfui5oi+HW/WSOYf3zC0n5+
+	OgwA38FrRl/HoWKCIA3pn3izcT770NHQUJ92xMRqQ4jynduLtLMyWkzhtisBA4K+8QDZ6po3Ejp
+	VRqMQE8s6AFHbRG34M8DEbC9SGt8W+N4o0kZg
+X-Google-Smtp-Source: AGHT+IFUL/LvRjFUzgn7ZJj9p6jQhP1bCZN8dI6glMXmGxFkrnZYed3/vFwKv1jOvYtX+rXfx2szNUdXzSJqRkDnBiE=
+X-Received: by 2002:a0d:f146:0:b0:609:fad9:1faa with SMTP id
+ a67-20020a0df146000000b00609fad91faamr7483102ywf.40.1710191781105; Mon, 11
+ Mar 2024 14:16:21 -0700 (PDT)
+In-Reply-To: <Pine.BSM.4.64L.2403112045110.7336@herc.mirbsd.org>
+X-Gmail-Original-Message-ID: <CAJxTCxwDQrrQkd8=A3Xnf9NXvkreBePK+TTGauaQaqzDPi2a2A@mail.gmail.com>
+X-AV-Checked: ClamAV using ClamSMTP at svoboda.polytechnique.org (Mon Mar 11 22:16:22 2024 +0100 (CET))
+X-Org-Mail: jeremy.lal.1997@polytechnique.org
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <gg3TE35Iz6F.A.1w._S37lB@bendel>
+Resent-From: debian-ports@lists.debian.org
+X-Loop: debian-ports@lists.debian.org
+Resent-Date: Mon, 11 Mar 2024 21:16:47 +0000 (UTC)
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20067
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/CAJxTCxwDQrrQkd8=A3Xnf9NXvkreBePK+TTGauaQaqzDPi2a2A@mail.gmail.com
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10388
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10388>
+
+--0000000000009c74710613690db8
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+Le lun. 11 mars 2024 =C3=A0 21:53, Thorsten Glaser <tg@debian.org> a =C3=A9=
+crit :
+
+> J=C3=A9r=C3=A9my Lal dixit:
+>
+> >While I'm very much concerned about architectures and compatibility,
+> >it seems that for python-cryptography, it's a sinking boat:
+> >The end of a very discussion dates from february, 2021 - 3 years ago:
+> >https://github.com/pyca/cryptography/issues/5771#issuecomment-775990406
+>
+> Ouch.
+>
+> cbmuser also has hopes for rustc_codegen_gcc, but I believe that
+> quite a way off for regular use in Debian yet and won=E2=80=99t hold my
+> breath.
+>
+> So, perhaps at least do palliative care for the 3.8-based package
+> in the meantime?
+
+Porters can help, but we don=E2=80=99t know the python ecosystem well.
+
+
+Anyone had experience with the version 3.3 to 38.0 migration ?
+Maybe the API didn't change that much.
+
+--0000000000009c74710613690db8
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr"><div dir=3D"ltr"><br></div><br><div class=3D"gmail_quote">=
+<div dir=3D"ltr" class=3D"gmail_attr">Le=C2=A0lun. 11 mars 2024 =C3=A0=C2=
+=A021:53, Thorsten Glaser &lt;<a href=3D"mailto:tg@debian.org">tg@debian.or=
+g</a>&gt; a =C3=A9crit=C2=A0:<br></div><blockquote class=3D"gmail_quote" st=
+yle=3D"margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padd=
+ing-left:1ex">J=C3=A9r=C3=A9my Lal dixit:<br>
+<br>
+&gt;While I&#39;m very much concerned about architectures and compatibility=
+,<br>
+&gt;it seems that for python-cryptography, it&#39;s a sinking boat:<br>
+&gt;The end of a very discussion dates from february, 2021 - 3 years ago:<b=
+r>
+&gt;<a href=3D"https://github.com/pyca/cryptography/issues/5771#issuecommen=
+t-775990406" rel=3D"noreferrer" target=3D"_blank">https://github.com/pyca/c=
+ryptography/issues/5771#issuecomment-775990406</a><br>
+<br>
+Ouch.<br>
+<br>
+cbmuser also has hopes for rustc_codegen_gcc, but I believe that<br>
+quite a way off for regular use in Debian yet and won=E2=80=99t hold my<br>
+breath.<br>
+<br>
+So, perhaps at least do palliative care for the 3.8-based package<br>
+in the meantime?</blockquote><blockquote class=3D"gmail_quote" style=3D"mar=
+gin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1=
+ex">
+Porters can help, but we don=E2=80=99t know the python ecosystem well.</blo=
+ckquote><div><br></div><div>Anyone had experience with the version 3.3 to 3=
+8.0 migration ?</div><div>Maybe the API didn&#39;t change that much.</div><=
+div><br></div><div>=C2=A0</div></div></div>
+
+--0000000000009c74710613690db8--
+
+
+
+From tg@debian.org Mon Mar 11 21:33:37 2024
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Thorsten Glaser <tg@debian.org>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Re: python-cryptography vs. stainless steel ports
+Date: Mon, 11 Mar 2024 21:33:37 +0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <Pine.BSM.4.64L.2403112132320.19666@herc.mirbsd.org>
+References: <Pine.BSM.4.64L.2403111834110.3585@herc.mirbsd.org>
+ <CAJxTCxwA-xVtPm7QbyycGi_q0or1O2YUn-3WUuO=zaq1zDwwgg@mail.gmail.com>
+ <Pine.BSM.4.64L.2403112045110.7336@herc.mirbsd.org>
+ <CAJxTCxwDQrrQkd8=A3Xnf9NXvkreBePK+TTGauaQaqzDPi2a2A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="19022"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: Debian Python Team <team+python@tracker.debian.org>,
+        debian-ports@lists.debian.org
+To: =?UTF-8?B?SsOpcsOpbXkgTGFs?= <kapouer@melix.org>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Mon Mar 11 22:41:25 2024
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1rjnOf-0004qh-4T
+	for debian-alpha@m.gmane-mx.org; Mon, 11 Mar 2024 22:41:25 +0100
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id AC7EF207BE; Mon, 11 Mar 2024 21:41:23 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Mon Mar 11 21:41:23 2024
+Old-Return-Path: <list@bendel.debian.org>
+X-Original-To: debian-alpha@lists.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: by bendel.debian.org (Postfix, from userid 38)
+	id 8C680207A2; Mon, 11 Mar 2024 21:41:12 +0000 (UTC)
+Old-Return-Path: <tg@debian.org>
+X-Amavis-Spam-Status: No, score=-11.0 required=4.0 tests=LDOSUBSCRIBER,LDO_WHITELIST,
+	T_SCC_BODY_TEXT_LINE autolearn=unavailable autolearn_force=no
+	version=3.4.2
+X-Original-To: lists-debian-ports@bendel.debian.org
+Delivered-To: lists-debian-ports@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id 83C6C207A7
+	for <lists-debian-ports@bendel.debian.org>; Mon, 11 Mar 2024 21:41:01 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-7.01 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, LDO_WHITELIST=-5, T_SCC_BODY_TEXT_LINE=-0.01]
+	autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id LH6xUcZVtaM0 for <lists-debian-ports@bendel.debian.org>;
+	Mon, 11 Mar 2024 21:40:58 +0000 (UTC)
+X-policyd-weight: using cached result; rate:hard: -3.5
+Original-Received: from herc.mirbsd.org (herc.mirbsd.org [IPv6:2001:470:1f15:10c:202:b3ff:feb7:54e8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client CN "herc.mirbsd.org", Issuer "R3" (not verified))
+	by bendel.debian.org (Postfix) with ESMTPS id 037A7207A2
+	for <debian-ports@lists.debian.org>; Mon, 11 Mar 2024 21:40:57 +0000 (UTC)
+Original-Received: from herc.mirbsd.org (tg@herc.mirbsd.org [192.168.0.82])
+	by herc.mirbsd.org (8.14.9/8.14.5) with ESMTP id 42BLXbEB022960
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO);
+	Mon, 11 Mar 2024 21:33:44 GMT
+X-X-Sender: tg@herc.mirbsd.org
+In-Reply-To: <CAJxTCxwDQrrQkd8=A3Xnf9NXvkreBePK+TTGauaQaqzDPi2a2A@mail.gmail.com>
+Content-Language: de-Zsym-DE-1901-u-em-text-rg-denw-tz-utc, en-Zsym-GB-u-cu-eur-em-text-fw-mon-hc-h23-ms-metric-mu-celsius-rg-denw-tz-utc-va-posix
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <DEbcMCb-MZI.A.gEG.4p37lB@bendel>
+Resent-From: debian-ports@lists.debian.org
+X-Loop: debian-ports@lists.debian.org
+Resent-Date: Mon, 11 Mar 2024 21:41:12 +0000 (UTC)
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20068
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/Pine.BSM.4.64L.2403112132320.19666@herc.mirbsd.org
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10389
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10389>
+
+J=C3=A9r=C3=A9my Lal dixit:
+
+>Anyone had experience with the version 3.3 to 38.0 migration ?
+>Maybe the API didn't change that much.
+
+We cannot go past 3.4 because newer versions (starting at 38)
+have a hard dependency on rust stuff.
+
+bye,
+//mirabilos
+--=20
+Solange man keine schmutzigen Tricks macht, und ich meine *wirklich*
+schmutzige Tricks, wie bei einer doppelt verketteten Liste beide
+Pointer XORen und in nur einem Word speichern, funktioniert Boehm ganz
+hervorragend.=09=09-- Andreas Bogk =C3=BCber boehm-gc in d.a.s.r
+
+
+
+From tg@mirbsd.de Thu Mar 14 02:40:37 2024
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Thorsten Glaser <tg@mirbsd.de>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Bug#1066832: fsverity-utils: hard Build-Depends on unportable package pandoc
+Date: Thu, 14 Mar 2024 02:40:37 +0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <Pine.BSM.4.64L.2403140237160.10945__16030.0755336479$1710384349$gmane$org@herc.mirbsd.org>
+Reply-To: Thorsten Glaser <tg@mirbsd.de>, 1066832@bugs.debian.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="13621"; mail-complaints-to="usenet@ciao.gmane.io"
+To: submit@bugs.debian.org
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Thu Mar 14 03:45:43 2024
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1rkb6F-0003OD-3e
+	for debian-alpha@m.gmane-mx.org; Thu, 14 Mar 2024 03:45:43 +0100
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id B71932076F; Thu, 14 Mar 2024 02:45:38 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Thu Mar 14 02:45:38 2024
+Old-Return-Path: <list@bendel.debian.org>
+X-Original-To: debian-alpha@lists.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: by bendel.debian.org (Postfix, from userid 38)
+	id 921F92076A; Thu, 14 Mar 2024 02:45:26 +0000 (UTC)
+Old-Return-Path: <debbugs@buxtehude.debian.org>
+X-Amavis-Spam-Status: No, score=-4.8 required=4.0 tests=HEADER_FROM_DIFFERENT_DOMAINS,
+	LDO_WHITELIST,T_SCC_BODY_TEXT_LINE autolearn=unavailable
+	autolearn_force=no version=3.4.2
+X-Original-To: lists-debian-ports@bendel.debian.org
+Delivered-To: lists-debian-ports@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id 833522076C
+	for <lists-debian-ports@bendel.debian.org>; Thu, 14 Mar 2024 02:45:15 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-6.761 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, HEADER_FROM_DIFFERENT_DOMAINS=0.249,
+	LDO_WHITELIST=-5, T_SCC_BODY_TEXT_LINE=-0.01]
+	autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id W5fEpZd0I8DQ for <lists-debian-ports@bendel.debian.org>;
+	Thu, 14 Mar 2024 02:45:11 +0000 (UTC)
+Original-Received: from buxtehude.debian.org (buxtehude.debian.org [IPv6:2607:f8f0:614:1::1274:39])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange ECDHE (P-256) server-signature RSA-PSS (2048 bits) server-digest SHA256
+	 client-signature RSA-PSS (2048 bits) client-digest SHA256)
+	(Client CN "buxtehude.debian.org", Issuer "Debian SMTP CA" (not verified))
+	by bendel.debian.org (Postfix) with ESMTPS id A5DE620769;
+	Thu, 14 Mar 2024 02:45:11 +0000 (UTC)
+Original-Received: from debbugs by buxtehude.debian.org with local (Exim 4.94.2)
+	(envelope-from <debbugs@buxtehude.debian.org>)
+	id 1rkb5f-009HBB-R9; Thu, 14 Mar 2024 02:45:07 +0000
+X-Loop: owner@bugs.debian.org
+Resent-From: Thorsten Glaser <tg@mirbsd.de>
+Resent-To: debian-bugs-dist@lists.debian.org
+Resent-CC: tg@mirbsd.de, debian-ports@lists.debian.org, Romain Perier <romain.perier@gmail.com>
+X-Loop: owner@bugs.debian.org
+Resent-Date: Thu, 14 Mar 2024 02:45:02 +0000
+Resent-Message-ID: <handler.1066832.B.17103840662208825@bugs.debian.org>
+X-Debian-PR-Message: report 1066832
+X-Debian-PR-Package: src:fsverity-utils
+X-Debian-PR-Source: fsverity-utils
+Original-Received: via spool by submit@bugs.debian.org id=B.17103840662208825
+          (code B); Thu, 14 Mar 2024 02:45:02 +0000
+Original-Received: (at submit) by bugs.debian.org; 14 Mar 2024 02:41:06 +0000
+Original-Received: from herc.mirbsd.org ([2001:470:1f15:10c:202:b3ff:feb7:54e8]:17517)
+	by buxtehude.debian.org with esmtps (TLS1.0:RSA__AES_256_CBC__SHA1:256)
+	(Exim 4.94.2)
+	(envelope-from <tg@mirbsd.de>)
+	id 1rkb1m-009GbW-16
+	for submit@bugs.debian.org; Thu, 14 Mar 2024 02:41:06 +0000
+Original-Received: from herc.mirbsd.org (tg@herc.mirbsd.org [192.168.0.82])
+	by herc.mirbsd.org (8.14.9/8.14.5) with ESMTP id 42E2echZ024715
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <submit@bugs.debian.org>; Thu, 14 Mar 2024 02:40:44 GMT
+X-X-Sender: tg@herc.mirbsd.org
+Content-Language: de-Zsym-DE-1901-u-em-text-rg-denw-tz-utc, en-Zsym-GB-u-cu-eur-em-text-fw-mon-hc-h23-ms-metric-mu-celsius-rg-denw-tz-utc-va-posix
+Delivered-To: submit@bugs.debian.org
+X-Rc-Spam: 2008-11-04_01
+X-Loop: debian-ports@lists.debian.org
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20069
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/Pine.BSM.4.64L.2403140237160.10945@herc.mirbsd.org
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10390
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10390>
+
+Source: fsverity-utils
+Version: 1.5-1.1
+Severity: important
+Justification: RC for Debian-Ports
+X-Debbugs-Cc: tg@mirbsd.de, debian-ports@lists.debian.org
+
+Recent versions of fsverity-utils (larger than 1.4-1~exp1 anyway)
+have a Build-Depends-Arch on pandoc; however, pandoc is an extremely
+unportable package written in a hard to port language.
+
+Please split the package so that the part that requires pandoc is
+done in an arch:all build. Normally, pandoc is needed only for
+documentation, which is often easy enough to split off in a -doc
+binary package, which can then move to B-D-Indep and be built on
+amd64 or whatever hosts.
+
+Thanks,
+//mirabilos
+
+
+
+From tg@debian.org Thu Mar 14 05:53:28 2024
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Thorsten Glaser <tg@debian.org>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Re: python-cryptography vs. stainless steel ports
+Date: Thu, 14 Mar 2024 05:53:28 +0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <Pine.BSM.4.64L.2403140552220.10945__3260.06126576743$1710396372$gmane$org@herc.mirbsd.org>
+References: <Pine.BSM.4.64L.2403111834110.3585@herc.mirbsd.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="37754"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: debian-ports@lists.debian.org
+To: Debian Python Team <team+python@tracker.debian.org>,
+        =?utf-8?Q?J=C3=A9r=C3=A9my_Lal?= <kapouer@melix.org>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Thu Mar 14 07:06:08 2024
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1rkeEC-0009iP-Mv
+	for debian-alpha@m.gmane-mx.org; Thu, 14 Mar 2024 07:06:08 +0100
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id 8C69A207D4; Thu, 14 Mar 2024 06:06:01 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Thu Mar 14 06:06:01 2024
+Old-Return-Path: <list@bendel.debian.org>
+X-Original-To: debian-alpha@lists.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: by bendel.debian.org (Postfix, from userid 38)
+	id DB2ED204A1; Thu, 14 Mar 2024 06:05:26 +0000 (UTC)
+Old-Return-Path: <tg@debian.org>
+X-Amavis-Spam-Status: No, score=-11.0 required=4.0 tests=LDOSUBSCRIBER,LDO_WHITELIST,
+	T_SCC_BODY_TEXT_LINE autolearn=unavailable autolearn_force=no
+	version=3.4.2
+X-Original-To: lists-debian-ports@bendel.debian.org
+Delivered-To: lists-debian-ports@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id A4F64204AF
+	for <lists-debian-ports@bendel.debian.org>; Thu, 14 Mar 2024 06:05:15 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-7.01 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, LDO_WHITELIST=-5, T_SCC_BODY_TEXT_LINE=-0.01]
+	autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id i-ISUdnEaNSa for <lists-debian-ports@bendel.debian.org>;
+	Thu, 14 Mar 2024 06:05:08 +0000 (UTC)
+X-policyd-weight: using cached result; rate: -3.5
+Original-Received: from herc.mirbsd.org (herc.mirbsd.org [IPv6:2001:470:1f15:10c:202:b3ff:feb7:54e8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client CN "herc.mirbsd.org", Issuer "R3" (not verified))
+	by bendel.debian.org (Postfix) with ESMTPS id 4AEF8204A1
+	for <debian-ports@lists.debian.org>; Thu, 14 Mar 2024 06:05:08 +0000 (UTC)
+Original-Received: from herc.mirbsd.org (tg@herc.mirbsd.org [192.168.0.82])
+	by herc.mirbsd.org (8.14.9/8.14.5) with ESMTP id 42E5rSY8030903
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO);
+	Thu, 14 Mar 2024 05:53:35 GMT
+X-X-Sender: tg@herc.mirbsd.org
+In-Reply-To: <Pine.BSM.4.64L.2403111834110.3585@herc.mirbsd.org>
+Content-Language: de-Zsym-DE-1901-u-em-text-rg-denw-tz-utc, en-Zsym-GB-u-cu-eur-em-text-fw-mon-hc-h23-ms-metric-mu-celsius-rg-denw-tz-utc-va-posix
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <3NzhkG7F7gM.A.9CG.mOp8lB@bendel>
+Resent-From: debian-ports@lists.debian.org
+X-Loop: debian-ports@lists.debian.org
+Resent-Date: Thu, 14 Mar 2024 06:05:26 +0000 (UTC)
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20070
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/Pine.BSM.4.64L.2403140552220.10945@herc.mirbsd.org
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10391
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10391>
+
+Dixi quod=E2=80=A6
+
+>Is there a chance your team could fork the old python-cryptography
+>source package (3.4.8-2) and do something like:
+
+Apparently, pyopenssl needs to also be forked as it wraps the above
+and, between 21.0.0-1 and 22.1.0-1, it began requiring the rust
+version of python-cryptography =E2=98=B9
+
+bye,
+//mirabilos
+--=20
+<igli> exceptions: a truly awful implementation of quite a nice idea.
+<igli> just about the worst way you could do something like that, afaic.
+<igli> it's like anti-design.  <mirabilos> that too=E2=80=A6 may I quote yo=
+u on that?
+<igli> sure, tho i doubt anyone will listen ;)
+
+
+
+From deller@gmx.de Thu Mar 14 10:52:39 2024
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Helge Deller <deller@gmx.de>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Re: python-cryptography vs. stainless steel ports
+Date: Thu, 14 Mar 2024 10:52:39 +0100
+Approved: news@gmane.org
+Message-ID: <7741471c-0b4f-46ab-9170-f8d5875e05c3__41841.7999566131$1710410034$gmane$org@gmx.de>
+References: <Pine.BSM.4.64L.2403111834110.3585@herc.mirbsd.org>
+ <Pine.BSM.4.64L.2403140552220.10945@herc.mirbsd.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="14397"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla Thunderbird
+Cc: debian-ports@lists.debian.org
+To: Thorsten Glaser <tg@debian.org>,
+ Debian Python Team <team+python@tracker.debian.org>,
+ =?UTF-8?B?SsOpcsOpbXkgTGFs?= <kapouer@melix.org>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Thu Mar 14 10:53:49 2024
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1rkhmV-0003Zv-P8
+	for debian-alpha@m.gmane-mx.org; Thu, 14 Mar 2024 10:53:47 +0100
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id 4F427207F6; Thu, 14 Mar 2024 09:53:41 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Thu Mar 14 09:53:40 2024
+Old-Return-Path: <list@bendel.debian.org>
+X-Original-To: debian-alpha@lists.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: by bendel.debian.org (Postfix, from userid 38)
+	id 72C04205C7; Thu, 14 Mar 2024 09:53:04 +0000 (UTC)
+Old-Return-Path: <deller@gmx.de>
+X-Amavis-Spam-Status: No, score=-12.0 required=4.0 tests=DKIM_SIGNED,DKIM_VALID,
+	DKIM_VALID_AU,DKIM_VALID_EF,FREEMAIL_FROM,LDOSUBSCRIBER,LDO_WHITELIST,
+	RCVD_IN_DNSWL_LOW,RCVD_IN_MSPIKE_H2,T_SCC_BODY_TEXT_LINE
+	autolearn=unavailable autolearn_force=no version=3.4.2
+X-Original-To: lists-debian-ports@bendel.debian.org
+Delivered-To: lists-debian-ports@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id DCFB8205C7
+	for <lists-debian-ports@bendel.debian.org>; Thu, 14 Mar 2024 09:52:51 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-7.91 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, DKIM_SIGNED=0.1, DKIM_VALID=-0.1,
+	DKIM_VALID_AU=-0.1, DKIM_VALID_EF=-0.1, FREEMAIL_FROM=0.001,
+	LDO_WHITELIST=-5, RCVD_IN_DNSWL_LOW=-0.7, RCVD_IN_MSPIKE_H2=-0.001,
+	T_SCC_BODY_TEXT_LINE=-0.01] autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id 3abg2MHFwDun for <lists-debian-ports@bendel.debian.org>;
+	Thu, 14 Mar 2024 09:52:43 +0000 (UTC)
+X-policyd-weight: using cached result; rate: -5.5
+Original-Received: from mout.gmx.net (mout.gmx.net [212.227.17.22])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange ECDHE (P-256) server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(Client did not present a certificate)
+	by bendel.debian.org (Postfix) with ESMTPS id B1BF52045E
+	for <debian-ports@lists.debian.org>; Thu, 14 Mar 2024 09:52:43 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=gmx.de;
+	s=s31663417; t=1710409960; x=1711014760; i=deller@gmx.de;
+	bh=h5TrxmQLwteWv5Ux55F75BiMorY/jqX25isR0bNgpUM=;
+	h=X-UI-Sender-Class:Date:Subject:To:Cc:References:From:
+	 In-Reply-To;
+	b=TnocweCABcXHxLCqrJ8FSjMM6PqFFCoqgAMU7aN5hrgnPEtmOhrU8jFmezm41i9V
+	 q6/ly/sisaThF/sxH4xqhujBD9v3XkGbTbWQqb4rO7E5fbJ3ZL1QyXwR/2I963c8I
+	 vc4DluosjVGXBd7/VZdLKW9gs5LqMlEWY66nxRM/qPu/tZ+XfkCwWL2UEWxsWIrRK
+	 uBN2HkoBFwdFZJXOJxFdPyLzDURgrCOCQ/ira1exWLCXPNVnzMR17wFkySOverFTj
+	 LMSSiKUt1x2Bu2OsZGFDO2W5Po+ktaIhVEVeo1iXKT2GAvag466+4wjsH+wL8yE99
+	 FhSbY7Gn89FZWEUX3A==
+X-UI-Sender-Class: 724b4f7f-cbec-4199-ad4e-598c01a50d3a
+Original-Received: from [10.8.0.6] ([78.94.87.245]) by mail.gmx.net (mrgmx104
+ [212.227.17.168]) with ESMTPSA (Nemesis) id 1M8ygY-1rgsYA2f26-0069kq; Thu, 14
+ Mar 2024 10:52:40 +0100
+Content-Language: en-US
+Autocrypt: addr=deller@gmx.de; keydata=
+ xsFNBF3Ia3MBEAD3nmWzMgQByYAWnb9cNqspnkb2GLVKzhoH2QD4eRpyDLA/3smlClbeKkWT
+ HLnjgkbPFDmcmCz5V0Wv1mKYRClAHPCIBIJgyICqqUZo2qGmKstUx3pFAiztlXBANpRECgwJ
+ r+8w6mkccOM9GhoPU0vMaD/UVJcJQzvrxVHO8EHS36aUkjKd6cOpdVbCt3qx8cEhCmaFEO6u
+ CL+k5AZQoABbFQEBocZE1/lSYzaHkcHrjn4cQjc3CffXnUVYwlo8EYOtAHgMDC39s9a7S90L
+ 69l6G73lYBD/Br5lnDPlG6dKfGFZZpQ1h8/x+Qz366Ojfq9MuuRJg7ZQpe6foiOtqwKym/zV
+ dVvSdOOc5sHSpfwu5+BVAAyBd6hw4NddlAQUjHSRs3zJ9OfrEx2d3mIfXZ7+pMhZ7qX0Axlq
+ Lq+B5cfLpzkPAgKn11tfXFxP+hcPHIts0bnDz4EEp+HraW+oRCH2m57Y9zhcJTOJaLw4YpTY
+ GRUlF076vZ2Hz/xMEvIJddRGId7UXZgH9a32NDf+BUjWEZvFt1wFSW1r7zb7oGCwZMy2LI/G
+ aHQv/N0NeFMd28z+deyxd0k1CGefHJuJcOJDVtcE1rGQ43aDhWSpXvXKDj42vFD2We6uIo9D
+ 1VNre2+uAxFzqqf026H6cH8hin9Vnx7p3uq3Dka/Y/qmRFnKVQARAQABzRxIZWxnZSBEZWxs
+ ZXIgPGRlbGxlckBnbXguZGU+wsGRBBMBCAA7AhsDBQsJCAcCBhUKCQgLAgQWAgMBAh4BAheA
+ FiEERUSCKCzZENvvPSX4Pl89BKeiRgMFAl3J1zsCGQEAC 
+In-Reply-To: <Pine.BSM.4.64L.2403140552220.10945@herc.mirbsd.org>
+X-Provags-ID: V03:K1:AEY9OHpTlrPwg5ruvsSo2DkaX2frrK4YrJPYLc1EB/ZVDB4yqT+
+ HDnKjNK5FUbB6o7lA4VSt4Pqb3o99CpLVLgnIVzceZ5fIYZppE7Fbbm5nwOvTGXpQwxBGbG
+ KzFezVWY7UAxqtWXK7LG80VFP4v1aNUjyi0MPItqPM4ycRFy+Yht78vGufRgxqfEWx86X4J
+ k4QMgIwSl7/IDDF4Tvdmg==
+UI-OutboundReport: notjunk:1;M01:P0:uqcG/nev6Xg=;TydFfsXVP60a0QScTfjbZ3eiTmJ
+ IVuflKEwre+MNsPVBwAFaTIfT2lzWFwScotQxMsl/K1qrJAvU0zZ0kVgVfCDHts+bCXrgc9xi
+ AgQrxiHGpXUfRVlfr5+7CEAp7TpByMesM/epsGHdqYNYULLeFCxMxunkRC0AoQFVBP71dFUAK
+ 6w2llEXz4gqBqH1ZBj7RWbJRNe7JQHpXaTcRP37v1HVKTjvASDzBObuanSH6WTTCUZ+s6CRrJ
+ jFIWVJj+qeFyuqlYAltrc9uWkmC2sIz0lmT01QHjWrys+x5hch3aQpCfhVABgFWE8qUYKpUtQ
+ U+T/kLhL5Y9Pb4PNG4C6yJD8+9OAoi9GY9Zo94q4cw+K6O9rnd9oE/UQaryv6098v/iBhAllT
+ V/bOIo1HwHPu8llEREyJFBPJiV5NnKZ6aEpdQ2YK1nAkeQu/QCgBk/2MjBdGnZmaB4jJ/dTG0
+ HBjPBaG7Ks68hVmuZ2ScZhCuQxg1laedoim6VyOUNYhj6lrU4zEwaeBY4ooII/7JWl4B5vnlr
+ T/tPv6BiL3tKttdjnvFk0ctFic0BZs4JE8j5DgB6g0PxS0CinWx4/kGhzcCAfuoS3eybhagEF
+ FzLVaTUJdn7ZBI+KswkiQmjBJQM6nuUdBPPrggihl74XZFW66A+nHWCWvaJMURRpleTqCt0Xw
+ D3jsUz017MnNARQVbgUfEztT+mLmX/WBcWuHfDT1DTkz0WZ7Qi1tMWrUXaZzUQrsFjytJXqrx
+ 4buPBM/tqrnyVrhmZfQtG/41NTsmyPSmlhs39g1hEIO72jTYxlKqeg0l4HXXT/KyCpHiAKDz 
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <yWv2VI_MrvL.A.HOH.Aks8lB@bendel>
+Resent-From: debian-ports@lists.debian.org
+X-Loop: debian-ports@lists.debian.org
+Resent-Date: Thu, 14 Mar 2024 09:53:04 +0000 (UTC)
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20071
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/7741471c-0b4f-46ab-9170-f8d5875e05c3@gmx.de
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10392
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10392>
+
+On 3/14/24 06:53, Thorsten Glaser wrote:
+> Dixi quod=E2=80=A6
+>
+>> Is there a chance your team could fork the old python-cryptography
+>> source package (3.4.8-2) and do something like:
+>
+> Apparently, pyopenssl needs to also be forked as it wraps the above
+> and, between 21.0.0-1 and 22.1.0-1, it began requiring the rust
+> version of python-cryptography =E2=98=B9
+
+And gstreamer1.0 seems to depend on rust as well, which blocks
+glade and as such some gnome apps:
+https://buildd.debian.org/status/package.php?p=3Dgstreamer1.0&suite=3Dsid
+
+Helge
+
+
+
+From tg@mirbsd.de Sun Mar 17 01:15:48 2024
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Thorsten Glaser <tg@mirbsd.de>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Bug#1067026: graphviz: please build without librsvg except on rust platforms
+Date: Sun, 17 Mar 2024 01:15:48 +0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <Pine.BSM.4.64L.2403170111270.32723__19496.8548532174$1710638530$gmane$org@herc.mirbsd.org>
+Reply-To: Thorsten Glaser <tg@mirbsd.de>, 1067026@bugs.debian.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="16682"; mail-complaints-to="usenet@ciao.gmane.io"
+To: submit@bugs.debian.org
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Sun Mar 17 02:22:03 2024
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1rlfDv-000496-D8
+	for debian-alpha@m.gmane-mx.org; Sun, 17 Mar 2024 02:22:03 +0100
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id 058FE20565; Sun, 17 Mar 2024 01:22:02 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Sun Mar 17 01:22:01 2024
+Old-Return-Path: <list@bendel.debian.org>
+X-Original-To: debian-alpha@lists.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: by bendel.debian.org (Postfix, from userid 38)
+	id 200482054B; Sun, 17 Mar 2024 01:21:27 +0000 (UTC)
+Old-Return-Path: <debbugs@buxtehude.debian.org>
+X-Amavis-Spam-Status: No, score=-7.1 required=4.0 tests=HEADER_FROM_DIFFERENT_DOMAINS,
+	LDO_WHITELIST,RCVD_IN_DNSWL_MED,T_SCC_BODY_TEXT_LINE
+	autolearn=unavailable autolearn_force=no version=3.4.2
+X-Original-To: lists-debian-ports@bendel.debian.org
+Delivered-To: lists-debian-ports@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id 5D7D12054B
+	for <lists-debian-ports@bendel.debian.org>; Sun, 17 Mar 2024 01:21:16 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=-9.061 tagged_above=-10000 required=5.3
+	tests=[BAYES_00=-2, HEADER_FROM_DIFFERENT_DOMAINS=0.249,
+	LDO_WHITELIST=-5, RCVD_IN_DNSWL_MED=-2.3, T_SCC_BODY_TEXT_LINE=-0.01]
+	autolearn=ham autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id dEGG6_e0uPsb for <lists-debian-ports@bendel.debian.org>;
+	Sun, 17 Mar 2024 01:21:07 +0000 (UTC)
+Original-Received: from buxtehude.debian.org (buxtehude.debian.org [IPv6:2607:f8f0:614:1::1274:39])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange ECDHE (P-256) server-signature RSA-PSS (2048 bits) server-digest SHA256
+	 client-signature RSA-PSS (2048 bits) client-digest SHA256)
+	(Client CN "buxtehude.debian.org", Issuer "Debian SMTP CA" (not verified))
+	by bendel.debian.org (Postfix) with ESMTPS id D4AF620549;
+	Sun, 17 Mar 2024 01:21:07 +0000 (UTC)
+Original-Received: from debbugs by buxtehude.debian.org with local (Exim 4.94.2)
+	(envelope-from <debbugs@buxtehude.debian.org>)
+	id 1rlfCy-000fyP-0k; Sun, 17 Mar 2024 01:21:04 +0000
+X-Loop: owner@bugs.debian.org
+Resent-From: Thorsten Glaser <tg@mirbsd.de>
+Resent-To: debian-bugs-dist@lists.debian.org
+Resent-CC: tg@mirbsd.de, debian-ports@lists.debian.org, Laszlo Boszormenyi (GCS) <gcs@debian.org>
+X-Loop: owner@bugs.debian.org
+Resent-Date: Sun, 17 Mar 2024 01:21:02 +0000
+Resent-Message-ID: <handler.1067026.B.1710638236159564@bugs.debian.org>
+X-Debian-PR-Message: report 1067026
+X-Debian-PR-Package: src:graphviz
+X-Debian-PR-Source: graphviz
+Original-Received: via spool by submit@bugs.debian.org id=B.1710638236159564
+          (code B); Sun, 17 Mar 2024 01:21:02 +0000
+Original-Received: (at submit) by bugs.debian.org; 17 Mar 2024 01:17:16 +0000
+Original-Received: from herc.mirbsd.org ([2001:470:1f15:10c:202:b3ff:feb7:54e8]:49011)
+	by buxtehude.debian.org with esmtps (TLS1.0:RSA__AES_256_CBC__SHA1:256)
+	(Exim 4.94.2)
+	(envelope-from <tg@mirbsd.de>)
+	id 1rlf9I-000fVM-47
+	for submit@bugs.debian.org; Sun, 17 Mar 2024 01:17:16 +0000
+Original-Received: from herc.mirbsd.org (tg@herc.mirbsd.org [192.168.0.82])
+	by herc.mirbsd.org (8.14.9/8.14.5) with ESMTP id 42H1Fm3F013265
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <submit@bugs.debian.org>; Sun, 17 Mar 2024 01:15:55 GMT
+X-X-Sender: tg@herc.mirbsd.org
+Content-Language: de-Zsym-DE-1901-u-em-text-rg-denw-tz-utc, en-Zsym-GB-u-cu-eur-em-text-fw-mon-hc-h23-ms-metric-mu-celsius-rg-denw-tz-utc-va-posix
+Delivered-To: submit@bugs.debian.org
+X-Rc-Spam: 2008-11-04_01
+X-Loop: debian-ports@lists.debian.org
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20072
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/Pine.BSM.4.64L.2403170111270.32723@herc.mirbsd.org
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10393
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10393>
+
+Source: graphviz
+Version: 2.42.2-9
+X-Debbugs-Cc: tg@mirbsd.de, debian-ports@lists.debian.org
+
+librsvg has become extremely unportable, and so only a subset of
+architectures have it:
+
+amd64 arm64 armel armhf i386 mips64el ppc64el riscv64 s390x
+loong64 powerpc ppc64 sparc64
+
+Please whitelist the librsvg usage restricting it to these
+architectures. This is a ports-only change, release architectures
+are not affected, but it=E2=80=99ll help tremendously.
+
+
+
+From dnovak@anl.gov Fri Mar 22 13:48:23 2024
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: "Novak, David J" <dnovak@anl.gov>
+Newsgroups: gmane.linux.debian.ports.alpha
+Subject: Mounting ODS-2 drive in Debian?
+Date: Fri, 22 Mar 2024 13:48:23 +0000
+Approved: news@gmane.org
+Message-ID: <SA0PR09MB6588E6B26FB1E183D9F0730FD0312@SA0PR09MB6588.namprd09.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="_000_SA0PR09MB6588E6B26FB1E183D9F0730FD0312SA0PR09MB6588namp_"
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="29553"; mail-complaints-to="usenet@ciao.gmane.io"
+To: "debian-alpha@lists.debian.org" <debian-alpha@lists.debian.org>
+Original-X-From: bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org Fri Mar 22 17:39:15 2024
+Return-path: <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>
+Envelope-to: debian-alpha@m.gmane-mx.org
+Original-Received: from bendel.debian.org ([82.195.75.100])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounce-debian-alpha=debian-alpha=m.gmane-mx.org@lists.debian.org>)
+	id 1rnhvF-0007Rx-9V
+	for debian-alpha@m.gmane-mx.org; Fri, 22 Mar 2024 17:39:14 +0100
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with QMQP
+	id 07D29208A3; Fri, 22 Mar 2024 16:39:13 +0000 (UTC)
+X-Mailbox-Line: From debian-alpha-request@lists.debian.org  Fri Mar 22 16:39:12 2024
+Old-Return-Path: <dnovak@anl.gov>
+X-Original-To: lists-debian-alpha@bendel.debian.org
+Delivered-To: lists-debian-alpha@bendel.debian.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bendel.debian.org (Postfix) with ESMTP id 12CE1207A5
+	for <lists-debian-alpha@bendel.debian.org>; Fri, 22 Mar 2024 16:21:53 +0000 (UTC)
+X-Virus-Scanned: at lists.debian.org with policy bank en-lt
+X-Amavis-Spam-Status: No, score=1.129 tagged_above=-10000 required=5.3
+	tests=[DKIMWL_WL_HIGH=-0.417, DKIM_SIGNED=0.1, DKIM_VALID=-0.1,
+	DKIM_VALID_AU=-0.1, DKIM_VALID_EF=-0.1, FOURLA=0.1,
+	FROM_GOV_DKIM_AU=-0.343, HTML_MESSAGE=2, RCVD_IN_DNSWL_NONE=-0.0001,
+	RCVD_IN_MSPIKE_H2=-0.001, T_SCC_BODY_TEXT_LINE=-0.01]
+	autolearn=no autolearn_force=no
+Original-Received: from bendel.debian.org ([127.0.0.1])
+	by localhost (lists.debian.org [127.0.0.1]) (amavisd-new, port 2525)
+	with ESMTP id XToBQjC-upyi for <lists-debian-alpha@bendel.debian.org>;
+	Fri, 22 Mar 2024 16:21:43 +0000 (UTC)
+X-policyd-weight: using cached result; rate: -1.56
+X-Greylist: delayed 9192 seconds by postgrey-1.36 at bendel; Fri, 22 Mar 2024 16:21:43 UTC
+Original-Received: from BLAPR09CU002.outbound.protection.outlook.com (mail-eastusazon11011004.outbound.protection.outlook.com [52.101.51.4])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(Client CN "mail.protection.outlook.com", Issuer "DigiCert Cloud Services CA-1" (not verified))
+	by bendel.debian.org (Postfix) with ESMTPS id 0608E205AB
+	for <debian-alpha@lists.debian.org>; Fri, 22 Mar 2024 16:21:42 +0000 (UTC)
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=fVz/M2v7sr2g3vIc6zxIBTV4zvq0HxKj3WGWzX4hMQAWEgVB2UGmmTofoSYZrBeh5jPPRa8CswBWljnoOISrCHj+3Li3Y+At4oTLEQlR4vaxgp0nVaTo74h2R4tviiiwE9/l9zTNw+ntSlvciDAnwpaoXupaXoTafZsIhIF69x69rpATfpkE1shG/3StYn1y/HWm88ejh5Vvck6UAS2cw373mfdQ05z2qmZDJiT7YDeo2gUS7yWWK5ERQevDMRwAG/0w4gcOcmXD47uMmDrRB6yVL7mIwFWcnUgib5h1GmTVdsScQt6wi6BoCak243+WFVXPLVQaA97xQp9lBGdPSw==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=4mR8oLJ72P6C8940iDd2QXeRBdXuKk/nGB8+vF30eTA=;
+ b=agQAkqgTK8Ra0j6pN0AL+z+rYnQOal2pylIml3FHohesjaFxI3/lQjc8UBA1O11jciKhoGnhA7nZdt7NBlQJ7LoRsETBosnwkP3x8/FLGW0T/BiFKlYFGL6mCsltT+4ye19ANTgkozqPXvVHrQYDZQEIXsUE28FoW1IbPH9v8SE4L0ZWkq/DI5EGtYFLRHpNMe8ulanz27pYMskedtmmPox1oCcDhhVCRWR7vjL+b6JWLBy06LhK198HP7EC1VkI5GZ6DpLRBBg009brLglJXCPWe6dJiWE/6P2AE09dhDnttq8/rT5klsWjxmaGatWJjw6zyEQEFuw6nsc3/EGLTw==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=anl.gov; dmarc=pass action=none header.from=anl.gov; dkim=pass
+ header.d=anl.gov; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=anl.gov; s=selector1;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=4mR8oLJ72P6C8940iDd2QXeRBdXuKk/nGB8+vF30eTA=;
+ b=pRu4d0GfCWU9r4R3Z++wvwOc9J2zj5mDHZeC4jzqTlA353JGB7Fye4o4kVR/vYnFW+Kjj3vOuAnBfkmKBShQskYZMB4Bwd0z9JEjOLHRBlNab1U+BiY5QFJ7qFkhm5TFbdkOcQy0+J3AF0Gc7wfGuyuryarohDSStQyXh4n062DINo4E0ody29Q5CHSb0oRyqrYCyekYki2UJMNPeEsBjm3TRspmsdHjYN/TFB9nkjeJMahQn0mSYS4gOURUVTK5AcZkquEhuohAqmeP2uXj5rIyAxXc+KG4Hns+B9j78E/u6MsqAcmentWxrATOI4kHRKaJ9KMkkusaHRCEkdL8Zw==
+Original-Received: from SA0PR09MB6588.namprd09.prod.outlook.com (2603:10b6:806:6c::24)
+ by SA1PR09MB10922.namprd09.prod.outlook.com (2603:10b6:806:361::20) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.7409.24; Fri, 22 Mar
+ 2024 13:48:23 +0000
+Original-Received: from SA0PR09MB6588.namprd09.prod.outlook.com
+ ([fe80::bf77:f6c8:4ea2:da61]) by SA0PR09MB6588.namprd09.prod.outlook.com
+ ([fe80::bf77:f6c8:4ea2:da61%3]) with mapi id 15.20.7409.023; Fri, 22 Mar 2024
+ 13:48:23 +0000
+Thread-Topic: Mounting ODS-2 drive in Debian?
+Thread-Index: Adp8X0q4gRxcepjkRQmN+Nxu2rm6MQ==
+Accept-Language: en-US
+Content-Language: en-US
+authentication-results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=anl.gov;
+x-ms-publictraffictype: Email
+x-ms-traffictypediagnostic: SA0PR09MB6588:EE_|SA1PR09MB10922:EE_
+x-ms-office365-filtering-correlation-id: 0d7c2513-114b-467d-400b-08dc4a76be12
+x-ms-exchange-senderadcheck: 1
+x-ms-exchange-antispam-relay: 0
+x-microsoft-antispam: BCL:0;
+x-microsoft-antispam-message-info: v2d/DcjwEylbHQjKVTQ2OkSWrgVYCO+ZRIC36lcU5oMvF8ykEB4O/0faOKzcqEfSc7muNWxzYWxz3xRHTJGfKMI9QiwMbW1M1XZcTRB0yRqLjxywpryzIJ59SJUVxS5zod5fnl41feStNipA8iLlMHKUGcvB7J+LEF8WPsENPpvMRCTCKN7aM+Q+ehCdD/dJmeLPxhurzdYFkYW61N5OsoGtmEwHL1i6vxgbenkojCfOxbtyaiMmMpMKOmrqcxehsblbvVNga5s9Z9NV6e3GO+PN81A/cGZ6cD/5UTfywOtzwW0VhRh/UAP3FdDo22mCHNP1C3o5/R9fxCf+DDB40HamU9ZHkOuX26ttaB42AkSzLbz/yklOtgM6ddAh9iBMqNGWhBCt81lMpYUsNRSbcd0BIdLFHlJDskfLU0Qq8qid9q+kuI5/xTBGx1IYEIMmICsuElM7gfPCLON/u7oyO/aClguetDo+aU2jFvIEAyUYAk0rCGqpWZDibabNb1Uxmoafm4y4SRuxVIxUgAmvRSuW5nxxOMjfj66NXPqZTvvUUfMc0UhONyJRtl+MvhRGi3CzTK4hsl/XmAAiO5xTzznXLVmCLUvpRK6FFfjDmGLMQV521xhiybzxsFJQAWs/lPibpTVGwZBpdRst3ykC6t0QB/Be+nNF/yBF2ml/mX+To5eNtNJvt2rJUVNk0Q4qItXWLQR+ied5n6lTw0IOe+e1GD0YVK2dZOPBYWt0V4g=
+x-forefront-antispam-report: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:SA0PR09MB6588.namprd09.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230031)(1800799015)(366007)(38070700009);DIR:OUT;SFP:1101;
+x-ms-exchange-antispam-messagedata-chunkcount: 1
+x-ms-exchange-antispam-messagedata-0: =?us-ascii?Q?ZtL8j1BXJxTiWV6E01qOZ9Dp+Y5/EaQLeyenIrjrA0ftrEK2beNvP3yHuSZz?=
+ =?us-ascii?Q?XgeH3z0eYFT4ygdJbdVU4JxzJpr8xU9aFl64lTQzGuPDejQPnPOpbLKQKptS?=
+ =?us-ascii?Q?MJTjfNBl8y3D7fzepeGU1tZo8oIi8n4sFZDcc/LG+lRxS6jW03o7aYVq7sZa?=
+ =?us-ascii?Q?qfQ9XEWrLKjjiTR/W9gwgLe34Y37JD/isOU5RTcxUZWHESndu/4naUecE1fV?=
+ =?us-ascii?Q?CdCTtbvUStundLGM42lZkLVxMkZUZ2Z+DI980AvyLDlPjq/SWe3DyjsEurM2?=
+ =?us-ascii?Q?pQaFQkDk/h8qdMt6WCdw1kzEkMZHtgbtnEs0jZewwTgzlsHbwp/LKbeZjXQT?=
+ =?us-ascii?Q?fU9TJTNkXH7vvDvgGyUuI2D2Dvn4W/iGspwCtPDXi0HFcsfZT4r0MqK354gA?=
+ =?us-ascii?Q?1c7zhmh1X0HMcN/c98+ow6zZMiEJVlWzSgHJ30bqZsGgPlrad6aMVG5OzK/A?=
+ =?us-ascii?Q?2ttctU9TS1ukXGzu2gt4bKTIh8IjPiQvSmlY5VaLKs9XubaCXhH1TGgE8FLa?=
+ =?us-ascii?Q?o5UYIDfFo8HA6ZKF8iaiggkJLqnr/3I6IgrF6IvWkfaSklsVF+15HtzDZT45?=
+ =?us-ascii?Q?5CRbnNiV1AfL6sWSayT/qGJdtUPmvQPgUw8dvv02AWSTLdmgZcC3PymofK/5?=
+ =?us-ascii?Q?zN 
+X-OriginatorOrg: anl.gov
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-AuthSource: SA0PR09MB6588.namprd09.prod.outlook.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 0d7c2513-114b-467d-400b-08dc4a76be12
+X-MS-Exchange-CrossTenant-originalarrivaltime: 22 Mar 2024 13:48:23.4596
+ (UTC)
+X-MS-Exchange-CrossTenant-fromentityheader: Hosted
+X-MS-Exchange-CrossTenant-id: 0cfca185-25f7-49e3-8ae7-704d5326e285
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: SA1PR09MB10922
+X-Rc-Spam: 2008-11-04_01
+X-Rc-Virus: 2007-09-13_01
+X-Rc-Spam: 2008-11-04_01
+Resent-Message-ID: <CM5NqgO3DTJ.A.ZXG.wQb_lB@bendel>
+Resent-From: debian-alpha@lists.debian.org
+X-Mailing-List: <debian-alpha@lists.debian.org> archive/latest/20073
+X-Loop: debian-alpha@lists.debian.org
+List-Id: <debian-alpha.lists.debian.org>
+List-URL: <https://lists.debian.org/debian-alpha/>
+List-Post: <mailto:debian-alpha@lists.debian.org>
+List-Help: <mailto:debian-alpha-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-alpha-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-alpha-request@lists.debian.org?subject=unsubscribe>
+Precedence: list
+Resent-Sender: debian-alpha-request@lists.debian.org
+List-Archive: https://lists.debian.org/msgid-search/SA0PR09MB6588E6B26FB1E183D9F0730FD0312@SA0PR09MB6588.namprd09.prod.outlook.com
+Resent-Date: Fri, 22 Mar 2024 16:39:13 +0000 (UTC)
+Xref: news.gmane.io gmane.linux.debian.ports.alpha:10394
+Archived-At: <http://permalink.gmane.org/gmane.linux.debian.ports.alpha/10394>
+
+--_000_SA0PR09MB6588E6B26FB1E183D9F0730FD0312SA0PR09MB6588namp_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+So I have an ODS-2 SCSI drive connected to my Debain DS10, and there's some=
+ files on there that I'd like to modify.  Is it possible?  I don't see any =
+ODS types in the MOUNT man pages, but maybe there's some super-secret ODS <=
+-> Linux driver/software/voodoo that lurks out in the ether?
+
+  Thanks!
+
+  David
+
+--_000_SA0PR09MB6588E6B26FB1E183D9F0730FD0312SA0PR09MB6588namp_
+Content-Type: text/html; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+<html xmlns:v=3D"urn:schemas-microsoft-com:vml" xmlns:o=3D"urn:schemas-micr=
+osoft-com:office:office" xmlns:w=3D"urn:schemas-microsoft-com:office:word" =
+xmlns:m=3D"http://schemas.microsoft.com/office/2004/12/omml" xmlns=3D"http:=
+//www.w3.org/TR/REC-html40">
+<head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dus-ascii"=
+>
+<meta name=3D"Generator" content=3D"Microsoft Word 15 (filtered medium)">
+<style><!--
+/* Font Definitions */
+@font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:Calibri;
+	panose-1:2 15 5 2 2 2 4 3 2 4;}
+/* Style Definitions */
+p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin:0in;
+	margin-bottom:.0001pt;
+	font-size:11.0pt;
+	font-family:"Calibri",sans-serif;}
+a:link, span.MsoHyperlink
+	{mso-style-priority:99;
+	color:#0563C1;
+	text-decoration:underline;}
+a:visited, span.MsoHyperlinkFollowed
+	{mso-style-priority:99;
+	color:#954F72;
+	text-decoration:underline;}
+span.EmailStyle17
+	{mso-style-type:personal-compose;
+	font-family:"Calibri",sans-serif;
+	color:windowtext;}
+.MsoChpDefault
+	{mso-style-type:export-only;
+	font-family:"Calibri",sans-serif;}
+@page WordSection1
+	{size:8.5in 11.0in;
+	margin:1.0in 1.0in 1.0in 1.0in;}
+div.WordSection1
+	{page:WordSection1;}
+--></style><!--[if gte mso 9]><xml>
+<o:shapedefaults v:ext=3D"edit" spidmax=3D"1026" />
+</xml><![endif]--><!--[if gte mso 9]><xml>
+<o:shapelayout v:ext=3D"edit">
+<o:idmap v:ext=3D"edit" data=3D"1" />
+</o:shapelayout></xml><![endif]-->
+</head>
+<body lang=3D"EN-US" link=3D"#0563C1" vlink=3D"#954F72">
+<div class=3D"WordSection1">
+<p class=3D"MsoNormal">So I have an ODS-2 SCSI drive connected to my Debain=
+ DS10, and there&#8217;s some files on there that I&#8217;d like to modify.=
+&nbsp; Is it possible?&nbsp; I don&#8217;t see any ODS types in the MOUNT m=
+an pages, but maybe there&#8217;s some super-secret ODS &lt;-&gt; Linux dri=
+ver/software/voodoo
+ that lurks out in the ether?<o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">&nbsp; Thanks!<o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">&nbsp; David<o:p></o:p></p>
+</div>
+</body>
+</html>
+
+--_000_SA0PR09MB6588E6B26FB1E183D9F0730FD0312SA0PR09MB6588namp_--
+
+
+
