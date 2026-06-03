@@ -99,6 +99,45 @@ High Performance Alpha Linux list, hosted on alphalinux.org. Mixed
 directory layout: `Month{YEAR}` dirs (some lowercase) plus bare `2000/`
 and `2001/` year dirs.
 
+## debian-alpha (Debian Alpha port mailing list)
+
+List still active at lists.debian.org/debian-alpha/. No pre-built mbox
+downloads available — archives served as per-message MHonArc HTML only.
+
+### 1995-November (1 month, 0 messages)
+**Source:** lists.debian.org HTML  
+**Script:** `fetch-debian-alpha-html.py`  
+No messages archived for this month on the live site.
+
+### 1996-January – 1998-December (partial months, ~2,900 messages)
+**Source:** lists.debian.org HTML  
+**Script:** `fetch-debian-alpha-html.py`  
+**Output:** `debian-alpha-mbox/YYYY-Month.mbox`  
+Not all months exist (list was low-traffic early on).  
+**Quality:** Reconstructed from MHonArc HTML. Two formats encountered:
+- Old format: `<!-- received="" sent="" name="" email="" subject="" id="" -->` comments
+- New format: `<!--X-Subject: -->`, `<!--X-Date: -->`, `<!--X-Message-Id: -->` with
+  headers parsed from `<!--X-Head-of-Message-->` `<ul>` block
+
+### 1999-January – 2001-September (32 months, 5,918 messages)
+**Source:** Local MHonArc HTML files in `debian-alpha/`  
+**Script:** `html-to-mbox-debian-alpha.py`  
+**Output:** `debian-alpha-mbox/YYYY-Month.mbox`  
+**Quality:** Good — original Message-IDs and In-Reply-To preserved.
+
+### 2001-October – 2002-February (5 months, ~571 messages)
+**Source:** lists.debian.org HTML  
+**Script:** `fetch-debian-alpha-html.py`  
+**Output:** `debian-alpha-mbox/YYYY-Month.mbox`
+
+### 2002-March – 2026-May (10,192 messages)
+**Source:** Gmane (news.gmane.io), group `gmane.linux.debian.ports.alpha`  
+**Script:** `fetch-debian-alpha-mbox.py` (NNTP via python3.12 nntplib)  
+**Output:** `debian-alpha-mbox/YYYY-Month.mbox`  
+**Quality:** Good — full RFC 2822 headers intact.  
+Note: Gmane had sparse coverage before March 2002; a handful of articles
+had malformed dates (one spam with fake 1997 date — replaced with real data).
+
 ## Sources investigated, not used
 
 ### marc.info — axp-redhat list
@@ -144,3 +183,7 @@ gone unless someone retained personal copies.
 | 2000-Jul – 2001-Nov | cooker-axp | HTML → mbox | Good |
 | 1999-Apr – 2001-Nov | milo-list | HTML → mbox | Good |
 | 1998-Nov – 2001-Nov | high_perf | HTML → mbox | Good |
+| 1995-Nov – 1998-Dec | debian-alpha | lists.debian.org HTML → mbox | Reconstructed |
+| 1999-Jan – 2001-Sep | debian-alpha | Local HTML → mbox | Good |
+| 2001-Oct – 2002-Feb | debian-alpha | lists.debian.org HTML → mbox | Reconstructed |
+| 2002-Mar – 2026-May | debian-alpha | Gmane NNTP | Good (full headers) |
