@@ -253,7 +253,7 @@ pre-2002 archive found anywhere. Headers in the Gmane messages contain
 — it was a **private** Mailman list. Pre-2002 content is almost certainly
 gone unless someone retained personal copies.
 
-## Usenet groups (comp.os.linux.alpha, comp.sys.dec, comp.sys.vms, comp.unix.tru64)
+## Usenet groups (comp.os.linux.alpha, comp.sys.dec, comp.sys.vms, comp.unix.tru64, comp.os.linux.announce)
 
 Real Usenet, not mailing lists. Gmane does not carry these (it mirrors
 mailing lists via NNTP, not the comp.* hierarchy). Eternal September has
@@ -286,6 +286,7 @@ Groups/Deja News mbox dump.
 | comp.sys.dec | 1990-Apr – 2013-May | 108,195 | 2,274 (~2%) |
 | comp.sys.vms | 1990-Jan – 2004-Sep | 876 | 7 |
 | comp.unix.tru64 | 2000-Apr – 2013-Mar | 14,500 | 0 |
+| comp.os.linux.announce | 1993-Apr – 2013-May | 13,052 | 0 |
 
 ## Coverage summary
 
@@ -315,3 +316,4 @@ Groups/Deja News mbox dump.
 | 1990-Apr – 2013-May | comp.sys.dec | archive.org usenet-comp | Good (~2% undated) |
 | 1990-Jan – 2004-Sep | comp.sys.vms | archive.org usenet-comp | Good |
 | 2000-Apr – 2013-Mar | comp.unix.tru64 | archive.org usenet-comp | Good |
+| 1993-Apr – 2013-May | comp.os.linux.announce | archive.org usenet-comp | Good |
