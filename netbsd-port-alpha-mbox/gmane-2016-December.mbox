@@ -1,0 +1,2876 @@
+From duck@shangtai.net  Sun Dec 4 13:26:31 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: =?ISO-8859-1?Q?Staffan_Thom=E9n?= <duck@shangtai.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Headless kernel build problem
+Date: Sun, 04 Dec 2016 13:26:31 +0200
+Lines: 43
+Approved: news@gmane.org
+Message-ID: <5843FD67.9010509@shangtai.net>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: blaine.gmane.org 1480850964 2944 195.159.176.226 (4 Dec 2016 11:29:24 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Sun, 4 Dec 2016 11:29:24 +0000 (UTC)
+User-Agent: Thunderbird/3.0a2pre (X11; 2015040818)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Dec 04 12:29:20 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cDUyt-0000I6-MU
+	for netbsd-port-alpha@m.gmane.org; Sun, 04 Dec 2016 12:29:20 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id F27B885590; Sun,  4 Dec 2016 11:29:20 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id C073E85571
+	for <port-alpha@netbsd.org>; Sun,  4 Dec 2016 11:29:18 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id 1O19CWyk9Ffh for <port-alpha@netbsd.org>;
+	Sun,  4 Dec 2016 11:29:18 +0000 (UTC)
+Original-Received: from ns2.shangtai.net (ns2.shangtai.net [IPv6:2001:4b98:dc2:41:216:3eff:fec9:884a])
+	by mail.netbsd.org (Postfix) with ESMTP id BD55D84CED
+	for <port-alpha@netbsd.org>; Sun,  4 Dec 2016 11:29:17 +0000 (UTC)
+Original-Received: from knightrider.shangtai.net (carbon.shangtai.net [IPv6:2001:14b8:145:1:feed:dead:beef:6667])
+	by ns2.shangtai.net (Postfix) with ESMTP id C9BD02039A
+	for <port-alpha@netbsd.org>; Sun,  4 Dec 2016 12:29:13 +0100 (CET)
+Original-Received: from [IPv6:2001:14b8:145:1:a00:69ff:fe0e:16eb] (halo.shangtai.net [IPv6:2001:14b8:145:1:a00:69ff:fe0e:16eb])
+	by knightrider.shangtai.net (Postfix) with ESMTPSA id B997CA75C5
+	for <port-alpha@netbsd.org>; Sun,  4 Dec 2016 13:29:01 +0200 (EET)
+	(envelope-from duck@shangtai.net)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4953
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4953>
+
+Hey!
+
+I recently needed to rebuild the kernel for my headless netbsd-7 system, and 
+bumped into a couple of warnings in sys/arch/alpha/pci/pci_machdep.c that 
+halted the build (because of -Werror). Applying some #if like below fixed it 
+for me.
+
+Staffan
+
+--- pci_machdep.c       2016-12-04 12:42:12.000000000 +0000
++++ pci_machdep.c.orig  2016-12-04 12:34:55.000000000 +0000
+@@ -65,8 +65,13 @@
+  pci_display_console(bus_space_tag_t iot, bus_space_tag_t memt, 
+pci_chipset_tag_t pc, int bus, int device, int function)
+  {
+         pcitag_t tag;
+-       pcireg_t id, class;
++       pcireg_t id;
++#if NVGA_PCI || NTGA
++       pcireg_t class;
+         int match, nmatch;
++       match = nmatch = 0;
++#endif
++
+         int (*fn)(bus_space_tag_t, bus_space_tag_t, pci_chipset_tag_t,
+             int, int, int);
+
+@@ -75,12 +80,12 @@
+         if (id == 0 || id == 0xffffffff)
+                 panic("pci_display_console: no device at %d/%d/%d",
+                     bus, device, function);
+-       class = pci_conf_read(pc, tag, PCI_CLASS_REG);
+
+-       nmatch = match = 0; /* XXX really only if we've got FBs configured */
+         fn = NULL;
+
+  #if NVGA_PCI
++       class = pci_conf_read(pc, tag, PCI_CLASS_REG);
++
+         nmatch = DEVICE_IS_VGA_PCI(class, id);
+         if (nmatch > match) {
+                 match = nmatch;
+
+
+From martin@duskware.de  Sun Dec 4 14:02:23 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Headless kernel build problem
+Date: Sun, 4 Dec 2016 14:02:23 +0100
+Lines: 24
+Approved: news@gmane.org
+Message-ID: <20161204130223.GA2064@mail.duskware.de>
+References: <5843FD67.9010509@shangtai.net>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+X-Trace: blaine.gmane.org 1480856555 1272 195.159.176.226 (4 Dec 2016 13:02:35 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Sun, 4 Dec 2016 13:02:35 +0000 (UTC)
+User-Agent: Mutt/1.4.2.3i
+Cc: port-alpha@netbsd.org
+To: Staffan =?iso-8859-1?Q?Thom=E9n?= <duck@shangtai.net>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Dec 04 14:02:31 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cDWR4-0007yE-MP
+	for netbsd-port-alpha@m.gmane.org; Sun, 04 Dec 2016 14:02:31 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 520EF855BC; Sun,  4 Dec 2016 13:02:31 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id D8C4884D04
+	for <port-alpha@netbsd.org>; Sun,  4 Dec 2016 13:02:29 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id Ze2C9LBUNmem for <port-alpha@netbsd.org>;
+	Sun,  4 Dec 2016 13:02:29 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [91.199.88.144])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 3FFA184CFD
+	for <port-alpha@netbsd.org>; Sun,  4 Dec 2016 13:02:25 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id C28B7A802F; Sun,  4 Dec 2016 14:02:23 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <5843FD67.9010509@shangtai.net>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4954
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4954>
+
+On Sun, Dec 04, 2016 at 01:26:31PM +0200, Staffan Thomén wrote:
+> Hey!
+> 
+> I recently needed to rebuild the kernel for my headless netbsd-7 system, 
+> and bumped into a couple of warnings in sys/arch/alpha/pci/pci_machdep.c 
+> that halted the build (because of -Werror). Applying some #if like below 
+> fixed it for me.
+
+This has been fixed differently in -current quite some time ago:
+
+----------------------------
+revision 1.23
+date: 2014-10-17 20:31:07 +0200;  author: uebayasi;  state: Exp;  lines: +7 -3;  commitid: UnqZY0JPxkQkhAUx;
+PCI controller doesn't rely on (depend on) AGP bus, but provide it.  If one
+specific architecture is known to have some specific AGP implementation, such
+suggestion must be done in the "selection" part, not the "definition" part.
+
+This is also an indirect (across bus attachment), circular dependency.
+----------------------------
+
+But this never got pulled up to netbsd-7.
+
+Martin
+
+
+From duck@shangtai.net  Sun Dec 4 18:12:53 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: =?ISO-8859-1?Q?Staffan_Thom=E9n?= <duck@shangtai.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Headless kernel build problem
+Date: Sun, 04 Dec 2016 18:12:53 +0200
+Lines: 29
+Approved: news@gmane.org
+Message-ID: <58444085.1040100@shangtai.net>
+References: <5843FD67.9010509@shangtai.net> <20161204130223.GA2064@mail.duskware.de>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
+X-Trace: blaine.gmane.org 1480868148 18418 195.159.176.226 (4 Dec 2016 16:15:48 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Sun, 4 Dec 2016 16:15:48 +0000 (UTC)
+User-Agent: Thunderbird/3.0a2pre (X11; 2015040818)
+Cc: port-alpha@netbsd.org
+To: Martin Husemann <martin@duskware.de>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Dec 04 17:15:44 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cDZS2-0003yM-1c
+	for netbsd-port-alpha@m.gmane.org; Sun, 04 Dec 2016 17:15:42 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 380D285586; Sun,  4 Dec 2016 16:15:43 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 8F9848557E
+	for <port-alpha@netbsd.org>; Sun,  4 Dec 2016 16:15:41 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id vhrb7l07JTKT for <port-alpha@netbsd.org>;
+	Sun,  4 Dec 2016 16:15:41 +0000 (UTC)
+Original-Received: from ns2.shangtai.net (ns2.shangtai.net [IPv6:2001:4b98:dc2:41:216:3eff:fec9:884a])
+	by mail.netbsd.org (Postfix) with ESMTP id C0B5284D04
+	for <port-alpha@netbsd.org>; Sun,  4 Dec 2016 16:15:39 +0000 (UTC)
+Original-Received: from knightrider.shangtai.net (carbon.shangtai.net [IPv6:2001:14b8:145:1:feed:dead:beef:6667])
+	by ns2.shangtai.net (Postfix) with ESMTP id 7032E2039A;
+	Sun,  4 Dec 2016 17:15:38 +0100 (CET)
+Original-Received: from [IPv6:2001:14b8:145:1:a00:69ff:fe0e:16eb] (halo.shangtai.net [IPv6:2001:14b8:145:1:a00:69ff:fe0e:16eb])
+	by knightrider.shangtai.net (Postfix) with ESMTPSA id 8321EA75C5;
+	Sun,  4 Dec 2016 18:15:24 +0200 (EET)
+	(envelope-from duck@shangtai.net)
+In-Reply-To: <20161204130223.GA2064@mail.duskware.de>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4955
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4955>
+
+Martin Husemann wrote:
+> On Sun, Dec 04, 2016 at 01:26:31PM +0200, Staffan Thomén wrote:
+>> Hey!
+>>
+>> I recently needed to rebuild the kernel for my headless netbsd-7 system,
+>> and bumped into a couple of warnings in sys/arch/alpha/pci/pci_machdep.c
+>> that halted the build (because of -Werror). Applying some #if like below
+>> fixed it for me.
+>
+> This has been fixed differently in -current quite some time ago:
+>
+> ----------------------------
+> revision 1.23
+> date: 2014-10-17 20:31:07 +0200;  author: uebayasi;  state: Exp;  lines: +7 -3;  commitid: UnqZY0JPxkQkhAUx;
+> PCI controller doesn't rely on (depend on) AGP bus, but provide it.  If one
+> specific architecture is known to have some specific AGP implementation, such
+> suggestion must be done in the "selection" part, not the "definition" part.
+>
+> This is also an indirect (across bus attachment), circular dependency.
+> ----------------------------
+>
+> But this never got pulled up to netbsd-7.
+>
+> Martin
+
+I see, thanks.
+
+Staffan
+
+
+From alphamike@gmx.at  Wed Dec 7 03:48:49 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Michael Kronsteiner <alphamike@gmx.at>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Headless kernel build problem
+Date: Wed, 07 Dec 2016 03:48:49 +0100
+Lines: 40
+Approved: news@gmane.org
+Message-ID: <1481078929.1781.2.camel@gmx.at>
+References: <5843FD67.9010509@shangtai.net>
+	 <20161204130223.GA2064@mail.duskware.de>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+X-Trace: blaine.gmane.org 1481097158 18538 195.159.176.226 (7 Dec 2016 07:52:38 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 7 Dec 2016 07:52:38 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Martin Husemann <martin@duskware.de>, Staffan =?ISO-8859-1?Q?Thom=E9n?=
+	 <duck@shangtai.net>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Dec 07 08:52:34 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cEX1k-000430-9v
+	for netbsd-port-alpha@m.gmane.org; Wed, 07 Dec 2016 08:52:34 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 728B3855D5; Wed,  7 Dec 2016 07:52:32 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: by mail.netbsd.org (Postfix, from userid 1347)
+	id 23CF685591; Wed,  7 Dec 2016 07:52:32 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 11C4C8559B
+	for <port-alpha@netbsd.org>; Wed,  7 Dec 2016 02:49:02 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id dM9llwQvnim5 for <port-alpha@netbsd.org>;
+	Wed,  7 Dec 2016 02:49:01 +0000 (UTC)
+Original-Received: from mout.gmx.net (mout.gmx.net [212.227.17.21])
+	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id DB6FF8558F
+	for <port-alpha@netbsd.org>; Wed,  7 Dec 2016 02:49:00 +0000 (UTC)
+Original-Received: from localhost.localdomain ([178.115.131.53]) by mail.gmx.com
+ (mrgmx103 [212.227.17.168]) with ESMTPSA (Nemesis) id
+ 0MCcE2-1cMflR3LKE-009PJN; Wed, 07 Dec 2016 03:48:52 +0100
+In-Reply-To: <20161204130223.GA2064@mail.duskware.de>
+X-Mailer: Evolution 3.20.5 (3.20.5-1.fc24) 
+X-Provags-ID: V03:K0:XUcvcM+8xkyzGPffrxsYO++EFXtC6x1BZ/oVWRJGez3foeB97fI
+ 9jb8gJrMRuAFFuvEL+eNflHW6dXUn8I+/6VateNllUC7BSM6YEBIUAEN2mFHufDNmpRv0Xt
+ f7NZx2ilLtH743pq/JZ1iX1090wxGEuNlJyFJEIJvBCjQd/D0YCXTIkh1hZIGjGYuuTcTKT
+ uBPtWrx0lkPLqU782TSKQ==
+X-UI-Out-Filterresults: notjunk:1;V01:K0:2B+ARrDDHHY=:dzg3xyiHtJ2/xhRh7pOqb0
+ LBj0tIs3FeVlL2UaqH9NpMCgI6BQoKLyCGUNL1u+srtEO0dSYz7jEY7MnSjZ4DUBqPAVd/CS7
+ rEyzyvyqhIf7ZbmKczH5vtmLFiNbL4WKPfiayFMlxAGwzWGKTMrav79xBTzpAHsC8+tHl+lSo
+ KcvxqQJSln0iMwoZ1Mb5yww0/bseAdRPUqDe/+SBrCxGLBK3uJBrv/BfKkL2BgQKAA9da7GA4
+ fqnHNWK20OQxdnLbcQ9MbbvuUqnj0q8dgGVH0A/IDvQOXnoWzwPUsP7qT7toTob8/NhaaioiE
+ TrbGblEUttWylFTMmgPJRV3oIwr5i27P4Wi77vz/z/CaJI0D7e2O6p85GBPzpKaHm1asUtWVh
+ B08u9qWaueI76bhPRbhClyWpDCcxE9FjIj/ddYiyBE1vYs3dMnx4Kn+geBJ/b6jpa31Zwhprb
+ IKSRTsaFDJ2/xrNN+LDi7wcjpz3SPdYHU9iA2MLiC4QsWHlEdcxQQOmdhEMW11nnU8z44121T
+ u2x5McBplgW2pIttpYpydstTblMAmMeuaqfozWuSCc2qFP+E1JJWtxmdjXoT51dEAoUEy8CZi
+ PkCH4RK+pGqpzJdsYztYdFQnzUI65Z6ysyN2jtijC4+o/HKfoCFpO4nm1Pk1BvPaH0XCr/Q/Z
+ qQVM/PL3iCE888XMn1u4nedbNDFzLC5KGi/pZUeS0DSBnBpG+zlvzH2Q43qAsxW0QLNXV7Fp6
+ CQmP07/5OguWHbr9TwwRAXR72wMfdrQ4s2NX5eBbtUYHtCrLszu4SKsvMeOht+gkF9acBx2b 
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4956
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4956>
+
+
+>=20
+> ----------------------------
+> revision 1.23
+> date: 2014-10-17 20:31:07 +0200;=C2=A0=C2=A0author: uebayasi;=C2=A0=C2=A0=
+state:
+> Exp;=C2=A0=C2=A0lines: +7 -3;=C2=A0=C2=A0commitid: UnqZY0JPxkQkhAUx;
+> PCI controller doesn't rely on (depend on) AGP bus, but provide
+> it.=C2=A0=C2=A0If one
+> specific architecture is known to have some specific AGP
+> implementation, such
+> suggestion must be done in the "selection" part, not the "definition"
+> part.
+>=20
+> This is also an indirect (across bus attachment), circular
+> dependency.
+> ----------------------------
+>=20
+> But this never got pulled up to netbsd-7.
+>=20
+
+
+
+i cant find this in changelog for -8 either?
+
+pci(3)
+
+=C2=A0=C2=A0=C2=A0=C2=A0Decode Extended Capability in PCI Extended Configur=
+ation Space.
+[nonaka 20151002]=C2=A0
+
+Changes to NetBSD/alpha 8.0
+
+=C2=A0=C2=A0=C2=A0=C2=A0None recorded in changes log.
+=C2=A0=C2=A0=C2=A0=C2=A0Non port specific changes that may affect port-alph=
+a.
+
+
+> Martin
+
+
+From martin@duskware.de  Wed Dec 7 09:20:52 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Headless kernel build problem
+Date: Wed, 7 Dec 2016 09:20:52 +0100
+Lines: 13
+Approved: news@gmane.org
+Message-ID: <20161207082052.GB18487@mail.duskware.de>
+References: <5843FD67.9010509@shangtai.net> <20161204130223.GA2064@mail.duskware.de> <1481078929.1781.2.camel@gmx.at>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: blaine.gmane.org 1481098861 25234 195.159.176.226 (7 Dec 2016 08:21:01 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 7 Dec 2016 08:21:01 +0000 (UTC)
+User-Agent: Mutt/1.4.2.3i
+Cc: Staffan =?iso-8859-1?Q?Thom=E9n?= <duck@shangtai.net>,
+	port-alpha@netbsd.org
+To: Michael Kronsteiner <alphamike@gmx.at>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Dec 07 09:20:55 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cEXTD-0005LJ-58
+	for netbsd-port-alpha@m.gmane.org; Wed, 07 Dec 2016 09:20:55 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 5405A855E1; Wed,  7 Dec 2016 08:20:57 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 4CE0D855DB
+	for <port-alpha@netbsd.org>; Wed,  7 Dec 2016 08:20:56 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id sWxMLx1wJeZS for <port-alpha@netbsd.org>;
+	Wed,  7 Dec 2016 08:20:55 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [91.199.88.144])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id B46C8855D8
+	for <port-alpha@netbsd.org>; Wed,  7 Dec 2016 08:20:54 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id F16A4A8025; Wed,  7 Dec 2016 09:20:52 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <1481078929.1781.2.camel@gmx.at>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4957
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4957>
+
+On Wed, Dec 07, 2016 at 03:48:49AM +0100, Michael Kronsteiner wrote:
+
+> i cant find this in changelog for -8 either?
+
+It was hidden as part of config(1) changes for better modularity and got
+not explictily mentioned in CHANGES.
+
+It is in -current and (as netbsd-8 has not been branched yet) will be in -8.
+
+Martin
+
+http://mail-index.netbsd.org/source-changes/2014/10/17/msg059554.html
+
+
+From alnsn@yandex.ru  Tue Dec 13 07:19:23 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Alexander Nasonov <alnsn@yandex.ru>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: cgd aes rump tests failing
+Date: Tue, 13 Dec 2016 07:19:23 +0000
+Lines: 13
+Approved: news@gmane.org
+Message-ID: <20161213071923.GA4787@neva>
+References: <20161120160410.GA973@neva>
+ <20161129072956.GA1477@neva>
+ <20161129074810.GA2052@mail.duskware.de>
+ <011a7385-26d6-c1d5-63aa-9ea23df960cd@rk.phys.keio.ac.jp>
+ <20161129151154.GE2052@mail.duskware.de>
+ <20161129213103.GA11813@neva>
+ <20161130102642.GA12579@mail.duskware.de>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: blaine.gmane.org 1481613595 25640 195.159.176.226 (13 Dec 2016 07:19:55 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Tue, 13 Dec 2016 07:19:55 +0000 (UTC)
+User-Agent: Mutt/1.7.2 (2016-11-26)
+Cc: port-alpha@netbsd.org
+To: Martin Husemann <martin@duskware.de>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Dec 13 08:19:51 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cGhNF-00050l-T3
+	for netbsd-port-alpha@m.gmane.org; Tue, 13 Dec 2016 08:19:42 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 06B9F85589; Tue, 13 Dec 2016 07:19:43 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id A110F85576
+	for <port-alpha@netbsd.org>; Tue, 13 Dec 2016 07:19:41 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (1024-bit key) header.d=yandex.ru
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id k9CdWYnfS0j5 for <port-alpha@netbsd.org>;
+	Tue, 13 Dec 2016 07:19:41 +0000 (UTC)
+Original-Received: from forward4p.cmail.yandex.net (forward4p.cmail.yandex.net [IPv6:2a02:6b8:0:1465::14])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id C72BF84CF5
+	for <port-alpha@netbsd.org>; Tue, 13 Dec 2016 07:19:40 +0000 (UTC)
+Original-Received: from smtp3m.mail.yandex.net (smtp3m.mail.yandex.net [77.88.61.130])
+	by forward4p.cmail.yandex.net (Yandex) with ESMTP id 0C32920F38;
+	Tue, 13 Dec 2016 10:19:34 +0300 (MSK)
+Original-Received: from smtp3m.mail.yandex.net (localhost.localdomain [127.0.0.1])
+	by smtp3m.mail.yandex.net (Yandex) with ESMTP id 530AD2840D96;
+	Tue, 13 Dec 2016 10:19:32 +0300 (MSK)
+Original-Received: by smtp3m.mail.yandex.net (nwsmtp/Yandex) with ESMTPSA id 24fuBrcrgS-JVVWNl8L;
+	Tue, 13 Dec 2016 10:19:31 +0300
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(Client certificate not present)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=yandex.ru; s=mail; t=1481613572;
+	bh=mv+VjTzcS99kVm8vTDLl6U2f5tLgvYIue76o7ON68Ok=;
+	h=Date:From:To:Cc:Subject:Message-ID:References:In-Reply-To;
+	b=dnCk7Nes+Tq+qxM4rXDxn3xoi2JPg1l6vQwjaJM2Z+iQy002qwJGqcZpQswyZwWE3
+	 pNdsVhS/0xGWrXNNlVWigu0piHL5jSKt2VlD3wdjpbUuMoj0Ac+AtdxztaamYqeUuX
+	 SIitbUvm/8lrnYZ/ihaZkYjoS8LoVS8kVZR9lrjM=
+Authentication-Results: smtp3m.mail.yandex.net; dkim=pass header.i=@yandex.ru
+X-Yandex-Suid-Status: 1 0,1 0
+Content-Disposition: inline
+In-Reply-To: <20161130102642.GA12579@mail.duskware.de>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4958
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4958>
+
+Martin Husemann wrote:
+> Since this seems to be kind of a local problem, I installed the same binary
+> sets (and kernel) on my other alpha (DEC 3000 m300) and it fails just the
+> same.
+> 
+> I'll try the official sets from the next daily build and if that makes a
+> difference, compare.
+
+Hi Martin,
+FYI, those tests pass now on your box.
+
+Alex
+
+
+From macallan@netbsd.org  Wed Dec 14 09:08:01 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Michael <macallan@netbsd.org>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.devel.x11
+Subject: Re: How to use X Window System on NetBSD/alpha?
+Date: Wed, 14 Dec 2016 09:08:01 -0500
+Organization: The NetBSD Foundation
+Lines: 52
+Approved: news@gmane.org
+Message-ID: <20161214090801.58c7f486@blackbush>
+References: <CANkyS8UtM=RMoVKfLO96TMp29Z0Lsz-Zpg9uHzrHU1eQbob1_A@mail.gmail.com>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+X-Trace: blaine.gmane.org 1481724500 28014 195.159.176.226 (14 Dec 2016 14:08:20 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 14 Dec 2016 14:08:20 +0000 (UTC)
+Cc: port-alpha@netbsd.org, tech-x11@netbsd.org
+To: "Naruaki.Etomi" <nullnilaki@gmail.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Dec 14 15:08:16 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cHAEB-0006Fp-5e
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Dec 2016 15:08:15 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id C357A85591; Wed, 14 Dec 2016 14:08:14 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id BA53A855C1;
+	Wed, 14 Dec 2016 14:08:11 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=gmail.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id JKnKrmo7xAQQ; Wed, 14 Dec 2016 14:08:11 +0000 (UTC)
+Original-Received: from mail-io0-x242.google.com (mail-io0-x242.google.com [IPv6:2607:f8b0:4001:c06::242])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 0F7C885581;
+	Wed, 14 Dec 2016 14:08:10 +0000 (UTC)
+Original-Received: by mail-io0-x242.google.com with SMTP id y124so5026264iof.1;
+        Wed, 14 Dec 2016 06:08:10 -0800 (PST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20120113;
+        h=sender:date:from:to:cc:subject:message-id:in-reply-to:references
+         :organization:mime-version:content-transfer-encoding;
+        bh=YqQQD3QbtXUbkQmzHXTul9BiP+1CxfLL+VgTS7o1mC0=;
+        b=Sjl2E+41fVTtbYopBjynJni6iIHaz2H8rTrsE9yDDSv59g8Ti0yCIPUgTfEMzpttDO
+         G16CHB00kCHXWu1b8d+/iyhHPaw0R61ujQd3UgrZWImREVf2+n18i4XgLfGbVrX+diqW
+         nMQylK5CVLLDQUKzfURh+taZ7tvmkAd+1dQl7HZNDH+TFcUM2bbGH6A6rBRBpLGj3HGb
+         c2yH3ONDB9uJ3rSpHroR2XgOe41J+aIjtB11RHnwr/az39kOY0DpcajNHoTRdPpPwX35
+         VXrPGmWyPXJAW3OIIqbFI0HujLHo8fOwUqffHEVbGhA/SgVHDKLUBfnK06r64pHKMHMa
+         VqrA==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20161025;
+        h=x-gm-message-state:sender:date:from:to:cc:subject:message-id
+         :in-reply-to:references:organization:mime-version
+         :content-transfer-encoding;
+        bh=YqQQD3QbtXUbkQmzHXTul9BiP+1CxfLL+VgTS7o1mC0=;
+        b=C9BauYLWDv9YxTXX3ww0HXLk8vPdYpneK2cVobqcrXsJTn1ny60Xlb6qhaPyjZ3BTE
+         j28egkriiwgestOQCH4RAFm9s+A4EDEr1bNPu5B3vs3Z493vIT0wOCbHbbFR4A2cXInv
+         zsWWyVuVNKtlYltSRwR2IcUuvzN/BjI/Pl3+XTunmjcvEDyvNfMbt1xDp9dIDbHN/Fic
+         e1ulrLvSHoTwOsT7RWxZKAIH7Q7oQW4q+kwMZ4n/6heDIKzpizQlCzO4MHs8gU89ZRlQ
+         h/TB1jWV5bcwsJNVi7UfHtb4seCVhzr9nFx81Pqu9XPaF02Vt3VIM7Xr2yNUoAUoH7vv
+         yIBw==
+X-Gm-Message-State: AKaTC03iTSV7yzO7arSZN6AtVfecvAs56awnamuzrQQOn5uMKSgovdePKbCnzFmAXPAhJg==
+X-Received: by 10.107.163.19 with SMTP id m19mr36868834ioe.222.1481724489288;
+        Wed, 14 Dec 2016 06:08:09 -0800 (PST)
+Original-Received: from blackbush (c-50-149-210-101.hsd1.tn.comcast.net. [50.149.210.101])
+        by smtp.gmail.com with ESMTPSA id 63sm8377677iof.42.2016.12.14.06.08.08
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 14 Dec 2016 06:08:08 -0800 (PST)
+In-Reply-To: <CANkyS8UtM=RMoVKfLO96TMp29Z0Lsz-Zpg9uHzrHU1eQbob1_A@mail.gmail.com>
+X-Mailer: Claws Mail 3.11.1 (GTK+ 2.24.27; sparc64--netbsd)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4959 gmane.os.netbsd.devel.x11:3781
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4959>
+
+Hello,
+
+On Sun, 20 Nov 2016 20:43:40 +0900
+"Naruaki.Etomi" <nullnilaki@gmail.com> wrote:
+
+> I wrote manual for NetBSD/alpha! yeeeeeeeeeeeeeeeeh!
+> 
+> See:
+> http://nullnilaki.hatenablog.com/entry/2016/11/20/202911
+> 
+> I hope that a happy X time will come around for you.
+
+I committed a bunch of fixes to the glint driver as well:
+- odd resolutions ( like 1440x900, 1366x768 etc. ) work properly now,
+  including acceleration.
+- both Permedia 2 and 3 now have EXA support, for shiny new Xorg. Kinda
+  crude, but working.
+
+This didn't get a whole lot of testing, only pm3 on macppc and pm2 on
+sparc64 so far, and there is no xrender acceleration although both
+chips should in theory be able to support at least part of it ( and the
+XAA driver didn't do that either )
+
+X.Org X Server 1.18.4
+Release Date: 2016-07-19
+[    44.241] X Protocol Version 11, Revision 0
+[    44.249] Build Operating System: NetBSD/sparc64 7.99.44 - The NetBSD Foundation, Inc.
+[    44.267] Current Operating System: NetBSD becherovka 7.99.44 NetBSD 7.99.44 (BECHEROVKA.MP) #5: Sun Dec 11 12:06:04 EST 2016  root@becherovka:/home/build/obj_sparc64/sys/arch/sparc64/compile/BECHEROVKA.MP sparc64
+[    44.275] Build Date: 14 August 2016  01:29:29AM
+...
+[    45.048] (--) PCI:*(0:0:2:0) 104c:3d07:1227:0008 rev 17, Mem @0x00020000/131072, 0x00800000/8388608, 0x01000000/8388608, BIOS @0x????????/65536
+...
+[    45.415] (--) GLINT(0): Chipset: "ti_pm2"
+[    45.415] (--) GLINT(0): Linear framebuffer at 0x1000000
+[    45.415] (--) GLINT(0): MMIO registers at 0x30000
+[    45.420] (--) GLINT(0): VideoRAM: 8192 kByte
+...
+[    45.527] (--) GLINT(0): Virtual size is 1440x900 (pitch 1536)
+[    45.527] (**) GLINT(0): *Driver mode "1440x900": 106.5 MHz, 55.9 kHz, 59.9 Hz
+...
+[    45.607] (--) Depth 24 pixmap format is 32 bpp
+[    45.801] (II) EXA(0): Offscreen pixmap area of 2856960 bytes
+[    45.807] (II) EXA(0): Driver registered support for the following operations:
+[    45.807] (II)         Solid
+[    45.807] (II)         Copy
+[    45.807] (II)         UploadToScreen
+[    45.807] (II)         DownloadFromScreen
+[    45.807] (==) GLINT(0): Backing store enabled
+
+have fun
+Michael
+
+
+From joel.bertrand@systella.fr  Wed Dec 14 15:11:28 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: =?UTF-8?Q?BERTRAND_Jo=c3=abl?= <joel.bertrand@systella.fr>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: How to use X Window System on NetBSD/alpha?
+Date: Wed, 14 Dec 2016 15:11:28 +0100
+Lines: 62
+Approved: news@gmane.org
+Message-ID: <58515310.6010600@systella.fr>
+References: <CANkyS8UtM=RMoVKfLO96TMp29Z0Lsz-Zpg9uHzrHU1eQbob1_A@mail.gmail.com>
+ <20161214090801.58c7f486@blackbush>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
+X-Trace: blaine.gmane.org 1481724712 9583 195.159.176.226 (14 Dec 2016 14:11:52 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 14 Dec 2016 14:11:52 +0000 (UTC)
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:43.0) Gecko/20100101
+ Firefox/43.0 SeaMonkey/2.40
+To: Michael <macallan@netbsd.org>, port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Dec 14 15:11:48 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cHAHZ-0001MW-NC
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Dec 2016 15:11:46 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 68415855C9; Wed, 14 Dec 2016 14:11:48 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 482FF855D1;
+	Wed, 14 Dec 2016 14:11:45 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id gKqRSUt0oa34; Wed, 14 Dec 2016 14:11:44 +0000 (UTC)
+Original-Received: from rayleigh.systella.fr (newton-ipv6.systella.fr [IPv6:2001:7a8:a8ed:253::1])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 53128855B9;
+	Wed, 14 Dec 2016 14:11:43 +0000 (UTC)
+Original-Received: from [192.168.2.3] (schroedinger.eikeo.com [192.168.2.3])
+	(authenticated bits=0)
+	by rayleigh.systella.fr (8.15.2/8.15.2/Debian-8) with ESMTPSA id uBEEBT6F004640
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=NOT);
+	Wed, 14 Dec 2016 15:11:30 +0100
+In-Reply-To: <20161214090801.58c7f486@blackbush>
+X-Virus-Scanned: clamav-milter 0.99.2 at rayleigh
+X-Virus-Status: Clean
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4960
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4960>
+
+Michael a écrit :
+> Hello,
+>
+> On Sun, 20 Nov 2016 20:43:40 +0900
+> "Naruaki.Etomi" <nullnilaki@gmail.com> wrote:
+>
+>> I wrote manual for NetBSD/alpha! yeeeeeeeeeeeeeeeeh!
+>>
+>> See:
+>> http://nullnilaki.hatenablog.com/entry/2016/11/20/202911
+>>
+>> I hope that a happy X time will come around for you.
+>
+> I committed a bunch of fixes to the glint driver as well:
+> - odd resolutions ( like 1440x900, 1366x768 etc. ) work properly now,
+>    including acceleration.
+> - both Permedia 2 and 3 now have EXA support, for shiny new Xorg. Kinda
+>    crude, but working.
+>
+> This didn't get a whole lot of testing, only pm3 on macppc and pm2 on
+> sparc64 so far, and there is no xrender acceleration although both
+> chips should in theory be able to support at least part of it ( and the
+> XAA driver didn't do that either )
+>
+> X.Org X Server 1.18.4
+> Release Date: 2016-07-19
+> [    44.241] X Protocol Version 11, Revision 0
+> [    44.249] Build Operating System: NetBSD/sparc64 7.99.44 - The NetBSD Foundation, Inc.
+> [    44.267] Current Operating System: NetBSD becherovka 7.99.44 NetBSD 7.99.44 (BECHEROVKA.MP) #5: Sun Dec 11 12:06:04 EST 2016  root@becherovka:/home/build/obj_sparc64/sys/arch/sparc64/compile/BECHEROVKA.MP sparc64
+> [    44.275] Build Date: 14 August 2016  01:29:29AM
+> ...
+> [    45.048] (--) PCI:*(0:0:2:0) 104c:3d07:1227:0008 rev 17, Mem @0x00020000/131072, 0x00800000/8388608, 0x01000000/8388608, BIOS @0x????????/65536
+> ...
+> [    45.415] (--) GLINT(0): Chipset: "ti_pm2"
+> [    45.415] (--) GLINT(0): Linear framebuffer at 0x1000000
+> [    45.415] (--) GLINT(0): MMIO registers at 0x30000
+> [    45.420] (--) GLINT(0): VideoRAM: 8192 kByte
+> ...
+> [    45.527] (--) GLINT(0): Virtual size is 1440x900 (pitch 1536)
+> [    45.527] (**) GLINT(0): *Driver mode "1440x900": 106.5 MHz, 55.9 kHz, 59.9 Hz
+> ...
+> [    45.607] (--) Depth 24 pixmap format is 32 bpp
+> [    45.801] (II) EXA(0): Offscreen pixmap area of 2856960 bytes
+> [    45.807] (II) EXA(0): Driver registered support for the following operations:
+> [    45.807] (II)         Solid
+> [    45.807] (II)         Copy
+> [    45.807] (II)         UploadToScreen
+> [    45.807] (II)         DownloadFromScreen
+> [    45.807] (==) GLINT(0): Backing store enabled
+>
+> have fun
+> Michael
+>
+
+	Thanks a lot. But I'm unable to change resolution on my alpha (pm3 
+Oxygen). I would use 1280x1024x24 and I don't know how to fix this 
+resolution. Any idea ?
+
+	Best regards,
+
+	JKB
+
+
+From macallan@netbsd.org  Wed Dec 14 09:20:11 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Michael <macallan@netbsd.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: How to use X Window System on NetBSD/alpha?
+Date: Wed, 14 Dec 2016 09:20:11 -0500
+Organization: The NetBSD Foundation
+Lines: 40
+Approved: news@gmane.org
+Message-ID: <20161214092011.109a9b99@blackbush>
+References: <CANkyS8UtM=RMoVKfLO96TMp29Z0Lsz-Zpg9uHzrHU1eQbob1_A@mail.gmail.com>
+	<20161214090801.58c7f486@blackbush>
+	<58515310.6010600@systella.fr>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+X-Trace: blaine.gmane.org 1481725223 11148 195.159.176.226 (14 Dec 2016 14:20:23 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 14 Dec 2016 14:20:23 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: BERTRAND =?ISO-8859-1?Q?Jo=EBl?= <joel.bertrand@systella.fr>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Dec 14 15:20:19 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cHAPq-00023v-St
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Dec 2016 15:20:19 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id D24BA855C1; Wed, 14 Dec 2016 14:20:20 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 42144855B8
+	for <port-alpha@netbsd.org>; Wed, 14 Dec 2016 14:20:18 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=gmail.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id kXG-HDMZgrnl for <port-alpha@netbsd.org>;
+	Wed, 14 Dec 2016 14:20:17 +0000 (UTC)
+Original-Received: from mail-it0-x243.google.com (mail-it0-x243.google.com [IPv6:2607:f8b0:4001:c0b::243])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id A47F7855B6
+	for <port-alpha@netbsd.org>; Wed, 14 Dec 2016 14:20:17 +0000 (UTC)
+Original-Received: by mail-it0-x243.google.com with SMTP id n68so116613itn.3
+        for <port-alpha@netbsd.org>; Wed, 14 Dec 2016 06:20:17 -0800 (PST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20120113;
+        h=sender:date:from:to:cc:subject:message-id:in-reply-to:references
+         :organization:mime-version:content-transfer-encoding;
+        bh=u0/sKdo5vzu8jRsNd/uUOrvxLI6iFTR2qDF8WcWXTA4=;
+        b=Uu9AqwMYEGXznhgj+vQXBNkbs4hw09BgedJIkaS878c/mwB2EaQK2RjKt3eBaoRwEL
+         fy7xj3Ysglv+OYxr5aBuQUrW/exVEzx/C3RtqjqBR1v4QgPMcJNfIR4vZc6gIKtHIO+Z
+         wZGgCaJmAJ3EPHaaBCSB7e9wHZt9v5ljCrMifrzF3dKDDBdC4GxPXVmPBB70Zin4bOEh
+         xN2VPyVdLRefWMUmHfe75Q41IVIqKLILf1KJNtqc05UozeJPmQ3ggq1QC0eaiLFQJHwv
+         wEq3A+OKMcbtTjC+qOvb7fTOb4jsjMXirkUu1UmHLHpjP/yTwmy/+n1nffymnNrcplSG
+         Pzew==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20161025;
+        h=x-gm-message-state:sender:date:from:to:cc:subject:message-id
+         :in-reply-to:references:organization:mime-version
+         :content-transfer-encoding;
+        bh=u0/sKdo5vzu8jRsNd/uUOrvxLI6iFTR2qDF8WcWXTA4=;
+        b=t6KqbSo8ZObBRW04PMX/WyB6JnUzC4HuVcPYN6Y84XdxmtvaJAHrX9wqeC4gl31ZGv
+         pi2sptfQN7smx9Y8WDBTC9RTJPSLPtmhleaikMP69cWkXuSs1jkTY3c6hsTcvjR5FE0L
+         YNryuuMBY5/OOdswYeSYHbIECeBHjzEMdjwSyO3My6CQYfebhr3iPj8OK3myA/QVvMH0
+         ZIMA6Nx6dzGa7Eu/PXYtRrQhV07juV8Iv7eeUG1UhdysDjAK8XpMRzub7sYM67zU9IRv
+         85SIm7VygWgo0Zo9lGIdFFdrYZb478/lSE6UpQt5Fi4HbEV0/2AXJ96TfsPfGW9fQtyo
+         NIxg==
+X-Gm-Message-State: AKaTC00BUgpEYhlu6OveH0V2YIsmbU6yzYkvgGou9CdDr0FZfIaqPc0ygrNK9DeB8LweVQ==
+X-Received: by 10.36.0.145 with SMTP id 139mr7811907ita.117.1481725216900;
+        Wed, 14 Dec 2016 06:20:16 -0800 (PST)
+Original-Received: from blackbush (c-50-149-210-101.hsd1.tn.comcast.net. [50.149.210.101])
+        by smtp.gmail.com with ESMTPSA id i196sm2584649itf.8.2016.12.14.06.20.16
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 14 Dec 2016 06:20:16 -0800 (PST)
+In-Reply-To: <58515310.6010600@systella.fr>
+X-Mailer: Claws Mail 3.11.1 (GTK+ 2.24.27; sparc64--netbsd)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4961
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4961>
+
+Hello,
+
+On Wed, 14 Dec 2016 15:11:28 +0100
+BERTRAND Jo=EBl <joel.bertrand@systella.fr> wrote:
+
+> 	Thanks a lot. But I'm unable to change resolution on my alpha (pm3=20
+> Oxygen). I would use 1280x1024x24 and I don't know how to fix this=20
+> resolution. Any idea ?
+
+No DDC2 info from the monitor?
+At least for X you can do the usual in the "screen" section:
+
+Section "Screen"
+        Identifier "Screen0"
+        Device     "Card0"
+        Monitor    "Monitor0"
+        SubSection "Display"
+                Viewport   0 0
+                Depth     24
+                Modes  "1280x1024"
+        EndSubSection
+EndSection
+
+Will need some additions to "Monitor" as well:
+
+Section "Monitor"
+        Identifier   "Monitor0"
+        VendorName   "Monitor Vendor"
+        ModelName    "Monitor Model"
+        HorizSync      30-100
+        VertRefresh    55-65
+EndSection
+
+... otherwise Xorg will think you have an ancient VGA monitor.
+
+There's always man xorg.conf for further info.
+
+have fun
+Michael
+
+
+From joel.bertrand@systella.fr  Wed Dec 14 15:29:23 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: =?UTF-8?Q?BERTRAND_Jo=c3=abl?= <joel.bertrand@systella.fr>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: How to use X Window System on NetBSD/alpha?
+Date: Wed, 14 Dec 2016 15:29:23 +0100
+Lines: 58
+Approved: news@gmane.org
+Message-ID: <58515743.1000702@systella.fr>
+References: <CANkyS8UtM=RMoVKfLO96TMp29Z0Lsz-Zpg9uHzrHU1eQbob1_A@mail.gmail.com>
+ <20161214090801.58c7f486@blackbush> <58515310.6010600@systella.fr>
+ <20161214092011.109a9b99@blackbush>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
+X-Trace: blaine.gmane.org 1481725787 6702 195.159.176.226 (14 Dec 2016 14:29:47 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 14 Dec 2016 14:29:47 +0000 (UTC)
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:43.0) Gecko/20100101
+ Firefox/43.0 SeaMonkey/2.40
+Cc: port-alpha@NetBSD.org
+To: Michael <macallan@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Dec 14 15:29:43 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cHAYv-0000tv-2j
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Dec 2016 15:29:41 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 4A0C0855D2; Wed, 14 Dec 2016 14:29:43 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 7025F855D0;
+	Wed, 14 Dec 2016 14:29:40 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id nN-kaKOq84iw; Wed, 14 Dec 2016 14:29:40 +0000 (UTC)
+Original-Received: from rayleigh.systella.fr (newton-ipv6.systella.fr [IPv6:2001:7a8:a8ed:253::1])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 8BD5D855B6;
+	Wed, 14 Dec 2016 14:29:38 +0000 (UTC)
+Original-Received: from [192.168.2.3] (schroedinger.eikeo.com [192.168.2.3])
+	(authenticated bits=0)
+	by rayleigh.systella.fr (8.15.2/8.15.2/Debian-8) with ESMTPSA id uBEETO8Y010571
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=NOT);
+	Wed, 14 Dec 2016 15:29:26 +0100
+In-Reply-To: <20161214092011.109a9b99@blackbush>
+X-Virus-Scanned: clamav-milter 0.99.2 at rayleigh
+X-Virus-Status: Clean
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4962
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4962>
+
+Michael a écrit :
+> Hello,
+>
+> On Wed, 14 Dec 2016 15:11:28 +0100
+> BERTRAND Joël <joel.bertrand@systella.fr> wrote:
+>
+>> 	Thanks a lot. But I'm unable to change resolution on my alpha (pm3
+>> Oxygen). I would use 1280x1024x24 and I don't know how to fix this
+>> resolution. Any idea ?
+>
+> No DDC2 info from the monitor?
+> At least for X you can do the usual in the "screen" section:
+>
+> Section "Screen"
+>          Identifier "Screen0"
+>          Device     "Card0"
+>          Monitor    "Monitor0"
+>          SubSection "Display"
+>                  Viewport   0 0
+>                  Depth     24
+>                  Modes  "1280x1024"
+>          EndSubSection
+> EndSection
+>
+> Will need some additions to "Monitor" as well:
+>
+> Section "Monitor"
+>          Identifier   "Monitor0"
+>          VendorName   "Monitor Vendor"
+>          ModelName    "Monitor Model"
+>          HorizSync      30-100
+>          VertRefresh    55-65
+> EndSection
+>
+> ... otherwise Xorg will think you have an ancient VGA monitor.
+
+	No. It does work as expected. My screen is able to send information to 
+graphic adapter (it works with a Linux box [amd64] running Xorg).
+
+	NetBSD/alpha tries to initialize console with following reolution : 
+1280x1024x8 :
+
+...
+pm3fb0: pm3 using 1280 x 1024 in 8 bit, stride 1280
+wsdisplay0 at pm3fb0 kbdmux 1: console (default, vt100 emulation)
+...
+
+and if I tries to use different depth in xorg, X aborts. I'm trying to 
+configure 1280x1024x24 for console _and_ X. I have tried to force this 
+mode in pm3fb.c without any success. I haven't test your latest patch.
+
+	And I have seen some strange quirks. I'll send you a photo in a few 
+minutes.
+
+	Best regards,
+
+	JKB
+
+
+From macallan@netbsd.org  Wed Dec 14 09:39:08 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Michael <macallan@netbsd.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: How to use X Window System on NetBSD/alpha?
+Date: Wed, 14 Dec 2016 09:39:08 -0500
+Organization: The NetBSD Foundation
+Lines: 62
+Approved: news@gmane.org
+Message-ID: <20161214093908.0bd207f8@blackbush>
+References: <CANkyS8UtM=RMoVKfLO96TMp29Z0Lsz-Zpg9uHzrHU1eQbob1_A@mail.gmail.com>
+	<20161214090801.58c7f486@blackbush>
+	<58515310.6010600@systella.fr>
+	<20161214092011.109a9b99@blackbush>
+	<58515743.1000702@systella.fr>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+X-Trace: blaine.gmane.org 1481726365 13867 195.159.176.226 (14 Dec 2016 14:39:25 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 14 Dec 2016 14:39:25 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: BERTRAND =?ISO-8859-1?Q?Jo=EBl?= <joel.bertrand@systella.fr>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Dec 14 15:39:20 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cHAiE-0002Pi-Bi
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Dec 2016 15:39:18 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 7A903855D0; Wed, 14 Dec 2016 14:39:20 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 06FB585581
+	for <port-alpha@netbsd.org>; Wed, 14 Dec 2016 14:39:17 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=gmail.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id L_eVuZKrNpef for <port-alpha@netbsd.org>;
+	Wed, 14 Dec 2016 14:39:16 +0000 (UTC)
+Original-Received: from mail-it0-x241.google.com (mail-it0-x241.google.com [IPv6:2607:f8b0:4001:c0b::241])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 5CBCE84D04
+	for <port-alpha@netbsd.org>; Wed, 14 Dec 2016 14:39:16 +0000 (UTC)
+Original-Received: by mail-it0-x241.google.com with SMTP id b123so178713itb.2
+        for <port-alpha@netbsd.org>; Wed, 14 Dec 2016 06:39:16 -0800 (PST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20120113;
+        h=sender:date:from:to:cc:subject:message-id:in-reply-to:references
+         :organization:mime-version:content-transfer-encoding;
+        bh=Gcng6QjEQpnpCzYNw/VHUUCRLvr7ISXdV39ee4yfT7M=;
+        b=zDjeicf7GDrQNI7s2pENU008V7DcilmPpUAAp9qdTgndtRr+b+UBUdxYYMRePP/9cc
+         z9Zg6DWiUFGbh9gZi6vMrouNdSQoCpftFDw+LsU3gk5ZK0IDF6DpoUpHPRdJzfVrtsxM
+         E3eazN+F/91/dMnfgFI0NG5r2Td434y7oRQXGWw0ef2lW4QQmjBrejjT4kr/IRTZ5zKk
+         A5k7nTS9rxUZBraHiod+62l3KXvkbcnGcYUkO2BuybRoqa63R/q3awGhVDn3Kj3eml5P
+         D5rYEA0AoqDXvBlSaymrBEFfVYHXeSyg8o2JgrVvLd/eIvkoq7KVSzZNdRSrB0OF7M2Y
+         tTTw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20161025;
+        h=x-gm-message-state:sender:date:from:to:cc:subject:message-id
+         :in-reply-to:references:organization:mime-version
+         :content-transfer-encoding;
+        bh=Gcng6QjEQpnpCzYNw/VHUUCRLvr7ISXdV39ee4yfT7M=;
+        b=jr+UDGFIrIKXPS+P+8GtMt1R1N7fSJO+U6emUbdzOzU1pV5k+VzJZwobthBbD0IO5Q
+         fFPmYDV2ZkPN+9lG9mMSOJbwuBTznr9Sp0hlSCevpSQfsY6kALdzFeimC2EHk8K1Aed9
+         DUKvR69k9cY/CsC/YuojZkDkRLrtfd6LMMKjNq2XI2ZU5L28OKn0PtPC1jVSMkEw/eLV
+         R5iR3jVmuqPRJ6F991B6w7Wc10Ou4qKiPnRjokQgdxCdQhPweb+7kUrL6/9/Tt58+IDp
+         obHHIfVNZ/uOJf0DjzH8F3psFvLEIbS/f16+prszYFk5DphGu+i8FKHQIti+BbY/OVFO
+         D8JQ==
+X-Gm-Message-State: AKaTC03bTdwdXZnvhL7cFwP5f2wtV8aW8SvnZEjDTcEB0uQ4o971TWOYtTaZzaYZUFmSbQ==
+X-Received: by 10.36.39.6 with SMTP id g6mr7551809ita.94.1481726355539;
+        Wed, 14 Dec 2016 06:39:15 -0800 (PST)
+Original-Received: from blackbush (c-50-149-210-101.hsd1.tn.comcast.net. [50.149.210.101])
+        by smtp.gmail.com with ESMTPSA id w188sm2609872itc.9.2016.12.14.06.39.14
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 14 Dec 2016 06:39:14 -0800 (PST)
+In-Reply-To: <58515743.1000702@systella.fr>
+X-Mailer: Claws Mail 3.11.1 (GTK+ 2.24.27; sparc64--netbsd)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4963
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4963>
+
+Hello,
+
+On Wed, 14 Dec 2016 15:29:23 +0100
+BERTRAND Jo=EBl <joel.bertrand@systella.fr> wrote:
+
+> Michael a =E9crit :
+> > Hello,
+> >
+> > On Wed, 14 Dec 2016 15:11:28 +0100
+> > BERTRAND Jo=EBl <joel.bertrand@systella.fr> wrote:
+> >
+> >> 	Thanks a lot. But I'm unable to change resolution on my alpha (pm3
+> >> Oxygen). I would use 1280x1024x24 and I don't know how to fix this
+> >> resolution. Any idea ?
+> >
+> > No DDC2 info from the monitor?
+> > At least for X you can do the usual in the "screen" section:
+> >
+> > Section "Screen"
+> >          Identifier "Screen0"
+> >          Device     "Card0"
+> >          Monitor    "Monitor0"
+> >          SubSection "Display"
+> >                  Viewport   0 0
+> >                  Depth     24
+> >                  Modes  "1280x1024"
+> >          EndSubSection
+> > EndSection
+> >
+> > Will need some additions to "Monitor" as well:
+> >
+> > Section "Monitor"
+> >          Identifier   "Monitor0"
+> >          VendorName   "Monitor Vendor"
+> >          ModelName    "Monitor Model"
+> >          HorizSync      30-100
+> >          VertRefresh    55-65
+> > EndSection
+> >
+> > ... otherwise Xorg will think you have an ancient VGA monitor.
+>=20
+> 	No. It does work as expected. My screen is able to send information to=20
+> graphic adapter (it works with a Linux box [amd64] running Xorg).
+>=20
+> 	NetBSD/alpha tries to initialize console with following reolution :=20
+> 1280x1024x8 :
+>=20
+> ...
+> pm3fb0: pm3 using 1280 x 1024 in 8 bit, stride 1280
+> wsdisplay0 at pm3fb0 kbdmux 1: console (default, vt100 emulation)
+> ...
+>=20
+> and if I tries to use different depth in xorg, X aborts. I'm trying to=20
+> configure 1280x1024x24 for console _and_ X. I have tried to force this=20
+> mode in pm3fb.c without any success. I haven't test your latest patch.
+
+So you're not using the glint driver? Wsfb can't switch modes or colour
+depth. Please send your Xorg.0.log
+
+have fun
+Michael
+
+
+From joel.bertrand@systella.fr  Wed Dec 14 15:58:48 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: =?UTF-8?Q?BERTRAND_Jo=c3=abl?= <joel.bertrand@systella.fr>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: How to use X Window System on NetBSD/alpha?
+Date: Wed, 14 Dec 2016 15:58:48 +0100
+Lines: 108
+Approved: news@gmane.org
+Message-ID: <58515E28.2090104@systella.fr>
+References: <CANkyS8UtM=RMoVKfLO96TMp29Z0Lsz-Zpg9uHzrHU1eQbob1_A@mail.gmail.com>
+ <20161214090801.58c7f486@blackbush> <58515310.6010600@systella.fr>
+ <20161214092011.109a9b99@blackbush> <58515743.1000702@systella.fr>
+ <20161214093908.0bd207f8@blackbush>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
+X-Trace: blaine.gmane.org 1481727553 18346 195.159.176.226 (14 Dec 2016 14:59:13 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 14 Dec 2016 14:59:13 +0000 (UTC)
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:43.0) Gecko/20100101
+ Firefox/43.0 SeaMonkey/2.40
+Cc: port-alpha@NetBSD.org
+To: Michael <macallan@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Dec 14 15:59:09 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cHB1P-0003k2-2P
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Dec 2016 15:59:07 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 58DCD855D7; Wed, 14 Dec 2016 14:59:09 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 97271855D3;
+	Wed, 14 Dec 2016 14:59:04 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id ZHYq7VCCa7Jo; Wed, 14 Dec 2016 14:59:04 +0000 (UTC)
+Original-Received: from rayleigh.systella.fr (newton-ipv6.systella.fr [IPv6:2001:7a8:a8ed:253::1])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 7BE0D855B9;
+	Wed, 14 Dec 2016 14:59:02 +0000 (UTC)
+Original-Received: from [192.168.2.3] (schroedinger.eikeo.com [192.168.2.3])
+	(authenticated bits=0)
+	by rayleigh.systella.fr (8.15.2/8.15.2/Debian-8) with ESMTPSA id uBEEwnBr018651
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=NOT);
+	Wed, 14 Dec 2016 15:58:50 +0100
+In-Reply-To: <20161214093908.0bd207f8@blackbush>
+X-Virus-Scanned: clamav-milter 0.99.2 at rayleigh
+X-Virus-Status: Clean
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4964
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4964>
+
+	Hello,
+
+>> and if I tries to use different depth in xorg, X aborts. I'm trying to
+>> configure 1280x1024x24 for console _and_ X. I have tried to force this
+>> mode in pm3fb.c without any success. I haven't test your latest patch.
+>
+> So you're not using the glint driver? Wsfb can't switch modes or colour
+> depth. Please send your Xorg.0.log
+>
+
+	Nope, glint doesn't work on alpha.
+
+	Here is my xorg.conf :
+
+Section "Files"
+     FontPath    "unix/:7100"
+     FontPath    "/usr/X11R7/lib/X11/fonts/misc"
+     FontPath    "/usr/X11R7/lib/X11/fonts/cyrillic"
+     FontPath    "/usr/X11R7/lib/X11/fonts/100dpi/:unscaled"
+     FontPath    "/usr/X11R7/lib/X11/fonts/75dpi/:unscaled"
+     FontPath    "/usr/X11R7/lib/X11/fonts/Type1"
+     FontPath    "/usr/X11R7/lib/X11/fonts/100dpi"
+     FontPath    "/usr/X11R7/lib/X11/fonts/75dpi"
+EndSection
+
+Section "InputDevice"
+     Identifier  "Generic Keyboard"
+     Driver      "kbd"
+     Option      "CoreKeyboard"
+     Option      "XkbRules"  "xorg"
+     Option      "XkbModel"  "pc105"
+     Option      "XkbLayout" "fr"
+     Option      "XkbVariant"    "latin9"
+EndSection
+
+Section "InputDevice"
+     Identifier  "Configured Mouse"
+     Driver      "mouse"
+     Option      "CorePointer"
+     Option      "Device"        "/dev/wsmouse0"
+     Option      "Protocol"      "auto"
+     Option      "Emulate3Buttons"   "false"
+EndSection
+
+Section "Device"
+     Identifier  "Matrox Millenium"
+     Driver      "wsfb"
+#   Option      "UseFBDev"      "false"
+#   VideoRam    4096
+EndSection
+
+Section "Monitor"
+     Identifier  "Écran générique"
+     Option      "DPMS"
+     HorizSync   28-64
+     VertRefresh 43-75
+EndSection
+
+Section "Screen"
+     Identifier  "Default Screen"
+     Device      "Matrox Millenium"
+     Monitor     "Écran générique"
+     DefaultDepth    8
+     SubSection "Display"
+         Depth       1
+         Modes       "1280x1024"
+     EndSubSection
+     SubSection "Display"
+         Depth       4
+         Modes       "1280x1024"
+     EndSubSection
+     SubSection "Display"
+         Depth       8
+         Modes       "1280x1024"
+     EndSubSection
+     SubSection "Display"
+         Depth       15
+         Modes       "1280x1024"
+     EndSubSection
+     SubSection "Display"
+         Depth       16
+         Modes       "1280x1024"
+     EndSubSection
+     SubSection "Display"
+         Depth       24
+         Modes       "1280x1024"
+     EndSubSection
+     SubSection "Display"
+         Depth       32
+         Modes       "1280x1024"
+     EndSubSection
+EndSection
+
+Section "ServerLayout"
+     Identifier  "Default Layout"
+     Screen      "Default Screen"
+     InputDevice "Generic Keyboard"
+     InputDevice "Configured Mouse"
+EndSection
+
+Section "DRI"
+     Mode    0666
+EndSection
+
+	Regards,
+
+	JKB
+
+
+From macallan@netbsd.org  Wed Dec 14 12:34:43 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Michael <macallan@netbsd.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: How to use X Window System on NetBSD/alpha?
+Date: Wed, 14 Dec 2016 12:34:43 -0500
+Organization: The NetBSD Foundation
+Lines: 13
+Approved: news@gmane.org
+Message-ID: <20161214123443.7a4dcb0e@blackbush>
+References: <CANkyS8UtM=RMoVKfLO96TMp29Z0Lsz-Zpg9uHzrHU1eQbob1_A@mail.gmail.com>
+	<20161214090801.58c7f486@blackbush>
+	<58515310.6010600@systella.fr>
+	<20161214092011.109a9b99@blackbush>
+	<58515743.1000702@systella.fr>
+	<20161214093908.0bd207f8@blackbush>
+	<58515E28.2090104@systella.fr>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+X-Trace: blaine.gmane.org 1481736904 30240 195.159.176.226 (14 Dec 2016 17:35:04 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 14 Dec 2016 17:35:04 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: BERTRAND =?ISO-8859-1?Q?Jo=EBl?= <joel.bertrand@systella.fr>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Dec 14 18:34:58 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cHDS9-0006Kt-FK
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Dec 2016 18:34:53 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id A6036855E5; Wed, 14 Dec 2016 17:34:55 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 0B6268558B
+	for <port-alpha@netbsd.org>; Wed, 14 Dec 2016 17:34:54 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=gmail.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id niSyNOthMLqY for <port-alpha@netbsd.org>;
+	Wed, 14 Dec 2016 17:34:53 +0000 (UTC)
+Original-Received: from mail-it0-x241.google.com (mail-it0-x241.google.com [IPv6:2607:f8b0:4001:c0b::241])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 78E9884CF5
+	for <port-alpha@netbsd.org>; Wed, 14 Dec 2016 17:34:53 +0000 (UTC)
+Original-Received: by mail-it0-x241.google.com with SMTP id b123so750376itb.2
+        for <port-alpha@netbsd.org>; Wed, 14 Dec 2016 09:34:53 -0800 (PST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20120113;
+        h=sender:date:from:to:cc:subject:message-id:in-reply-to:references
+         :organization:mime-version:content-transfer-encoding;
+        bh=DOWEf/9ceu3zJk2G+l9kMeSVUZI/ipURRGMN623W3rE=;
+        b=Wf0Hh+nxoXwncPd5wZvEbcfwp8dKxfBT1frzJeFc8X0q5YW4fByUJ0OTafbaSCjtJO
+         IMMNmmYeEYoZ70Mj8ljXlp7jdrSHhbtiJ2mgrZwxIfuzcXRVFrsJ7f9ADgPUYCbOQeiC
+         JAmbLfvmF3WyZ6KlWEv75uNI6fzi+Xz3B0RZsEtayhqXYVfatM2NsQrvuNf+F0E2mbaQ
+         t4WDCUXUAfRJhgm7V2v44h89BRZwAlmQ92BmnH5Jcq3bvPspEZHkITdyyAE/lLT66lld
+         f6f0EhinA2mAXKm4ZMznqJZsqxJY5y4mBoqnw2Kyjd6PGn001EbcXMABWdmCLmmwFZzR
+         Z1nQ==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20161025;
+        h=x-gm-message-state:sender:date:from:to:cc:subject:message-id
+         :in-reply-to:references:organization:mime-version
+         :content-transfer-encoding;
+        bh=DOWEf/9ceu3zJk2G+l9kMeSVUZI/ipURRGMN623W3rE=;
+        b=p6GJpNSqS7tsIlT962Eay3a/XC7YbGyD+/WwT2vMQ3rVGceQRJ5rXmtNKGi31ZXMeA
+         eQSjDm5wKckUbm/c4cwLTyYyT5V5+jgVdCr6ToukKU5B9lW5a2rqNVvLOsRC7XcV0+df
+         +VLrbywcGxIZoVtwaY4spnj76h8+7gH15CDzbH3qQ5ZKdnQZ8frO55rglYaS55tWi7d8
+         lnTdkMXAuqKOagvYNSozVzhvTnm8PpuXZt+EzvfPw1pNzc7wIs9wCkep0tSNcNfqxTrh
+         1sTekPcBh4firZF4vPImcfoSSlc7juAm5azu6UlnDGsXJXB48KBGv7MSUhsKt32QrNxT
+         pDvQ==
+X-Gm-Message-State: AKaTC00eDhAfLxZ3uLkop7pJk9hGtOEQXUjC6dFUOK/FsbOykfHUnedXNprMYcKAPSkX9Q==
+X-Received: by 10.36.181.83 with SMTP id j19mr8650784iti.13.1481736892804;
+        Wed, 14 Dec 2016 09:34:52 -0800 (PST)
+Original-Received: from blackbush (c-50-149-210-101.hsd1.tn.comcast.net. [50.149.210.101])
+        by smtp.gmail.com with ESMTPSA id t20sm2834607ita.11.2016.12.14.09.34.51
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 14 Dec 2016 09:34:52 -0800 (PST)
+In-Reply-To: <58515E28.2090104@systella.fr>
+X-Mailer: Claws Mail 3.11.1 (GTK+ 2.24.27; sparc64--netbsd)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4965
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4965>
+
+Hello,
+
+On Wed, 14 Dec 2016 15:58:48 +0100
+BERTRAND Jo=EBl <joel.bertrand@systella.fr> wrote:
+
+> 	Nope, glint doesn't work on alpha.
+
+This doesn't tell me much without the log file.
+
+have fun
+Michael
+
+
+
+From joel.bertrand@systella.fr  Wed Dec 14 19:07:15 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: =?UTF-8?Q?BERTRAND_Jo=c3=abl?= <joel.bertrand@systella.fr>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: How to use X Window System on NetBSD/alpha?
+Date: Wed, 14 Dec 2016 19:07:15 +0100
+Lines: 18
+Approved: news@gmane.org
+Message-ID: <58518A53.2060205@systella.fr>
+References: <CANkyS8UtM=RMoVKfLO96TMp29Z0Lsz-Zpg9uHzrHU1eQbob1_A@mail.gmail.com>
+ <20161214090801.58c7f486@blackbush> <58515310.6010600@systella.fr>
+ <20161214092011.109a9b99@blackbush> <58515743.1000702@systella.fr>
+ <20161214093908.0bd207f8@blackbush> <58515E28.2090104@systella.fr>
+ <20161214123443.7a4dcb0e@blackbush>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
+X-Trace: blaine.gmane.org 1481738862 3633 195.159.176.226 (14 Dec 2016 18:07:42 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 14 Dec 2016 18:07:42 +0000 (UTC)
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:43.0) Gecko/20100101
+ Firefox/43.0 SeaMonkey/2.40
+Cc: port-alpha@NetBSD.org
+To: Michael <macallan@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Dec 14 19:07:35 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cHDxi-0007fX-GG
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Dec 2016 19:07:30 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 20D44855B9; Wed, 14 Dec 2016 18:07:32 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id B306B85575;
+	Wed, 14 Dec 2016 18:07:30 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id qUFcASS6-LCv; Wed, 14 Dec 2016 18:07:30 +0000 (UTC)
+Original-Received: from rayleigh.systella.fr (newton-ipv6.systella.fr [IPv6:2001:7a8:a8ed:253::1])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id E7DAE84CEF;
+	Wed, 14 Dec 2016 18:07:27 +0000 (UTC)
+Original-Received: from [192.168.254.1] (bertrand@rayleigh.systella.fr [192.168.254.1])
+	(authenticated bits=0)
+	by rayleigh.systella.fr (8.15.2/8.15.2/Debian-8) with ESMTPSA id uBEI7Fpc007850
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=NOT);
+	Wed, 14 Dec 2016 19:07:15 +0100
+In-Reply-To: <20161214123443.7a4dcb0e@blackbush>
+X-Virus-Scanned: clamav-milter 0.99.2 at rayleigh
+X-Virus-Status: Clean
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4966
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4966>
+
+Michael a écrit :
+> Hello,
+>
+> On Wed, 14 Dec 2016 15:58:48 +0100
+> BERTRAND Joël <joel.bertrand@systella.fr> wrote:
+>
+>> 	Nope, glint doesn't work on alpha.
+>
+> This doesn't tell me much without the log file.
+
+	The last time I have tried, systems only panics. It's not X issue but 
+kernel one.
+
+	Regards,
+
+	JKB
+
+
+
+From rokuyama@rk.phys.keio.ac.jp  Thu Dec 15 13:49:49 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Rin Okuyama <rokuyama@rk.phys.keio.ac.jp>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.devel.toolchain
+Subject: GDB breakpoint not working on alpha
+Date: Thu, 15 Dec 2016 13:49:49 +0900
+Lines: 157
+Approved: news@gmane.org
+Message-ID: <5e06b17f-67f8-766c-ee10-63fc9346c296@rk.phys.keio.ac.jp>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: blaine.gmane.org 1481777422 25504 195.159.176.226 (15 Dec 2016 04:50:22 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Thu, 15 Dec 2016 04:50:22 +0000 (UTC)
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:45.0)
+ Gecko/20100101 Thunderbird/45.5.1
+Cc: Martin Husemann <martin@duskware.de>, Nick Hudson <skrll@netbsd.org>
+To: port-alpha@netbsd.org, tech-toolchain@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Dec 15 05:50:13 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cHNzg-0004rt-JU
+	for netbsd-port-alpha@m.gmane.org; Thu, 15 Dec 2016 05:50:13 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 1134A855D1; Thu, 15 Dec 2016 04:50:07 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 047DE85571;
+	Thu, 15 Dec 2016 04:50:00 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id gIvEZlcd8zZ5; Thu, 15 Dec 2016 04:49:59 +0000 (UTC)
+Original-Received: from kobrmc34.rk.phys.keio.ac.jp (kobrmc34.rk.phys.keio.ac.jp [131.113.74.167])
+	by mail.netbsd.org (Postfix) with ESMTP id BDE2184CEF;
+	Thu, 15 Dec 2016 04:49:54 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by kobrmc34.rk.phys.keio.ac.jp (Postfix) with ESMTP id 61D171454C41D;
+	Thu, 15 Dec 2016 13:49:53 +0900 (JST)
+X-Virus-Scanned: amavisd-new at rk.phys.keio.ac.jp
+Original-Received: from kobrmc34.rk.phys.keio.ac.jp ([127.0.0.1])
+	by localhost (kobrmc34.rk.phys.keio.ac.jp [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id BHKmQfjRFeyJ; Thu, 15 Dec 2016 13:49:49 +0900 (JST)
+Original-Received: from kobrpd03.local (kobrpd02.rk.phys.keio.ac.jp [131.113.74.58])
+	by kobrmc34.rk.phys.keio.ac.jp (Postfix) with ESMTP id 78A3D1454C3E1;
+	Thu, 15 Dec 2016 13:49:49 +0900 (JST)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4967 gmane.os.netbsd.devel.toolchain:6299
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4967>
+
+For GDB on alpha, breakpoints sometimes do not work correctly:
+
+   % gdb pwd
+   GNU gdb (GDB) 7.12
+   ...
+   Reading symbols from pwd...Reading symbols from /tmp/pwd/pwd.debug...done.
+   done.
+   (gdb) b main
+   Breakpoint 1 at 0x120000fa0: file pwd.c, line 71.
+   (gdb) r
+   Starting program: /tmp/pwd/pwd
+   /tmp/pwd
+   [Inferior 1 (process 8649) exited normally]
+   (gdb)
+
+This is because ___start skips first 8 bytes in main, and therefore a
+breakpoint at the entrypoint of main (0x120000fa0):
+
+   (gdb) disas ___start
+   Dump of assembler code for function ___start:
+   ...
+      0x0000000120000c34 <+404>:   bsr     ra,0x120000fa8 <main+8>
+   ...
+   (gdb) disas main
+   Dump of assembler code for function main:
+      0x0000000120000fa0 <+0>:     ldah    gp,2(t12)
+      0x0000000120000fa4 <+4>:     lda     gp,-31296(gp)
+      0x0000000120000fa8 <+8>:     lda     sp,-48(sp)
+      0x0000000120000fac <+12>:    stq     ra,0(sp)
+      0x0000000120000fb0 <+16>:    stq     s0,8(sp)
+   ...
+
+Usually GDB skips the function prologue when it inserts a breakpoint,
+but it does not skip when a target has been compiled by GCC with both
+optimization and debugging information:
+
+   https://sourceware.org/git/gitweb.cgi?p=binutils-gdb.git;a=commitdiff;h=6e22494e5076e4d3c0b2c2785883162f83db499e
+
+Instead, GDB call gdbarch_skip_entrypoint() in this case, which is not
+defined for almost platforms:
+
+   https://sourceware.org/git/gitweb.cgi?p=binutils-gdb.git;a=commitdiff;h=141c5cc4c44a6ce1a5c628c0f4849a8b1c91d383
+
+src/external/gpl3/gdb/dist/gdb/symtab.c
+   3584  struct symtab_and_line
+   3585  find_function_start_sal (struct symbol *sym, int funfirstline)
+   3586  {
+   ...
+   3594    if (funfirstline && sal.symtab != NULL
+   3595        && (COMPUNIT_LOCATIONS_VALID (SYMTAB_COMPUNIT (sal.symtab))
+   3596            || SYMTAB_LANGUAGE (sal.symtab) == language_asm))
+   3597      {
+   3598        struct gdbarch *gdbarch = symbol_arch (sym);
+   3599
+   3600        sal.pc = BLOCK_START (SYMBOL_BLOCK_VALUE (sym));
+   3601        if (gdbarch_skip_entrypoint_p (gdbarch))
+   3602          sal.pc = gdbarch_skip_entrypoint (gdbarch, sal.pc);
+   3603        return sal;
+   3604      }
+   ...
+   3618    if (funfirstline)
+   3619      skip_prologue_sal (&sal);
+   3620
+   3621    return sal;
+   3622  }
+
+The problem is who skips the first 8 bytes of main, out of control of
+GCC. The answer is ld(1). It so clever that the redundant GP load in
+function entrypoint is skipped:
+
+src/external/gpl3/binutils/dist/bfd/elf64-alpha.c
+   3180  static bfd_vma
+   3181  elf64_alpha_relax_opt_call (struct alpha_relax_info *info, bfd_vma symva
+l)
+   3182  {
+   3183    /* If the function has the same gp, and we can identify that the
+   3184       function does not use its function pointer, we can eliminate the
+   3185       address load.  */
+   ...
+   3241    /* We've now determined that we can skip an initial gp load.  Verify
+   3242       that the call and the target use the same gp.   */
+   3243    if (info->link_info->output_bfd->xvec != info->tsec->owner->xvec
+   3244        || info->gotobj != alpha_elf_tdata (info->tsec->owner)->gotobj)
+   3245      return 0;
+   3246
+   3247    return symval + 8;
+   3248  }
+
+We do not know for which function ld(1) determined the initial GP load
+can be skipped. Therefore GDB should also skips initial GP loads for
+every functions by using gdbarch_skip_entrypoint(), IMO.
+
+With the attached patch below, breakpoints work well:
+
+   % gdb.patched pwd
+   GNU gdb (GDB) 7.12
+   ...
+   Reading symbols from pwd...Reading symbols from /var/shm/pwd/pwd.debug...done.
+   done.
+   (gdb) b main
+   Breakpoint 1 at 0x120000fa8: file pwd.c, line 71.
+   (gdb) r
+   Starting program: /var/shm/pwd/pwd
+   
+   Breakpoint 1, 0x0000000120000fa8 in main (argc=1, argv=0x1ffffd470) at pwd.c:71
+   71      {
+   (gdb)
+
+Could I commit this? Any questions or suggestions?
+
+Thanks,
+Rin
+--- src/external/gpl3/gdb/dist/gdb/alpha-tdep.c.orig	2016-12-15 05:13:41.674443412 +0900
++++ src/external/gpl3/gdb/dist/gdb/alpha-tdep.c	2016-12-15 05:37:39.860738374 +0900
+@@ -757,6 +757,31 @@
+    return pc + offset;
+  }
+  
++/* GNU ld for alpha is so clever that the redundant GP load in function
++   entrypoint is skipped.  We must therefore skip initial GP loads; otherwise
++   breakpoints in function entrypoints can also be skipped.  */
++
++static CORE_ADDR
++alpha_skip_entrypoint (struct gdbarch *gdbarch, CORE_ADDR pc)
++{
++  unsigned long inst;
++  gdb_byte buf[ALPHA_INSN_SIZE];
++
++  /* Refer to the comment in alpha_skip_prologue above.  */
++  if (target_read_memory (pc, buf, sizeof (buf)))
++    return pc;
++
++  /* Skip a GP load in the first two words in the function entrypoint.  */
++  inst = alpha_read_insn (gdbarch, pc);
++  if ((inst & 0xffff0000) != 0x27bb0000)	/* ldah $gp,n($t12) */
++    return pc;
++  inst = alpha_read_insn (gdbarch, pc + ALPHA_INSN_SIZE);
++  if ((inst & 0xffff0000) != 0x23bd0000)	/* lda $gp,n($gp) */
++    return pc;
++
++  return pc + 2 * ALPHA_INSN_SIZE;
++}
++
+  
+  static const int ldl_l_opcode = 0x2a;
+  static const int ldq_l_opcode = 0x2b;
+@@ -1802,6 +1827,9 @@
+    /* Prologue heuristics.  */
+    set_gdbarch_skip_prologue (gdbarch, alpha_skip_prologue);
+  
++  /* Entrypoint heuristics.  */
++  set_gdbarch_skip_entrypoint (gdbarch, alpha_skip_entrypoint);
++
+    /* Disassembler.  */
+    set_gdbarch_print_insn (gdbarch, print_insn_alpha);
+  
+
+
+From martin@duskware.de  Thu Dec 15 08:14:37 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.devel.toolchain
+Subject: Re: GDB breakpoint not working on alpha
+Date: Thu, 15 Dec 2016 08:14:37 +0100
+Lines: 5
+Approved: news@gmane.org
+Message-ID: <20161215071437.GB25676@mail.duskware.de>
+References: <5e06b17f-67f8-766c-ee10-63fc9346c296@rk.phys.keio.ac.jp>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: blaine.gmane.org 1481786089 773 195.159.176.226 (15 Dec 2016 07:14:49 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Thu, 15 Dec 2016 07:14:49 +0000 (UTC)
+User-Agent: Mutt/1.4.2.3i
+Cc: port-alpha@netbsd.org, tech-toolchain@netbsd.org,
+	Nick Hudson <skrll@netbsd.org>
+To: Rin Okuyama <rokuyama@rk.phys.keio.ac.jp>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Dec 15 08:14:45 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cHQFZ-0007kF-89
+	for netbsd-port-alpha@m.gmane.org; Thu, 15 Dec 2016 08:14:45 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 8C0DD855B8; Thu, 15 Dec 2016 07:14:46 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id D297884CF0;
+	Thu, 15 Dec 2016 07:14:45 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id aaibj5PqzWBE; Thu, 15 Dec 2016 07:14:45 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [91.199.88.144])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 420AF84CEA;
+	Thu, 15 Dec 2016 07:14:39 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id 9191CA8023; Thu, 15 Dec 2016 08:14:37 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <5e06b17f-67f8-766c-ee10-63fc9346c296@rk.phys.keio.ac.jp>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4968 gmane.os.netbsd.devel.toolchain:6300
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4968>
+
+Sounds good to me - should we bring this up upstream? Do other alpha
+targets need this as well?
+
+Martin
+
+
+From nick.hudson@gmx.co.uk  Thu Dec 15 07:41:19 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Nick Hudson <nick.hudson@gmx.co.uk>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.devel.toolchain
+Subject: Re: GDB breakpoint not working on alpha
+Date: Thu, 15 Dec 2016 07:41:19 +0000
+Lines: 11
+Approved: news@gmane.org
+Message-ID: <5852491F.1080506@gmx.co.uk>
+References: <5e06b17f-67f8-766c-ee10-63fc9346c296@rk.phys.keio.ac.jp>
+ <20161215071437.GB25676@mail.duskware.de>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: blaine.gmane.org 1481787742 26165 195.159.176.226 (15 Dec 2016 07:42:22 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Thu, 15 Dec 2016 07:42:22 +0000 (UTC)
+User-Agent: Mozilla/5.0 (X11; NetBSD amd64; rv:38.0) Gecko/20100101
+ Thunderbird/38.2.0
+Cc: port-alpha@netbsd.org, tech-toolchain@netbsd.org,
+ Nick Hudson <skrll@netbsd.org>
+To: Martin Husemann <martin@duskware.de>,
+ Rin Okuyama <rokuyama@rk.phys.keio.ac.jp>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Dec 15 08:42:18 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cHQgE-000607-Bj
+	for netbsd-port-alpha@m.gmane.org; Thu, 15 Dec 2016 08:42:18 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id D4BEA855B6; Thu, 15 Dec 2016 07:42:19 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 8F1D085581;
+	Thu, 15 Dec 2016 07:42:18 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id JqgzN3g4ApZZ; Thu, 15 Dec 2016 07:42:18 +0000 (UTC)
+Original-Received: from mout.gmx.net (mout.gmx.net [212.227.15.19])
+	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 8D1B285578;
+	Thu, 15 Dec 2016 07:42:15 +0000 (UTC)
+Original-Received: from [10.1.0.5] ([146.198.109.158]) by mail.gmx.com (mrgmx001
+ [212.227.17.184]) with ESMTPSA (Nemesis) id 0LmrUq-1cpg6I2u3I-00h29x; Thu, 15
+ Dec 2016 08:42:03 +0100
+In-Reply-To: <20161215071437.GB25676@mail.duskware.de>
+X-Provags-ID: V03:K0:PJeEoaz35xLZABtvWAEcg5UPnVIrpGVDVCpDbnrYcfcwqmRdAFt
+ IR7VD7CYlDV8QqUxumgLp0BKQU5Enr5Q5dYd3qOP0zrSVCGtwjSENWICwJmHDR2ZdOmYQ8F
+ L8+sNINhuIBfai0JS0rWeMyRoCJQiv9DHM2HfWbI2ag+rAIvZEBtuXjo8IuSN4tawpvPDuZ
+ tN+VqJvq0JcjX03hh8g+A==
+X-UI-Out-Filterresults: notjunk:1;V01:K0:ziLXCwWQeBk=:MU1VLR/bPXU2xGBOiKeIjW
+ 7lV+nmZ6kAYidxD7Gqnvhsa5V5+uLQwPGg6L0QjB3BSLv99kjvQaQUgxMckYSmszyJlHwURwQ
+ t2Dfg5QL2/DSEbJRCbWQJBqAvwiEw705ttuWlaMsintn/lQ1/SXl8xz1tA4iIjGYcBBL4h6j2
+ CEQPUgk+DkEBjW3gWSaGrVn+wQBoFagsTj9UQmHHHZXeC7JLTpp/b90ZdPWKNDY1DBXwl3E1N
+ F6DORhs6MEA7c7RNeDZirlTA5IQabAkqSJXDV+WKNCZw6bTZVZPoG+qoTZIqYyJeXRyL9Svwl
+ hrh5sqc14OEmY+Au4WOXS+3pzOPa/iavnVqH8ia11lBZlfpFdP4Ldp+akS/YX2XITLde0+HEI
+ KlbnXC7xiFhyyUVoEEnNM1yJ4tSGNwK6K8Zk1RL54sxQ8AFXhpg1cfSdcl/LqBPHC90Idki+i
+ rDwMjJXWwwUu14bULlQc568ESaGB67iwUQRJ+u+27ldE7XCD3sd6KxpIe/b94+AV83/JTWfCj
+ zGcTM3c+ywNjlknh8Vk7VlC7OKs1xD3j7b4FEtBqa3noF41d7K9ofxi+T6F40wAaZkbYC9ClZ
+ UZijY1LA2+REJgsaocLcw48WXpegaQ1cF1KVuodo5Y/kBsF7F/PMbqFV8q8gWfvhwXAPSnxtg
+ /Fk9bZm75DGWHlGX6KPPXOkLdT+LUV1TLFi38I7jNp9dvwA2j4ktaLTojZ8mJyJ63xGx1LSoJ
+ F0/vwtJSLGbPuOpBpkdJT7K9Z7k4sqS1pFqu10XpB1TVe2QjdrTCJ7ynaXQjoiTT9+nqHuPy 
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4969 gmane.os.netbsd.devel.toolchain:6301
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4969>
+
+On 12/15/16 07:14, Martin Husemann wrote:
+> Sounds good to me - should we bring this up upstream? Do other alpha
+> targets need this as well?
+
+yes and probably.
+
+>
+> Martin
+
+Nick
+
+
+From joel.bertrand@systella.fr  Thu Dec 15 09:28:19 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: =?UTF-8?Q?BERTRAND_jo=c3=abl?= <joel.bertrand@systella.fr>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Bug in libm
+Date: Thu, 15 Dec 2016 09:28:19 +0100
+Lines: 51
+Approved: news@gmane.org
+Message-ID: <58525423.4010807@systella.fr>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: blaine.gmane.org 1481790536 31734 195.159.176.226 (15 Dec 2016 08:28:56 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Thu, 15 Dec 2016 08:28:56 +0000 (UTC)
+User-Agent: Mozilla/5.0 (X11; NetBSD alpha; rv:43.0) Gecko/20100101
+ Firefox/43.0 SeaMonkey/2.40
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Dec 15 09:28:52 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cHRPH-0007HM-0v
+	for netbsd-port-alpha@m.gmane.org; Thu, 15 Dec 2016 09:28:51 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id A4EB5855BC; Thu, 15 Dec 2016 08:28:53 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 2D63285586
+	for <port-alpha@netbsd.org>; Thu, 15 Dec 2016 08:28:51 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id 0bxiQ9TSYwNe for <port-alpha@netbsd.org>;
+	Thu, 15 Dec 2016 08:28:50 +0000 (UTC)
+Original-Received: from rayleigh.systella.fr (newton-ipv6.systella.fr [IPv6:2001:7a8:a8ed:253::1])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 3165285572
+	for <port-alpha@netbsd.org>; Thu, 15 Dec 2016 08:28:49 +0000 (UTC)
+Original-Received: from einstein.systella.fr ([192.168.0.103])
+	(authenticated bits=0)
+	by rayleigh.systella.fr (8.15.2/8.15.2/Debian-8) with ESMTPSA id uBF8SJaV026034
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=NOT)
+	for <port-alpha@netbsd.org>; Thu, 15 Dec 2016 09:28:36 +0100
+X-Virus-Scanned: clamav-milter 0.99.2 at rayleigh
+X-Virus-Status: Clean
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4970
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4970>
+
+	Hello,
+
+	I have seen that Gimp triggers a bug in libm.
+
+einstein:[~] > gimp
+Floating point exception (core dumped)
+einstein:[~] > gdb gimp gimp-2.8.core
+GNU gdb (GDB) 7.12
+Copyright (C) 2016 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later 
+<http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
+and "show warranty" for details.
+This GDB was configured as "alpha--netbsd".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<http://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+<http://www.gnu.org/software/gdb/documentation/>.
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from gimp...(no debugging symbols found)...done.
+[New process 1]
+Core was generated by `gimp-2.8'.
+Program terminated with signal SIGFPE, Arithmetic exception.
+#0  0x000003fffc80ebd8 in lrint () from /usr/lib/libm.so.0
+(gdb) bt
+#0  0x000003fffc80ebd8 in lrint () from /usr/lib/libm.so.0
+#1  0x000003fffbf71368 in table_init.part ()
+    from /usr/pkg/lib/babl-0.1/gggl-lies.so
+#2  0x000003fffbf72ee4 in init () from /usr/pkg/lib/babl-0.1/gggl-lies.so
+#3  0x000003fffcb2825c in babl_extension_load_dir_list ()
+    from /usr/pkg/lib/libbabl-0.1.so.0
+#4  0x000003fffcb24af0 in babl_init () from /usr/pkg/lib/libbabl-0.1.so.0
+#5  0x000003fffce06204 in gegl_post_parse_hook ()
+    from /usr/pkg/lib/libgegl-0.2.so.0
+#6  0x000003fffc94110c in g_option_context_parse ()
+    from /usr/pkg/lib/libglib-2.0.so.0
+#7  0x000003fffc9425f4 in g_option_context_parse_strv ()
+    from /usr/pkg/lib/libglib-2.0.so.0
+#8  0x0000000120548164 in main ()
+(gdb)
+
+	I have tried on both ev56 and ev6 with the same result (NetBSD 
+7.99.46). I don't know internal alpha cpu enough to fix it...
+
+	Best regards,
+
+	JKB
+
+
+From rokuyama@rk.phys.keio.ac.jp  Thu Dec 15 19:05:32 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Rin Okuyama <rokuyama@rk.phys.keio.ac.jp>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.devel.toolchain
+Subject: Re: GDB breakpoint not working on alpha
+Date: Thu, 15 Dec 2016 19:05:32 +0900
+Lines: 19
+Approved: news@gmane.org
+Message-ID: <019a60be-4e12-70c8-a7fb-5d75222527b2@rk.phys.keio.ac.jp>
+References: <5e06b17f-67f8-766c-ee10-63fc9346c296@rk.phys.keio.ac.jp>
+ <20161215071437.GB25676@mail.duskware.de> <5852491F.1080506@gmx.co.uk>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: blaine.gmane.org 1481796349 17170 195.159.176.226 (15 Dec 2016 10:05:49 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Thu, 15 Dec 2016 10:05:49 +0000 (UTC)
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:45.0)
+ Gecko/20100101 Thunderbird/45.5.1
+Cc: port-alpha@netbsd.org, tech-toolchain@netbsd.org,
+ Nick Hudson <skrll@netbsd.org>
+To: Nick Hudson <nick.hudson@gmx.co.uk>, Martin Husemann <martin@duskware.de>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Dec 15 11:05:45 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cHSv1-0003hD-I1
+	for netbsd-port-alpha@m.gmane.org; Thu, 15 Dec 2016 11:05:43 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id C3CEC855CE; Thu, 15 Dec 2016 10:05:45 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 6A6C685586;
+	Thu, 15 Dec 2016 10:05:44 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id ESn-ncEPq5mq; Thu, 15 Dec 2016 10:05:44 +0000 (UTC)
+Original-Received: from kobrmc34.rk.phys.keio.ac.jp (kobrmc34.rk.phys.keio.ac.jp [131.113.74.167])
+	by mail.netbsd.org (Postfix) with ESMTP id 76CB484CEA;
+	Thu, 15 Dec 2016 10:05:40 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by kobrmc34.rk.phys.keio.ac.jp (Postfix) with ESMTP id B06CB14581B76;
+	Thu, 15 Dec 2016 19:05:39 +0900 (JST)
+X-Virus-Scanned: amavisd-new at rk.phys.keio.ac.jp
+Original-Received: from kobrmc34.rk.phys.keio.ac.jp ([127.0.0.1])
+	by localhost (kobrmc34.rk.phys.keio.ac.jp [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id LA6Zs4bCPwHz; Thu, 15 Dec 2016 19:05:34 +0900 (JST)
+Original-Received: from kobrpd03.local (kobrpd02.rk.phys.keio.ac.jp [131.113.74.58])
+	by kobrmc34.rk.phys.keio.ac.jp (Postfix) with ESMTP id 2CC4214581B58;
+	Thu, 15 Dec 2016 19:05:33 +0900 (JST)
+In-Reply-To: <5852491F.1080506@gmx.co.uk>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4971 gmane.os.netbsd.devel.toolchain:6302
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4971>
+
+On 2016/12/15 16:41, Nick Hudson wrote:
+> On 12/15/16 07:14, Martin Husemann wrote:
+>> Sounds good to me - should we bring this up upstream? Do other alpha
+>> targets need this as well?
+>
+> yes and probably.
+>
+>>
+>> Martin
+>
+> Nick
+>
+
+Thank you for your comments. I committed and reported it to upstream:
+
+   https://sourceware.org/bugzilla/show_bug.cgi?id=20969
+
+Rin
+
+
+From nullnilaki@gmail.com  Sun Dec 18 16:44:04 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: "Naruaki.Etomi" <nullnilaki@gmail.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: How to use X Window System on NetBSD/alpha?
+Date: Sun, 18 Dec 2016 16:44:04 +0900
+Lines: 28
+Approved: news@gmane.org
+Message-ID: <CANkyS8XFBjcBryNP2gt8dLTJfOECMa4Q=UkychjdALiL3no06A@mail.gmail.com>
+References: <CANkyS8UtM=RMoVKfLO96TMp29Z0Lsz-Zpg9uHzrHU1eQbob1_A@mail.gmail.com>
+ <20161214090801.58c7f486@blackbush> <58515310.6010600@systella.fr>
+ <20161214092011.109a9b99@blackbush> <58515743.1000702@systella.fr>
+ <20161214093908.0bd207f8@blackbush> <58515E28.2090104@systella.fr>
+ <20161214123443.7a4dcb0e@blackbush> <58518A53.2060205@systella.fr>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+X-Trace: blaine.gmane.org 1482055396 2555 195.159.176.226 (18 Dec 2016 10:03:16 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Sun, 18 Dec 2016 10:03:16 +0000 (UTC)
+Cc: Michael <macallan@netbsd.org>, port-alpha@netbsd.org
+To: =?UTF-8?Q?BERTRAND_Jo=C3=ABl?= <joel.bertrand@systella.fr>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Dec 18 11:03:12 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cIYJC-00087V-0l
+	for netbsd-port-alpha@m.gmane.org; Sun, 18 Dec 2016 11:03:10 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id B8838855EE; Sun, 18 Dec 2016 10:03:11 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: by mail.netbsd.org (Postfix, from userid 1347)
+	id 62408855DC; Sun, 18 Dec 2016 10:03:11 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id BE1E084CFD;
+	Sun, 18 Dec 2016 07:44:08 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=gmail.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id MFD95wb_xkUb; Sun, 18 Dec 2016 07:44:08 +0000 (UTC)
+Original-Received: from mail-lf0-x230.google.com (mail-lf0-x230.google.com [IPv6:2a00:1450:4010:c07::230])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id B7C6184CE5;
+	Sun, 18 Dec 2016 07:44:06 +0000 (UTC)
+Original-Received: by mail-lf0-x230.google.com with SMTP id c13so35059404lfg.0;
+        Sat, 17 Dec 2016 23:44:06 -0800 (PST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20161025;
+        h=mime-version:in-reply-to:references:from:date:message-id:subject:to
+         :cc:content-transfer-encoding;
+        bh=y7FZBusoECCnudOZPh/fmssoGHqiaBTVem8lUDOiFyE=;
+        b=Y7vGV8lJwqPQGlHxbg5BXj/Qr3Tw3aFjlwegNPspB3rzE8g7mG1o/Re7dOMsOuZuhq
+         YJ9cXlVHJkNI8P4JIB8F8kwA/RDpEl562V/6f5Ui29adKvtPhFjGA9RKIzXlRR6UYVl4
+         IC8Dg8oh6gpUs20IzuGB8b9gEHK96q0OCiSRYtHrCwk1l4facsrcxpvaUdk6bXMgZ2/z
+         W0aAp8xH77qq2naffN4+el+9O5CYrd9eKtdqI1VKeN8puRKP+6Ys5bafo9a8Tra/ztOp
+         2z5rxBzYKiVcpQoByIEYb8UX6VvHVjmhhHatLSOyvtAx3Irb+JW7OZSVqE7GLKTcQDom
+         TS3w==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20161025;
+        h=x-gm-message-state:mime-version:in-reply-to:references:from:date
+         :message-id:subject:to:cc:content-transfer-encoding;
+        bh=y7FZBusoECCnudOZPh/fmssoGHqiaBTVem8lUDOiFyE=;
+        b=QMzkEEwxphIfBTe2xkBzDAfvEj9QvPl6JFFNP88y7Np0kvQ2FAJW8INJqPMpqDDKfK
+         UlZvE77vWqZ5xJwI0nso78ZmPiQ217pwHOU6XXYBlMN3XSDJg60tTGFhwkKAx19MWmGl
+         agfVN39WyGLRFVyKU+/pZlptji3Z2lZspzfqmFa8ikpJbYyQ79I467FwCbrIbWkFJCv4
+         1ITkPgxL4SknHxJpfZtjXZOle7WY/juXb+6zuxL821fPsDt3zdyQHJSDtF8RI4MeqgxF
+         16yoYNEQMLNAkQegPG03at2SSM61YePuFpjg4P/7PitN6pdp6USqRUxt3TzoUvj+YKuD
+         6rkQ==
+X-Gm-Message-State: AKaTC01H3x5+f2mP0svLzCWV1BwigEmh9WGZ7m5uoalsqkJOMYZxB3LvpxzNYZ+CrZ4RJ5ah/0M6Rfu1c5HhOg==
+X-Received: by 10.25.44.145 with SMTP id s139mr3705305lfs.176.1482047044724;
+ Sat, 17 Dec 2016 23:44:04 -0800 (PST)
+Original-Received: by 10.25.156.140 with HTTP; Sat, 17 Dec 2016 23:44:04 -0800 (PST)
+In-Reply-To: <58518A53.2060205@systella.fr>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4972
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4972>
+
+Hello!
+
+I=E2=80=99m so so sorry for not repling sooner.
+I meant to write to you sooner but=E3=80=80I've caught the flu.
+I thought I would die...
+
+---------------------------------------------------------------------------=
+-
+
+Dear Michael,
+
+>I committed a bunch of fixes to the glint driver as well:
+>- odd resolutions ( like 1440x900, 1366x768 etc. ) work properly now,
+>  including acceleration.
+>- both Permedia 2 and 3 now have EXA support, for shiny new Xorg. Kinda
+>  crude, but working.
+
+I checked your commit.
+That is a very great job.
+Many thanks to you!
+
+---------------------------------------------------------------------------=
+-
+
+Dear JKB,
+
+>Thanks a lot. But I'm unable to change resolution on my alpha (pm3 Oxygen)=
+
+
+From macallan@netbsd.org  Sun Dec 18 12:04:03 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Michael <macallan@netbsd.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: How to use X Window System on NetBSD/alpha?
+Date: Sun, 18 Dec 2016 12:04:03 -0500
+Organization: The NetBSD Foundation
+Lines: 81
+Approved: news@gmane.org
+Message-ID: <20161218120403.4e97ae7e@blackbush>
+References: <CANkyS8UtM=RMoVKfLO96TMp29Z0Lsz-Zpg9uHzrHU1eQbob1_A@mail.gmail.com>
+	<20161214090801.58c7f486@blackbush>
+	<58515310.6010600@systella.fr>
+	<20161214092011.109a9b99@blackbush>
+	<58515743.1000702@systella.fr>
+	<20161214093908.0bd207f8@blackbush>
+	<58515E28.2090104@systella.fr>
+	<20161214123443.7a4dcb0e@blackbush>
+	<58518A53.2060205@systella.fr>
+	<CANkyS8XFBjcBryNP2gt8dLTJfOECMa4Q=UkychjdALiL3no06A@mail.gmail.com>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+X-Trace: blaine.gmane.org 1482130492 2418 195.159.176.226 (19 Dec 2016 06:54:52 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Mon, 19 Dec 2016 06:54:52 +0000 (UTC)
+Cc: BERTRAND =?ISO-8859-1?Q?Jo=EBl?= <joel.bertrand@systella.fr>,
+ port-alpha@netbsd.org
+To: "Naruaki.Etomi" <nullnilaki@gmail.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Dec 19 07:54:47 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cIrqQ-0007lX-6A
+	for netbsd-port-alpha@m.gmane.org; Mon, 19 Dec 2016 07:54:46 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id CED0985589; Mon, 19 Dec 2016 06:54:48 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: by mail.netbsd.org (Postfix, from userid 1347)
+	id 71C4485586; Mon, 19 Dec 2016 06:54:48 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id DB14D855D6
+	for <port-alpha@netbsd.org>; Sun, 18 Dec 2016 17:04:09 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=gmail.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id HSNhd0shojei for <port-alpha@netbsd.org>;
+	Sun, 18 Dec 2016 17:04:09 +0000 (UTC)
+Original-Received: from mail-it0-x244.google.com (mail-it0-x244.google.com [IPv6:2607:f8b0:4001:c0b::244])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 2573084CEF
+	for <port-alpha@netbsd.org>; Sun, 18 Dec 2016 17:04:09 +0000 (UTC)
+Original-Received: by mail-it0-x244.google.com with SMTP id b123so8049890itb.2
+        for <port-alpha@netbsd.org>; Sun, 18 Dec 2016 09:04:09 -0800 (PST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20161025;
+        h=sender:date:from:to:cc:subject:message-id:in-reply-to:references
+         :organization:mime-version:content-transfer-encoding;
+        bh=pFCu3np6PNRrsne9AfQ3lA+ZEdWPKNnKnQ69Mq/MN3c=;
+        b=oYp4Y3PvxMyBq1EwT5eE4VOu32LssH5TKt4b5HL/ASe0+ktZ5z1oumRbKRqGQWws7u
+         sWLuUfoWmXXre+ZACELjgHeouDkhQ/kVZ5Lb9yGwpk03q6Bitr9E+/wXgvaJpvZbnGps
+         YQWKsDjKfNxuFLbDTIHRKK7yupBstx1bsJwkl6TqRiJNITysLVnz8F7+b7G9GyH26KGu
+         VV35X6C3LZljkjPkh/rn8xyvkWeM1kobt6WaOZH+jJNdUBsmFPMEdUoIbTzKGHaGjST3
+         VtPmgXOtaSZZVxwLUDS3hEnAJ07MTBpb4F/6gjhd3sziMo6GY9y+IE8T/JWlK5GYEl5R
+         5bkA==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20161025;
+        h=x-gm-message-state:sender:date:from:to:cc:subject:message-id
+         :in-reply-to:references:organization:mime-version
+         :content-transfer-encoding;
+        bh=pFCu3np6PNRrsne9AfQ3lA+ZEdWPKNnKnQ69Mq/MN3c=;
+        b=HNRUGZzs1jKrQakwiq+a827TuvOkg1gvKHtt0stQ4Lk3clfGdjyQbo5r+/oV4puL9Y
+         2IBkrAXGNuSBJL5lkk/UbopZ9GDT+3ZjtHPqhE12FEhRynzRg/8Pq6Neq9wns7iB85Mt
+         pVwAlkfA1uHjovVeKZIz5P7+4YOzn02z0BiKNs9yGNYiFceLWBAKfhTJ6+Pl36bzI9GW
+         Wl78eTo9V4IWWzGemAdRO1hqDg9cfYIYHhSJDdD2pbAQhZAN8kmcdYrepEmJe0WlFBwI
+         hrmXTKkf+iQ0/0DSXd8RzXAm2sv6j9rarNj6RaiV8O9tpJ8WSbiki4NT17kfWP5I05Xh
+         ax3Q==
+X-Gm-Message-State: AKaTC03rlXRl7zyDDHCYQoWX1hxBgsI/rTkfpytwms0yoRRg8CCwzPDO/wTKv6/sP6jQLQ==
+X-Received: by 10.36.121.145 with SMTP id z139mr13134028itc.87.1482080648347;
+        Sun, 18 Dec 2016 09:04:08 -0800 (PST)
+Original-Received: from blackbush (c-50-149-210-101.hsd1.tn.comcast.net. [50.149.210.101])
+        by smtp.gmail.com with ESMTPSA id j201sm5366460ita.20.2016.12.18.09.04.07
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Sun, 18 Dec 2016 09:04:07 -0800 (PST)
+In-Reply-To: <CANkyS8XFBjcBryNP2gt8dLTJfOECMa4Q=UkychjdALiL3no06A@mail.gmail.com>
+X-Mailer: Claws Mail 3.11.1 (GTK+ 2.24.27; sparc64--netbsd)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4973
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4973>
+
+Hello,
+
+On Sun, 18 Dec 2016 16:44:04 +0900
+"Naruaki.Etomi" <nullnilaki@gmail.com> wrote:
+
+> I=E2=80=99m so so sorry for not repling sooner.
+> I meant to write to you sooner but=E3=80=80I've caught the flu.
+> I thought I would die...
+
+Well, I'm glad you got better :)
+
+> >I committed a bunch of fixes to the glint driver as well:
+> >- odd resolutions ( like 1440x900, 1366x768 etc. ) work properly now,
+> >  including acceleration.
+> >- both Permedia 2 and 3 now have EXA support, for shiny new Xorg. Kinda
+> >  crude, but working.
+>=20
+> I checked your commit.
+> That is a very great job.
+> Many thanks to you!
+
+Well, I made some more progress since - the pm3 part can now use all
+video memory and is no longer limited to pixmaps with strides that are
+aligned to the visible part. For pm2 that's not really possible thanks
+to the insane way they encode strides ( that partial products thing...
+) but I did figure out how to do hardware alpha blending ( see last
+commits to pm2fb.c ), this will go into pm2_exa.c next week or so.
+Yeah, it's going to get xrender acceleration.
+
+> >Thanks a lot. But I'm unable to change resolution on my alpha (pm3 Oxyge=
+n).
+> >I would use 1280x1024x24 and I don't know how to fix this resolution. An=
+y idea ?
+> >NetBSD/alpha tries to initialize console with following reolution : 1280=
+x1024x8 :
+>=20
+> Glint driver does not work on NetBSD/alpha.
+> Please don't use it.
+> The reason is because Glint driver cannot access /dev/mem in my opinion.
+
+It shouldn't need to mess with /dev/mem, at least not on modern(ish)
+alphas that can access smaller portions than 64bit words - on those
+just mapping the registers through /dev/pci*, like everyone else does,
+should work. Maybe we need a machine specific mmap() flag to select
+between sparse and dense regions, that way we could hide it all in
+alpha's bus_space_mmap().
+
+If you absolutely have to go through /dev/mem, options INSECURE may help.
+
+> >And I have seen some strange quirks. I'll send you a photo in a few minu=
+tes.
+>=20
+> The following monitor have been tested.
+>=20
+> FlexScan PLACEO.(FlexScan L565)
+> https://twitter.com/nullnilaki/status/810356420428242944
+> SONY SDM-P234
+> https://twitter.com/nullnilaki/status/810358510730887168
+>=20
+> There is something that I would like to confirm.
+
+Apparently pm3 needs strides that are a multiple of 32 ( or 16, I'm not
+sure, the old code in the glint driver apparently worked only by
+accident and I'm not sure if the alignment needs to be in pixels or
+bytes either ) - I have a 1366x768 monitor here that triggered
+misbehaviour in the glint driver ( and fixed it ), I've also seen
+garbage on the right border with pm3fb, but that got hidden away when
+the monitor self-adjusted and didn't cause a garbled screen image.
+But I've only seen it with that particular monitor - all my other
+monitors use native resolutions where the display width is a multiple
+of 32.
+Also, it's entirely possible to have pm3fb switch to 32bit colour with
+ioctl(WSDISPLAYIO_SMODE, WSDISPLAYIO_DUMB) and back to 8bit with
+ioctl(WSDISPLAYIO_SMODE, WSDISPLAYIO_EMUL) - a few of my other drivers
+do just that so X with wsfb can run in true colour.
+( see sparc/dev/cgfourteen.c or dev/sbus/mgx.c for examples - there are
+more )
+
+have fun
+Michael
+
+
+From joel.bertrand@systella.fr  Mon Dec 19 21:55:58 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: =?UTF-8?Q?BERTRAND_jo=c3=abl?= <joel.bertrand@systella.fr>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: How to use X Window System on NetBSD/alpha?
+Date: Mon, 19 Dec 2016 21:55:58 +0100
+Lines: 79
+Approved: news@gmane.org
+Message-ID: <5858495E.10201@systella.fr>
+References: <CANkyS8UtM=RMoVKfLO96TMp29Z0Lsz-Zpg9uHzrHU1eQbob1_A@mail.gmail.com>
+ <20161214090801.58c7f486@blackbush> <58515310.6010600@systella.fr>
+ <20161214092011.109a9b99@blackbush> <58515743.1000702@systella.fr>
+ <20161214093908.0bd207f8@blackbush> <58515E28.2090104@systella.fr>
+ <20161214123443.7a4dcb0e@blackbush> <58518A53.2060205@systella.fr>
+ <CANkyS8XFBjcBryNP2gt8dLTJfOECMa4Q=UkychjdALiL3no06A@mail.gmail.com>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+X-Trace: blaine.gmane.org 1482180989 3786 195.159.176.226 (19 Dec 2016 20:56:29 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Mon, 19 Dec 2016 20:56:29 +0000 (UTC)
+User-Agent: Mozilla/5.0 (X11; NetBSD alpha; rv:43.0) Gecko/20100101
+ Firefox/43.0 SeaMonkey/2.40
+Cc: Michael <macallan@netbsd.org>, port-alpha@netbsd.org
+To: "Naruaki.Etomi" <nullnilaki@gmail.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Dec 19 21:56:24 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cJ4yq-0007pa-56
+	for netbsd-port-alpha@m.gmane.org; Mon, 19 Dec 2016 21:56:20 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 0280A855E5; Mon, 19 Dec 2016 20:56:22 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 57D49855B9;
+	Mon, 19 Dec 2016 20:56:18 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id fBiEI0c7TCvP; Mon, 19 Dec 2016 20:56:17 +0000 (UTC)
+Original-Received: from rayleigh.systella.fr (newton-ipv6.systella.fr [IPv6:2001:7a8:a8ed:253::1])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 5B4D685577;
+	Mon, 19 Dec 2016 20:56:15 +0000 (UTC)
+Original-Received: from einstein.systella.fr ([192.168.0.103])
+	(authenticated bits=0)
+	by rayleigh.systella.fr (8.15.2/8.15.2/Debian-8) with ESMTPSA id uBJKtw4i003523
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=NOT);
+	Mon, 19 Dec 2016 21:56:02 +0100
+In-Reply-To: <CANkyS8XFBjcBryNP2gt8dLTJfOECMa4Q=UkychjdALiL3no06A@mail.gmail.com>
+X-Virus-Scanned: clamav-milter 0.99.2 at rayleigh
+X-Virus-Status: Clean
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4974
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4974>
+
+Naruaki.Etomi a Ã©crit :
+> Dear JKB,
+
+	Hi,
+
+>> Thanks a lot. But I'm unable to change resolution on my alpha (pm3 Oxygen).
+>> I would use 1280x1024x24 and I don't know how to fix this resolution. Any idea ?
+>> NetBSD/alpha tries to initialize console with following reolution : 1280x1024x8 :
+>
+> Glint driver does not work on NetBSD/alpha.
+> Please don't use it.
+
+	I don't use glint driver, only wsfb.
+
+> The reason is because Glint driver cannot access /dev/mem in my opinion.
+> Please use wsfb driver.
+> Wsfb driver access to the Permedia 3's VRAM via bus_space_mmap(9)function.
+> There is no way of using X on NetBSD/alpha other than by framebuffer
+> console driver.
+> (radeonfb, pm2fb, pm3fb)
+
+	I know. I have tried some graphic adapters without any success (system 
+only panics).
+
+>> And I have seen some strange quirks. I'll send you a photo in a few minutes.
+>
+> The following monitor have been tested.
+>
+> FlexScan PLACEO.(FlexScan L565)
+> https://twitter.com/nullnilaki/status/810356420428242944
+> SONY SDM-P234
+> https://twitter.com/nullnilaki/status/810358510730887168
+>
+> There is something that I would like to confirm.
+>
+> Please read the instructions carefully.
+> See:
+> https://www.manualslib.com/manual/469135/Compaq-3dlabs-Oxygen-Vx1.html#manual
+>
+> 1. Please install Oygen VX1 to the primary PCI BUS.
+
+einstein# pcictl pci0 list
+000:03:0: Digital Equipment DC21142/21143 10/100 Ethernet (ethernet 
+network, revision 0x30)
+000:04:0: CMD Technology PCI0646 (IDE mass storage, interface 0x80, 
+revision 0x01)
+000:07:0: Intel 82378ZB System I/O (miscellaneous prehistoric, revision 
+0x43)
+000:11:0: Adaptec AHA-2940A Ultra (SCSI mass storage, revision 0x03)
+000:20:0: Digital Equipment DC21052 PCI-PCI Bridge (PCI bridge, revision 
+0x02)
+001:08:0: QLogic ISP1020 (SCSI mass storage, revision 0x05)
+001:09:0: 3D Labs GLINT Permedia 3 (miscellaneous display, revision 0x01)
+001:10:0: Standard Microsystems 83C170 ("EPIC/100") Fast Ethernet 
+(ethernet network, revision 0x08)
+einstein#
+
+> 2.When booting the system, Please type "set console graphics" on SRM Firmware.
+
+ >>> show console
+returns 'graphics'.
+
+	Now, my PWS500au runs with 7.99.51. I have quirks on the right of 
+screen (I have sent you a photo) and I'm unable to obtain more than 256 
+colors.
+
+	I have seen in another mail in this thread :
+
+Also, it's entirely possible to have pm3fb switch to 32bit colour with
+ioctl(WSDISPLAYIO_SMODE, WSDISPLAYIO_DUMB) and back to 8bit with
+ioctl(WSDISPLAYIO_SMODE, WSDISPLAYIO_EMUL) - a few of my other drivers
+do just that so X with wsfb can run in true colour.
+
+but I don't know how use this information...
+
+	Best regards,
+
+	JKB
+
+
+From coypu@SDF.ORG  Wed Dec 21 15:35:53 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: coypu@SDF.ORG
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Bug in libm
+Date: Wed, 21 Dec 2016 15:35:53 +0000
+Lines: 31
+Approved: news@gmane.org
+Message-ID: <20161221153553.GA19306@SDF.ORG>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: blaine.gmane.org 1482334572 3979 195.159.176.226 (21 Dec 2016 15:36:12 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 21 Dec 2016 15:36:12 +0000 (UTC)
+User-Agent: Mutt/1.5.23 (2014-03-12)
+Cc: joel.bertrand@systella.fr
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Dec 21 16:36:08 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cJiw1-0000Jm-7l
+	for netbsd-port-alpha@m.gmane.org; Wed, 21 Dec 2016 16:36:05 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 0592985617; Wed, 21 Dec 2016 15:36:08 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 44BB185616
+	for <port-alpha@netbsd.org>; Wed, 21 Dec 2016 15:36:06 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id vyhPXWKehLaG for <port-alpha@netbsd.org>;
+	Wed, 21 Dec 2016 15:36:05 +0000 (UTC)
+Original-Received: from sdf.lonestar.org (mx.sdf.org [205.166.94.20])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id C210885608
+	for <port-alpha@netbsd.org>; Wed, 21 Dec 2016 15:36:05 +0000 (UTC)
+Original-Received: from sdf.org (IDENT:coypu@sdf.lonestar.org [205.166.94.15])
+	by sdf.lonestar.org (8.15.2/8.14.5) with ESMTPS id uBLFZsWq005753
+	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256 bits) verified NO);
+	Wed, 21 Dec 2016 15:35:54 GMT
+Original-Received: (from coypu@localhost)
+	by sdf.org (8.15.2/8.12.8/Submit) id uBLFZrKY028824;
+	Wed, 21 Dec 2016 15:35:53 GMT
+Content-Disposition: inline
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4975
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4975>
+
+Hi,
+
+I was slightly curious about this.
+The implementation of lrint for alpha is very simple.
+It's some boilerplate, then a call to cvttq which does
+a conversion from T_floating to quadword.
+
+Does this code trigger it?
+
+#include <math.h>
+#include <stdio.h>
+
+int main() {
+	double input = 2.34E20;
+	printf("%f %ld\n", input, lrint(input));
+}
+
+I was curious how we can disable the exceptions, but
+GCC says the default compilation mode should do it,
+and we might need to explicitly change things to
+reach another mode.
+(the flag seems to be -mfp-trap-mode)
+
+Alternatively, are you using vax float?
+
+If you are able to, can you tell the content of
+fa0, ft0, fpcr registers when receiving SIGFPE?
+I believe they should hold all of the info.
+
+Thanks.
+
+
+From joel.bertrand@systella.fr  Wed Dec 21 17:38:38 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: =?UTF-8?Q?BERTRAND_Jo=c3=abl?= <joel.bertrand@systella.fr>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Bug in libm
+Date: Wed, 21 Dec 2016 17:38:38 +0100
+Lines: 42
+Approved: news@gmane.org
+Message-ID: <585AB00E.4080509@systella.fr>
+References: <20161221153553.GA19306@SDF.ORG>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
+X-Trace: blaine.gmane.org 1482338347 10376 195.159.176.226 (21 Dec 2016 16:39:07 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 21 Dec 2016 16:39:07 +0000 (UTC)
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:43.0) Gecko/20100101
+ Firefox/43.0 SeaMonkey/2.40
+To: coypu@SDF.ORG, port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Dec 21 17:39:02 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cJjuo-0001I8-WD
+	for netbsd-port-alpha@m.gmane.org; Wed, 21 Dec 2016 17:38:55 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id EAA6B85608; Wed, 21 Dec 2016 16:38:56 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id BDAC2855A3
+	for <port-alpha@netbsd.org>; Wed, 21 Dec 2016 16:38:54 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id gMTpS8YqrqdQ for <port-alpha@netbsd.org>;
+	Wed, 21 Dec 2016 16:38:54 +0000 (UTC)
+Original-Received: from rayleigh.systella.fr (newton-ipv6.systella.fr [IPv6:2001:7a8:a8ed:253::1])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id EED7985572
+	for <port-alpha@netbsd.org>; Wed, 21 Dec 2016 16:38:52 +0000 (UTC)
+Original-Received: from [192.168.2.3] (schroedinger.eikeo.com [192.168.2.3])
+	(authenticated bits=0)
+	by rayleigh.systella.fr (8.15.2/8.15.2/Debian-8) with ESMTPSA id uBLGccu1014589
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=NOT);
+	Wed, 21 Dec 2016 17:38:40 +0100
+In-Reply-To: <20161221153553.GA19306@SDF.ORG>
+X-Virus-Scanned: clamav-milter 0.99.2 at rayleigh
+X-Virus-Status: Clean
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4976
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4976>
+
+coypu@SDF.ORG a écrit :
+> Hi,
+
+	Hello,
+
+> I was slightly curious about this.
+> The implementation of lrint for alpha is very simple.
+> It's some boilerplate, then a call to cvttq which does
+> a conversion from T_floating to quadword.
+>
+> Does this code trigger it?
+>
+> #include <math.h>
+> #include <stdio.h>
+>
+> int main() {
+> 	double input = 2.34E20;
+> 	printf("%f %ld\n", input, lrint(input));
+> }
+
+	Nope.
+
+einstein:[~] > gcc -o test test.c
+einstein:[~] > ./test
+234000000000000000000.000000 -5807672958224171008
+
+but result is (for me) strange.
+
+> I was curious how we can disable the exceptions, but
+> GCC says the default compilation mode should do it,
+> and we might need to explicitly change things to
+> reach another mode.
+> (the flag seems to be -mfp-trap-mode)
+>
+> Alternatively, are you using vax float?
+
+	No. Only -mieee that is set by pkgsrc.
+
+	Regards,
+
+	JKB
+
+
+From mouse@Rodents-Montreal.ORG  Wed Dec 21 11:54:59 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Mouse <mouse@Rodents-Montreal.ORG>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Bug in libm
+Date: Wed, 21 Dec 2016 11:54:59 -0500 (EST)
+Lines: 22
+Approved: news@gmane.org
+Message-ID: <201612211654.LAA07019@Stone.Rodents-Montreal.ORG>
+References: <20161221153553.GA19306@SDF.ORG>
+	<585AB00E.4080509@systella.fr>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+X-Trace: blaine.gmane.org 1482339312 20984 195.159.176.226 (21 Dec 2016 16:55:12 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 21 Dec 2016 16:55:12 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Dec 21 17:55:08 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cJkAO-0004Ey-8g
+	for netbsd-port-alpha@m.gmane.org; Wed, 21 Dec 2016 17:55:00 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 286168560F; Wed, 21 Dec 2016 16:55:02 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id BEF07855A3
+	for <port-alpha@NetBSD.org>; Wed, 21 Dec 2016 16:55:00 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id 0GQRrD-4WKde for <port-alpha@netbsd.org>;
+	Wed, 21 Dec 2016 16:55:00 +0000 (UTC)
+Original-Received: from Stone.Rodents-Montreal.ORG (Stone.Rodents-Montreal.ORG [98.124.61.89])
+	by mail.netbsd.org (Postfix) with ESMTP id E1DE585572
+	for <port-alpha@NetBSD.org>; Wed, 21 Dec 2016 16:54:59 +0000 (UTC)
+Original-Received: (from mouse@localhost)
+	by Stone.Rodents-Montreal.ORG (8.8.8/8.8.8) id LAA07019;
+	Wed, 21 Dec 2016 11:54:59 -0500 (EST)
+X-Erik-Conspiracy: There is no Conspiracy - and if there were I wouldn't be part of it anyway.
+X-Message-Flag: Microsoft: the company who gave us the botnet zombies.
+X-Composition-Start-Date: Wed, 21 Dec 2016 11:49:54 -0500 (EST)
+In-Reply-To: <585AB00E.4080509@systella.fr>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4977
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4977>
+
+> einstein:[~] > gcc -o test test.c
+> einstein:[~] > ./test
+> 234000000000000000000.000000 -5807672958224171008
+
+> but result is (for me) strange.
+
+Looks reasonable to me.
+
+234000000000000000000 is 0xcaf67003701680000; taking the low 64 bits
+gives 0xaf67003701680000, which as a signed 64-bit integer is
+-5807672958224171008.  And the lrint() manpage I have says that if the
+rounded result is too big to be represented as long, the return value
+is undefined; taking the low however-many bits strikes me as perfectly
+plausible behaviour.
+
+Unless the strangeness you're talking about is the lack of a trap.
+
+/~\ The ASCII				  Mouse
+\ / Ribbon Campaign
+ X  Against HTML		mouse@rodents-montreal.org
+/ \ Email!	     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+
+From coypu@SDF.ORG  Wed Dec 21 16:56:35 2016
+Path: news.gmane.org!.POSTED!not-for-mail
+From: coypu@SDF.ORG
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Bug in libm
+Date: Wed, 21 Dec 2016 16:56:35 +0000
+Lines: 11
+Approved: news@gmane.org
+Message-ID: <20161221165635.GA27627@SDF.ORG>
+References: <20161221153553.GA19306@SDF.ORG>
+ <585AB00E.4080509@systella.fr>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+X-Trace: blaine.gmane.org 1482339416 3163 195.159.176.226 (21 Dec 2016 16:56:56 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 21 Dec 2016 16:56:56 +0000 (UTC)
+User-Agent: Mutt/1.5.23 (2014-03-12)
+Cc: port-alpha@netbsd.org
+To: BERTRAND =?iso-8859-1?Q?Jo=EBl?= <joel.bertrand@systella.fr>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Dec 21 17:56:52 2016
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1cJkC5-0007tB-CE
+	for netbsd-port-alpha@m.gmane.org; Wed, 21 Dec 2016 17:56:45 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 88AFC85619; Wed, 21 Dec 2016 16:56:48 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 78E5785618
+	for <port-alpha@netbsd.org>; Wed, 21 Dec 2016 16:56:47 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id fs8wM6ZdOI0Z for <port-alpha@netbsd.org>;
+	Wed, 21 Dec 2016 16:56:47 +0000 (UTC)
+Original-Received: from sdf.lonestar.org (ol.sdf.org [205.166.94.20])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id D13D5855A3
+	for <port-alpha@netbsd.org>; Wed, 21 Dec 2016 16:56:46 +0000 (UTC)
+Original-Received: from sdf.org (IDENT:coypu@sdf.lonestar.org [205.166.94.15])
+	by sdf.lonestar.org (8.15.2/8.14.5) with ESMTPS id uBLGuZf6022658
+	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256 bits) verified NO);
+	Wed, 21 Dec 2016 16:56:35 GMT
+Original-Received: (from coypu@localhost)
+	by sdf.org (8.15.2/8.12.8/Submit) id uBLGuZod027889;
+	Wed, 21 Dec 2016 16:56:35 GMT
+Content-Disposition: inline
+In-Reply-To: <585AB00E.4080509@systella.fr>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4978
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4978>
+
+On Wed, Dec 21, 2016 at 05:38:38PM +0100, BERTRAND Joël wrote:
+> einstein:[~] > gcc -o test test.c
+> einstein:[~] > ./test
+> 234000000000000000000.000000 -5807672958224171008
+> 
+> but result is (for me) strange.
+
+The value is out of range, so it can be anything.
+Does gdb "info float" give anything useful, or
+"p $fpcr"?
+
+

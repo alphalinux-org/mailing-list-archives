@@ -1,0 +1,766 @@
+From campbell+netbsd-port-alpha@mumble.net  Tue Apr 11 10:29:48 2023
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Taylor R Campbell <campbell+netbsd-port-alpha@mumble.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Alpha pmap(9) unmanaged P->V tracking
+Date: Tue, 11 Apr 2023 10:29:48 +0000
+Approved: news@gmane.org
+Message-ID: <20230411103007.783C660AFC@jupiter.mumble.net>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="=_tVq9BOFzAnpXS9N5Qy8XBZQoi+hFOgDk"
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="17478"; mail-complaints-to="usenet@ciao.gmane.io"
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Wed Apr 12 09:00:49 2023
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1pmUTI-0004IR-Kp
+	for netbsd-port-alpha@m.gmane-mx.org; Wed, 12 Apr 2023 09:00:49 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id C787484D5F; Wed, 12 Apr 2023 07:00:40 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: by mail.netbsd.org (Postfix, from userid 1347)
+	id 5853D84D5F; Wed, 12 Apr 2023 07:00:40 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 3B77C84CFE
+	for <port-alpha@NetBSD.org>; Tue, 11 Apr 2023 10:30:10 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id p6-mb9ALRVD8 for <port-alpha@netbsd.org>;
+	Tue, 11 Apr 2023 10:30:08 +0000 (UTC)
+Original-Received: from jupiter.mumble.net (jupiter.mumble.net [74.50.56.165])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 4A2A284CEB
+	for <port-alpha@NetBSD.org>; Tue, 11 Apr 2023 10:30:08 +0000 (UTC)
+Original-Received: by jupiter.mumble.net (Postfix, from userid 1014)
+	id 783C660AFC; Tue, 11 Apr 2023 10:30:07 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5433
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5433>
+
+This is a multi-part message in MIME format.
+--=_tVq9BOFzAnpXS9N5Qy8XBZQoi+hFOgDk
+
+The attached patch attempts to teach the Alpha pmap(9) how to track
+P->V mappings for unmanaged pages, needed by drm graphics drivers.
+However, I have no way to test it.
+
+Would anyone like to pick this up, dust it off, and commit it?
+
+--=_tVq9BOFzAnpXS9N5Qy8XBZQoi+hFOgDk
+Content-Type: text/plain; charset="ISO-8859-1"; name="alphapvtrack"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment; filename="alphapvtrack.patch"
+
+>From 0a808adabd7a88d0511d7cd863e0c190e807f77e Mon Sep 17 00:00:00 2001
+From: Taylor R Campbell <riastradh@NetBSD.org>
+Date: Tue, 19 Jul 2022 22:07:05 +0000
+Subject: [PATCH] WIP: alpha: Add pmap_pv_track support.
+
+---
+ sys/arch/alpha/alpha/pmap.c     | 184 ++++++++++++++++++++------------
+ sys/arch/alpha/conf/files.alpha |   1 +
+ sys/arch/alpha/include/pmap.h   |  42 +++++---
+ 3 files changed, 141 insertions(+), 86 deletions(-)
+
+diff --git a/sys/arch/alpha/alpha/pmap.c b/sys/arch/alpha/alpha/pmap.c
+index df6f5892d39b..f11e56d7eb54 100644
+--- a/sys/arch/alpha/alpha/pmap.c
++++ b/sys/arch/alpha/alpha/pmap.c
+@@ -346,7 +346,7 @@ static u_int	pmap_max_asn __read_mostly;
+  *		tlb_lock -> pmap activation lock
+  *
+  *	* pvh_lock (global hash) - These locks protect the PV lists for
+- *	  managed pages.
++ *	  managed or tracked pages.
+  *
+  *	* tlb_lock - This IPL_VM lock serializes local and remote TLB
+  *	  invalidation.
+@@ -390,13 +390,13 @@ static union {
+ 	uint8_t		pad[COHERENCY_UNIT];
+ } pmap_pvh_locks[64] __cacheline_aligned;
+=20
+-#define	PVH_LOCK_HASH(pg)						\
+-	((((uintptr_t)(pg)) >> 6) & 63)
++#define	PVH_LOCK_HASH(pp)						\
++	((((uintptr_t)(pp)) >> 6) & 63)
+=20
+ static inline kmutex_t *
+-pmap_pvh_lock(struct vm_page *pg)
++pmap_pvh_lock(struct pmap_page *pp)
+ {
+-	return &pmap_pvh_locks[PVH_LOCK_HASH(pg)].lock;
++	return &pmap_pvh_locks[PVH_LOCK_HASH(pp)].lock;
+ }
+=20
+ static union {
+@@ -455,7 +455,7 @@ static void	alpha_protection_init(void);
+ static pt_entry_t pmap_remove_mapping(pmap_t, vaddr_t, pt_entry_t *, bool,
+ 				      pv_entry_t *,
+ 				      struct pmap_tlb_context *);
+-static void	pmap_changebit(struct vm_page *, pt_entry_t, pt_entry_t,
++static void	pmap_changebit(struct pmap_page *, pt_entry_t, pt_entry_t,
+ 			       struct pmap_tlb_context *);
+=20
+ /*
+@@ -482,10 +482,10 @@ static int	pmap_l1pt_ctor(void *, void *, int);
+ /*
+  * PV table management functions.
+  */
+-static int	pmap_pv_enter(pmap_t, struct vm_page *, vaddr_t, pt_entry_t *,
+-			      bool, pv_entry_t);
+-static void	pmap_pv_remove(pmap_t, struct vm_page *, vaddr_t, bool,
+-			       pv_entry_t *, struct pmap_tlb_context *);
++static int	pmap_pv_enter(pmap_t, struct pmap_page *, vaddr_t,
++		    pt_entry_t *, bool, pv_entry_t);
++static void	pmap_pv_remove(pmap_t, struct pmap_page *, vaddr_t, bool,
++		    pv_entry_t *, struct pmap_tlb_context *);
+ static void	*pmap_pv_page_alloc(struct pool *, int);
+ static void	pmap_pv_page_free(struct pool *, void *);
+=20
+@@ -1401,7 +1401,7 @@ pmap_bootstrap(paddr_t ptaddr, u_int maxasn, u_long n=
+cpuids)
+ 		mutex_init(&pmap_pmap_locks[i].locks.activation_lock,
+ 		    MUTEX_SPIN, IPL_SCHED);
+ 	}
+-=09
++
+ 	/*
+ 	 * This must block any interrupt from which a TLB shootdown
+ 	 * could be issued, but must NOT block IPIs.
+@@ -1867,6 +1867,8 @@ pmap_remove_all(pmap_t pmap)
+ {
+ 	struct pmap_tlb_context tlbctx;
+ 	struct vm_page *pg;
++	struct pmap_page *pp;
++	paddr_t pa;
+ 	pv_entry_t pv;
+=20
+ 	KASSERT(pmap !=3D pmap_kernel());
+@@ -1906,8 +1908,13 @@ pmap_remove_all(pmap_t pmap)
+ 	/* Step 3 */
+ 	while ((pv =3D LIST_FIRST(&pmap->pm_pvents)) !=3D NULL) {
+ 		KASSERT(pv->pv_pmap =3D=3D pmap);
+-		pmap_pv_remove(pmap, PHYS_TO_VM_PAGE(pmap_pte_pa(pv->pv_pte)),
+-		    pv->pv_va, true, NULL, &tlbctx);
++		pa =3D pmap_pte_pa(pv->pv_pte);
++		if ((pg =3D PHYS_TO_VM_PAGE(pa)) !=3D NULL)
++			pp =3D &VM_PAGE_TO_MD(pg)->mdp_pp;
++		else
++			pp =3D pmap_pv_tracked(pa);
++		KASSERT(pp !=3D NULL);
++		pmap_pv_remove(pmap, pp, pv->pv_va, true, NULL, &tlbctx);
+ 	}
+=20
+ 	/* Step 4 */
+@@ -1926,14 +1933,8 @@ pmap_remove_all(pmap_t pmap)
+ 	return true;
+ }
+=20
+-/*
+- * pmap_page_protect:		[ INTERFACE ]
+- *
+- *	Lower the permission for all mappings to a given page to
+- *	the permissions specified.
+- */
+-void
+-pmap_page_protect(struct vm_page *pg, vm_prot_t prot)
++static void
++pmap_pp_protect(struct pmap_page *pp, vm_prot_t prot)
+ {
+ 	pv_entry_t pv, nextpv;
+ 	pt_entry_t opte;
+@@ -1943,7 +1944,7 @@ pmap_page_protect(struct vm_page *pg, vm_prot_t prot)
+ #ifdef DEBUG
+ 	if ((pmapdebug & (PDB_FOLLOW|PDB_PROTECT)) ||
+ 	    (prot =3D=3D VM_PROT_NONE && (pmapdebug & PDB_REMOVE)))
+-		printf("pmap_page_protect(%p, %x)\n", pg, prot);
++		printf("pmap_pp_protect(%p, %"PRIxPADDR", %x)\n", pp, prot);
+ #endif
+=20
+ 	pmap_tlb_context_init(&tlbctx, TLB_CTX_F_PV);
+@@ -1957,9 +1958,9 @@ pmap_page_protect(struct vm_page *pg, vm_prot_t prot)
+ 	case VM_PROT_READ|VM_PROT_EXECUTE:
+ 	case VM_PROT_READ:
+ 		PMAP_HEAD_TO_MAP_LOCK();
+-		lock =3D pmap_pvh_lock(pg);
++		lock =3D pmap_pvh_lock(pp);
+ 		mutex_enter(lock);
+-		for (pv =3D VM_MDPAGE_PVS(pg); pv !=3D NULL; pv =3D pv->pv_next) {
++		for (pv =3D PMAP_PAGE_PVS(pp); pv !=3D NULL; pv =3D pv->pv_next) {
+ 			PMAP_LOCK(pv->pv_pmap);
+ 			opte =3D atomic_load_relaxed(pv->pv_pte);
+ 			if (opte & (PG_KWE | PG_UWE)) {
+@@ -1982,9 +1983,9 @@ pmap_page_protect(struct vm_page *pg, vm_prot_t prot)
+ 	}
+=20
+ 	PMAP_HEAD_TO_MAP_LOCK();
+-	lock =3D pmap_pvh_lock(pg);
++	lock =3D pmap_pvh_lock(pp);
+ 	mutex_enter(lock);
+-	for (pv =3D VM_MDPAGE_PVS(pg); pv !=3D NULL; pv =3D nextpv) {
++	for (pv =3D PMAP_PAGE_PVS(pp); pv !=3D NULL; pv =3D nextpv) {
+ 		pt_entry_t pte_bits;
+ 		pmap_t pmap;
+ 		vaddr_t va;
+@@ -2006,6 +2007,29 @@ pmap_page_protect(struct vm_page *pg, vm_prot_t prot)
+ 	TLB_COUNT(reason_page_protect_none);
+ }
+=20
++/*
++ * pmap_page_protect:		[ INTERFACE ]
++ *
++ *	Lower the permission for all mappings to a given page to
++ *	the permissions specified.
++ */
++void
++pmap_page_protect(struct vm_page *pg, vm_prot_t prot)
++{
++	struct vm_page_md * const md =3D VM_PAGE_TO_MD(pg);
++
++	pmap_pp_protect(&md->mdp_pp, prot);
++}
++
++void
++pmap_pv_protect(paddr_t pa, vm_prot_t prot)
++{
++	struct pmap_page * const pp =3D pmap_pv_tracked(pa);
++
++	KASSERT(pp !=3D NULL);
++	pmap_pp_protect(pp, prot);
++}
++
+ /*
+  * pmap_protect:		[ INTERFACE ]
+  *
+@@ -2176,8 +2200,14 @@ pmap_enter(pmap_t pmap, vaddr_t va, paddr_t pa, vm_p=
+rot_t prot, u_int flags)
+ 		       pmap, va, pa, prot, flags);
+ #endif
+ 	struct vm_page * const pg =3D PHYS_TO_VM_PAGE(pa);
++	struct pmap_page *pp;
+ 	const bool wired =3D (flags & PMAP_WIRED) !=3D 0;
+=20
++	if (pg !=3D NULL)
++		pp =3D &VM_PAGE_TO_MD(pg)->mdp_pp;
++	else
++		pp =3D pmap_pv_tracked(pa);
++
+ 	PMAP_MAP_TO_HEAD_LOCK();
+ 	PMAP_LOCK(pmap);
+=20
+@@ -2314,8 +2344,8 @@ pmap_enter(pmap_t pmap, vaddr_t va, paddr_t pa, vm_pr=
+ot_t prot, u_int flags)
+=20
+  validate_enterpv:
+ 	/* Enter the mapping into the pv_table if appropriate. */
+-	if (pg !=3D NULL) {
+-		error =3D pmap_pv_enter(pmap, pg, va, pte, true, opv);
++	if (pp !=3D NULL) {
++		error =3D pmap_pv_enter(pmap, pp, va, pte, true, opv);
+ 		if (error) {
+ 			/* This can only fail if opv =3D=3D NULL */
+ 			KASSERT(opv =3D=3D NULL);
+@@ -2340,8 +2370,7 @@ pmap_enter(pmap_t pmap, vaddr_t va, paddr_t pa, vm_pr=
+ot_t prot, u_int flags)
+  validate:
+ 	/* Build the new PTE. */
+ 	npte =3D ((pa >> PGSHIFT) << PG_SHIFT) | pte_prot(pmap, prot) | PG_V;
+-	if (pg !=3D NULL) {
+-		struct vm_page_md * const md =3D VM_PAGE_TO_MD(pg);
++	if (pp !=3D NULL) {
+ 		uintptr_t attrs =3D 0;
+=20
+ 		KASSERT(((flags & VM_PROT_ALL) & ~prot) =3D=3D 0);
+@@ -2351,9 +2380,9 @@ pmap_enter(pmap_t pmap, vaddr_t va, paddr_t pa, vm_pr=
+ot_t prot, u_int flags)
+ 		else if (flags & VM_PROT_ALL)
+ 			attrs |=3D PGA_REFERENCED;
+=20
+-		lock =3D pmap_pvh_lock(pg);
++		lock =3D pmap_pvh_lock(pp);
+ 		mutex_enter(lock);
+-		attrs =3D (md->pvh_listx |=3D attrs);
++		attrs =3D (pp->pp_listx |=3D attrs);
+ 		mutex_exit(lock);
+=20
+ 		/* Set up referenced/modified emulation for new mapping. */
+@@ -2799,6 +2828,7 @@ bool
+ pmap_clear_modify(struct vm_page *pg)
+ {
+ 	struct vm_page_md * const md =3D VM_PAGE_TO_MD(pg);
++	struct pmap_page * const pp =3D &md->mdp_pp;
+ 	bool rv =3D false;
+ 	kmutex_t *lock;
+ 	struct pmap_tlb_context tlbctx;
+@@ -2811,13 +2841,13 @@ pmap_clear_modify(struct vm_page *pg)
+ 	pmap_tlb_context_init(&tlbctx, TLB_CTX_F_PV);
+=20
+ 	PMAP_HEAD_TO_MAP_LOCK();
+-	lock =3D pmap_pvh_lock(pg);
++	lock =3D pmap_pvh_lock(pp);
+ 	mutex_enter(lock);
+=20
+-	if (md->pvh_listx & PGA_MODIFIED) {
++	if (pp->pp_listx & PGA_MODIFIED) {
+ 		rv =3D true;
+-		pmap_changebit(pg, PG_FOW, ~0UL, &tlbctx);
+-		md->pvh_listx &=3D ~PGA_MODIFIED;
++		pmap_changebit(pp, PG_FOW, ~0UL, &tlbctx);
++		pp->pp_listx &=3D ~PGA_MODIFIED;
+ 	}
+=20
+ 	mutex_exit(lock);
+@@ -2838,6 +2868,7 @@ bool
+ pmap_clear_reference(struct vm_page *pg)
+ {
+ 	struct vm_page_md * const md =3D VM_PAGE_TO_MD(pg);
++	struct pmap_page * const pp =3D &md->mdp_pp;
+ 	bool rv =3D false;
+ 	kmutex_t *lock;
+ 	struct pmap_tlb_context tlbctx;
+@@ -2850,13 +2881,13 @@ pmap_clear_reference(struct vm_page *pg)
+ 	pmap_tlb_context_init(&tlbctx, TLB_CTX_F_PV);
+=20
+ 	PMAP_HEAD_TO_MAP_LOCK();
+-	lock =3D pmap_pvh_lock(pg);
++	lock =3D pmap_pvh_lock(pp);
+ 	mutex_enter(lock);
+=20
+-	if (md->pvh_listx & PGA_REFERENCED) {
++	if (pp->pp_listx & PGA_REFERENCED) {
+ 		rv =3D true;
+-		pmap_changebit(pg, PG_FOR | PG_FOW | PG_FOE, ~0UL, &tlbctx);
+-		md->pvh_listx &=3D ~PGA_REFERENCED;
++		pmap_changebit(pp, PG_FOR | PG_FOW | PG_FOE, ~0UL, &tlbctx);
++		pp->pp_listx &=3D ~PGA_REFERENCED;
+ 	}
+=20
+ 	mutex_exit(lock);
+@@ -2964,7 +2995,8 @@ pmap_remove_mapping(pmap_t pmap, vaddr_t va, pt_entry=
+_t *pte,
+ {
+ 	pt_entry_t opte;
+ 	paddr_t pa;
+-	struct vm_page *pg;		/* if !=3D NULL, page is managed */
++	struct vm_page *pg;
++	struct pmap_page *pp;
+=20
+ #ifdef DEBUG
+ 	if (pmapdebug & (PDB_FOLLOW|PDB_REMOVE|PDB_PROTECT))
+@@ -3018,9 +3050,12 @@ pmap_remove_mapping(pmap_t pmap, vaddr_t va, pt_entr=
+y_t *pte,
+ 		/*
+ 		 * Remove it from the PV table.
+ 		 */
+-		pg =3D PHYS_TO_VM_PAGE(pa);
+-		KASSERT(pg !=3D NULL);
+-		pmap_pv_remove(pmap, pg, va, dolock, opvp, tlbctx);
++		if ((pg =3D PHYS_TO_VM_PAGE(pa)) !=3D NULL)
++			pp =3D &VM_PAGE_TO_MD(pg)->mdp_pp;
++		else
++			pp =3D pmap_pv_tracked(pa);
++		KASSERT(pp !=3D NULL);
++		pmap_pv_remove(pmap, pp, va, dolock, opvp, tlbctx);
+ 		KASSERT(opvp =3D=3D NULL || *opvp !=3D NULL);
+ 	}
+=20
+@@ -3038,7 +3073,7 @@ pmap_remove_mapping(pmap_t pmap, vaddr_t va, pt_entry=
+_t *pte,
+  *	the pmaps as we encounter them.
+  */
+ static void
+-pmap_changebit(struct vm_page *pg, pt_entry_t set, pt_entry_t mask,
++pmap_changebit(struct pmap_page *pp, pt_entry_t set, pt_entry_t mask,
+     struct pmap_tlb_context * const tlbctx)
+ {
+ 	pv_entry_t pv;
+@@ -3047,13 +3082,13 @@ pmap_changebit(struct vm_page *pg, pt_entry_t set, =
+pt_entry_t mask,
+ #ifdef DEBUG
+ 	if (pmapdebug & PDB_BITS)
+ 		printf("pmap_changebit(%p, 0x%lx, 0x%lx)\n",
+-		    pg, set, mask);
++		    pp, set, mask);
+ #endif
+=20
+ 	/*
+ 	 * Loop over all current mappings setting/clearing as apropos.
+ 	 */
+-	for (pv =3D VM_MDPAGE_PVS(pg); pv !=3D NULL; pv =3D pv->pv_next) {
++	for (pv =3D PMAP_PAGE_PVS(pp); pv !=3D NULL; pv =3D pv->pv_next) {
+ 		PMAP_LOCK(pv->pv_pmap);
+=20
+ 		pte =3D pv->pv_pte;
+@@ -3082,6 +3117,7 @@ pmap_emulate_reference(struct lwp *l, vaddr_t v, int =
+user, int type)
+ 	struct pmap *pmap =3D l->l_proc->p_vmspace->vm_map.pmap;
+ 	pt_entry_t faultoff, *pte;
+ 	struct vm_page *pg;
++	struct pmap_page *pp;
+ 	paddr_t pa;
+ 	bool didlock =3D false;
+ 	bool exec =3D false;
+@@ -3157,27 +3193,29 @@ pmap_emulate_reference(struct lwp *l, vaddr_t v, in=
+t user, int type)
+ 	 * 	(1) always mark page as used, and
+ 	 *	(2) if it was a write fault, mark page as modified.
+ 	 */
+-	pg =3D PHYS_TO_VM_PAGE(pa);
+-	struct vm_page_md * const md =3D VM_PAGE_TO_MD(pg);
+-	struct pmap_tlb_context tlbctx;
++	if ((pg =3D PHYS_TO_VM_PAGE(pa)) !=3D NULL)
++		pp =3D &VM_PAGE_TO_MD(pg)->mdp_pp;
++	else
++		pp =3D pmap_pv_tracked(pa);
+=20
++	struct pmap_tlb_context tlbctx;
+ 	pmap_tlb_context_init(&tlbctx, TLB_CTX_F_PV);
+=20
+ 	PMAP_HEAD_TO_MAP_LOCK();
+-	lock =3D pmap_pvh_lock(pg);
++	lock =3D pmap_pvh_lock(pp);
+ 	mutex_enter(lock);
+=20
+ 	if (type =3D=3D ALPHA_MMCSR_FOW) {
+-		md->pvh_listx |=3D (PGA_REFERENCED|PGA_MODIFIED);
++		pp->pp_listx |=3D (PGA_REFERENCED|PGA_MODIFIED);
+ 		faultoff =3D PG_FOR | PG_FOW;
+ 	} else {
+-		md->pvh_listx |=3D PGA_REFERENCED;
++		pp->pp_listx |=3D PGA_REFERENCED;
+ 		faultoff =3D PG_FOR;
+ 		if (exec) {
+ 			faultoff |=3D PG_FOE;
+ 		}
+ 	}
+-	pmap_changebit(pg, 0, ~faultoff, &tlbctx);
++	pmap_changebit(pp, 0, ~faultoff, &tlbctx);
+=20
+ 	mutex_exit(lock);
+ 	PMAP_HEAD_TO_MAP_UNLOCK();
+@@ -3198,18 +3236,24 @@ void
+ pmap_pv_dump(paddr_t pa)
+ {
+ 	struct vm_page *pg;
+-	struct vm_page_md *md;
++	struct pmap_page *pp;
+ 	pv_entry_t pv;
+ 	kmutex_t *lock;
+=20
+-	pg =3D PHYS_TO_VM_PAGE(pa);
+-	md =3D VM_PAGE_TO_MD(pg);
++	if ((pg =3D PHYS_TO_VM_PAGE(pa)) !=3D NULL)
++		pp =3D &VM_PAGE_TO_MD(pg)->mdp_pp;
++	else
++		pp =3D pmap_pv_tracked(pa);
++	if (pp =3D=3D NULL) {
++		printf("pa 0x%lx: unmanaged and untracked -- no P->V\n", pa);
++		return;
++	}
+=20
+-	lock =3D pmap_pvh_lock(pg);
++	lock =3D pmap_pvh_lock(pp);
+ 	mutex_enter(lock);
+=20
+-	printf("pa 0x%lx (attrs =3D 0x%lx):\n", pa, md->pvh_listx & PGA_ATTRS);
+-	for (pv =3D VM_MDPAGE_PVS(pg); pv !=3D NULL; pv =3D pv->pv_next)
++	printf("pa 0x%lx (attrs =3D 0x%lx):\n", pa, pp->pp_listx & PGA_ATTRS);
++	for (pv =3D PMAP_PAGE_PVS(pp); pv !=3D NULL; pv =3D pv->pv_next)
+ 		printf("     pmap %p, va 0x%lx\n",
+ 		    pv->pv_pmap, pv->pv_va);
+ 	printf("\n");
+@@ -3268,10 +3312,9 @@ vtophys(vaddr_t const vaddr)
+  *	Add a physical->virtual entry to the pv_table.
+  */
+ static int
+-pmap_pv_enter(pmap_t pmap, struct vm_page *pg, vaddr_t va, pt_entry_t *pte,
++pmap_pv_enter(pmap_t pmap, struct pmap_page *pp, vaddr_t va, pt_entry_t *p=
+te,
+     bool dolock, pv_entry_t newpv)
+ {
+-	struct vm_page_md * const md =3D VM_PAGE_TO_MD(pg);
+ 	kmutex_t *lock;
+=20
+ 	/*
+@@ -3287,7 +3330,7 @@ pmap_pv_enter(pmap_t pmap, struct vm_page *pg, vaddr_=
+t va, pt_entry_t *pte,
+ 	newpv->pv_pte =3D pte;
+=20
+ 	if (dolock) {
+-		lock =3D pmap_pvh_lock(pg);
++		lock =3D pmap_pvh_lock(pp);
+ 		mutex_enter(lock);
+ 	}
+=20
+@@ -3297,7 +3340,7 @@ pmap_pv_enter(pmap_t pmap, struct vm_page *pg, vaddr_=
+t va, pt_entry_t *pte,
+ 	/*
+ 	 * Make sure the entry doesn't already exist.
+ 	 */
+-	for (pv =3D VM_MDPAGE_PVS(pg); pv !=3D NULL; pv =3D pv->pv_next) {
++	for (pv =3D PMAP_PAGE_PVS(pp); pv !=3D NULL; pv =3D pv->pv_next) {
+ 		if (pmap =3D=3D pv->pv_pmap && va =3D=3D pv->pv_va) {
+ 			printf("pmap =3D %p, va =3D 0x%lx\n", pmap, va);
+ 			panic("pmap_pv_enter: already in pv table");
+@@ -3309,9 +3352,9 @@ pmap_pv_enter(pmap_t pmap, struct vm_page *pg, vaddr_=
+t va, pt_entry_t *pte,
+ 	/*
+ 	 * ...and put it in the list.
+ 	 */
+-	uintptr_t const attrs =3D md->pvh_listx & PGA_ATTRS;
+-	newpv->pv_next =3D (struct pv_entry *)(md->pvh_listx & ~PGA_ATTRS);
+-	md->pvh_listx =3D (uintptr_t)newpv | attrs;
++	uintptr_t const attrs =3D pp->pp_listx & PGA_ATTRS;
++	newpv->pv_next =3D (struct pv_entry *)(pp->pp_listx & ~PGA_ATTRS);
++	pp->pp_listx =3D (uintptr_t)newpv | attrs;
+ 	LIST_INSERT_HEAD(&pmap->pm_pvents, newpv, pv_link);
+=20
+ 	if (dolock) {
+@@ -3327,15 +3370,14 @@ pmap_pv_enter(pmap_t pmap, struct vm_page *pg, vadd=
+r_t va, pt_entry_t *pte,
+  *	Remove a physical->virtual entry from the pv_table.
+  */
+ static void
+-pmap_pv_remove(pmap_t pmap, struct vm_page *pg, vaddr_t va, bool dolock,
++pmap_pv_remove(pmap_t pmap, struct pmap_page *pp, vaddr_t va, bool dolock,
+     pv_entry_t *opvp, struct pmap_tlb_context * const tlbctx)
+ {
+-	struct vm_page_md * const md =3D VM_PAGE_TO_MD(pg);
+ 	pv_entry_t pv, *pvp;
+ 	kmutex_t *lock;
+=20
+ 	if (dolock) {
+-		lock =3D pmap_pvh_lock(pg);
++		lock =3D pmap_pvh_lock(pp);
+ 		mutex_enter(lock);
+ 	} else {
+ 		lock =3D NULL; /* XXX stupid gcc */
+@@ -3344,7 +3386,7 @@ pmap_pv_remove(pmap_t pmap, struct vm_page *pg, vaddr=
+_t va, bool dolock,
+ 	/*
+ 	 * Find the entry to remove.
+ 	 */
+-	for (pvp =3D (struct pv_entry **)&md->pvh_listx, pv =3D VM_MDPAGE_PVS(pg);
++	for (pvp =3D (struct pv_entry **)&pp->pp_listx, pv =3D PMAP_PAGE_PVS(pp);
+ 	     pv !=3D NULL; pvp =3D &pv->pv_next, pv =3D *pvp)
+ 		if (pmap =3D=3D pv->pv_pmap && va =3D=3D pv->pv_va)
+ 			break;
+diff --git a/sys/arch/alpha/conf/files.alpha b/sys/arch/alpha/conf/files.al=
+pha
+index 82604ac1fe90..a856d64a488a 100644
+--- a/sys/arch/alpha/conf/files.alpha
++++ b/sys/arch/alpha/conf/files.alpha
+@@ -394,6 +394,7 @@ file	arch/alpha/common/bus_dma.c
+ file	arch/alpha/common/comlogout.c
+ file	dev/cons.c
+ file	kern/kern_cctr.c
++file	uvm/pmap/pmap_pvt.c
+=20
+ file	dev/bus_dma/bus_dmamem_common.c
+=20
+diff --git a/sys/arch/alpha/include/pmap.h b/sys/arch/alpha/include/pmap.h
+index bc699505d03e..5f6429acdf00 100644
+--- a/sys/arch/alpha/include/pmap.h
++++ b/sys/arch/alpha/include/pmap.h
+@@ -182,12 +182,12 @@ typedef struct pv_entry {
+ 	pt_entry_t	*pv_pte;	/* PTE that maps the VA */
+ } *pv_entry_t;
+=20
+-/* attrs in pvh_listx */
++/* attrs in pp_listx */
+ #define	PGA_MODIFIED		0x01UL		/* modified */
+ #define	PGA_REFERENCED		0x02UL		/* referenced */
+ #define	PGA_ATTRS		(PGA_MODIFIED | PGA_REFERENCED)
+=20
+-/* pvh_usage */
++/* pmap_physpage_alloc usage */
+ #define	PGU_NORMAL		0		/* free or normal use */
+ #define	PGU_PVENT		1		/* PV entries */
+ #define	PGU_L1PT		2		/* level 1 page table */
+@@ -213,9 +213,9 @@ void	pmap_tlb_shootdown_ipi(struct cpu_info *, struct t=
+rapframe *);
+ #define	pmap_update(pmap)		/* nothing (yet) */
+=20
+ #define	pmap_is_referenced(pg)						\
+-	(((pg)->mdpage.pvh_listx & PGA_REFERENCED) !=3D 0)
++	(((pg)->mdpage.mdp_pp.pp_listx & PGA_REFERENCED) !=3D 0)
+ #define	pmap_is_modified(pg)						\
+-	(((pg)->mdpage.pvh_listx & PGA_MODIFIED) !=3D 0)
++	(((pg)->mdpage.mdp_pp.pp_listx & PGA_MODIFIED) !=3D 0)
+=20
+ #define	PMAP_STEAL_MEMORY		/* enable pmap_steal_memory() */
+ #define	PMAP_GROWKERNEL			/* enable pmap_growkernel() */
+@@ -353,12 +353,19 @@ do {									\
+ 	}								\
+ } while (0)
+=20
++/*
++ * pv tracking
++ */
++struct pmap_page {
++	uintptr_t pp_listx;		/* pv_entry list + attrs */
++};
++
+ /*
+  * pmap-specific data store in the vm_page structure.
+  */
+ #define	__HAVE_VM_PAGE_MD
+ struct vm_page_md {
+-	uintptr_t pvh_listx;		/* pv_entry list + attrs */
++	struct pmap_page mdp_pp;
+ 	/*
+ 	 * XXX These fields are only needed for pages that are used
+ 	 * as PT pages.  It would be nice to find safely-unused fields
+@@ -368,28 +375,33 @@ struct vm_page_md {
+ 	 * 0-1025 ... 1025 because sometimes we need to take an extra
+ 	 * reference temporarily in pmap_enter().)
+ 	 */
+-	unsigned int pvh_physpgrefs;	/* # refs as a PT page */
+-	unsigned int pvh_spare0;	/* XXX spare field */
++	unsigned int mdp_physpgrefs;	/* # refs as a PT page */
++	unsigned int mdp_spare0;	/* XXX spare field */
+ };
+=20
+ /* Reference counting for page table pages. */
+ #define	PHYSPAGE_REFCNT(pg)						\
+-	atomic_load_relaxed(&(pg)->mdpage.pvh_physpgrefs)
++	atomic_load_relaxed(&(pg)->mdpage.mdp_physpgrefs)
+ #define	PHYSPAGE_REFCNT_SET(pg, v)					\
+-	atomic_store_relaxed(&(pg)->mdpage.pvh_physpgrefs, (v))
++	atomic_store_relaxed(&(pg)->mdpage.mdp_physpgrefs, (v))
+ #define	PHYSPAGE_REFCNT_INC(pg)						\
+-	atomic_inc_uint_nv(&(pg)->mdpage.pvh_physpgrefs)
++	atomic_inc_uint_nv(&(pg)->mdpage.mdp_physpgrefs)
+ #define	PHYSPAGE_REFCNT_DEC(pg)						\
+-	atomic_dec_uint_nv(&(pg)->mdpage.pvh_physpgrefs)
++	atomic_dec_uint_nv(&(pg)->mdpage.mdp_physpgrefs)
+=20
+-#define	VM_MDPAGE_PVS(pg)						\
+-	((struct pv_entry *)((pg)->mdpage.pvh_listx & ~3UL))
++#define	PMAP_PAGE_PVS(pp)						\
++	((struct pv_entry *)((pp)->pp_listx & ~3UL))
+=20
+-#define	VM_MDPAGE_INIT(pg)						\
++#define	PMAP_PAGE_INIT(pp)						\
+ do {									\
+-	(pg)->mdpage.pvh_listx =3D 0UL;					\
++	(pp)->pp_listx =3D 0UL;						\
+ } while (/*CONSTCOND*/0)
+=20
++#define	VM_MDPAGE_INIT(pg)						\
++	PMAP_PAGE_INIT(&(pg)->mdpage.mdp_pp)
++
++#include <uvm/pmap/pmap_pvt.h>
++
+ #endif /* _KERNEL */
+=20
+ #endif /* _PMAP_MACHINE_ */
+
+--=_tVq9BOFzAnpXS9N5Qy8XBZQoi+hFOgDk--
+
+
+From thorpej@me.com  Wed Apr 12 11:04:20 2023
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Alpha pmap(9) unmanaged P->V tracking
+Date: Wed, 12 Apr 2023 11:04:20 -0700
+Approved: news@gmane.org
+Message-ID: <9A45FFBB-AEB4-42DB-AB44-5EEE61926BAB@me.com>
+References: <20230411103007.783C660AFC@jupiter.mumble.net>
+Mime-Version: 1.0 (Mac OS X Mail 16.0 \(3731.500.161\))
+Content-Type: text/plain;
+	charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="5552"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: "port-alpha@netbsd.org" <port-alpha@NetBSD.org>
+To: Taylor R Campbell <campbell+netbsd-port-alpha@mumble.net>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Wed Apr 12 20:04:44 2023
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1pmepn-00019f-4L
+	for netbsd-port-alpha@m.gmane-mx.org; Wed, 12 Apr 2023 20:04:43 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 54A2B84EC3; Wed, 12 Apr 2023 18:04:36 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 9346E84EC0
+	for <port-alpha@netbsd.org>; Wed, 12 Apr 2023 18:04:33 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id xtR2scFxh_pC for <port-alpha@netbsd.org>;
+	Wed, 12 Apr 2023 18:04:33 +0000 (UTC)
+Original-Received: from pv34p98im-ztdg02162201.me.com (pv34p98im-ztdg02162201.me.com [17.143.234.141])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id F075384CED
+	for <port-alpha@netbsd.org>; Wed, 12 Apr 2023 18:04:32 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=1a1hai;
+	t=1681322672; bh=XNNhAyFtX2GH6HFiAyyV6YLmy5XNIqT9M219VOFfAM8=;
+	h=Content-Type:Mime-Version:Subject:From:Date:Message-Id:To;
+	b=y2WFV4Y/urCIbbDJGGilIirTaPVO+bvz96mmfScy9cdFjaRd0y8kkTenfMJvP5bmp
+	 jnc18N0f7/avTFn67K6doUIwT6gNVBZbx5VaRCYbhqSsfYPMDwFIYuNARGN+otJLTO
+	 ArvxOdDMHuJLe/xmZN2ADezYe8VvTmxAOnw+8aSbKRgDSoqsZRdJdCnmcpdIEBjiLW
+	 nxS4ZV3pQVPyJFS2h6pVOsbfhsV7PJQfRN9jIJcSqJC8azKu9YXhtTPuwDfJfLsqkm
+	 M8B04o5F2vtSCI0oUOkB3hm8RYRKsbOm37CEzTqC2PduYALIJCbv3G04TqAG55qRPu
+	 BMCxzFdZ3+0hg==
+Original-Received: from smtpclient.apple (pv43p00im-dlb-asmtpmailmevip.me.com [17.56.9.9])
+	by pv34p98im-ztdg02162201.me.com (Postfix) with ESMTPSA id A0B2B3600DD;
+	Wed, 12 Apr 2023 18:04:31 +0000 (UTC)
+In-Reply-To: <20230411103007.783C660AFC@jupiter.mumble.net>
+X-Mailer: Apple Mail (2.3731.500.161)
+X-Proofpoint-GUID: bi06H9jQ-5OK-2wQyTDtnfw1r57PsWqO
+X-Proofpoint-ORIG-GUID: bi06H9jQ-5OK-2wQyTDtnfw1r57PsWqO
+X-Proofpoint-Virus-Version: =?UTF-8?Q?vendor=3Dfsecure_engine=3D1.1.170-22c6f66c430a71ce266a39bfe25bc?=
+ =?UTF-8?Q?2903e8d5c8f:6.0.517,18.0.883,17.11.64.514.0000000_definitions?=
+ =?UTF-8?Q?=3D2022-06-21=5F08:2022-06-21=5F01,2022-06-21=5F08,2022-02-23?=
+ =?UTF-8?Q?=5F01_signatures=3D0?=
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 bulkscore=0 mlxscore=0 clxscore=1011
+ phishscore=0 adultscore=0 suspectscore=0 mlxlogscore=305 spamscore=0
+ malwarescore=0 classifier=spam adjust=0 reason=mlx scancount=1
+ engine=8.12.0-2209130000 definitions=main-2304120155
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5434
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5434>
+
+
+
+> On Apr 11, 2023, at 3:29 AM, Taylor R Campbell =
+<campbell+netbsd-port-alpha@mumble.net> wrote:
+>=20
+> The attached patch attempts to teach the Alpha pmap(9) how to track
+> P->V mappings for unmanaged pages, needed by drm graphics drivers.
+> However, I have no way to test it.
+>=20
+> Would anyone like to pick this up, dust it off, and commit it?
+> <alphapvtrack.patch>
+
+I=E2=80=99ll try to scare up some time this week to boot it up in Qemu =
+at least.  (My real machine is currently squirreled away at the moment.)
+
+-- thorpej
+
+
+

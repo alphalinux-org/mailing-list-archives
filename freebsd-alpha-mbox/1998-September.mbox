@@ -1,0 +1,4997 @@
+From freebsd-alpha  Wed Sep 30 08:28:47 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Wed, 30 Sep 1998 08:28:47 +0000
+To: freebsd-alpha
+Subject: Re: xntpd
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506998
+
+On Wed, 30 Sep 1998, John Birrell wrote:
+
+> Doug Rabson wrote:
+> > On Tue, 29 Sep 1998, Dima Ruban wrote:
+> > 
+> > > Doug Rabson writes:
+> > > > Since (with SRM anyway) all machines will run with the RTC on UTC, not
+> > > > wall clock time, maybe adjkerntz can be stubbed?  It still needs to exist
+> > > > as the standard cron scripts keep trying to run it :-(.
+> > > 
+> > > Maybe we should just hack the sucker to do exit (0) if runs on alpha? ;-)
+> > 
+> > That seems too unpleasant...  I'll add it to my whiteboard *sigh*.
+> 
+> Maybe we should just move src/etc/crontab to src/etc/i386/crontab and
+> create an alpha specific one. Then the `adjkerntz -i' in /etc/rc can
+> move to /etc/rc.i386.
+
+We will need adjkerntz for people which dual-boot BSD and NT (which is
+reasonable if I ever get around to porting our boot to AlphaBIOS).
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 29 09:55:28 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Tue, 29 Sep 1998 09:55:28 +0000
+To: freebsd-alpha
+Subject: Re: which scsi card?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506990
+
+On Mon, 28 Sep 1998, Chris Csanady wrote:
+
+> I plan on purchasing a few scsi cards for use in LX164's.  I was
+> just curious as to which cards are supported.  Do the Symbios
+> 875 cards work, or do I need the 810's?  Also, does the SRM
+> care if it the flash bios on board?
+> 
+> I found some Tekram 390(F) cards that look like they may work..
+> any cautions?
+
+Driver support is pretty thin at the moment, with only the ncr and isp
+drivers working.  The ncr driver supports all the cards which are
+supported on i386 and I have an 875 in my 164lx which works just fine.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Sep 28 08:43:03 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Mon, 28 Sep 1998 08:43:03 +0000
+To: freebsd-alpha
+Subject: RE: New kernel available
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506987
+
+On Mon, 28 Sep 1998, Paul Richards wrote:
+
+> It's not working on my Multia, it locks up just after the line
+> 
+> sc0 at 0x60 irq1 on isa0
+> 
+> I get a lot of 
+> 
+> dec_axppci_33_intr_map: bad interrupt pin 30
+> 
+> errors as it's booting up, not that it actually gets that far :-)
+
+Does the machine have a serial or vga console?  Could you possibly send me
+a log of what is printed when it boots (possibly be swapping to a serial
+console).
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 27 22:07:02 1998
+From: Terry Lambert <tlambert () primenet ! com>
+Date: Sun, 27 Sep 1998 22:07:02 +0000
+To: freebsd-alpha
+Subject: Re: one other thing...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506984
+
+> >Soft update reduces the number of writes to the device.  And because
+> >it does implicit write gathering, there is little or no room for the
+> >disk to further optimize this under the cover.
+> 
+> Soft updates deals with meta-data only.  If I am a database (your example),
+> I will likely have very few (if any) files in the filesystem and the only
+> thing soft updates helps me with is dealing with file growth and 
+> other meta-data related accesses.  Soft updates, in fact, does no write
+> gathering at all.  It makes a single meta-data change at a time just
+> as is done in the sync case, but because of the tracking of dependencies,
+> can perform these writes without blocking other file system activity.
+
+FreeBSD does write gather in the clustering code.
+
+But I believe the mtime is not going to be updated in the on disk
+inode unless the writes have actually taken place (i.e., the
+_user data_ has actually been "M"'ed).
+
+
+> >A well written OS will be better able to utilize memory in a fashion
+> >suitable to the OS than some disk drive manufacturer building disks
+> >with the general expectation of a VFAT32 FS.
+> 
+> Hmm.  Then why does this give us something like a 2X performance boost?
+
+A _well written_ OS will be better able to utilize memory...
+
+Or maybe you aren't doing tagged command queueing?
+
+Really, this is a latency issue, and not a general linear
+performance win, like you imply with your "2X".
+
+You can improve latency by shortening the cycle time, but you can
+*also* improve latency by increasing concurrency.
+
+If the issue here is serial latency of inherently serial
+operations.
+
+My guess is that ordering is *not* guaranteed between seperate
+tagged commands, and the disk is using the write cache to
+optimize seek latency.
+
+Either that, or you are rewriting overlapping windows:
+
+[             ]
+ [             ]
+  [             ]
+   ...
+
+With a really strange micro-benchmark designed to test whether the
+disk does write caching...
+
+
+> >The bottom line: I can make it go as fast as you want, if it doesn't
+> >have to be correct.  Faster even...
+> 
+> With a UPS, I'm guaranteed that the data will be correct even if the OS
+> crashes so long as I don't have a concurrent device failure.  I have
+> backups or RAID to deal with device failure and no setting of the
+> write cache helps you in this case anyway.
+
+Right.  You didn't say the disk you were doing this to was a
+member of a volume set in a UPS'ed RAID 5 array, however.
+
+
+> >This helps little.  Unless the write is committed tostable storage
+> >on a device block basis under OS control, there are still race
+> >windows inherent in the sector order reversal.  If the drive
+> >believes it is about to write a run of contiguous sectors, it
+> >will *still* reorder the writes.
+> 
+> The SCSI spec says otherwise.
+
+The race windows are based on assumptions by the OS on write ordering
+dependencies, not SCSI race conditions.  Sorry if that wasn't clear.
+
+Your previous point about being able to do a cache flush command to
+the disk is salient; however, FreeBSD is apparently not doing this
+yet, and until it does, the point about their being a race, stands.
+
+
+> >This protects against crashes as a result of a power loss, but
+> >not those resulting from a memory overcommit architecture, nor
+> >those resulting from kernel bugs.
+> 
+> But a crash by way of a power loss is the only way (barring device failure)
+> that my write cache can be compromised.  If the OS crashes and reboots,
+> the drive will happily commit to non-volatile storage that the OS assumed
+> was written.
+
+If the OS goes off in the weeds, it can write wrong data.  Look at
+the library timestamp update bug.
+
+
+> >Frankly, we are arguing on different axes; you are discussing
+> >"safe enough", while I'm discussing "reliable".
+> 
+> My argument is that write caching is "reliable" if you use a UPS.
+
+OK, then we are in violent agreement about the qualification I
+wanted to make on the original posting.  I guess we can stop now,
+since I only wanted to qualify the instructions with what they
+implied above and beyond "faster writes".
+
+
+> All Quantum, Seagate, and IBM drives ship with write caching
+> enabled so there must be thousands of people using FreeBSD that, although
+> they haven't complained once about this problem, are certain to experience
+> file system corruption.
+
+But the only people who care about correctness are here and on the
+SCSI list... ;-).
+
+
+					Terry Lambert
+					terry@lambert.org
+---
+Any opinions in this posting are my own and not those of my present
+or previous employers.
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 27 21:23:37 1998
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Sun, 27 Sep 1998 21:23:37 +0000
+To: freebsd-alpha
+Subject: Re: it works!!
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506982
+
+
+Kenneth D. Merry writes:
+ > - Booted DEC Unix, and attempted to partition the thing.  Silly me.  No
+ >   matter what I tried, their disklabel(8) didn't want to disklabel the
+ >   damned disk.  It didn't work even when I did something like this:
+ > 
+ > 	dd if=/dev/zero of=/dev/rrz20c bs=64k count=10
+
+If anybody else needs to label a disk using DU, remember that their
+equiv of "auto" is a second identical device number.  So you'd do
+something like this to put an initial label onto a disk at rz20:
+
+	disklabel -wr rz20 rz20
+
+The only time this will get you is when there's an entry in
+/etc/disktab which corresponds to the device you're labeling (the
+second device is supposed to be the disktab entry name; they really
+should use "auto").  You can just temporarily move /etc/distab out of
+the way in that case.
+
+Drew
+
+------------------------------------------------------------------------------
+Andrew Gallatin, Sr Systems Programmer	http://www.cs.duke.edu/~gallatin
+Duke University				Email: gallatin@cs.duke.edu
+Department of Computer Science		Phone: (919) 660-6590
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 27 13:46:34 1998
+From: "Gary Palmer" <gpalmer () FreeBSD ! ORG>
+Date: Sun, 27 Sep 1998 13:46:34 +0000
+To: freebsd-alpha
+Subject: Re: Possible problem with wait syscall handling...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506980
+
+Doug Rabson wrote in message ID
+<Pine.BSF.4.01.9809271010390.845-100000@herring.nlsystems.com>:
+> I don't think the execve problem could have caused that.  The box would
+> have been sitting in DDB after a panic and couldn't have responded to a
+> ping.
+
+Hrm. True. Although, as I said, I don't know what state the machine was in, as 
+I had't kept the serial console up and remote gdb wasn't giving me anything 
+useful. Its possible that the execve problem was something that started 
+happening when I was pushing the machine to see why it was hanging.
+
+Gary
+--
+Gary Palmer                                          FreeBSD Core Team Member
+FreeBSD: Turning PC's into workstations. See http://www.FreeBSD.ORG/ for info
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 19:36:16 1998
+From: dima () best ! net (Dima Ruban)
+Date: Sat, 26 Sep 1998 19:36:16 +0000
+To: freebsd-alpha
+Subject: Re: make
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506969
+
+Jordan K. Hubbard writes:
+> > You don't have to install an rsaref port. Makefile for alpha is _exactly_
+> > the same as for my i386/current machine.
+> > But it works for i386 and doesn't work for alpha.
+> > That's how I came to the conclusion that make on alpha is slightly broken.
+> > (I didn't have a chance to look it at by myself)
+> 
+> Naw, it's an ELF artifact - it fails the same way on an x86/ELF system
+> and it's pretty obvious as to why if you look at the way rsaref is
+> being built inside the ssh directory.
+
+Yeah, I see it.
+
+> Now what would make a LOT MORE sense would be to get the rsaref2 port
+> to work with ssh and simply make the ssh port depend on it, but when I
+> tried this I got an sshd (on the alpha) that was unable to generate
+> the random keys and would hang forever on a connection.
+
+I just fixed that for rsaref. Now we need to fix ssh to build with already
+installed rsaref library.
+
+> 
+> - Jordan
+> 
+
+-- dima
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 09:24:58 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sat, 26 Sep 1998 09:24:58 +0000
+To: freebsd-alpha
+Subject: Re: btw
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506968
+
+On Sat, 26 Sep 1998, Dima Ruban wrote:
+
+> Is there suck a thing as "ifdef" or something for ``mtree''?
+> I think, we should create /boot directory if we run alpha by default ....
+> 
+> Any bright ideas?
+
+Maybe we need to add src/etc/mtree/BSD.root.alpha.dist?
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 22:10:05 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Fri, 25 Sep 1998 22:10:05 +0000
+To: freebsd-alpha
+Subject: Re: installing bootblocks...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506955
+
+On Fri, 25 Sep 1998, Matt Hamilton wrote:
+
+> Dear All,
+>    Forgive my ignorance, as I haven't even tried -current on my Alpha yet
+> (UDB -still not supported right?), but where do bootblocks fit into the
+> Alpha boot process?  I thought you just typed: boot blah/kernel into SRM
+> and it would boot the kernel?  I guess I must be wrong, so where do the
+> bootblocks fit in?  Does the boot command in SRM call the secondary boot
+> code in the bootblocks and then that calls the kernel?
+> 
+> confused in NY
+
+I fixed the axppci33 support a few days ago (which should include UDB).
+I'll probably put up some more kernels tomorrow for testing.  The boot
+blocks are necessary because SRM only knows how to load a single
+contiguous region of the disk.  To load a kernel from a real filesystem,
+you need to get SRM to load a bootstrap which contains a UFS reader to
+read the kernel.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 07:36:27 1998
+From: John Birrell  <jb () cimlogic ! com ! au>
+Date: Fri, 25 Sep 1998 07:36:27 +0000
+To: freebsd-alpha
+Subject: Re: nevermind :-)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506946
+
+Dima Ruban wrote:
+> Was it a voluntary context switch, since it's pretty clear
+> that an event that you were waiting for never arrived :-) Or some resource
+> wasn't and isn't available. How about to push some magic button called panic?
+> ;-)
+
+Bug in brain software no doubt. Probably made worse by poor hardware.
+
+> > I was working in a cross-compiled mode to get Modula-3 to work for
+> > FreeBSD/Alpha. Since Modula-3 works on OSF/1, I built that, then
+> > made mods so that it would use remote commands for the backend tools
+> > (gcc, ar, ld). I was able to build the whole thing that way. Without
+> > the stack walking code, though, the programs just spit an error and
+> > exit.
+> 
+> I can see that. Well, let's ask binutils dudes then.
+
+John Polstra tells me that the setjmp/longjump implementation should
+still work. I wish my brain worked - then I might stand a chance of
+remembering what the issues were. 
+
+-- 
+John Birrell - jb@cimlogic.com.au; jb@freebsd.org http://www.cimlogic.com.au/
+CIMlogic Pty Ltd, GPO Box 117A, Melbourne Vic 3001, Australia +61 418 353 137
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Sep 24 22:28:54 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Thu, 24 Sep 1998 22:28:54 +0000
+To: freebsd-alpha
+Subject: Re: question
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506938
+
+On Thu, 24 Sep 1998, Dima Ruban wrote:
+
+> Hey guys!
+> 
+> How do I compile kernel on alpha? ;-)
+> Sorry for the stupid question. I just got myself an alphastation 200,
+> installed netbsd on it, got
+> freefall/~dfr/public_html/freebsd-alpha-280798.tar.gz, extracted it on
+> top of netbsd, nuked the rest of netbsd stuff and got the very recent
+> -current (via cvs). Now I've tried to compile a GENERIC kernel, but
+> make depend can't find bunch of isa stuff. like sio,e tc etc etc
+> Where do I get it? Or is there something I'm missing?
+
+You should get a later set of binaries from
+ftp://ftp.freebsd.org/pub/FreeBSD/development/alpha.  That old tarball has
+some serious problems and I have just deleted it.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Sep 24 06:55:41 1998
+From: Neal Horman <neal () wanlink ! com>
+Date: Thu, 24 Sep 1998 06:55:41 +0000
+To: freebsd-alpha
+Subject: Re: boostrap - build world - mtree failure
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506934
+
+Thanks, i've pulled the kernel, and i'm now pulling some of the file sets
+from http://ftp.freebsd.org/pub/FreeBSD/development/alpha.
+
+On Wed, 23 Sep 1998, Doug Rabson wrote:
+
+> Date: Wed, 23 Sep 1998 09:22:41 +0100 (BST)
+> From: Doug Rabson <dfr@nlsystems.com>
+> To: Neal Horman <neal@wanlink.com>
+> Cc: freebsd-alpha@freebsd.org
+> Subject: Re: boostrap - build world - mtree failure
+> 
+> On Wed, 23 Sep 1998, Neal Horman wrote:
+> 
+> > 
+> > ok, following the steps outlined in the "bootstrapping" html page, i'v
+> > gotten an alpha 200 loaded w/netbsd 1.3.2.
+> > 
+> > I've nfs mounted -current as of 9/19/98 to /usr/src, and started the make
+> > buildworld... "make" seemed to build ok, but it barfed on mtree cause it
+> > can't find "-lmd". I assume this to be the md5 library "libmd".
+> > 
+> > Could someone point me in the right direction. I'm sure if i'm missing the
+> > md5 lib from netbsd, or if -current for is broken.
+> > 
+> > I'm looking forward to getting fbsd running on alpha, and maybe even
+> > helping to advance the alpha port as well.
+> 
+> The bootstrapping instructions on the web page are somewhat dated.
+> FreeBSD/alpha now has a native kernel.  Please try booting one of the
+> kernels at http://www.freebsd.org/~dfr to single user mode and if that is
+> successful, you can unpack the FreeBSD binaries from
+> http://ftp.freebsd.org/pub/FreeBSD/development/alpha.
+> 
+> --
+> Doug Rabson				Mail:  dfr@nlsystems.com
+> Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+> 					Fax:   +44 181 381 1039
+> 
+
+----------
+Neal Horman
+	"one ping please, Vascilly, one ping... only..."
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Sep 23 08:18:48 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Wed, 23 Sep 1998 08:18:48 +0000
+To: freebsd-alpha
+Subject: Alpha binaries available
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506932
+
+I have uploaded a new set of alpha binaries to
+http://ftp.freebsd.org/pub/FreeBSD/development/alpha/3.0-19980920.  I
+would hesitate to call it a snapshot since it doesn't include any kind of
+install program.
+
+The current solution for installing FreeBSD/alpha is to use the NetBSD
+install disk to partition and newfs a disk and then unpack the FreeBSD
+binary sets that you require and add a FreeBSD kernel.  This situtation
+is likely to improve over the next few weeks.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 22 09:39:01 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Tue, 22 Sep 1998 09:39:01 +0000
+To: freebsd-alpha
+Subject: Re: Please, explain!
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506930
+
+On Tue, 22 Sep 1998, Sergey S. Kosyakov wrote:
+
+> 
+> Please, explain me - can I install SRM firmware on 164LX motheboard with NT
+> Alpha-BIOS ? More precisely, can I buy 164LX with AlphaBIOS and update firmware
+> to SRM console? I did not find clean answer in the 164LX documentation.
+
+Yes you can.  I have done this and it works.  Basically, you trawl round
+the digital ftp server until you find the file lx164srm.com (I think its
+in the v5.0 firmware release).  Put this file on the AlphaBIOS firmware
+floppy and go to the firmware update section of the AlphaBIOS menus.
+There will be an option to switch to SRM which will overwrite the
+AlphaBIOS firmware with SRM.  To switch back, put the same floppy in the
+driver and type 'nt' from SRM's ">>>" prompt.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 20 19:57:18 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sun, 20 Sep 1998 19:57:18 +0000
+To: freebsd-alpha
+Subject: Re: IDE support?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506928
+
+On Sun, 20 Sep 1998, Andrew Gallatin wrote:
+
+> 
+> Doug Rabson writes:
+>  > > As far as I can tell. :(  I just had a chance to play with the Rev C0
+>  > > boards, and they still suck just as much.  I believe the C0 is the
+>  > > latest rev, although I am not absolutely sure.
+>  > 
+>  > In what sense are they broken?  I have a 164LX and (barring the time the
+>  > heatsink fell off) it has been working very well.
+> 
+> Say that after putting a Myrinet or gigabit ethernet card in it ;-)
+> 
+> 164LX's share at least some of the problems of early revision miatas.
+> Chris sees slow host->PCI dma bandwidth (~70MB/sec) with his Myrinet
+> card.   Whether it shares other, nastier problems (page boundary DMA
+> bugs), I don't know.
+
+Oh, right.  I don't have anything particularly fast in the box and to be
+honest I haven't actually timed it doing anything.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 20 10:43:58 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sun, 20 Sep 1998 10:43:58 +0000
+To: freebsd-alpha
+Subject: Re: Making a disk bootable under dux
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506921
+
+On Sat, 19 Sep 1998, Andrew Gallatin wrote:
+
+> 
+> Warner Losh writes:
+>  > Right now, I have this disk that has all of FreeBSD alpha on it, but
+>  > don't want to duplicate that on another machine just to netboot the
+>  > thing to install the bootblocks.
+>  > 
+>  > Comments?
+> 
+> You don't need to duplicate the whole thing, just the kernel. The
+> kernel you netboot will use the local disk as its root.  Heck, I don't
+> even know how to make FreeBSD/alpha use an nfs root these days..
+
+One day soon, I will force myself to write/port the root detection code.
+If anyone beats me to it of course, that would be great...
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 20 09:40:45 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sun, 20 Sep 1998 09:40:45 +0000
+To: freebsd-alpha
+Subject: Re: Current AS200 state
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506919
+
+On Sat, 19 Sep 1998, Gary Palmer wrote:
+
+> Doug Rabson wrote in message ID
+> <Pine.BSF.4.01.9809191622150.392-100000@herring.nlsystems.com>:
+> > Neither of these things are on my near-term todo list - I'm still
+> > struggling hard with 'make release' :-).  If you want to tackle either of
+> > these jobs (or anything else on my whiteboard for that matter) then please
+> > go ahead and don't hesitate to contact me with questions if you don't
+> > understand anything.
+> 
+> I had make release working for Alpha before the i386 elf/perl5 changes
+> went in and now I have conflicts all over the place. If the machines at
+> work ever let me get a good nights sleep sometime soon I'll resolve
+> those conflicts and start compiling again.
+
+The build basically works (as long as you edit release/Makefile to use
+'-O' instead of '-O2') but I have make faulting sometimes when its trying
+to build the dists.  I have it in the debugger now (it took all day tp
+catch it) so I expect to be able to fix it today.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 19 18:28:16 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sat, 19 Sep 1998 18:28:16 +0000
+To: freebsd-alpha
+Subject: Re: first attempt to boot FreeBSD kernel on AlphaStation 200 4/233
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506913
+
+On Sat, 19 Sep 1998, Jacques Vidrine wrote:
+
+> -----BEGIN PGP SIGNED MESSAGE-----
+> 
+> I'm netbooting, by the way.  Not sure what to look at for problems.
+
+Could you send me the output of 'show config' and a dmesg from the NetBSD
+boot so that I can get some idea of what is in this machine, thanks.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 19 00:18:11 1998
+From: "Gary Palmer" <gpalmer () FreeBSD ! ORG>
+Date: Sat, 19 Sep 1998 00:18:11 +0000
+To: freebsd-alpha
+Subject: Re: Multia kernels
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506909
+
+Doug Rabson wrote in message ID
+<Pine.BSF.4.01.9809181004140.392-100000@herring.nlsystems.com>:
+> None at the moment :-(
+
+Although my AlphaStation/600 is running fine with the new dynamic
+FreeBSD/Alpha. Thanks Doug & Company!
+
+Gary
+--
+Gary Palmer                                          FreeBSD Core Team Member
+FreeBSD: Turning PC's into workstations. See http://www.FreeBSD.ORG/ for info
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 18 19:31:46 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Fri, 18 Sep 1998 19:31:46 +0000
+To: freebsd-alpha
+Subject: New alpha kernels available.
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506908
+
+I have uploaded new post-cam kernels to http://www.freebsd.org/~dfr.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 18 12:31:48 1998
+From: "Sergey S. Kosyakov" <ks () itp ! ac ! ru>
+Date: Fri, 18 Sep 1998 12:31:48 +0000
+To: freebsd-alpha
+Subject: KR21162CN
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506907
+
+
+
+Hi!
+
+Does anybody know something about Alpha processor KR-21162-533-CN ?
+Is it true DEC 21164 or is it some clone?
+
+Sergey. 
+
+
+---
+----------------------------------
+Sergey Kosyakov
+Laboratory of Distributed Computing
+Department of High-Performance Computing and Applied Network Research
+Landau Institute for Theoretical Physics
+E-Mail: ks@itp.ac.ru
+Date: 18-Sep-98
+Time: 16:28:14
+----------------------------------
+---
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 18 11:15:17 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Fri, 18 Sep 1998 11:15:17 +0000
+To: freebsd-alpha
+Subject: Re: Bootstrap
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506906
+
+On Fri, 18 Sep 1998, Doug Rabson wrote:
+
+> On Thu, 17 Sep 1998, Warner Losh wrote:
+> 
+> > 
+> > What's the bootstrap proceedure for getting FreeBSD up and running on
+> > a alpha that is currently running DUX?  Is there a snapshot that I can
+> > retrieve to make this easier?
+> 
+> There is a really old snapshot in http://www.freebsd.org/~dfr.  I'm just
+> trying to build a release here which would be far more useful.  If the
+> 'make release' works, I'll upload it somewhere but it might be a while.
+> Gary Palmer has been trying to build releases too so he might beat me to
+> it...
+> 
+> I'll put up some fresh GENERIC kernels too before I go to work.
+
+Hohum.  Freefall is not answering and I can't upload anything.  I'll try
+again later.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Sep 17 21:30:40 1998
+From: Jonathan Chen <jonc () pinnacle ! co ! nz>
+Date: Thu, 17 Sep 1998 21:30:40 +0000
+To: freebsd-alpha
+Subject: Re: buildworld, anyone?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506902
+
+On Thu, 17 Sep 1998, Andrew Gallatin wrote:
+
+> Woo-hoo!  After your latest commits, I was able to build the world! 
+> 
+> All it took to build the GENERIC kernel was to extract the
+> isa/{sio.c,sioreg.h} files from
+> http://www.freebsd.org/~dfr/alpha-sys-diff-120998.gz 
+> and to comment out the non-CAM'ified scsi code for the TC alphas:
+
+As a lurker on the list, this is *MOST* exciting to hear!
+-------------------------------------------------------------------
+Jonathan Chen                       |      -insert-witty-quip-here-
+-------------------------------------------------------------------
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 11 18:34:41 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Fri, 11 Sep 1998 18:34:41 +0000
+To: freebsd-alpha
+Subject: Re: Shared libs on alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506894
+
+On Wed, 9 Sep 1998, Doug Rabson wrote:
+
+> For anyone experimenting with FreeBSD/alpha at the moment, please avoid
+> trying to use shared libraries for the next couple of days and keep your
+> systems static.  The nice folks at Cygnus have managed to change the
+> shared object format in such a way that shared executables and libs linked
+> eith binutils-2.8.1 are totally incompatible with those linked with
+> binutils-2.9.1.
+> 
+> Since we haven't released anything yet, I will only be supporting the
+> 2.9.1 format in rtld but I have some more testing to do before I can
+> commit that so stay static for the next few days.
+> 
+> For any of the NetBSD folks reading this list, be warned that you will get
+> grief from binutils if/when you upgrade your toolchain to binutils-2.9.1.
+> To be specific, the PLT format has changed and you will probably need two
+> versions of _rtld_bind_start for the new and old formats :-(.
+
+It should now be safe to build shared libs and dynamic executables on
+alpha.  Make sure rtld-elf is up to date before trying to run any shared
+executables.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Sep 09 08:46:44 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Wed, 09 Sep 1998 08:46:44 +0000
+To: freebsd-alpha
+Subject: Re: Bt848 driver for Alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506892
+
+On Tue, 8 Sep 1998, Justin T. Gibbs wrote:
+
+> >> Ick. Ick. Ick.  Almost all of the CAM code uses the bus space facility
+> >> to do this.  Why re-invent the wheel?
+> > 
+> > I wasn't re-inventing anything.  I just happened to look at a different
+> > wheel.  Constructing a bus space around this is trivial (virtually the
+> > same as the i386 bus space).
+> 
+> Well, the NCR driver is an MI driver, so it should use MI interfaces
+> to get it's work done.  My (incorrect??) assumption was that you were
+> pushing for writeb and friends to become MI interfaces.
+
+I used inx/outx and readx/writex to get the port up and running quickly
+without having to spend huge quantities of effort changing drivers.  Of
+course I will implement the bus_space api when CAM goes in.  I will still
+need to support inx/outx for non-CAM drivers though unless CAM converts
+all of them to bus_space.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Sep 07 18:00:13 1998
+From: webmaster () ah-network ! de
+Date: Mon, 07 Sep 1998 18:00:13 +0000
+To: freebsd-alpha
+Subject: Fw: alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030594008713
+
+
+----- Original Message -----
+From: "John Baldwin" <jhb@pike.osd.bsdi.com>
+To: <webmaster@ah-network.de>
+Cc: <freebsd-questions@FreeBSD.ORG>
+Sent: Thursday, September 07, 2000 7:22 PM
+Subject: Re: alpha
+
+
+> webmaster@ah-network.de wrote:
+> [Charset iso-8859-1 unsupported, filtering to ASCII...]
+> > dear daemons!!
+> >
+> > a few weeks ago i bought an alpha 21164. after a litte bit of
+researching i was able to "change" the bios into the srm console.
+> > but it did not work. everytime i booted with the 4.1 cd it stopped at
+the "jumping to bootstrap", and the system does not react but i can see the
+cube-like cursor at the left. i guess this is the point where normally the
+installation should start. the same with netbsd. suse 6.3+6.4 didn_t make
+any problems but i would much more like freebsd running on my system. what
+can i do??
+> > here_s the system:
+> > 21164/533mhz/2mb cache
+> > lx164
+> > 256mb/ecc
+> > 15gb maxtor/ide
+> > lg 48x/ide
+> > floppy!!
+> > matrox 2mb/svga
+> > i got the srm update from ftp.digital.com and directly from api_s
+homepage. my alpha-bios is 5.68-1
+> >
+> > best regards g.fischer
+>
+> You probably want to ask about this on the freebsd-alpha@FreeBSD.org list.
+> However, are you sure you are telling SRM to boot from your CD and not
+> from the hard disk?
+>
+> --
+>
+> John Baldwin <jhb@bsdi.com> -- http://www.FreeBSD.org/~jhb/
+> PGP Key: http://www.cslab.vt.edu/~jobaldwi/pgpkey.asc
+> "Power Users Use the Power to Serve!"  -  http://www.FreeBSD.org/
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Sep 07 07:30:08 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Mon, 07 Sep 1998 07:30:08 +0000
+To: freebsd-alpha
+Subject: Re: alpha kernel broken?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506886
+
+On Sun, 6 Sep 1998, Gary Palmer wrote:
+
+> 
+> I've been trying to compile an alpha kernel to make use of the elf
+> dynmic loader, but keep running into a bunch of multiple definition
+> warnings from the linker. What doesn't make any sense is that it
+> claims the definitions are on the same line... Any ideas?
+
+This was caused when the device framework code was moved from files.alpha
+to files.  I have just committed the relavent changes to files.alpha.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 05 19:05:57 1998
+From: Simon Shapiro <shimon () simon-shapiro ! org>
+Date: Sat, 05 Sep 1998 19:05:57 +0000
+To: freebsd-alpha
+Subject: Re: Help - No htonq, ntohq
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506882
+
+
+Eivind Eklund, On 05-Sep-98 you wrote:
+>  On Sat, Sep 05, 1998 at 08:27:40AM +1000, John Birrell wrote:
+> > Simon Shapiro wrote:
+> > > Can anyone suggest a clean, portable way to support binary
+> > > competability on
+> > > 64bit integers between an Alpha and IA?
+> > 
+> > int64_t & u_int64_t
+> > 
+> > > We have hton{l,s} but these are good only for 16 & 32 bit values.
+> > 
+> > I think hton{l,s} should be kept strictly for _network_ code.
+>  
+>  I think Simon is working on sharing binary data between Intel and
+>  Alpha (running with shared disk).  Saying 'strictly for network code'
+>  doesn't help solve the problem at all.  May I suggest the introduction
+>  of
+>  
+>  hton16s(l,s)    ntoh16s(l,s)
+>  hton16u(l,s) ntoh16u(l,s)
+>  hton32s(l,s) ntoh32s(l,s)
+>  hton32u(l,s) ntoh32u(l,s)
+>  hton64s(l,s) ntoh64s(l,s)
+>  hton64u(l,s) ntoh64u(l,s)
+>  
+>  as a much more clear way of handling the naming?  (I placed the
+>  sign-indicator after the number of bits, to avoid confusion with
+>  htons()).  This also give a clear answer to the question 'what should
+>  I use for 64-bit' :-)
+>  
+>  Eivind.
+
+Thanx!  Am I to understand that what I want does not exist?  I saw a
+reference to something in /usr/include/nfs/xdr_subs.h but am not clear what
+value it has.  I'd rather have some concensus first.
+
+Simon
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 01 21:13:05 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Tue, 01 Sep 1998 21:13:05 +0000
+To: freebsd-alpha
+Subject: Re: kernel compile under NetBSD
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506872
+
+On Tue, 1 Sep 1998, BitS wrote:
+
+> 
+> 
+> Ok, I have a Multia, the lowend 166 axpci133 board, the generic kernel
+> from ~dfr lockes directly after loading, I'm using the NetBSD boot loader
+> to get that far.  It loads like so:
+
+The Multia support is not currently functional as I have no hardware to
+test it on.  I am going to try to get hold of a Multia this week so
+hopefully the situation will improve.
+
+> 
+> So... since that isn't working, I'm attempting to compile the kernel under
+> NetBSD, however, make dies with this error:
+> 
+> cc -c -x assembler-with-cpp -DLOCORE -nostdinc -I- -I. -I../..
+> -I../../../include  -DKERNEL -include opt_global.h -U__NetBSD__
+> ../../alpha/alpha/locore.s
+> ../../alpha/alpha/locore.s: Assembler messages:
+> ../../alpha/alpha/locore.s:84: Error: syntax error
+> ../../alpha/alpha/locore.s:85: Error: Rest of line ignored. First ignored
+> character is `1'.
+> *** Error code 1
+> 
+> Stop.
+> 
+> 
+> 
+> For reference, I have 32megs of ram, a seagate 2gig scsi drive, and the
+> SRM version info is:
+> 
+> Multia SRM Console  BL5 V3.8-3, built on Aug 10 1995 at 3:22:55
+> 
+> if anyone has any ideas, I'm more the willing to listen
+
+That is very strange.  Line 84 of locore.s doesn't do anything special.
+You might have better luck building kernels under NetBSD if you make the
+FreeBSD make first (just use the Makefile.dist in src/usr.bin/make to
+build it) and make sure you point it at the FreeBSD make files with -m
+/whereever/share/mk.  Also add 'options __FreeBSD__=3' to your kernel
+config since some of the drivers depend on the correct definition of
+__FreeBSD__.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 29 22:38:55 1998
+From: dima () best ! net (Dima Ruban)
+Date: Tue, 29 Sep 1998 22:38:55 +0000
+To: freebsd-alpha
+Subject: Re: xntpd
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506997
+
+John Birrell writes:
+> Doug Rabson wrote:
+> > On Tue, 29 Sep 1998, Dima Ruban wrote:
+> > 
+> > > Doug Rabson writes:
+> > > > Since (with SRM anyway) all machines will run with the RTC on UTC, not
+> > > > wall clock time, maybe adjkerntz can be stubbed?  It still needs to exist
+> > > > as the standard cron scripts keep trying to run it :-(.
+> > > 
+> > > Maybe we should just hack the sucker to do exit (0) if runs on alpha? ;-)
+> > 
+> > That seems too unpleasant...  I'll add it to my whiteboard *sigh*.
+> 
+> Maybe we should just move src/etc/crontab to src/etc/i386/crontab and
+> create an alpha specific one. Then the `adjkerntz -i' in /etc/rc can
+> move to /etc/rc.i386.
+
+We can just [ -x /sbin/adjkerntz ] in /etc/rc to avoid /etc/rc separation
+for a difference architectures.
+
+> 
+> -- 
+> John Birrell - jb@cimlogic.com.au; jb@freebsd.org http://www.cimlogic.com.au/
+> CIMlogic Pty Ltd, GPO Box 117A, Melbourne Vic 3001, Australia +61 418 353 137
+> 
+
+-- dima
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 29 22:31:30 1998
+From: John Birrell  <jb () cimlogic ! com ! au>
+Date: Tue, 29 Sep 1998 22:31:30 +0000
+To: freebsd-alpha
+Subject: Re: xntpd
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506996
+
+Doug Rabson wrote:
+> On Tue, 29 Sep 1998, Dima Ruban wrote:
+> 
+> > Doug Rabson writes:
+> > > Since (with SRM anyway) all machines will run with the RTC on UTC, not
+> > > wall clock time, maybe adjkerntz can be stubbed?  It still needs to exist
+> > > as the standard cron scripts keep trying to run it :-(.
+> > 
+> > Maybe we should just hack the sucker to do exit (0) if runs on alpha? ;-)
+> 
+> That seems too unpleasant...  I'll add it to my whiteboard *sigh*.
+
+Maybe we should just move src/etc/crontab to src/etc/i386/crontab and
+create an alpha specific one. Then the `adjkerntz -i' in /etc/rc can
+move to /etc/rc.i386.
+
+-- 
+John Birrell - jb@cimlogic.com.au; jb@freebsd.org http://www.cimlogic.com.au/
+CIMlogic Pty Ltd, GPO Box 117A, Melbourne Vic 3001, Australia +61 418 353 137
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 29 21:02:50 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Tue, 29 Sep 1998 21:02:50 +0000
+To: freebsd-alpha
+Subject: Re: xntpd
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506995
+
+On Tue, 29 Sep 1998, Dima Ruban wrote:
+
+> Doug Rabson writes:
+> > Since (with SRM anyway) all machines will run with the RTC on UTC, not
+> > wall clock time, maybe adjkerntz can be stubbed?  It still needs to exist
+> > as the standard cron scripts keep trying to run it :-(.
+> 
+> Maybe we should just hack the sucker to do exit (0) if runs on alpha? ;-)
+
+That seems too unpleasant...  I'll add it to my whiteboard *sigh*.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 29 20:25:09 1998
+From: dima () best ! net (Dima Ruban)
+Date: Tue, 29 Sep 1998 20:25:09 +0000
+To: freebsd-alpha
+Subject: Re: xntpd
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506994
+
+Doug Rabson writes:
+> Since (with SRM anyway) all machines will run with the RTC on UTC, not
+> wall clock time, maybe adjkerntz can be stubbed?  It still needs to exist
+> as the standard cron scripts keep trying to run it :-(.
+
+Maybe we should just hack the sucker to do exit (0) if runs on alpha? ;-)
+
+> 
+> --
+> Doug Rabson				Mail:  dfr@nlsystems.com
+> Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+> 					Fax:   +44 181 381 1039
+> 
+
+-- dima
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 29 19:27:12 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Tue, 29 Sep 1998 19:27:12 +0000
+To: freebsd-alpha
+Subject: Re: xntpd
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506993
+
+On Tue, 29 Sep 1998, Dima Ruban wrote:
+
+> Doug Rabson writes:
+> > On Mon, 28 Sep 1998, Dima Ruban wrote:
+> > 
+> > > Hey guys, did anybody got $Subject working on alpha? It looks like
+> > > it has some problems (u_long size problem, I think).
+> > 
+> > I haven't tried yet.  If you want to work on some time related stuff,
+> > could you think about fixing adjkerntz too :-).
+> 
+> Ugh ... While fixing xntpd stuff is pretty much trivial (or at least it looks
+> like it) I don't know about adjkerntz. I haven't looked at it yet, but
+> as far as I understand it has some kernel support (read: relies on some
+> i386 hardware/bios). Of course I'm not sure about it, but if this is correct -
+> then I will definitely have a hard time porting this stuff to alpha, since
+> I don't know that much about alpha's hardware ...
+
+Since (with SRM anyway) all machines will run with the RTC on UTC, not
+wall clock time, maybe adjkerntz can be stubbed?  It still needs to exist
+as the standard cron scripts keep trying to run it :-(.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 29 19:17:37 1998
+From: dima () best ! net (Dima Ruban)
+Date: Tue, 29 Sep 1998 19:17:37 +0000
+To: freebsd-alpha
+Subject: Re: xntpd
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506992
+
+Doug Rabson writes:
+> On Mon, 28 Sep 1998, Dima Ruban wrote:
+> 
+> > Hey guys, did anybody got $Subject working on alpha? It looks like
+> > it has some problems (u_long size problem, I think).
+> 
+> I haven't tried yet.  If you want to work on some time related stuff,
+> could you think about fixing adjkerntz too :-).
+
+Ugh ... While fixing xntpd stuff is pretty much trivial (or at least it looks
+like it) I don't know about adjkerntz. I haven't looked at it yet, but
+as far as I understand it has some kernel support (read: relies on some
+i386 hardware/bios). Of course I'm not sure about it, but if this is correct -
+then I will definitely have a hard time porting this stuff to alpha, since
+I don't know that much about alpha's hardware ...
+
+> 
+> --
+> Doug Rabson				Mail:  dfr@nlsystems.com
+> Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+> 					Fax:   +44 181 381 1039
+> 
+
+-- dima
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 29 09:56:45 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Tue, 29 Sep 1998 09:56:45 +0000
+To: freebsd-alpha
+Subject: Re: xntpd
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506991
+
+On Mon, 28 Sep 1998, Dima Ruban wrote:
+
+> Hey guys, did anybody got $Subject working on alpha? It looks like
+> it has some problems (u_long size problem, I think).
+
+I haven't tried yet.  If you want to work on some time related stuff,
+could you think about fixing adjkerntz too :-).
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 29 01:05:08 1998
+From: dima () best ! net (Dima Ruban)
+Date: Tue, 29 Sep 1998 01:05:08 +0000
+To: freebsd-alpha
+Subject: xntpd
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506989
+
+Hey guys, did anybody got $Subject working on alpha? It looks like
+it has some problems (u_long size problem, I think).
+
+-- dima
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Sep 28 20:37:03 1998
+From: Chris Csanady <ccsanady () friley-185-114 ! res ! iastate ! edu>
+Date: Mon, 28 Sep 1998 20:37:03 +0000
+To: freebsd-alpha
+Subject: which scsi card?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506988
+
+I plan on purchasing a few scsi cards for use in LX164's.  I was
+just curious as to which cards are supported.  Do the Symbios
+875 cards work, or do I need the 810's?  Also, does the SRM
+care if it the flash bios on board?
+
+I found some Tekram 390(F) cards that look like they may work..
+any cautions?
+
+Thanks,
+Chris Csanady
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Sep 28 00:48:18 1998
+From: John Birrell  <jb () cimlogic ! com ! au>
+Date: Mon, 28 Sep 1998 00:48:18 +0000
+To: freebsd-alpha
+Subject: Re: New kernel available
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506986
+
+Paul Richards wrote:
+> It's not working on my Multia, it locks up just after the line
+> 
+> sc0 at 0x60 irq1 on isa0
+> 
+> I get a lot of 
+> 
+> dec_axppci_33_intr_map: bad interrupt pin 30
+> 
+> errors as it's booting up, not that it actually gets that far :-)
+
+It works on my noname (I deleted NetBSD today). Must be specific to multia.
+
+-- 
+John Birrell - jb@cimlogic.com.au; jb@freebsd.org http://www.cimlogic.com.au/
+CIMlogic Pty Ltd, GPO Box 117A, Melbourne Vic 3001, Australia +61 418 353 137
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Sep 28 00:11:21 1998
+From: Paul Richards <paul () originative ! co ! uk>
+Date: Mon, 28 Sep 1998 00:11:21 +0000
+To: freebsd-alpha
+Subject: RE: New kernel available
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506985
+
+It's not working on my Multia, it locks up just after the line
+
+sc0 at 0x60 irq1 on isa0
+
+I get a lot of 
+
+dec_axppci_33_intr_map: bad interrupt pin 30
+
+errors as it's booting up, not that it actually gets that far :-)
+
+Paul Richards Ph.D.
+Originative Solutions Ltd
+
+
+> -----Original Message-----
+> From: Doug Rabson [mailto:dfr@nlsystems.com]
+> Sent: Sunday, September 27, 1998 12:53 PM
+> To: alpha@FreeBSD.ORG
+> Subject: New kernel available
+> 
+> 
+> I have just uploaded a new GENERIC alpha kernel to
+> http://www.freebsd.org/~dfr.  This kernel should detect the 
+> disk which was
+> booted and select the root partition from that disk (no need for a
+> separate .da1 version).  It also contains fixes for the 
+> axppci33 platform
+> (including Multias and UDBs) which work on at least one system.  Your
+> mileage may vary.
+> 
+> --
+> Doug Rabson				Mail:  dfr@nlsystems.com
+> Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+> 					Fax:   +44 181 381 1039
+> 
+> 
+> To Unsubscribe: send mail to majordomo@FreeBSD.org
+> with "unsubscribe freebsd-alpha" in the body of the message
+> 
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 27 11:52:47 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sun, 27 Sep 1998 11:52:47 +0000
+To: freebsd-alpha
+Subject: New kernel available
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506979
+
+I have just uploaded a new GENERIC alpha kernel to
+http://www.freebsd.org/~dfr.  This kernel should detect the disk which was
+booted and select the root partition from that disk (no need for a
+separate .da1 version).  It also contains fixes for the axppci33 platform
+(including Multias and UDBs) which work on at least one system.  Your
+mileage may vary.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 27 21:37:48 1998
+From: "Justin T. Gibbs" <gibbs () plutotech ! com>
+Date: Sun, 27 Sep 1998 21:37:48 +0000
+To: freebsd-alpha
+Subject: Re: one other thing...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506983
+
+>> Soft Updates is not a replacement for the on disk cache.  The two
+>> serve very different purposes.  One reduces the number of writes
+>> to the device, the other reduces the number of writes committed by
+>> the device to the disk and reduces latency for any device writes that
+>> the OS believes are necessary.
+>
+>Soft update reduces the number of writes to the device.  And because
+>it does implicit write gathering, there is little or no room for the
+>disk to further optimize this under the cover.
+
+Soft updates deals with meta-data only.  If I am a database (your example),
+I will likely have very few (if any) files in the filesystem and the only
+thing soft updates helps me with is dealing with file growth and 
+other meta-data related accesses.  Soft updates, in fact, does no write
+gathering at all.  It makes a single meta-data change at a time just
+as is done in the sync case, but because of the tracking of dependencies,
+can perform these writes without blocking other file system activity.
+
+>A well written OS will be better able to utilize memory in a fashion
+>suitable to the OS than some disk drive manufacturer building disks
+>with the general expectation of a VFAT32 FS.
+
+Hmm.  Then why does this give us something like a 2X performance boost?
+
+>As to the latency argument, yeah, it reduces latency.  So does mounting
+>async, and so does a caching controller and so does noatime, and so
+>does taking the fsync() calls out of the database's two stage commit
+>routine, and... and...
+>
+>The bottom line: I can make it go as fast as you want, if it doesn't
+>have to be correct.  Faster even...
+
+With a UPS, I'm guaranteed that the data will be correct even if the OS
+crashes so long as I don't have a concurrent device failure.  I have
+backups or RAID to deal with device failure and no setting of the
+write cache helps you in this case anyway.
+
+>> >The drive, in doing caching, may reorder these operations, such
+>> >that the index is written out, but the new record is not.
+>> 
+>> This all depends on how you setup the drive.  You can tell it not
+>> to re-order writes (FSW bit in the caching control page).
+>
+>This helps little.  Unless the write is committed tostable storage
+>on a device block basis under OS control, there are still race
+>windows inherent in the sector order reversal.  If the drive
+>believes it is about to write a run of contiguous sectors, it
+>will *still* reorder the writes.
+
+The SCSI spec says otherwise.
+
+>The correct way to achieve lower latency is to increase concurrency
+>-- but only between unrelated operations.
+>
+>The appropriate technology for this is multiple outstanding commands;
+>tagged command queueing, in other words.
+
+These drives support 63 tagged transactions and we were using them all.
+
+>> If I was really worried, however, I'd have the box on a UPS.
+>
+>This protects against crashes as a result of a power loss, but
+>not those resulting from a memory overcommit architecture, nor
+>those resulting from kernel bugs.
+
+But a crash by way of a power loss is the only way (barring device failure)
+that my write cache can be compromised.  If the OS crashes and reboots,
+the drive will happily commit to non-volatile storage that the OS assumed
+was written.
+
+>Frankly, we are arguing on different axes; you are discussing
+>"safe enough", while I'm discussing "reliable".
+
+My argument is that write caching is "reliable" if you use a UPS.
+
+>> This is an interface issue, not a cache issue.  If the kernel told the
+>> disk driver to sync the cache, it could.  This is what the Synchronize
+>> Cache command is all about.
+>
+>But it doesn't, so you can't turn caching on and maintain data
+>integrity guarantees; only data integrity probabilities.
+
+With a UPS, you do have these guarantees as the device has received
+the data before a future OS crash.  If you are running an important
+data-base, is your machine on a UPS?  It certainly is here.
+
+>> You are assuming that the OS will never panic.  I don't use async
+>> mounts because I expect the OS to occasionally crash.  I worry
+>> about power outages too, but they are something I can easily control
+>> with a UPS.
+>
+>Actually, I am assuming that the OS *will* panic.  If you discount
+>everything including power failures, then you get the first part
+>of my "PS:".  If you discount everything *but* power failures,
+>e.g., by appeal to a UPS, then you get the second part (since as
+>long as the write occurs before a bus reset telling the device to
+>forget everything and initialize itself, a cached write will
+>still occur -- note that this is a real danger in a panic situation).
+
+What does a panic have to do with this?  It has no effect on the write
+cache on the disk, which is the whole thing we are discussing.  If an
+application that requires stable storage in order to recover from a
+crash was not written properly (to use fsync for checkpoints, etc.) it
+will lose write cache or no.
+
+>Because someone suggested doing something that I felt was bad
+>advice, and so long as that bad advice was in the record, I
+>felt it necessary to note, also for the record, why the advice
+>was bad.
+
+You had better go out onto the main lists then and practice your speech
+there.  All Quantum, Seagate, and IBM drives ship with write caching
+enabled so there must be thousands of people using FreeBSD that, although
+they haven't complained once about this problem, are certain to experience
+file system corruption.
+
+--
+Justin
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 27 19:10:02 1998
+From: Terry Lambert <tlambert () primenet ! com>
+Date: Sun, 27 Sep 1998 19:10:02 +0000
+To: freebsd-alpha
+Subject: Re: one other thing...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506981
+
+> >Be careful with this.  This is intentional.  Enabling caching will
+> >make the disk respond that it has committed the write to stable
+> >storage, when it fact it has not.
+> 
+> Really?  I didn't know that the write cache had that effect.  Fascinating.
+
+If the write operation returns, and the little magnetic domains don't
+contain your data yet, then this is generally the effect you can
+expect.
+
+
+> >If you do not get power fail notification of some kind, then there
+> >is no way to guarantee that your disk can be recovered to the state
+> >that it was supposed to be in (as opposed to merely being recovered
+> >to a consistent state).
+> 
+> Although I've never seen this happen on any of the disks I have here,
+> yes, it could happen.  The chances of it happening, due to the small
+> size of the cache on most disks, the fact that most drives will commit
+> the write to non-volatile storage as soon as possible, etc. make your
+> chances pretty good.  Certainly better than if you were running async
+> mounts.
+
+But worse than if you weren't enabling write caching.
+
+BTW, this probability argument is the same argument that EXT2FS
+advocates use to justfy that FS's behaviour...
+
+
+> >It is much better to turn *off* write caching, and use soft updates
+> >(which also, technically, does it's own write caching), rather than
+> >enabling it on the drive.
+> 
+> My systems don't usually panic.  Why?  I don't use soft updates, yet.
+
+Or CAM?  And you've fixed the three known VM bugs?  And you never
+run your system out of swap?  And you aren't using NFS?  And...
+And...
+
+
+> Soft Updates is not a replacement for the on disk cache.  The two
+> serve very different purposes.  One reduces the number of writes
+> to the device, the other reduces the number of writes committed by
+> the device to the disk and reduces latency for any device writes that
+> the OS believes are necessary.
+
+Soft update reduces the number of writes to the device.  And because
+it does implicit write gathering, there is little or no room for the
+disk to further optimize this under the cover.
+
+A well written OS will be better able to utilize memory in a fashion
+suitable to the OS than some disk drive manufacturer building disks
+with the general expectation of a VFAT32 FS.
+
+As to the latency argument, yeah, it reduces latency.  So does mounting
+async, and so does a caching controller and so does noatime, and so
+does taking the fsync() calls out of the database's two stage commit
+routine, and... and...
+
+The bottom line: I can make it go as fast as you want, if it doesn't
+have to be correct.  Faster even...
+
+
+> >The drive, in doing caching, may reorder these operations, such
+> >that the index is written out, but the new record is not.
+> 
+> This all depends on how you setup the drive.  You can tell it not
+> to re-order writes (FSW bit in the caching control page).
+
+This helps little.  Unless the write is committed tostable storage
+on a device block basis under OS control, there are still race
+windows inherent in the sector order reversal.  If the drive
+believes it is about to write a run of contiguous sectors, it
+will *still* reorder the writes.
+
+The correct way to achieve lower latency is to increase concurrency
+-- but only between unrelated operations.
+
+The appropriate technology for this is multiple outstanding commands;
+tagged command queueing, in other words.
+
+
+> If I was really worried, however, I'd have the box on a UPS.
+
+This protects against crashes as a result of a power loss, but
+not those resulting from a memory overcommit architecture, nor
+those resulting from kernel bugs.
+
+Frankly, we are arguing on different axes; you are discussing
+"safe enough", while I'm discussing "reliable".
+
+
+> >The
+> >normal way you guarantee ordering in an application is to fsync()
+> >the record file before writing the index.  The fsync() is not
+> >supposed to return until the drive states the data has been
+> >committed to stable storage.  With write caching on, the drive lies.
+> 
+> This is an interface issue, not a cache issue.  If the kernel told the
+> disk driver to sync the cache, it could.  This is what the Synchronize
+> Cache command is all about.
+
+But it doesn't, so you can't turn caching on and maintain data
+integrity guarantees; only data integrity probabilities.
+
+
+> >PS: If you turn this on, you might as well mount the drive async,
+> >too, since we are only talking about "how the data can not be
+> >trusted", as opposed to "if the data can not be trusted" (it can't).
+> 
+> You are assuming that the OS will never panic.  I don't use async
+> mounts because I expect the OS to occasionally crash.  I worry
+> about power outages too, but they are something I can easily control
+> with a UPS.
+
+Actually, I am assuming that the OS *will* panic.  If you discount
+everything including power failures, then you get the first part
+of my "PS:".  If you discount everything *but* power failures,
+e.g., by appeal to a UPS, then you get the second part (since as
+long as the write occurs before a bus reset telling the device to
+forget everything and initialize itself, a cached write will
+still occur -- note that this is a real danger in a panic situation).
+
+
+> >If you get power fail notification, then you can use async and
+> >drive level write caching in relative saftey (ie: as safe as
+> >possible, given the possibility of the system crashing for some
+> >reason other than power failure).
+> 
+> exactly.
+> 
+> So why did you feel the need to sermonize again?  Ken and I are
+> well aware of how SCSI devices work and the effects of setting
+> these parameters.  We did write a SCSI layer, you know...
+
+Because someone suggested doing something that I felt was bad
+advice, and so long as that bad advice was in the record, I
+felt it necessary to note, also for the record, why the advice
+was bad.
+
+
+					Terry Lambert
+					terry@lambert.org
+---
+Any opinions in this posting are my own and not those of my present
+or previous employers.
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 23:00:38 1998
+From: "Justin T. Gibbs" <gibbs () plutotech ! com>
+Date: Sat, 26 Sep 1998 23:00:38 +0000
+To: freebsd-alpha
+Subject: Re: one other thing...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506974
+
+>> Justin and I discovered that write caching was turned off on the 2gig
+>> DEC OEM Barracudas that came with the Miata.  Enabling write caching
+>> improved performance a good bit.
+>
+>Be careful with this.  This is intentional.  Enabling caching will
+>make the disk respond that it has committed the write to stable
+>storage, when it fact it has not.
+
+Really?  I didn't know that the write cache had that effect.  Fascinating.
+
+>If you do not get power fail notification of some kind, then there
+>is no way to guarantee that your disk can be recovered to the state
+>that it was supposed to be in (as opposed to merely being recovered
+>to a consistent state).
+
+Although I've never seen this happen on any of the disks I have here,
+yes, it could happen.  The chances of it happening, due to the small
+size of the cache on most disks, the fact that most drives will commit
+the write to non-volatile storage as soon as possible, etc. make your
+chances pretty good.  Certainly better than if you were running async
+mounts.
+
+>It is much better to turn *off* write caching, and use soft updates
+>(which also, technically, does it's own write caching), rather than
+>enabling it on the drive.
+
+My systems don't usually panic.  Why?  I don't use soft updates, yet.
+Soft Updates is not a replacement for the on disk cache.  The two
+serve very different purposes.  One reduces the number of writes
+to the device, the other reduces the number of writes committed by
+the device to the disk and reduces latency for any device writes that
+the OS believes are necessary.
+
+>The drive, in doing caching, may reorder these operations, such
+>that the index is written out, but the new record is not.
+
+This all depends on how you setup the drive.  You can tell it not
+to re-order writes (FSW bit in the caching control page).
+
+If I was really worried, however, I'd have the box on a UPS.
+
+>The
+>normal way you guarantee ordering in an application is to fsync()
+>the record file before writing the index.  The fsync() is not
+>supposed to return until the drive states the data has been
+>committed to stable storage.  With write caching on, the drive lies.
+
+This is an interface issue, not a cache issue.  If the kernel told the
+disk driver to sync the cache, it could.  This is what the Synchronize
+Cache command is all about.
+
+>PS: If you turn this on, you might as well mount the drive async,
+>too, since we are only talking about "how the data can not be
+>trusted", as opposed to "if the data can not be trusted" (it can't).
+
+You are assuming that the OS will never panic.  I don't use async
+mounts because I expect the OS to occasionally crash.  I worry
+about power outages too, but they are something I can easily control
+with a UPS.
+
+>If you get power fail notification, then you can use async and
+>drive level write caching in relative saftey (ie: as safe as
+>possible, given the possibility of the system crashing for some
+>reason other than power failure).
+
+exactly.
+
+So why did you feel the need to sermonize again?  Ken and I are
+well aware of how SCSI devices work and the effects of setting
+these parameters.  We did write a SCSI layer, you know...
+
+--
+Justin
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 22:32:45 1998
+From: Terry Lambert <tlambert () primenet ! com>
+Date: Sat, 26 Sep 1998 22:32:45 +0000
+To: freebsd-alpha
+Subject: Re: one other thing...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506973
+
+> Justin and I discovered that write caching was turned off on the 2gig
+> DEC OEM Barracudas that came with the Miata.  Enabling write caching
+> improved performance a good bit.
+
+Be careful with this.  This is intentional.  Enabling caching will
+make the disk respond that it has committed the write to stable
+storage, when it fact it has not.
+
+If you do not get power fail notification of some kind, then there
+is no way to guarantee that your disk can be recovered to the state
+that it was supposed to be in (as opposed to merely being recovered
+to a consistent state).
+
+It is much better to turn *off* write caching, and use soft updates
+(which also, technically, does it's own write caching), rather than
+enabling it on the drive.
+
+
+An example of where this might screw the pooch for you is if you
+had a database and an index file, and you wrote the new record
+out, then wrote the modified index pointing to the new record
+instead of the old, and then lost power.
+
+The drive, in doing caching, may reorder these operations, such
+that the index is written out, but the new record is not.  The
+normal way you guarantee ordering in an application is to fsync()
+the record file before writing the index.  The fsync() is not
+supposed to return until the drive states the data has been
+committed to stable storage.  With write caching on, the drive lies.
+
+
+PS: If you turn this on, you might as well mount the drive async,
+too, since we are only talking about "how the data can not be
+trusted", as opposed to "if the data can not be trusted" (it can't).
+
+
+If you get power fail notification, then you can use async and
+drive level write caching in relative saftey (ie: as safe as
+possible, given the possibility of the system crashing for some
+reason other than power failure).
+
+
+
+					Terry Lambert
+					terry@lambert.org
+---
+Any opinions in this posting are my own and not those of my present
+or previous employers.
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 06:32:48 1998
+From: "Kenneth D. Merry" <ken () plutotech ! com>
+Date: Sat, 26 Sep 1998 06:32:48 +0000
+To: freebsd-alpha
+Subject: one other thing...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506960
+
+
+Justin and I discovered that write caching was turned off on the 2gig
+DEC OEM Barracudas that came with the Miata.  Enabling write caching
+improved performance a good bit.
+
+To check for that, do this:
+
+subway# camcontrol modepage -n da -u 0 -m 8
+IC:  0 
+ABPF:  0 
+CAP:  0 
+DISC:  1 
+SIZE:  0 
+WCE:  0 
+MF:  0 
+RCD:  0 
+Demand Retention Priority:  0 
+Write Retention Priority:  0 
+Disable Pre-fetch Transfer Length:  65535 
+Minimum Pre-fetch:  0 
+Maximum Pre-fetch:  65535 
+Maximum Pre-fetch Ceiling:  65535 
+
+Notice that WCE is set to 0.  Set it to 1 to enable write caching.  You can
+edit the mode page like this:
+
+camcontrol modepage -n da -u 0 -m 8 -P 3 -e
+
+
+Ken
+-- 
+Kenneth Merry
+ken@plutotech.com
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 09:21:55 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sat, 26 Sep 1998 09:21:55 +0000
+To: freebsd-alpha
+Subject: Re: it works!!
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506967
+
+On Fri, 25 Sep 1998, Dima Ruban wrote:
+
+> Kenneth D. Merry writes:
+> > [skipped] 
+> > - Changed all the paths in src/sys/boot/alpha/*/Makefile to use a relative
+> >   path to libstand, rather than dfr's home directory. :)
+> 
+> I've asked Doug's permission (in private mail) to nuke all this stuff, and
+> put ${.CURDIR}../etc etc etc instead.
+> Still haven't got an answer.
+> 
+> As soon as I get it - I'll commit the change.
+
+I was sure that I answered.  Maybe it got lost.  Never mind, I have
+changed all the broken makefile paths and fixed a bunch of other stuff.
+I'm working on booting from a DUX formatted disk right now and as soon as
+I have that working, I'll check it in, Makefiles and all.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 06:59:11 1998
+From: dima () best ! net (Dima Ruban)
+Date: Sat, 26 Sep 1998 06:59:11 +0000
+To: freebsd-alpha
+Subject: Re: it works!!
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506961
+
+Kenneth D. Merry writes:
+> [skipped] 
+> - Changed all the paths in src/sys/boot/alpha/*/Makefile to use a relative
+>   path to libstand, rather than dfr's home directory. :)
+
+I've asked Doug's permission (in private mail) to nuke all this stuff, and
+put ${.CURDIR}../etc etc etc instead.
+Still haven't got an answer.
+
+As soon as I get it - I'll commit the change.
+
+> 
+> Ken
+> -- 
+> Kenneth Merry
+> ken@plutotech.com
+
+-- dima
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 06:24:30 1998
+From: "Kenneth D. Merry" <ken () plutotech ! com>
+Date: Sat, 26 Sep 1998 06:24:30 +0000
+To: freebsd-alpha
+Subject: it works!!
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506959
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="--ELM906791070-9668-0_"
+
+
+--ELM906791070-9668-0_
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+
+
+Well, I thought y'all might want to know that I finally got our Miata up
+and running.  (and how I managed to do it...)
+
+- I couldn't use the NetBSD boot floppy, since 1.3.2 didn't support the
+  Miata.  I know that NetBSD-current supports the Miata, though.  I later
+  found a NetBSD-current snapshot from June, but I'm not sure if the Miata
+  support was in by then, either.
+
+- I wasn't able to figure out the right "magic" to make a NFS root
+  partition work.  I guess there's a way to do it, but looking through the
+  source didn't help.  :( 
+
+- So, I did it the hard way. :)
+
+My configuration is basically two 2 gig Seagate Barracudas on a QLogic ISP
+1040, 128MB RAM and a 433MHz 21164.  The first disk has Digital UNIX, the
+second one was empty.
+
+Here's what I did:
+
+- First, I grabbed a third disk (4 gig narrow barracuda) and hooked it into
+  the QLogic
+
+- Booted DEC Unix, and attempted to partition the thing.  Silly me.  No
+  matter what I tried, their disklabel(8) didn't want to disklabel the
+  damned disk.  It didn't work even when I did something like this:
+
+	dd if=/dev/zero of=/dev/rrz20c bs=64k count=10
+
+- I managed to get their disklabel to work by doing this:
+
+	dd if=/dev/rz16c of=/dev/rz20c bs=64k count=3
+  (not sure about the count, but basically I copied the disklabel from the
+  boot disk, a 2 gig barracuda, to the third disk, a 4 gig barracuda)
+
+- Then I edited the disklabel on the third disk, and got the partitions to
+  something reasonable.
+
+- Then, I untarred Doug's binary distribution from wcarchive onto the disk,
+  and put one the kernel with a da1 root onto the disk.
+
+- Next, I halted the machine and disconnected the second 2 gig barracuda.
+  This is so that the third disk would now be da1 instead of da2.  (i.e. so
+  the kernel with da1 as root would work)
+
+- I turned the machine on, and then netbooted off bootblocks and a kernel
+  setup on another (i386) machine.  (I can netboot the damned thing, but I
+  can't manage to get an NFS mounted root...oh well...)
+
+- Since I made the partitions under DEC Unix, I had to re-make the device
+  nodes.  So I did something like this:
+
+	mount rw:/a/path/to/alpha/root /mnt
+	mount -u /mnt/dev/da1a /
+	mount /mnt/dev/da1e /usr
+	rm -rf /dev
+	cd /mnt
+	find dev -print |cpio -pdmuv /
+
+- With the machine booted under a FreeBSD kernel, I grabbed the kernel
+  source via remote cvs from another machine.  I recompiled the kernel to
+  have root on *da2*, and ftped it to the netboot server.
+
+- I halted the machine, and reconnected the second 2-gig barracuda.
+
+- Netbooted the machine with the kernel configured for root on da2.
+
+- Disklabeled and newfsed the 2-gig barracuda, and copied the filesystems
+  from the 4-gig barracuda to the 2-gig barracuda.  I had to copy
+  everything using cpio, since dump and restore don't seem to work:
+
+subway# dump -0f - / |restore -rf -
+  DUMP: Date of this level 0 dump: Fri Sep 25 01:48:54 1998
+  DUMP: Date of last level 0 dump: the epoch
+  DUMP: Dumping /dev/rda1a (/) to standard output
+  DUMP: mapping (Pass I) [regular files]
+  DUMP: mapping (Pass II) [directories]
+  DUMP: estimated 26326 tape blocks.
+  DUMP: dumping (Pass III) [directories]
+Checksum error 244733, inode 0 file (null)
+Tape is not a dump tape
+  DUMP: Broken pipe
+  DUMP: The ENTIRE dump is aborted.
+
+  So I copied things like this, more or less:
+
+	cd /mnt
+	find -x / -print |cpio -pdmuv .
+
+- Rebooted the machine, and netbooted it off of the kernel with root on
+  da1.
+
+- Changed the partitions around in the fstab, since I forgot to do that
+  before I rebooted on this disk.
+
+- Did a remote cvs checkout of the full source tree
+
+- Changed all the paths in src/sys/boot/alpha/*/Makefile to use a relative
+  path to libstand, rather than dfr's home directory. :)
+
+- compiled and installed libstand and the boot blocks
+
+- Installed the first and second stage boot blocks:
+
+	cd /usr/mdec
+	disklabel -B -b boot1 da1
+	mkdir /boot
+	cp boot2 /boot
+
+- Rebooted the machine, and booted off the second disk (dkc100).  It
+  worked!!!  Doug was right, the problem is that the boot loader doesn't
+  understand DEC's UFS, but it does work okay with FreeBSD's UFS.
+
+- Rebooted again, and set the default boot device to the second disk in the
+  console.
+
+I'm doing a make buildworld now, we'll see if it works.
+
+Things seem to work okay for the most part.  iostat(8) can probably be
+enabled for the Alpha.  It works fine for me, at least:
+
+             da0              da1            pass0            pass1 
+  KB/t tps  MB/s   KB/t tps  MB/s   KB/t tps  MB/s   KB/t tps  MB/s 
+  0.00   0  0.00   8.66  38  0.32   0.00   0  0.00   0.00   0  0.00 
+  0.00   0  0.00   3.00   7  0.02   0.00   0  0.00   0.00   0  0.00 
+  0.00   0  0.00  10.22  32  0.32   0.00   0  0.00   0.00   0  0.00 
+  0.00   0  0.00   3.00   8  0.02   0.00   0  0.00   0.00   0  0.00 
+  0.00   0  0.00  10.63  30  0.31   0.00   0  0.00   0.00   0  0.00 
+  0.00   0  0.00   3.60   5  0.02   0.00   0  0.00   0.00   0  0.00 
+  0.00   0  0.00   7.00   2  0.01   0.00   0  0.00   0.00   0  0.00 
+  0.00   0  0.00   4.75   4  0.02   0.00   0  0.00   0.00   0  0.00 
+  0.00   0  0.00   3.00   4  0.01   0.00   0  0.00   0.00   0  0.00 
+  0.00   0  0.00   4.00   4  0.02   0.00   0  0.00   0.00   0  0.00 
+  0.00   0  0.00   3.00   7  0.02   0.00   0  0.00   0.00   0  0.00 
+  0.00   0  0.00   2.00   7  0.01   0.00   0  0.00   0.00   0  0.00 
+  0.00   0  0.00   5.18  11  0.06   0.00   0  0.00   0.00   0  0.00 
+
+
+Good work guys!  This is pretty cool!
+
+(I've attached a dmesg from the machine, in case anyone is curious or
+whatever...)
+
+Ken
+-- 
+Kenneth Merry
+ken@plutotech.com
+
+--ELM906791070-9668-0_
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Disposition: attachment; filename=subway.dmesg
+Content-Description: subway.dmesg
+Content-Transfer-Encoding: 7bit
+
+WARNING: 8192 bytes not available for msgbuf in last cluster (32768 used)
+[ preserving 439368 bytes of kernel symbol table ]
+Copyright (c) 1992-1998 FreeBSD Inc.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+	The Regents of the University of California. All rights reserved.
+FreeBSD 3.0-BETA #1: Thu Sep 24 16:44:04 MDT 1998
+    root@subway.plutotech.com:/usr/src/sys/compile/subway
+Digital Personal Workstation (Miata)
+Digital Personal WorkStation 433au, 432MHz
+8192 byte page size, 1 processor.
+real memory  = 131891200 (128800K bytes)
+avail memory = 122707968 (119832K bytes)
+cia0: <2117x PCI adapter>
+cia0: Pyxis, pass 1
+cia0: extended capabilities: 111<WLEN,MWEN,BWEN>
+cia0: WARNING: Pyxis pass 1 DMA bug; no bets...
+isa0
+Probing for devices on PCI bus 0:
+de0: <Digital 21143 Fast Ethernet> rev 0x30 int a irq 0 on pci0.3.0
+de0: DEC 21143 [10-100Mb/s] pass 3.0
+de0: address 00:00:f8:75:7c:14
+chip0: <Intel 82378IB PCI to ISA bridge> rev 0x43 on pci0.7.0
+vga0: <VGA-compatible display device> rev 0x22 int a irq 4 on pci0.11.0
+chip1: <PCI to PCI bridge (vendor=1011 device=0021)> rev 0x02 on pci0.20.0
+Probing for devices on PCI bus 1:
+Qlogic ISP Driver, FreeBSD CAM Version 0.97, Core Version 1.3
+isp0: <Qlogic ISP 10X0 PCI SCSI Adapter> rev 0x05 int a irq 16 on pci1.9.0
+isp0: using Memory space register mapping
+isp0: Board Revision 1040B, loaded F/W Revision 7.55
+isp0: Last F/W revision was 5.1
+mcclock0: <MC146818A real time clock> at 0x70-0x71 on isa0
+sc0 at 0x60-0x6f irq 1 on isa0
+sc0: CGA <16 virtual consoles, flags=0x0>
+sio0 at 0x3f8-0x3ff irq 4 on isa0
+sio0: type 16550A
+sio1: reserved for low-level i/o
+sio1 not found
+struct nfssvc_sock bloated (> 256bytes)
+Try reducing NFS_UIDHASHSIZ
+struct nfsuid bloated (> 128bytes)
+Try unionizing the nu_nickname and nu_flag fields
+Timecounter "alpha"  frequency 432900432 Hz  cost 62 ns
+isp0: driver initiated bus reset
+de0: enabling 100baseTX port
+da0 at isp0 bus 0 target 0 lun 0
+da0: <DEC RZ1BB-BS (C) DEC 0658> Fixed Direct Access SCSI2 device 
+da0: 40.0MB/s transfers (20.0MHz, offset 8, 16bit), Tagged Queueing Enabled
+da0: 2007MB (4110480 512 byte sectors: 255H 63S/T 255C)
+da1 at isp0 bus 0 target 1 lun 0
+da1: <DEC RZ1BB-BS (C) DEC 0658> Fixed Direct Access SCSI2 device 
+da1: 40.0MB/s transfers (20.0MHz, offset 8, 16bit), Tagged Queueing Enabled
+da1: 2007MB (4110480 512 byte sectors: 255H 63S/T 255C)
+
+--ELM906791070-9668-0_--
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 27 09:11:35 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sun, 27 Sep 1998 09:11:35 +0000
+To: freebsd-alpha
+Subject: Re: Possible problem with wait syscall handling...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506978
+
+On Sat, 26 Sep 1998, Gary Palmer wrote:
+
+> Doug Rabson wrote in message ID
+> <Pine.BSF.4.01.9809270024440.845-100000@herring.nlsystems.com>:
+> > I thought you were seeing memory fault panics in execve?  Were you having
+> > the hang effect too? 
+> 
+> Yep. A couple of times I couldn't get console back, and could ping the box, 
+> and get a connection accepted, but then nothing. Its POSSIBLE that the execve 
+> problem was causing this, because I didn't have remote gdb hooked up 'cos it 
+> had been stable for so long.
+
+I don't think the execve problem could have caused that.  The box would
+have been sitting in DDB after a panic and couldn't have responded to a
+ping.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 23:33:25 1998
+From: "Gary Palmer" <gpalmer () FreeBSD ! ORG>
+Date: Sat, 26 Sep 1998 23:33:25 +0000
+To: freebsd-alpha
+Subject: Re: Possible problem with wait syscall handling...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506977
+
+Doug Rabson wrote in message ID
+<Pine.BSF.4.01.9809270024440.845-100000@herring.nlsystems.com>:
+> I thought you were seeing memory fault panics in execve?  Were you having
+> the hang effect too? 
+
+Yep. A couple of times I couldn't get console back, and could ping the box, 
+and get a connection accepted, but then nothing. Its POSSIBLE that the execve 
+problem was causing this, because I didn't have remote gdb hooked up 'cos it 
+had been stable for so long.
+
+Gary
+--
+Gary Palmer                                          FreeBSD Core Team Member
+FreeBSD: Turning PC's into workstations. See http://www.FreeBSD.ORG/ for info
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 23:25:34 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sat, 26 Sep 1998 23:25:34 +0000
+To: freebsd-alpha
+Subject: Re: Possible problem with wait syscall handling...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506976
+
+On Sat, 26 Sep 1998, Gary Palmer wrote:
+
+> "Justin T. Gibbs" wrote in message ID
+> <199809262003.OAA06853@pluto.plutotech.com>:
+> > Ken started up a buildworld on our Miata last night, but perhaps 40
+> > minutes later, the machine started locking up.  Ping worked, but
+> > old network connections were frozen and new network connections blocked
+> > after the initial connection.  When I came in today and dropped into DDB,
+> > I found that almost every process on the box was sleeping on "wait".
+> > I continued and broke back into DDB two or three more times and suddenly
+> > the machine un-froze.  Very bizarre.  Assuming I can reproduce this, 
+> > anyone have any ideas where I should start poking around to determine
+> > the cause?
+> 
+> I've seen this on my alpha too. Blowing away the kernel compile tree and 
+> rebuilding the kernel seemed, along with all of userland, seemed to fix it for 
+> me. It only seemed to happen with parallel compiles. I gave Doug remote-gdb 
+> stack traces, but could never get remote-gdb to give me a ps list to see what 
+> things were blocking on :(
+
+I thought you were seeing memory fault panics in execve?  Were you having
+the hang effect too? 
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 23:24:40 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sat, 26 Sep 1998 23:24:40 +0000
+To: freebsd-alpha
+Subject: Re: Possible problem with wait syscall handling...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506975
+
+On Sat, 26 Sep 1998, Justin T. Gibbs wrote:
+
+> Ken started up a buildworld on our Miata last night, but perhaps 40
+> minutes later, the machine started locking up.  Ping worked, but
+> old network connections were frozen and new network connections blocked
+> after the initial connection.  When I came in today and dropped into DDB,
+> I found that almost every process on the box was sleeping on "wait".
+> I continued and broke back into DDB two or three more times and suddenly
+> the machine un-froze.  Very bizarre.  Assuming I can reproduce this, 
+> anyone have any ideas where I should start poking around to determine
+> the cause?
+
+Thats an odd one.  I haven't seen anything like that but it looks like a
+lost wakeup somewhere in vmio.  I think Eivind just found one lurking in
+ufs_readwrite so maybe its fixable.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 22:14:59 1998
+From: Terry Lambert <tlambert () primenet ! com>
+Date: Sat, 26 Sep 1998 22:14:59 +0000
+To: freebsd-alpha
+Subject: Re: Possible problem with wait syscall handling...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506972
+
+> Ken started up a buildworld on our Miata last night, but perhaps 40
+> minutes later, the machine started locking up.  Ping worked, but
+> old network connections were frozen and new network connections blocked
+> after the initial connection.  When I came in today and dropped into DDB,
+> I found that almost every process on the box was sleeping on "wait".
+> I continued and broke back into DDB two or three more times and suddenly
+> the machine un-froze.  Very bizarre.  Assuming I can reproduce this, 
+> anyone have any ideas where I should start poking around to determine
+> the cause?
+
+Make sure you apply the recent VM patches; I believe ld uses mmap.
+
+There is also a "hack patch" from Matt Dillon to unset a bit if a bit
+combination that shouldn't have occurred occurs.  This stabilizes
+things considerably.
+
+
+					Terry Lambert
+					terry@lambert.org
+---
+Any opinions in this posting are my own and not those of my present
+or previous employers.
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 20:21:40 1998
+From: "Gary Palmer" <gpalmer () FreeBSD ! ORG>
+Date: Sat, 26 Sep 1998 20:21:40 +0000
+To: freebsd-alpha
+Subject: Re: Possible problem with wait syscall handling...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506971
+
+"Justin T. Gibbs" wrote in message ID
+<199809262003.OAA06853@pluto.plutotech.com>:
+> Ken started up a buildworld on our Miata last night, but perhaps 40
+> minutes later, the machine started locking up.  Ping worked, but
+> old network connections were frozen and new network connections blocked
+> after the initial connection.  When I came in today and dropped into DDB,
+> I found that almost every process on the box was sleeping on "wait".
+> I continued and broke back into DDB two or three more times and suddenly
+> the machine un-froze.  Very bizarre.  Assuming I can reproduce this, 
+> anyone have any ideas where I should start poking around to determine
+> the cause?
+
+I've seen this on my alpha too. Blowing away the kernel compile tree and 
+rebuilding the kernel seemed, along with all of userland, seemed to fix it for 
+me. It only seemed to happen with parallel compiles. I gave Doug remote-gdb 
+stack traces, but could never get remote-gdb to give me a ps list to see what 
+things were blocking on :(
+
+Gary
+--
+Gary Palmer                                          FreeBSD Core Team Member
+FreeBSD: Turning PC's into workstations. See http://www.FreeBSD.ORG/ for info
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 19:57:16 1998
+From: "Justin T. Gibbs" <gibbs () plutotech ! com>
+Date: Sat, 26 Sep 1998 19:57:16 +0000
+To: freebsd-alpha
+Subject: Possible problem with wait syscall handling...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506970
+
+Ken started up a buildworld on our Miata last night, but perhaps 40
+minutes later, the machine started locking up.  Ping worked, but
+old network connections were frozen and new network connections blocked
+after the initial connection.  When I came in today and dropped into DDB,
+I found that almost every process on the box was sleeping on "wait".
+I continued and broke back into DDB two or three more times and suddenly
+the machine un-froze.  Very bizarre.  Assuming I can reproduce this, 
+anyone have any ideas where I should start poking around to determine
+the cause?
+
+--
+Justin
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 07:06:29 1998
+From: dima () best ! net (Dima Ruban)
+Date: Sat, 26 Sep 1998 07:06:29 +0000
+To: freebsd-alpha
+Subject: Re: btw
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506963
+
+Dima Ruban writes:
+> Is there suck a thing as "ifdef" or something for ``mtree''?
+           ^^^^
+	   such :-) *blush*
+
+> I think, we should create /boot directory if we run alpha by default ....
+> 
+> Any bright ideas?
+> 
+> -- dima
+> 
+> To Unsubscribe: send mail to majordomo@FreeBSD.org
+> with "unsubscribe freebsd-alpha" in the body of the message
+> 
+
+-- dima
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 26 07:03:02 1998
+From: dima () best ! net (Dima Ruban)
+Date: Sat, 26 Sep 1998 07:03:02 +0000
+To: freebsd-alpha
+Subject: btw
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506962
+
+Is there suck a thing as "ifdef" or something for ``mtree''?
+I think, we should create /boot directory if we run alpha by default ....
+
+Any bright ideas?
+
+-- dima
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 19:39:05 1998
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Fri, 25 Sep 1998 19:39:05 +0000
+To: freebsd-alpha
+Subject: Re: installing bootblocks...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506954
+
+
+Doug Rabson writes:
+ > > 
+ > > - or, figure out how to switch the root partition from a Digital Unix
+ > >   format to a FreeBSD format.  Before, I tried something like this from
+ > >   single user mode:
+ > > 
+ > > 	- mount /dev/da1h /
+ > > 	  "specified partition doesn't match mounted partition"
+
+I tend to install *BSD/alpha by booting DU diskless, newfs'ing the
+appropriate partitions & untarring the dist.
+
+I run into the above problem because Digital UNIX handles special
+files in some wacky way, so that special files change major/minor
+numbers when viewed by DU or *BSD.
+
+The easiest thing to do is to boot a normal kernel via bootp, then NFS
+mount a fs where where root is mapped to 0 via NFS.  Then mount root
+r/w, cd into /dev, delete everything but console (0 is always 0 :),
+and rebuild your devices.
+
+
+Something like this:
+# ifconfig de0 xxxx  up
+# mount w.x.y.z:/export/root /mnt
+# cd /mnt
+# mkdir dev
+# cd dev
+# cp /dev/MAKEDEV .
+# sh MAKEDEV all
+# mount -u ./da0a /
+# cd /dev
+# rm -rf [a-b]* [d-z]*
+# sh MAKEDEV all
+# < populate root >
+
+...
+
+
+Drew
+
+------------------------------------------------------------------------------
+Andrew Gallatin, Sr Systems Programmer	http://www.cs.duke.edu/~gallatin
+Duke University				Email: gallatin@cs.duke.edu
+Department of Computer Science		Phone: (919) 660-6590
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 19:08:42 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Fri, 25 Sep 1998 19:08:42 +0000
+To: freebsd-alpha
+Subject: Re: installing bootblocks...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506953
+
+On Fri, 25 Sep 1998, Kenneth D. Merry wrote:
+
+> Doug Rabson wrote...
+> > On Thu, 24 Sep 1998, Kenneth D. Merry wrote:
+> > 
+> > > initializing machine state
+> > > setting affinity to the primary CPU
+> > > jumping to bootstrap code
+> > > 
+> > > 
+> > > And it just hangs there.  Anyone have an idea of what I'm doing wrong?
+> > 
+> > It seems to be hanging in boot1 somewhere.  Could you try instrumenting
+> > boot1 by inserting a few puts() statements into it.  Be gentle with it -
+> > it has to fit in 7.5k and printf puts it over the limit.  My best trick
+> > for debugging it was to scatter calls to halt() around the code and see
+> > how far it got before it halted.
+> > 
+> > If it works right, it should just twiddle() a few times while it loads the
+> > second stage then jump to it.
+> 
+> Well, I think I figured out the problem.
+> 
+> The first stage boot loader was hanging when it tried to load the second
+> stage boot blocks.  I'm pretty sure this is because the disk was
+> partitioned and newfsed under Digital Unix.
+> 
+> I was able to switch two of the partitions over to a FreeBSD filesystem (by
+> moving their contents elsewhere and then newfsing them and then moving them
+> back), but I wasn't able to get the root partition moved over.
+> 
+> When I tried (don't ask), I ended up hosing the root partition.  So, I'm
+> more or less back to square one here, unfortunately.
+> 
+> So, to make a long story short, I probably need to do one of two things:
+> 
+> - figure out how to boot the machine with an NFS mounted root partition.  I
+>   can netboot it now under FreeBSD, but the kernel panics because (I
+>   assume) there isn't anything on the root partition.  If I can boot it
+>   with an NFS root, I can newfs the partitions under FreeBSD and get all
+>   the right binaries on the disk.
+> 
+> - or, figure out how to switch the root partition from a Digital Unix
+>   format to a FreeBSD format.  Before, I tried something like this from
+>   single user mode:
+> 
+> 	- mount /dev/da1h /
+> 	  "specified partition doesn't match mounted partition"
+> 	- chroot /path/to/copy/of/root
+> 	  newfs da1a
+> 	  
+> 	  and then shortly thereafter, everything blew up.  :) (big surprise)
+> 
+> So does anyone have any suggestions?  If possible, I'd rather just boot
+> with an NFS-mounted root partition.  I haven't quite figured out how to do
+> that, though...
+
+I had forgotten about that.  I happen to have a DUX partition on my Miata
+which I accidentally spammed with my FreeBSD boot blocks (doesn't look
+like I'll ever boot DUX again...) and I had something similar happen.  If
+I get a chance, I'll try and fix it this weekend.  The filesystem is
+perfectly usable from the the real UFS, its just the flaky ufs reader in
+boot1 which can't cope with it.
+
+If you want to get moving before that, I suggest that you pick up a NetBSD
+boot floppy (which has an MFS root) and use that to newfs and copy the
+FreeBSD root.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 18:45:30 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Fri, 25 Sep 1998 18:45:30 +0000
+To: freebsd-alpha
+Subject: Re: installing bootblocks...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506952
+
+On Fri, 25 Sep 1998, Jordan K. Hubbard wrote:
+
+> > > Perhaps now would be a good time for a status report on just what
+> > > remains to go into the tree before the complete triad of
+> > > kernel/world/boot can be built successfully from /usr/src without
+> > > patches?  I must confess to being a little confused about all this at
+> > > the moment.
+> > 
+> > They built last time I tried but I think the Makefiles are still have some
+> > bogus pathnames in them though.  I couldn't build them if I used 'make
+> > obj' first but I think I can fix that (add a -I${.OBJDIR} to CFLAGS
+> > probably).
+> 
+> Hmmmm.  Really?  It fails very quickly for me:
+> 
+> root@beast-> cd /usr/src/sys/boot/
+> root@beast-> ls
+> CVS             Makefile        alpha           common          i386
+> root@beast-> make
+> ===> alpha
+> ===> alpha/libalpha
+> cc -I/home/dfr/FreeBSD/alpha/src/lib/libstand -DDEBUG -I/usr/src/sys/boot/alpha/libalpha/../../common -mno-fp-regs -DDISK_DEBUG -c srmnet.c -o srmnet.o
+> srmnet.c:45: net.h: No such file or directory
+> srmnet.c:46: netif.h: No such file or directory
+> *** Error code 1
+> 
+> And I can't find those headers anywhere.  I reported this last week,
+> as you might recall.
+
+That was the bogus pathname that I mentioned.  I guess it should be
+${.CURDIR}/../../../lib/libstand or something like that.  I'll work on the
+bootstrap makefiles tomorrow.
+
+> 
+> There's also your fix for ncr.c and the uncopied/unmerged sio bits
+> still undone, as far as I know.  That's sort of why I was asking for a
+> general status report on the tree as a whole, not just the boot
+> blocks.  I'm still trying to put my finger on just how much work is
+> left before someone can do all the self-hosting work "from scratch"
+> with no special tips or tricks, e.g. the point when we can sort of
+> open the doors of -current to alpha folks without having to issue any
+> special instructions short of the installation process itself.
+
+I have the up to date sio ready to go but I'm still waiting for the
+repository copy.  I also have the root disk detection magic written and
+that can go in tomorrow after a little more testing.  The ncr patch is so
+trivial that I'll commit that too (unless Justin beats me to it).  With
+that lot, we should be up to date.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 15:39:04 1998
+From: Matt Hamilton <matt () clintondale ! com>
+Date: Fri, 25 Sep 1998 15:39:04 +0000
+To: freebsd-alpha
+Subject: Re: installing bootblocks...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506951
+
+Dear All,
+   Forgive my ignorance, as I haven't even tried -current on my Alpha yet
+(UDB -still not supported right?), but where do bootblocks fit into the
+Alpha boot process?  I thought you just typed: boot blah/kernel into SRM
+and it would boot the kernel?  I guess I must be wrong, so where do the
+bootblocks fit in?  Does the boot command in SRM call the secondary boot
+code in the bootblocks and then that calls the kernel?
+
+confused in NY
+
+
+-------------------------------------------------------------------------------
+  Matt Hamilton                                         Clintondale Aviation
+  matt@clintondale.com                            http://www.clintondale.com
+-------------------------------------------------------------------------------
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 10:50:28 1998
+From: "Jordan K. Hubbard" <jkh () time ! cdrom ! com>
+Date: Fri, 25 Sep 1998 10:50:28 +0000
+To: freebsd-alpha
+Subject: Re: installing bootblocks...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506950
+
+> > Perhaps now would be a good time for a status report on just what
+> > remains to go into the tree before the complete triad of
+> > kernel/world/boot can be built successfully from /usr/src without
+> > patches?  I must confess to being a little confused about all this at
+> > the moment.
+> 
+> They built last time I tried but I think the Makefiles are still have some
+> bogus pathnames in them though.  I couldn't build them if I used 'make
+> obj' first but I think I can fix that (add a -I${.OBJDIR} to CFLAGS
+> probably).
+
+Hmmmm.  Really?  It fails very quickly for me:
+
+root@beast-> cd /usr/src/sys/boot/
+root@beast-> ls
+CVS             Makefile        alpha           common          i386
+root@beast-> make
+===> alpha
+===> alpha/libalpha
+cc -I/home/dfr/FreeBSD/alpha/src/lib/libstand -DDEBUG -I/usr/src/sys/boot/alpha/libalpha/../../common -mno-fp-regs -DDISK_DEBUG -c srmnet.c -o srmnet.o
+srmnet.c:45: net.h: No such file or directory
+srmnet.c:46: netif.h: No such file or directory
+*** Error code 1
+
+And I can't find those headers anywhere.  I reported this last week,
+as you might recall.
+
+There's also your fix for ncr.c and the uncopied/unmerged sio bits
+still undone, as far as I know.  That's sort of why I was asking for a
+general status report on the tree as a whole, not just the boot
+blocks.  I'm still trying to put my finger on just how much work is
+left before someone can do all the self-hosting work "from scratch"
+with no special tips or tricks, e.g. the point when we can sort of
+open the doors of -current to alpha folks without having to issue any
+special instructions short of the installation process itself.
+
+- Jordan
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 10:14:48 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Fri, 25 Sep 1998 10:14:48 +0000
+To: freebsd-alpha
+Subject: Re: installing bootblocks...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506949
+
+On Fri, 25 Sep 1998, Jordan K. Hubbard wrote:
+
+> > It seems to be hanging in boot1 somewhere.  Could you try instrumenting
+> > boot1 by inserting a few puts() statements into it.  Be gentle with it -
+> 
+> Actually, I was sort of wondering how anyone was building the boot
+> blocks at all - I can't get them to build on my alpha.
+> 
+> Perhaps now would be a good time for a status report on just what
+> remains to go into the tree before the complete triad of
+> kernel/world/boot can be built successfully from /usr/src without
+> patches?  I must confess to being a little confused about all this at
+> the moment.
+
+They built last time I tried but I think the Makefiles are still have some
+bogus pathnames in them though.  I couldn't build them if I used 'make
+obj' first but I think I can fix that (add a -I${.OBJDIR} to CFLAGS
+probably).
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 10:07:28 1998
+From: "Jordan K. Hubbard" <jkh () time ! cdrom ! com>
+Date: Fri, 25 Sep 1998 10:07:28 +0000
+To: freebsd-alpha
+Subject: Re: installing bootblocks...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506948
+
+> It seems to be hanging in boot1 somewhere.  Could you try instrumenting
+> boot1 by inserting a few puts() statements into it.  Be gentle with it -
+
+Actually, I was sort of wondering how anyone was building the boot
+blocks at all - I can't get them to build on my alpha.
+
+Perhaps now would be a good time for a status report on just what
+remains to go into the tree before the complete triad of
+kernel/world/boot can be built successfully from /usr/src without
+patches?  I must confess to being a little confused about all this at
+the moment.
+
+Thanks.
+
+- Jordan
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 09:37:31 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Fri, 25 Sep 1998 09:37:31 +0000
+To: freebsd-alpha
+Subject: Re: installing bootblocks...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506947
+
+On Thu, 24 Sep 1998, Kenneth D. Merry wrote:
+
+> 
+> I know I'm doing something stupid here, but I'm just not quite sure what. :)
+> 
+> I've got a Miata with two disks, and I've pretty much got FreeBSD up and
+> running on the second disk.
+> 
+> % uname -a
+> FreeBSD subway.plutotech.com 3.0-BETA FreeBSD 3.0-BETA #1: Thu Sep 24 16:44:04 MDT 1998     root@subway.plutotech.com:/usr/src/sys/compile/subway alpha
+> 
+> The problem is, the only way I've been able to boot the thing so far is by
+> netbooting.  (there were a number of tricks to figure out, but it does
+> work)
+> 
+> I compiled the bootblocks in sys/boot/alpha (had to hack the include paths
+> and such), and installed them in /usr/mdec.
+> 
+> Then I did:
+> 
+> disklabel -B da1
+> 
+> /boot has the right files, I think:
+> 
+> % ls -la /boot
+> total 356
+> drwxrwxr-x   2 root  wheel    512 Sep 24 19:06 .
+> drwxr-xr-x  19 root  wheel    512 Sep 24 18:06 ..
+> -r-xr-xr-x   1 root  wheel   6512 Sep 24 19:06 boot1
+> -r-xr-xr-x   1 root  wheel   6512 Sep 19 17:08 boot1.old
+> -r-xr-xr-x   1 root  wheel  82432 Sep 24 19:11 boot2
+> -r-xr-xr-x   1 root  wheel  82232 Sep 19 17:07 boot2.old
+> 
+> I've tried to boot off the disk by typing this at the console prompt:
+> 
+> >>> boot -flags 'a' dkc100
+> 
+> And here's what I get:  (typed in by hand, excuse any typos)
+> 
+> >>>boot -flags 'a' dkc100
+> (boot dkc100.1.0.1009.0 -flags a)
+> block 0 of dkc100.1.0.1009 is a valid boot block
+> reading 13 blocks from dkc100.1.0.1009.0
+> bootstrap code read in
+> base = 14e000, image start = 0, image bytes = 1a00
+> initializing HWRPB at 2000
+> initializing page table at 140000
+> initializing machine state
+> setting affinity to the primary CPU
+> jumping to bootstrap code
+> 
+> 
+> And it just hangs there.  Anyone have an idea of what I'm doing wrong?
+
+It seems to be hanging in boot1 somewhere.  Could you try instrumenting
+boot1 by inserting a few puts() statements into it.  Be gentle with it -
+it has to fit in 7.5k and printf puts it over the limit.  My best trick
+for debugging it was to scatter calls to halt() around the code and see
+how far it got before it halted.
+
+If it works right, it should just twiddle() a few times while it loads the
+second stage then jump to it.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 04:14:29 1998
+From: "Kenneth D. Merry" <ken () plutotech ! com>
+Date: Fri, 25 Sep 1998 04:14:29 +0000
+To: freebsd-alpha
+Subject: Re: installing bootblocks...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506944
+
+Gary Palmer wrote...
+> "Kenneth D. Merry" wrote in message ID
+> <199809250410.WAA03058@panzer.plutotech.com>:
+> > Gary Palmer wrote...
+> > I compiled with whatever the default is, which seems to be -O for some
+> > things (boot1, boot2, netboot), and none for others (libalpha).
+> > 
+> > So should I recompile with -O2?  Or recompile without any optimization?
+> 
+> I think I compiled everything with -O ... I can try to find my hacked
+> `freebsdish' boot blocks ( I altered them to boot /kernel instead of /netbsd :)
+> ) if you want.
+
+That would be good, if you don't mind tracking them down. :)
+
+Ken
+-- 
+Kenneth Merry
+ken@plutotech.com
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 04:12:51 1998
+From: "Gary Palmer" <gpalmer () FreeBSD ! ORG>
+Date: Fri, 25 Sep 1998 04:12:51 +0000
+To: freebsd-alpha
+Subject: Re: installing bootblocks...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506943
+
+"Kenneth D. Merry" wrote in message ID
+<199809250410.WAA03058@panzer.plutotech.com>:
+> Gary Palmer wrote...
+> I compiled with whatever the default is, which seems to be -O for some
+> things (boot1, boot2, netboot), and none for others (libalpha).
+> 
+> So should I recompile with -O2?  Or recompile without any optimization?
+
+I think I compiled everything with -O ... I can try to find my hacked
+`freebsdish' boot blocks ( I altered them to boot /kernel instead of /netbsd :)
+) if you want.
+
+Gary
+--
+Gary Palmer                                          FreeBSD Core Team Member
+FreeBSD: Turning PC's into workstations. See http://www.FreeBSD.ORG/ for info
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 04:10:37 1998
+From: "Kenneth D. Merry" <ken () plutotech ! com>
+Date: Fri, 25 Sep 1998 04:10:37 +0000
+To: freebsd-alpha
+Subject: Re: installing bootblocks...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506942
+
+Gary Palmer wrote...
+> "Kenneth D. Merry" wrote in message ID
+> <199809250134.TAA02254@panzer.plutotech.com>:
+> > And it just hangs there.  Anyone have an idea of what I'm doing wrong?
+> 
+> Did you compile with -O2? I found that the bootblocks are very susceptible to 
+> optimizer oddities.
+
+I compiled with whatever the default is, which seems to be -O for some
+things (boot1, boot2, netboot), and none for others (libalpha).
+
+So should I recompile with -O2?  Or recompile without any optimization?
+
+Ken
+-- 
+Kenneth Merry
+ken@plutotech.com
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 04:04:05 1998
+From: "Gary Palmer" <gpalmer () FreeBSD ! ORG>
+Date: Fri, 25 Sep 1998 04:04:05 +0000
+To: freebsd-alpha
+Subject: Re: installing bootblocks...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506941
+
+"Kenneth D. Merry" wrote in message ID
+<199809250134.TAA02254@panzer.plutotech.com>:
+> And it just hangs there.  Anyone have an idea of what I'm doing wrong?
+
+Did you compile with -O2? I found that the bootblocks are very susceptible to 
+optimizer oddities.
+
+Gary
+--
+Gary Palmer                                          FreeBSD Core Team Member
+FreeBSD: Turning PC's into workstations. See http://www.FreeBSD.ORG/ for info
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 01:34:27 1998
+From: "Kenneth D. Merry" <ken () plutotech ! com>
+Date: Fri, 25 Sep 1998 01:34:27 +0000
+To: freebsd-alpha
+Subject: installing bootblocks...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506940
+
+
+I know I'm doing something stupid here, but I'm just not quite sure what. :)
+
+I've got a Miata with two disks, and I've pretty much got FreeBSD up and
+running on the second disk.
+
+% uname -a
+FreeBSD subway.plutotech.com 3.0-BETA FreeBSD 3.0-BETA #1: Thu Sep 24 16:44:04 MDT 1998     root@subway.plutotech.com:/usr/src/sys/compile/subway alpha
+
+The problem is, the only way I've been able to boot the thing so far is by
+netbooting.  (there were a number of tricks to figure out, but it does
+work)
+
+I compiled the bootblocks in sys/boot/alpha (had to hack the include paths
+and such), and installed them in /usr/mdec.
+
+Then I did:
+
+disklabel -B da1
+
+/boot has the right files, I think:
+
+% ls -la /boot
+total 356
+drwxrwxr-x   2 root  wheel    512 Sep 24 19:06 .
+drwxr-xr-x  19 root  wheel    512 Sep 24 18:06 ..
+-r-xr-xr-x   1 root  wheel   6512 Sep 24 19:06 boot1
+-r-xr-xr-x   1 root  wheel   6512 Sep 19 17:08 boot1.old
+-r-xr-xr-x   1 root  wheel  82432 Sep 24 19:11 boot2
+-r-xr-xr-x   1 root  wheel  82232 Sep 19 17:07 boot2.old
+
+I've tried to boot off the disk by typing this at the console prompt:
+
+>>> boot -flags 'a' dkc100
+
+And here's what I get:  (typed in by hand, excuse any typos)
+
+>>>boot -flags 'a' dkc100
+(boot dkc100.1.0.1009.0 -flags a)
+block 0 of dkc100.1.0.1009 is a valid boot block
+reading 13 blocks from dkc100.1.0.1009.0
+bootstrap code read in
+base = 14e000, image start = 0, image bytes = 1a00
+initializing HWRPB at 2000
+initializing page table at 140000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+
+And it just hangs there.  Anyone have an idea of what I'm doing wrong?
+
+Thanks,
+
+Ken
+-- 
+Kenneth Merry
+ken@plutotech.com
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 25 07:25:24 1998
+From: dima () best ! net (Dima Ruban)
+Date: Fri, 25 Sep 1998 07:25:24 +0000
+To: freebsd-alpha
+Subject: Re: nevermind :-)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506945
+
+John Birrell writes:
+> The compiler is just gcc, like on i386. On alpha, though, there are
+> linker issues associated with walking the stack on exceptions. OSF/1
+> or Digital Unix or Compaq DIGITAL Unix or what ever it's called this
+> week has mips derived code in the linker to create a linkage table
+> which allows a pc address to be looked up to find out which function
+> it is in. GNU binutils has this code for mips, not alpha. In the alpha
+> sources, there are places where some of the mips code exists but is
+> #ifdef'd out. For some reason, the mips code only applies to shared
+> programs. This is a bit odd. I got to the point where I was about to go
+> ask the binutils people, but I must have had a context switch from which
+> I have never returned. 8-)
+
+Was it a voluntary context switch, since it's pretty clear
+that an event that you were waiting for never arrived :-) Or some resource
+wasn't and isn't available. How about to push some magic button called panic?
+;-)
+
+> I was working in a cross-compiled mode to get Modula-3 to work for
+> FreeBSD/Alpha. Since Modula-3 works on OSF/1, I built that, then
+> made mods so that it would use remote commands for the backend tools
+> (gcc, ar, ld). I was able to build the whole thing that way. Without
+> the stack walking code, though, the programs just spit an error and
+> exit.
+
+I can see that. Well, let's ask binutils dudes then.
+
+> 
+> -- 
+> John Birrell - jb@cimlogic.com.au; jb@freebsd.org http://www.cimlogic.com.au/
+> CIMlogic Pty Ltd, GPO Box 117A, Melbourne Vic 3001, Australia +61 418 353 137
+> 
+
+-- dima
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Sep 24 23:42:45 1998
+From: John Birrell  <jb () cimlogic ! com ! au>
+Date: Thu, 24 Sep 1998 23:42:45 +0000
+To: freebsd-alpha
+Subject: Re: nevermind :-)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506939
+
+Doug Rabson wrote:
+> On Thu, 24 Sep 1998, Dima Ruban wrote:
+> 
+> > Oops, looks like it wasn't _most_ recent update. False alarm.
+> > Btw, did anybody got cvsup client working on alpha yet?
+> 
+> A long while ago, John Birrell mentioned that he was working on something
+> for modula-3 support but probably not at a very high priority.  I don't
+> know how hard it would be to get modula going.  Does it have an alpha
+> backend for the compiler?
+
+The compiler is just gcc, like on i386. On alpha, though, there are
+linker issues associated with walking the stack on exceptions. OSF/1
+or Digital Unix or Compaq DIGITAL Unix or what ever it's called this
+week has mips derived code in the linker to create a linkage table
+which allows a pc address to be looked up to find out which function
+it is in. GNU binutils has this code for mips, not alpha. In the alpha
+sources, there are places where some of the mips code exists but is
+#ifdef'd out. For some reason, the mips code only applies to shared
+programs. This is a bit odd. I got to the point where I was about to go
+ask the binutils people, but I must have had a context switch from which
+I have never returned. 8-)
+
+I was working in a cross-compiled mode to get Modula-3 to work for
+FreeBSD/Alpha. Since Modula-3 works on OSF/1, I built that, then
+made mods so that it would use remote commands for the backend tools
+(gcc, ar, ld). I was able to build the whole thing that way. Without
+the stack walking code, though, the programs just spit an error and
+exit.
+
+-- 
+John Birrell - jb@cimlogic.com.au; jb@freebsd.org http://www.cimlogic.com.au/
+CIMlogic Pty Ltd, GPO Box 117A, Melbourne Vic 3001, Australia +61 418 353 137
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Sep 24 22:26:24 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Thu, 24 Sep 1998 22:26:24 +0000
+To: freebsd-alpha
+Subject: Re: nevermind :-)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506937
+
+On Thu, 24 Sep 1998, Dima Ruban wrote:
+
+> Oops, looks like it wasn't _most_ recent update. False alarm.
+> Btw, did anybody got cvsup client working on alpha yet?
+
+A long while ago, John Birrell mentioned that he was working on something
+for modula-3 support but probably not at a very high priority.  I don't
+know how hard it would be to get modula going.  Does it have an alpha
+backend for the compiler?
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Sep 24 17:43:14 1998
+From: dima () best ! net (Dima Ruban)
+Date: Thu, 24 Sep 1998 17:43:14 +0000
+To: freebsd-alpha
+Subject: nevermind :-)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506936
+
+Oops, looks like it wasn't _most_ recent update. False alarm.
+Btw, did anybody got cvsup client working on alpha yet?
+
+-- dima
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Sep 23 08:22:41 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Wed, 23 Sep 1998 08:22:41 +0000
+To: freebsd-alpha
+Subject: Re: boostrap - build world - mtree failure
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506933
+
+On Wed, 23 Sep 1998, Neal Horman wrote:
+
+> 
+> ok, following the steps outlined in the "bootstrapping" html page, i'v
+> gotten an alpha 200 loaded w/netbsd 1.3.2.
+> 
+> I've nfs mounted -current as of 9/19/98 to /usr/src, and started the make
+> buildworld... "make" seemed to build ok, but it barfed on mtree cause it
+> can't find "-lmd". I assume this to be the md5 library "libmd".
+> 
+> Could someone point me in the right direction. I'm sure if i'm missing the
+> md5 lib from netbsd, or if -current for is broken.
+> 
+> I'm looking forward to getting fbsd running on alpha, and maybe even
+> helping to advance the alpha port as well.
+
+The bootstrapping instructions on the web page are somewhat dated.
+FreeBSD/alpha now has a native kernel.  Please try booting one of the
+kernels at http://www.freebsd.org/~dfr to single user mode and if that is
+successful, you can unpack the FreeBSD binaries from
+http://ftp.freebsd.org/pub/FreeBSD/development/alpha.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Sep 23 07:14:31 1998
+From: Neal Horman <neal () wanlink ! com>
+Date: Wed, 23 Sep 1998 07:14:31 +0000
+To: freebsd-alpha
+Subject: boostrap - build world - mtree failure
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506931
+
+
+ok, following the steps outlined in the "bootstrapping" html page, i'v
+gotten an alpha 200 loaded w/netbsd 1.3.2.
+
+I've nfs mounted -current as of 9/19/98 to /usr/src, and started the make
+buildworld... "make" seemed to build ok, but it barfed on mtree cause it
+can't find "-lmd". I assume this to be the md5 library "libmd".
+
+Could someone point me in the right direction. I'm sure if i'm missing the
+md5 lib from netbsd, or if -current for is broken.
+
+I'm looking forward to getting fbsd running on alpha, and maybe even
+helping to advance the alpha port as well.
+
+TIA
+
+----------
+Neal Horman
+	"one ping please, Vascilly, one ping... only..."
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 22 06:22:58 1998
+From: "Sergey S. Kosyakov" <ks () itp ! ac ! ru>
+Date: Tue, 22 Sep 1998 06:22:58 +0000
+To: freebsd-alpha
+Subject: Please, explain!
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506929
+
+
+Please, explain me - can I install SRM firmware on 164LX motheboard with NT
+Alpha-BIOS ? More precisely, can I buy 164LX with AlphaBIOS and update firmware
+to SRM console? I did not find clean answer in the 164LX documentation.
+
+Thanks.
+Sergey.
+
+---
+----------------------------------
+Sergey Kosyakov
+Laboratory of Distributed Computing
+Department of High-Performance Computing and Applied Network Research
+Landau Institute for Theoretical Physics
+E-Mail: ks@itp.ac.ru
+Date: 22-Sep-98
+Time: 10:16:02
+----------------------------------
+---
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 20 19:49:22 1998
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Sun, 20 Sep 1998 19:49:22 +0000
+To: freebsd-alpha
+Subject: Re: IDE support?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506927
+
+
+Doug Rabson writes:
+ > > As far as I can tell. :(  I just had a chance to play with the Rev C0
+ > > boards, and they still suck just as much.  I believe the C0 is the
+ > > latest rev, although I am not absolutely sure.
+ > 
+ > In what sense are they broken?  I have a 164LX and (barring the time the
+ > heatsink fell off) it has been working very well.
+
+Say that after putting a Myrinet or gigabit ethernet card in it ;-)
+
+164LX's share at least some of the problems of early revision miatas.
+Chris sees slow host->PCI dma bandwidth (~70MB/sec) with his Myrinet
+card.   Whether it shares other, nastier problems (page boundary DMA
+bugs), I don't know.
+
+Drew
+
+------------------------------------------------------------------------------
+Andrew Gallatin, Sr Systems Programmer	http://www.cs.duke.edu/~gallatin
+Duke University				Email: gallatin@cs.duke.edu
+Department of Computer Science		Phone: (919) 660-6590
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 20 19:38:55 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sun, 20 Sep 1998 19:38:55 +0000
+To: freebsd-alpha
+Subject: Re: IDE support?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506926
+
+On Sun, 20 Sep 1998, Chris Csanady wrote:
+
+> > > Another thing--does anyone know if it is possible to get SRM on
+> > > the Samsung UX2 boards?  (Or even if their PCI is as horrible
+> > > broken as it is on the LX?)
+> >
+> >Based on a conversation at USENIX with somebody from Harddata, I don't
+> >think the SRM console will be available for the UX series.
+> >
+> >Ack! Are all LX boards horribly broken?  I was assuming they'd be like
+> >Miatas, and brand new boards would have a newer revision 21174..
+> 
+> As far as I can tell. :(  I just had a chance to play with the Rev C0
+> boards, and they still suck just as much.  I believe the C0 is the
+> latest rev, although I am not absolutely sure.
+
+In what sense are they broken?  I have a 164LX and (barring the time the
+heatsink fell off) it has been working very well.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 20 18:53:11 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sun, 20 Sep 1998 18:53:11 +0000
+To: freebsd-alpha
+Subject: Re: IDE support?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506925
+
+On Sun, 20 Sep 1998, Chris Csanady wrote:
+
+> I know this is far fetched, but are there any plans for making
+> IDE on the alpha work in the near future?  I would really like to
+> play with FreeBSD/alpha, although all of our 164LX's only have IDE
+> disks.
+
+It is on my list of things to do but I probably won't get around to it for
+a while (I don't actually have an ide disk here but I can probably
+scrounge one from work).
+
+> Another thing--does anyone know if it is possible to get SRM on
+> the Samsung UX2 boards?  (Or even if their PCI is as horrible
+> broken as it is on the LX?)
+
+I have no idea about firmware options for the UX2.  I have fond hopes of
+writing an AlphaBIOS bootstrap at some point in the future but the
+priorities for that are pretty low right now.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 20 18:36:37 1998
+From: Chris Csanady <ccsanady () friley-185-114 ! res ! iastate ! edu>
+Date: Sun, 20 Sep 1998 18:36:37 +0000
+To: freebsd-alpha
+Subject: Re: IDE support?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506924
+
+
+>
+>Chris Csanady writes:
+> > I know this is far fetched, but are there any plans for making
+> > IDE on the alpha work in the near future?  I would really like to
+>
+>I'm sure it will get done eventually, but I don't think its at the top 
+>of anybody's list.  Doug?
+>
+> > play with FreeBSD/alpha, although all of our 164LX's only have IDE
+> > disks.
+>
+>Hey.. will the SRM console boot off of an IDE drive on a 164LX?  I was
+>pleasantly surprised to find that it will on a new miata (DPW500)
+
+Yes, it will.  I have booted NetBSD on a 164LX with IDE in the past.
+It was somewhat confused about the root device, but it still worked
+fine.
+
+> > Another thing--does anyone know if it is possible to get SRM on
+> > the Samsung UX2 boards?  (Or even if their PCI is as horrible
+> > broken as it is on the LX?)
+>
+>Based on a conversation at USENIX with somebody from Harddata, I don't
+>think the SRM console will be available for the UX series.
+>
+>Ack! Are all LX boards horribly broken?  I was assuming they'd be like
+>Miatas, and brand new boards would have a newer revision 21174..
+
+As far as I can tell. :(  I just had a chance to play with the Rev C0
+boards, and they still suck just as much.  I believe the C0 is the
+latest rev, although I am not absolutely sure.
+
+Chris
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 20 18:23:50 1998
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Sun, 20 Sep 1998 18:23:50 +0000
+To: freebsd-alpha
+Subject: Re: IDE support?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506923
+
+
+Chris Csanady writes:
+ > I know this is far fetched, but are there any plans for making
+ > IDE on the alpha work in the near future?  I would really like to
+
+I'm sure it will get done eventually, but I don't think its at the top 
+of anybody's list.  Doug?
+
+ > play with FreeBSD/alpha, although all of our 164LX's only have IDE
+ > disks.
+
+Hey.. will the SRM console boot off of an IDE drive on a 164LX?  I was
+pleasantly surprised to find that it will on a new miata (DPW500)
+
+ > Another thing--does anyone know if it is possible to get SRM on
+ > the Samsung UX2 boards?  (Or even if their PCI is as horrible
+ > broken as it is on the LX?)
+
+Based on a conversation at USENIX with somebody from Harddata, I don't
+think the SRM console will be available for the UX series.
+
+Ack! Are all LX boards horribly broken?  I was assuming they'd be like
+Miatas, and brand new boards would have a newer revision 21174..
+
+Drew
+------------------------------------------------------------------------------
+Andrew Gallatin, Sr Systems Programmer	http://www.cs.duke.edu/~gallatin
+Duke University				Email: gallatin@cs.duke.edu
+Department of Computer Science		Phone: (919) 660-6590
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 20 18:03:16 1998
+From: Chris Csanady <ccsanady () friley-185-114 ! res ! iastate ! edu>
+Date: Sun, 20 Sep 1998 18:03:16 +0000
+To: freebsd-alpha
+Subject: IDE support?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506922
+
+I know this is far fetched, but are there any plans for making
+IDE on the alpha work in the near future?  I would really like to
+play with FreeBSD/alpha, although all of our 164LX's only have IDE
+disks.
+
+Another thing--does anyone know if it is possible to get SRM on
+the Samsung UX2 boards?  (Or even if their PCI is as horrible
+broken as it is on the LX?)
+
+Thanks,
+Chris
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 20 10:42:39 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sun, 20 Sep 1998 10:42:39 +0000
+To: freebsd-alpha
+Subject: Re: Making a disk bootable under dux
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506920
+
+On Sun, 20 Sep 1998, John Birrell wrote:
+
+> Warner Losh wrote:
+> > 
+> > Is it possible to make a FreeBSD disk bootable under DUX?  That is,
+> > can I install the FreeBSD boot blocks using DUX?  I suspect that I'd
+> > have to hack disklabel to do the right thing, as well as a special
+> > mknode that "copes" with DUX's way of putting special files into the
+> > file system.  Is there anything fundamentally wrong with this idea?
+> > Right now, I have this disk that has all of FreeBSD alpha on it, but
+> > don't want to duplicate that on another machine just to netboot the
+> > thing to install the bootblocks.
+> 
+> >From DUX, the "easy" thing to do is dd a disk image that already has the
+> boot blocks on it.
+> 
+> It's probably worth waiting a few weeks for things to settle down after
+> the rush to beat the beta freeze for 3.0.
+
+The easiest thing is to boot a recent NetBSD install disk and use it to
+install their boot blocks on the FreeBSD disk.  You can change over to
+FreeBSD boot blocks at your leisure since they both load elf kernels just
+fine.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 19 22:26:10 1998
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Sat, 19 Sep 1998 22:26:10 +0000
+To: freebsd-alpha
+Subject: Re: Making a disk bootable under dux
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506917
+
+
+Warner Losh writes:
+ > Right now, I have this disk that has all of FreeBSD alpha on it, but
+ > don't want to duplicate that on another machine just to netboot the
+ > thing to install the bootblocks.
+ > 
+ > Comments?
+
+You don't need to duplicate the whole thing, just the kernel. The
+kernel you netboot will use the local disk as its root.  Heck, I don't
+even know how to make FreeBSD/alpha use an nfs root these days..
+
+Drew
+
+------------------------------------------------------------------------------
+Andrew Gallatin, Sr Systems Programmer	http://www.cs.duke.edu/~gallatin
+Duke University				Email: gallatin@cs.duke.edu
+Department of Computer Science		Phone: (919) 660-6590
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 19 22:07:08 1998
+From: John Birrell  <jb () cimlogic ! com ! au>
+Date: Sat, 19 Sep 1998 22:07:08 +0000
+To: freebsd-alpha
+Subject: Re: Making a disk bootable under dux
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506916
+
+Warner Losh wrote:
+> 
+> Is it possible to make a FreeBSD disk bootable under DUX?  That is,
+> can I install the FreeBSD boot blocks using DUX?  I suspect that I'd
+> have to hack disklabel to do the right thing, as well as a special
+> mknode that "copes" with DUX's way of putting special files into the
+> file system.  Is there anything fundamentally wrong with this idea?
+> Right now, I have this disk that has all of FreeBSD alpha on it, but
+> don't want to duplicate that on another machine just to netboot the
+> thing to install the bootblocks.
+
+>From DUX, the "easy" thing to do is dd a disk image that already has the
+boot blocks on it.
+
+It's probably worth waiting a few weeks for things to settle down after
+the rush to beat the beta freeze for 3.0.
+
+-- 
+John Birrell - jb@cimlogic.com.au; jb@freebsd.org http://www.cimlogic.com.au/
+CIMlogic Pty Ltd, GPO Box 117A, Melbourne Vic 3001, Australia +61 418 353 137
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 19 21:43:51 1998
+From: Warner Losh <imp () village ! org>
+Date: Sat, 19 Sep 1998 21:43:51 +0000
+To: freebsd-alpha
+Subject: Making a disk bootable under dux
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506915
+
+
+Is it possible to make a FreeBSD disk bootable under DUX?  That is,
+can I install the FreeBSD boot blocks using DUX?  I suspect that I'd
+have to hack disklabel to do the right thing, as well as a special
+mknode that "copes" with DUX's way of putting special files into the
+file system.  Is there anything fundamentally wrong with this idea?
+Right now, I have this disk that has all of FreeBSD alpha on it, but
+don't want to duplicate that on another machine just to netboot the
+thing to install the bootblocks.
+
+Comments?
+
+Warner
+
+P.S.  I'm grabbing sources right now to see how hard this is really
+going to be...
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 19 22:31:55 1998
+From: "Gary Palmer" <gpalmer () FreeBSD ! ORG>
+Date: Sat, 19 Sep 1998 22:31:55 +0000
+To: freebsd-alpha
+Subject: Re: Current AS200 state
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506918
+
+Doug Rabson wrote in message ID
+<Pine.BSF.4.01.9809191622150.392-100000@herring.nlsystems.com>:
+> Neither of these things are on my near-term todo list - I'm still
+> struggling hard with 'make release' :-).  If you want to tackle either of
+> these jobs (or anything else on my whiteboard for that matter) then please
+> go ahead and don't hesitate to contact me with questions if you don't
+> understand anything.
+
+I had make release working for Alpha before the i386 elf/perl5 changes
+went in and now I have conflicts all over the place. If the machines at
+work ever let me get a good nights sleep sometime soon I'll resolve
+those conflicts and start compiling again.
+
+Gary
+--
+Gary Palmer                                          FreeBSD Core Team Member
+FreeBSD: Turning PC's into workstations. See http://www.FreeBSD.ORG/ for info
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 19 19:49:38 1998
+From: Jason Thorpe <thorpej () nas ! nasa ! gov>
+Date: Sat, 19 Sep 1998 19:49:38 +0000
+To: freebsd-alpha
+Subject: Re: Current AS200 state
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506914
+
+On Sat, 19 Sep 1998 10:35:00 -0400 (EDT) 
+ Thomas Valentino Crimi <tcrimi+@andrew.cmu.edu> wrote:
+
+ >   Floppy/Sound - Only linux has this, it's a long-shot for me, but if I can
+ >       get E2 to work, it'd be a good finishing point, no?
+
+NetBSD supports audio on the Alphas.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 19 15:28:08 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sat, 19 Sep 1998 15:28:08 +0000
+To: freebsd-alpha
+Subject: Re: Current AS200 state
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506911
+
+On Sat, 19 Sep 1998, Thomas Valentino Crimi wrote:
+
+> 
+>   Now that the alpha port is fairly managable from an outsiders point of
+> view, I was wondering as to a few current parts of it's state, not so
+> much what's in the source tree now (I watch that like a hawk ;) but you
+> developer's intentions over the next month.  I'd like to try my hand at
+> any of the necessary points on the AS200 if I can.
+> 
+>   E2 support - NetBSD has it, it shouldn't be too much of an issue to port?
+> 
+>   Floppy/Sound - Only linux has this, it's a long-shot for me, but if I can
+>       get E2 to work, it'd be a good finishing point, no?
+> 
+> 
+>   My question is, of course, is this on anyone's near-term ToDo list?  
+> I'm wondering if many Alpha's have much care for the latter, but from
+> what I've seen many are shipped with E2/E3 cards and video display is
+> always nice 8).
+
+Right now there is no TGA support at all, let alone E2 (I am assuming this
+is a TGA card?).  It should be possible to hammer it into syscons though
+since with the recent vesa support, it can handle bitmapped console
+displays fairly easily.
+
+Floppy support would involve implementing the necessary hooks for ISA DMA
+(probably hard) and porting the fd driver to the new bus interface (pretty
+easy).  Sound support is mostly a DMA issue too.
+
+Neither of these things are on my near-term todo list - I'm still
+struggling hard with 'make release' :-).  If you want to tackle either of
+these jobs (or anything else on my whiteboard for that matter) then please
+go ahead and don't hesitate to contact me with questions if you don't
+understand anything.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 19 14:35:00 1998
+From: Thomas Valentino Crimi <tcrimi+ () andrew ! cmu ! edu>
+Date: Sat, 19 Sep 1998 14:35:00 +0000
+To: freebsd-alpha
+Subject: Current AS200 state
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506910
+
+
+  Now that the alpha port is fairly managable from an outsiders point of
+view, I was wondering as to a few current parts of it's state, not so
+much what's in the source tree now (I watch that like a hawk ;) but you
+developer's intentions over the next month.  I'd like to try my hand at
+any of the necessary points on the AS200 if I can.
+
+  E2 support - NetBSD has it, it shouldn't be too much of an issue to port?
+
+  Floppy/Sound - Only linux has this, it's a long-shot for me, but if I can
+      get E2 to work, it'd be a good finishing point, no?
+
+
+  My question is, of course, is this on anyone's near-term ToDo list?  
+I'm wondering if many Alpha's have much care for the latter, but from
+what I've seen many are shipped with E2/E3 cards and video display is
+always nice 8).
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 19 17:20:57 1998
+From: Jacques Vidrine <n () nectar ! com>
+Date: Sat, 19 Sep 1998 17:20:57 +0000
+To: freebsd-alpha
+Subject: first attempt to boot FreeBSD kernel on AlphaStation 200 4/233
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506912
+
+-----BEGIN PGP SIGNED MESSAGE-----
+
+I'm netbooting, by the way.  Not sure what to look at for problems.
+
+Entering netbsd.gz at 0xfffffc0000320ea0...
+[ preserving 437312 bytes of kernel symbol table ]
+Copyright (c) 1992-1998 FreeBSD Inc.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+        The Regents of the University of California. All rights reserved.
+FreeBSD 3.0-CURRENT #18: Fri Sep 18 11:58:00 BST 1998
+    dfr@salmon.nlsystems.com:/mnt/herring/b/dfr/FreeBSD/alpha/src/sys/compile/GENERIC
+AlphaStation 200/400 ("Avanti")
+AlphaStation 200 4/233, 233MHz
+8192 byte page size, 1 processor.
+real memory  = 31506432 (30768K bytes)
+avail memory = 26533888 (25912K bytes)
+apecs0: <DECchip 21071 Core Logic chipset>
+isa0
+Probing for devices on PCI bus 0:
+ncr0: <ncr 53c810 fast10 scsi> rev 0x02 int a irq 11 on pci0.6.0
+chip0: <Intel 82378IB PCI to ISA bridge> rev 0x84 on pci0.7.0
+de0: <Digital 21040 Ethernet> rev 0x24 int a irq 5 on pci0.11.0
+de0: DEC 21040 [10Mb/s] pass 2.4
+de0: address 00:00:f8:23:27:c8
+mcclock0: <MC146818A real time clock> at 0x70-0x71 on isa0
+sc0 at 0x60 irq 1 on isa0
+
+halted CPU 0
+
+halt code = 5
+HALT instruction executed
+PC = fffffc00005111a8
+>>>
+
+
+Jacques Vidrine / n@nectar.com / jvidrine@verio.net / nectar@FreeBSD.org
+
+
+
+-----BEGIN PGP SIGNATURE-----
+Version: 2.6.2
+
+iQCVAwUBNgPn+TeRhT8JRySpAQELrAP+JkEuGehdCXnXLYF/QjX0NU0WVM8FE/s4
+Xv9uU9tZw9KIt7wa5uttrC3dcdpFPgbQAPLOnI3dRzE8TLRVXKMe85CvtDmpLqzt
+2/90uDqGAMWMwiU1aQpy38//CSuImDMV3GjkR1thR901IGqvIdEtd/QbfEf7LFNW
+YRzzp65IuBI=
+=HkRc
+-----END PGP SIGNATURE-----
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 18 09:04:42 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Fri, 18 Sep 1998 09:04:42 +0000
+To: freebsd-alpha
+Subject: Re: Multia kernels
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506904
+
+On Thu, 17 Sep 1998, BitS wrote:
+
+> 
+> 
+> Any news on the multi kernel code?  
+
+None at the moment :-(
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Sep 17 17:22:29 1998
+From: BitS <bits () oldwarez ! com>
+Date: Thu, 17 Sep 1998 17:22:29 +0000
+To: freebsd-alpha
+Subject: Multia kernels
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506900
+
+
+
+Any news on the multi kernel code?  
+
+David
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 18 09:51:12 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Fri, 18 Sep 1998 09:51:12 +0000
+To: freebsd-alpha
+Subject: Re: Bootstrap
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506905
+
+On Thu, 17 Sep 1998, Warner Losh wrote:
+
+> 
+> What's the bootstrap proceedure for getting FreeBSD up and running on
+> a alpha that is currently running DUX?  Is there a snapshot that I can
+> retrieve to make this easier?
+
+There is a really old snapshot in http://www.freebsd.org/~dfr.  I'm just
+trying to build a release here which would be far more useful.  If the
+'make release' works, I'll upload it somewhere but it might be a while.
+Gary Palmer has been trying to build releases too so he might beat me to
+it...
+
+I'll put up some fresh GENERIC kernels too before I go to work.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 18 02:17:12 1998
+From: Warner Losh <imp () village ! org>
+Date: Fri, 18 Sep 1998 02:17:12 +0000
+To: freebsd-alpha
+Subject: Bootstrap
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506903
+
+
+What's the bootstrap proceedure for getting FreeBSD up and running on
+a alpha that is currently running DUX?  Is there a snapshot that I can
+retrieve to make this easier?
+
+Warner
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Sep 17 18:21:52 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Thu, 17 Sep 1998 18:21:52 +0000
+To: freebsd-alpha
+Subject: Re: buildworld, anyone?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506901
+
+On Thu, 17 Sep 1998, Andrew Gallatin wrote:
+
+> 
+> Doug Rabson writes:
+> 
+>  > > Doug -- what's the state of the kernel now? I noticed a whole slew of
+>  > > commits.  Is the only relevant patch now the addition of isa/sio.c ?
+>  > 
+>  > Yes I think so.  I need to find a few minutes to merge in the latest fixes
+>  > to sio and get someone to do a repo-copy before I can commit that.
+>  > 
+>  > My buildworlds are stopping on vidcontrol.  I need to merge at least part
+>  > of the latest vesa bits :-(.
+> 
+> Woo-hoo!  After your latest commits, I was able to build the world! 
+> 
+> All it took to build the GENERIC kernel was to extract the
+> isa/{sio.c,sioreg.h} files from
+> http://www.freebsd.org/~dfr/alpha-sys-diff-120998.gz 
+> and to comment out the non-CAM'ified scsi code for the TC alphas:
+
+The ncr driver still needs a small patch but I think Justin will commit it
+soonish.
+
+> Thanks a million.  I'm going rebuild into a dynamic system right now.
+> 
+> Thanks,
+
+No problem :-)
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Sep 17 15:55:08 1998
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Thu, 17 Sep 1998 15:55:08 +0000
+To: freebsd-alpha
+Subject: Re: buildworld, anyone?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506899
+
+
+Doug Rabson writes:
+
+ > > Doug -- what's the state of the kernel now? I noticed a whole slew of
+ > > commits.  Is the only relevant patch now the addition of isa/sio.c ?
+ > 
+ > Yes I think so.  I need to find a few minutes to merge in the latest fixes
+ > to sio and get someone to do a repo-copy before I can commit that.
+ > 
+ > My buildworlds are stopping on vidcontrol.  I need to merge at least part
+ > of the latest vesa bits :-(.
+
+Woo-hoo!  After your latest commits, I was able to build the world! 
+
+All it took to build the GENERIC kernel was to extract the
+isa/{sio.c,sioreg.h} files from
+http://www.freebsd.org/~dfr/alpha-sys-diff-120998.gz 
+and to comment out the non-CAM'ified scsi code for the TC alphas:
+
+Index: sys/alpha/conf/GENERIC
+===================================================================
+RCS file: /scratch/freebsd-cvs/src/sys/alpha/conf/GENERIC,v
+retrieving revision 1.6
+diff -r1.6 GENERIC
+60c60
+< controller    tcds0
+---
+> #controller   tcds0
+67c67
+< controller    esp0
+---
+> #controller   esp0
+
+
+Thanks a million.  I'm going rebuild into a dynamic system right now.
+
+Thanks,
+
+Drew
+
+------------------------------------------------------------------------------
+Andrew Gallatin, Sr Systems Programmer	http://www.cs.duke.edu/~gallatin
+Duke University				Email: gallatin@cs.duke.edu
+Department of Computer Science		Phone: (919) 660-6590
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Sep 17 06:55:17 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Thu, 17 Sep 1998 06:55:17 +0000
+To: freebsd-alpha
+Subject: Re: buildworld, anyone?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506898
+
+On Wed, 16 Sep 1998, Andrew Gallatin wrote:
+
+> 
+> Kenneth D. Merry writes:
+>  > 
+>  > That's more or less the fix I checked in a little while ago.  I also added
+>  > a little more belt-and-suspenders checking, which shouldn't affect the
+>  > alpha.
+> 
+> Thanks.  Things are coming in so fast and furious now that my source
+> tree is hopelessly out of date by the time I can get a buildworld to
+> fail. Luckily almost everything coming in is a fix ;-)
+> 
+>  > Doug also ran into (and worked around) a compiler bug on the Alpha that
+>  > causes it to blow up on rpc.rstatd.  You'll probably want to get his fix.
+>  > 
+> 
+> OK.  Looks like Doug checked it in:
+> 
+> dfr         1998/09/16 14:33:14 PDT
+> 
+>   Modified files:
+>     libexec/rpc.rstatd   rstat_proc.c 
+>   Log:
+>   Work around an alpha compiler bug.
+> 
+> 
+> The perl5 stuff is what really bothers me, but it looks like Doug was
+> at that too..  Here I go again ;-)
+> 
+> Doug -- what's the state of the kernel now? I noticed a whole slew of
+> commits.  Is the only relevant patch now the addition of isa/sio.c ?
+
+Yes I think so.  I need to find a few minutes to merge in the latest fixes
+to sio and get someone to do a repo-copy before I can commit that.
+
+My buildworlds are stopping on vidcontrol.  I need to merge at least part
+of the latest vesa bits :-(.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Sep 17 01:25:52 1998
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Thu, 17 Sep 1998 01:25:52 +0000
+To: freebsd-alpha
+Subject: Re: buildworld, anyone?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506897
+
+
+Kenneth D. Merry writes:
+ > 
+ > That's more or less the fix I checked in a little while ago.  I also added
+ > a little more belt-and-suspenders checking, which shouldn't affect the
+ > alpha.
+
+Thanks.  Things are coming in so fast and furious now that my source
+tree is hopelessly out of date by the time I can get a buildworld to
+fail. Luckily almost everything coming in is a fix ;-)
+
+ > Doug also ran into (and worked around) a compiler bug on the Alpha that
+ > causes it to blow up on rpc.rstatd.  You'll probably want to get his fix.
+ > 
+
+OK.  Looks like Doug checked it in:
+
+dfr         1998/09/16 14:33:14 PDT
+
+  Modified files:
+    libexec/rpc.rstatd   rstat_proc.c 
+  Log:
+  Work around an alpha compiler bug.
+
+
+The perl5 stuff is what really bothers me, but it looks like Doug was
+at that too..  Here I go again ;-)
+
+Doug -- what's the state of the kernel now? I noticed a whole slew of
+commits.  Is the only relevant patch now the addition of isa/sio.c ?
+
+Thanks,
+
+Drew
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Sep 16 23:19:13 1998
+From: "Kenneth D. Merry" <ken () plutotech ! com>
+Date: Wed, 16 Sep 1998 23:19:13 +0000
+To: freebsd-alpha
+Subject: Re: buildworld, anyone?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506896
+
+Andrew Gallatin wrote...
+
+[ ... ]
+
+> I also whacked src/lib/libcam/scsi_cmdparse.c into submission via:
+> 
+> RCS file: /scratch/freebsd-cvs/src/lib/libcam/scsi_cmdparse.c,v
+> retrieving revision 1.1
+> diff -r1.1 scsi_cmdparse.c
+> 658c658
+> <       ap = (va_list)0;
+> ---
+> >       bzero((caddr_t)&ap, sizeof(va_list));
+> 681c681
+> <       ap = (va_list)0;
+> ---
+> >       bzero((caddr_t)&ap, sizeof(va_list));
+> 735c735
+> <       ap = (va_list)0;
+> ---
+> >       bzero((caddr_t)&ap, sizeof(va_list));
+> 776c776
+> <       ap = (va_list)0;
+> ---
+> >       bzero((caddr_t)&ap, sizeof(va_list));
+> 787c787
+> <       ap = (va_list) 0;
+> ---
+> >       bzero((caddr_t)&ap, sizeof(va_list));
+
+
+That's more or less the fix I checked in a little while ago.  I also added
+a little more belt-and-suspenders checking, which shouldn't affect the
+alpha.
+
+Doug also ran into (and worked around) a compiler bug on the Alpha that
+causes it to blow up on rpc.rstatd.  You'll probably want to get his fix.
+
+Ken
+-- 
+Kenneth Merry
+ken@plutotech.com
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Sep 16 21:12:10 1998
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Wed, 16 Sep 1998 21:12:10 +0000
+To: freebsd-alpha
+Subject: buildworld, anyone?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506895
+
+
+Has anybody managed to build the world since P day?
+I'm attempting to get a recent world onto a machine that's running
+-current from about 1 month ago.
+
+My first problem was that contrib/perl5/pp.c causes gcc to die.  This allows me to
+make it past that point:
+
+RCS file: /scratch/freebsd-cvs/src/contrib/perl5/pp.c,v
+retrieving revision 1.1.1.1
+diff -r1.1.1.1 pp.c
+1658a1659
+> #if !(defined __FreeBSD__ && defined (__alpha))
+1659a1661
+> #endif
+
+But I now die much later on: 
+
+	cat /usr/src/gnu/usr.bin/perl/perl/../../../../contrib/perl5/ext/re/re.pm > /usr/obj/elf/usr/src/gnu/usr.bin/perl/perl/lib/re.pm
+	miniperl /usr/src/gnu/usr.bin/perl/perl/../../../../contrib/perl5/configpm  Config.pm Porting/Glossary myconfig config.sh
+	pid 24498 (miniperl): unaligned access: va=0x1202595cc pc=0x12005f570 ra=0x12005cebc op=stq
+	...
+	...
+	pid 24498 (miniperl): unaligned access: va=0x120271284 pc=0x12005fc04 ra=0x12005b398 op=ldq
+	*** Signal 11
+
+
+I also whacked src/lib/libcam/scsi_cmdparse.c into submission via:
+
+RCS file: /scratch/freebsd-cvs/src/lib/libcam/scsi_cmdparse.c,v
+retrieving revision 1.1
+diff -r1.1 scsi_cmdparse.c
+658c658
+<       ap = (va_list)0;
+---
+>       bzero((caddr_t)&ap, sizeof(va_list));
+681c681
+<       ap = (va_list)0;
+---
+>       bzero((caddr_t)&ap, sizeof(va_list));
+735c735
+<       ap = (va_list)0;
+---
+>       bzero((caddr_t)&ap, sizeof(va_list));
+776c776
+<       ap = (va_list)0;
+---
+>       bzero((caddr_t)&ap, sizeof(va_list));
+787c787
+<       ap = (va_list) 0;
+---
+>       bzero((caddr_t)&ap, sizeof(va_list));
+
+
+Also, is there any way to pick up a buildworld *EXACTLY* where you
+left off, like a normal make would do?  I'm doing this in the
+background on a slow box, and its getting rather frustrating..
+
+Thanks,
+
+Drew
+
+------------------------------------------------------------------------------
+Andrew Gallatin, Sr Systems Programmer	http://www.cs.duke.edu/~gallatin
+Duke University				Email: gallatin@cs.duke.edu
+Department of Computer Science		Phone: (919) 660-6590
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Sep 09 10:44:52 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Wed, 09 Sep 1998 10:44:52 +0000
+To: freebsd-alpha
+Subject: Shared libs on alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506893
+
+For anyone experimenting with FreeBSD/alpha at the moment, please avoid
+trying to use shared libraries for the next couple of days and keep your
+systems static.  The nice folks at Cygnus have managed to change the
+shared object format in such a way that shared executables and libs linked
+eith binutils-2.8.1 are totally incompatible with those linked with
+binutils-2.9.1.
+
+Since we haven't released anything yet, I will only be supporting the
+2.9.1 format in rtld but I have some more testing to do before I can
+commit that so stay static for the next few days.
+
+For any of the NetBSD folks reading this list, be warned that you will get
+grief from binutils if/when you upgrade your toolchain to binutils-2.9.1.
+To be specific, the PLT format has changed and you will probably need two
+versions of _rtld_bind_start for the new and old formats :-(.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 08 23:15:13 1998
+From: "Justin T. Gibbs" <gibbs () narnia ! plutotech ! com>
+Date: Tue, 08 Sep 1998 23:15:13 +0000
+To: freebsd-alpha
+Subject: Re: Bt848 driver for Alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506891
+
+>> Ick. Ick. Ick.  Almost all of the CAM code uses the bus space facility
+>> to do this.  Why re-invent the wheel?
+> 
+> I wasn't re-inventing anything.  I just happened to look at a different
+> wheel.  Constructing a bus space around this is trivial (virtually the
+> same as the i386 bus space).
+
+Well, the NCR driver is an MI driver, so it should use MI interfaces
+to get it's work done.  My (incorrect??) assumption was that you were
+pushing for writeb and friends to become MI interfaces.
+
+> --
+> Doug Rabson				Mail:  dfr@nlsystems.com
+> Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+> 					Fax:   +44 181 381 1039
+
+--
+Justin
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 08 21:08:06 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Tue, 08 Sep 1998 21:08:06 +0000
+To: freebsd-alpha
+Subject: Re: Bt848 driver for Alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506890
+
+On Tue, 8 Sep 1998, Justin T. Gibbs wrote:
+
+> In article <Pine.BSF.4.01.9809080932410.796-100000@herring.nlsystems.com> you wrote:
+> > On Mon, 7 Sep 1998, Roger Hardiman wrote:
+> > 
+> > I would suggest something like the ncr driver:
+> > 
+> > 	...
+> > 	vm_offset_t	bt848;
+> > 
+> > 	#define REGOFF(x) (bt848 + offsetof(struct bt848_reg, x)
+> > 	#define READREGB(x) readb(REGOFF(x))
+> > 	#define WRITEREGB(x, v) writeb(REGOFF(x), v)
+> 
+> Ick. Ick. Ick.  Almost all of the CAM code uses the bus space facility
+> to do this.  Why re-invent the wheel?
+
+I wasn't re-inventing anything.  I just happened to look at a different
+wheel.  Constructing a bus space around this is trivial (virtually the
+same as the i386 bus space).
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 08 19:52:03 1998
+From: "Justin T. Gibbs" <gibbs () narnia ! plutotech ! com>
+Date: Tue, 08 Sep 1998 19:52:03 +0000
+To: freebsd-alpha
+Subject: Re: Bt848 driver for Alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506889
+
+In article <Pine.BSF.4.01.9809080932410.796-100000@herring.nlsystems.com> you wrote:
+> On Mon, 7 Sep 1998, Roger Hardiman wrote:
+> 
+> I would suggest something like the ncr driver:
+> 
+> 	...
+> 	vm_offset_t	bt848;
+> 
+> 	#define REGOFF(x) (bt848 + offsetof(struct bt848_reg, x)
+> 	#define READREGB(x) readb(REGOFF(x))
+> 	#define WRITEREGB(x, v) writeb(REGOFF(x), v)
+
+Ick. Ick. Ick.  Almost all of the CAM code uses the bus space facility
+to do this.  Why re-invent the wheel?
+
+--
+Justin
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 08 08:38:51 1998
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Tue, 08 Sep 1998 08:38:51 +0000
+To: freebsd-alpha
+Subject: Re: Bt848 driver for Alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506888
+
+On Mon, 7 Sep 1998, Roger Hardiman wrote:
+
+> Hi,
+> A question on porting the bt848 driver to Alpha hardware.
+> 
+> Anyway, there are 2 32bit dependent sections
+> a) memory mapped registers in the bt848 chip
+> b) RISC code
+> 
+> 
+> Q) The driver maps the registers (of which the bt848/878 has
+> around 30) into the memory space and then writes to the registers
+> as if you were writing to a normal variable (crude example
+>   bt848->register1 = some_value;
+>   bt848->register2 = some_value;
+> 
+> 
+> Question: Can I write to just a 32 bit register with the Alpha.
+> (in the same memory mapped way)
+> Or, does the Alpha sneakilly do a 32 bit read of address n+1 and
+> then do a 64 bit write. (think some old Alpha chips did this)
+> 
+> I do not want to go writing to registers I was not intending to write
+> to.
+
+You can write code like this but as you suspected, the alpha will prefetch
+and buffer up writes in a hardware unfriendly way.  What you have to do is
+change all register access to use the macros read[bwl]/write[bwl].  These
+do the right thing to ensure that a single transaction is made on the PCI
+bus.
+
+I would suggest something like the ncr driver:
+
+	...
+	vm_offset_t	bt848;
+
+	#define REGOFF(x) (bt848 + offsetof(struct bt848_reg, x)
+	#define READREGB(x) readb(REGOFF(x))
+	#define WRITEREGB(x, v) writeb(REGOFF(x), v)
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 951 1891
+					Fax:   +44 181 381 1039
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Sep 07 10:40:59 1998
+From: Roger Hardiman <roger () cs ! strath ! ac ! uk>
+Date: Mon, 07 Sep 1998 10:40:59 +0000
+To: freebsd-alpha
+Subject: Bt848 driver for Alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506887
+
+Hi,
+A question on porting the bt848 driver to Alpha hardware.
+
+Anyway, there are 2 32bit dependent sections
+a) memory mapped registers in the bt848 chip
+b) RISC code
+
+
+Q) The driver maps the registers (of which the bt848/878 has
+around 30) into the memory space and then writes to the registers
+as if you were writing to a normal variable (crude example
+  bt848->register1 = some_value;
+  bt848->register2 = some_value;
+
+
+Question: Can I write to just a 32 bit register with the Alpha.
+(in the same memory mapped way)
+Or, does the Alpha sneakilly do a 32 bit read of address n+1 and
+then do a 64 bit write. (think some old Alpha chips did this)
+
+I do not want to go writing to registers I was not intending to write
+to.
+
+
+Roger Hardiman
+Strathclyde Uni Telepresence Group
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 06 22:03:25 1998
+From: "Gary Palmer" <gpalmer () FreeBSD ! ORG>
+Date: Sun, 06 Sep 1998 22:03:25 +0000
+To: freebsd-alpha
+Subject: Re: alpha kernel broken?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506885
+
+John Birrell wrote in message ID
+<199809062130.HAA26986@cimlogic.com.au>:
+> Gary Palmer wrote:
+> > 
+> > I've been trying to compile an alpha kernel to make use of the elf
+> > dynmic loader, but keep running into a bunch of multiple definition
+> > warnings from the linker. What doesn't make any sense is that it
+> > claims the definitions are on the same line... Any ideas?
+> 
+> I see all of those too. I just grabbed the kernel from Doug's home
+> directory on freefall and used that.
+
+That would assume I have my root partition on sd0a :(
+
+Gary
+--
+Gary Palmer                                          FreeBSD Core Team Member
+FreeBSD: Turning PC's into workstations. See http://www.FreeBSD.ORG/ for info
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 06 21:30:55 1998
+From: John Birrell  <jb () cimlogic ! com ! au>
+Date: Sun, 06 Sep 1998 21:30:55 +0000
+To: freebsd-alpha
+Subject: Re: alpha kernel broken?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506884
+
+Gary Palmer wrote:
+> 
+> I've been trying to compile an alpha kernel to make use of the elf
+> dynmic loader, but keep running into a bunch of multiple definition
+> warnings from the linker. What doesn't make any sense is that it
+> claims the definitions are on the same line... Any ideas?
+
+I see all of those too. I just grabbed the kernel from Doug's home
+directory on freefall and used that.
+
+-- 
+John Birrell - jb@cimlogic.com.au; jb@freebsd.org http://www.cimlogic.com.au/
+CIMlogic Pty Ltd, GPO Box 117A, Melbourne Vic 3001, Australia +61 418 353 137
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Sep 06 20:58:33 1998
+From: "Gary Palmer" <gpalmer () FreeBSD ! ORG>
+Date: Sun, 06 Sep 1998 20:58:33 +0000
+To: freebsd-alpha
+Subject: alpha kernel broken?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506883
+
+
+I've been trying to compile an alpha kernel to make use of the elf
+dynmic loader, but keep running into a bunch of multiple definition
+warnings from the linker. What doesn't make any sense is that it
+claims the definitions are on the same line... Any ideas?
+
+Thanks,
+
+Gary
+--
+Gary Palmer                                          FreeBSD Core Team Member
+FreeBSD: Turning PC's into workstations. See http://www.FreeBSD.ORG/ for info
+
+-- SNIP --
+root@sloth:/sys/compile/SLOTH> make
+loading kernel
+subr_bus.o: In function `devclass_find':
+/sys/compile/SLOTH/../../kern/subr_bus.c:165: multiple definition of `devclass_find'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:165: first defined here
+subr_bus.o: In function `devclass_add_driver':
+/sys/compile/SLOTH/../../kern/subr_bus.c:171: multiple definition of `devclass_add_driver'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:171: first defined here
+subr_bus.o: In function `devclass_delete_driver':
+/sys/compile/SLOTH/../../kern/subr_bus.c:189: multiple definition of `devclass_delete_driver'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:189: first defined here
+subr_bus.o: In function `device_set_driver':
+/sys/compile/SLOTH/../../kern/subr_bus.c:671: multiple definition of `device_set_driver'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:671: first defined here
+subr_bus.o: In function `devclass_find_driver':
+/sys/compile/SLOTH/../../kern/subr_bus.c:218: multiple definition of `devclass_find_driver'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:218: first defined here
+subr_bus.o: In function `devclass_get_name':
+/sys/compile/SLOTH/../../kern/subr_bus.c:232: multiple definition of `devclass_get_name'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:232: first defined here
+subr_bus.o: In function `devclass_get_device':
+/sys/compile/SLOTH/../../kern/subr_bus.c:238: multiple definition of `devclass_get_device'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:238: first defined here
+subr_bus.o: In function `devclass_get_softc':
+/sys/compile/SLOTH/../../kern/subr_bus.c:248: multiple definition of `devclass_get_softc'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:248: first defined here
+subr_bus.o: In function `devclass_get_devices':
+/sys/compile/SLOTH/../../kern/subr_bus.c:258: multiple definition of `devclass_get_devices'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:258: first defined here
+subr_bus.o: In function `devclass_get_maxunit':
+/sys/compile/SLOTH/../../kern/subr_bus.c:289: multiple definition of `devclass_get_maxunit'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:289: first defined here
+subr_bus.o: In function `device_get_name':
+/sys/compile/SLOTH/../../kern/subr_bus.c:562: multiple definition of `device_get_name'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:562: first defined here
+subr_bus.o: In function `device_get_unit':
+/sys/compile/SLOTH/../../kern/subr_bus.c:571: multiple definition of `device_get_unit'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:571: first defined here
+subr_bus.o: In function `device_is_alive':
+/sys/compile/SLOTH/../../kern/subr_bus.c:649: multiple definition of `device_is_alive'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:649: first defined here
+subr_bus.o: In function `device_get_desc':
+/sys/compile/SLOTH/../../kern/subr_bus.c:577: multiple definition of `device_get_desc'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:577: first defined here
+subr_bus.o: In function `device_add_child':
+/sys/compile/SLOTH/../../kern/subr_bus.c:429: multiple definition of `device_add_child'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:429: first defined here
+subr_bus.o: In function `device_add_child_after':
+/sys/compile/SLOTH/../../kern/subr_bus.c:442: multiple definition of `device_add_child_after'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:442: first defined here
+subr_bus.o: In function `device_delete_child':
+/sys/compile/SLOTH/../../kern/subr_bus.c:458: multiple definition of `device_delete_child'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:458: first defined here
+subr_bus.o: In function `device_find_child':
+/sys/compile/SLOTH/../../kern/subr_bus.c:476: multiple definition of `device_find_child'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:476: first defined here
+subr_bus.o: In function `device_set_devclass':
+/sys/compile/SLOTH/../../kern/subr_bus.c:654: multiple definition of `device_set_devclass'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:654: first defined here
+subr_bus.o: In function `device_get_parent':
+/sys/compile/SLOTH/../../kern/subr_bus.c:545: multiple definition of `device_get_parent'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:545: first defined here
+subr_bus.o: In function `device_get_driver':
+/sys/compile/SLOTH/../../kern/subr_bus.c:551: multiple definition of `device_get_driver'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:551: first defined here
+subr_bus.o: In function `device_get_devclass':
+/sys/compile/SLOTH/../../kern/subr_bus.c:557: multiple definition of `device_get_devclass'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:557: first defined here
+subr_bus.o: In function `device_set_desc':
+/sys/compile/SLOTH/../../kern/subr_bus.c:583: multiple definition of `device_set_desc'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:583: first defined here
+subr_bus.o: In function `device_get_softc':
+/sys/compile/SLOTH/../../kern/subr_bus.c:589: multiple definition of `device_get_softc'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:589: first defined here
+subr_bus.o: In function `device_get_ivars':
+/sys/compile/SLOTH/../../kern/subr_bus.c:595: multiple definition of `device_get_ivars'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:595: first defined here
+subr_bus.o: In function `device_get_state':
+/sys/compile/SLOTH/../../kern/subr_bus.c:601: multiple definition of `device_get_state'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:601: first defined here
+subr_bus.o: In function `device_enable':
+/sys/compile/SLOTH/../../kern/subr_bus.c:607: multiple definition of `device_enable'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:607: first defined here
+subr_bus.o: In function `device_disable':
+/sys/compile/SLOTH/../../kern/subr_bus.c:613: multiple definition of `device_disable'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:613: first defined here
+subr_bus.o: In function `device_busy':
+/sys/compile/SLOTH/../../kern/subr_bus.c:618: multiple definition of `device_busy'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:618: first defined here
+subr_bus.o: In function `device_unbusy':
+/sys/compile/SLOTH/../../kern/subr_bus.c:629: multiple definition of `device_unbusy'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:629: first defined here
+subr_bus.o: In function `device_is_enabled':
+/sys/compile/SLOTH/../../kern/subr_bus.c:643: multiple definition of `device_is_enabled'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:643: first defined here
+subr_bus.o: In function `device_probe_and_attach':
+/sys/compile/SLOTH/../../kern/subr_bus.c:694: multiple definition of `device_probe_and_attach'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:694: first defined here
+subr_bus.o: In function `device_detach':
+/sys/compile/SLOTH/../../kern/subr_bus.c:724: multiple definition of `device_detach'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:724: first defined here
+subr_bus.o: In function `device_shutdown':
+/sys/compile/SLOTH/../../kern/subr_bus.c:746: multiple definition of `device_shutdown'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:746: first defined here
+subr_bus.o: In function `resource_int_value':
+/sys/compile/SLOTH/../../kern/subr_bus.c:811: multiple definition of `resource_int_value'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:811: first defined here
+subr_bus.o: In function `resource_long_value':
+/sys/compile/SLOTH/../../kern/subr_bus.c:824: multiple definition of `resource_long_value'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:824: first defined here
+subr_bus.o: In function `resource_string_value':
+/sys/compile/SLOTH/../../kern/subr_bus.c:837: multiple definition of `resource_string_value'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:837: first defined here
+subr_bus.o: In function `resource_query_string':
+/sys/compile/SLOTH/../../kern/subr_bus.c:850: multiple definition of `resource_query_string'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:850: first defined here
+subr_bus.o: In function `resource_query_name':
+/sys/compile/SLOTH/../../kern/subr_bus.c:863: multiple definition of `resource_query_name'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:863: first defined here
+subr_bus.o: In function `resource_query_unit':
+/sys/compile/SLOTH/../../kern/subr_bus.c:869: multiple definition of `resource_query_unit'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:869: first defined here
+subr_bus.o: In function `bus_generic_attach':
+/sys/compile/SLOTH/../../kern/subr_bus.c:879: multiple definition of `bus_generic_attach'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:879: first defined here
+subr_bus.o: In function `bus_generic_detach':
+/sys/compile/SLOTH/../../kern/subr_bus.c:892: multiple definition of `bus_generic_detach'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:892: first defined here
+subr_bus.o: In function `bus_generic_shutdown':
+/sys/compile/SLOTH/../../kern/subr_bus.c:908: multiple definition of `bus_generic_shutdown'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:908: first defined here
+subr_bus.o: In function `bus_generic_print_child':
+/sys/compile/SLOTH/../../kern/subr_bus.c:921: multiple definition of `bus_generic_print_child'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:921: first defined here
+subr_bus.o: In function `bus_generic_read_ivar':
+/sys/compile/SLOTH/../../kern/subr_bus.c:926: multiple definition of `bus_generic_read_ivar'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:926: first defined here
+subr_bus.o: In function `bus_generic_write_ivar':
+/sys/compile/SLOTH/../../kern/subr_bus.c:932: multiple definition of `bus_generic_write_ivar'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:932: first defined here
+subr_bus.o: In function `bus_generic_create_intr':
+/sys/compile/SLOTH/../../kern/subr_bus.c:937: multiple definition of `bus_generic_create_intr'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:937: first defined here
+subr_bus.o: In function `bus_generic_connect_intr':
+/sys/compile/SLOTH/../../kern/subr_bus.c:947: multiple definition of `bus_generic_connect_intr'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:947: first defined here
+subr_bus.o: In function `root_bus_configure':
+/sys/compile/SLOTH/../../kern/subr_bus.c:1012: multiple definition of `root_bus_configure'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:1012: first defined here
+subr_bus.o: In function `driver_module_handler':
+/sys/compile/SLOTH/../../kern/subr_bus.c:1024: multiple definition of `driver_module_handler'
+subr_bus.o:/sys/compile/SLOTH/../../kern/subr_bus.c:1024: first defined here
+device_if.o: In function `DEVICE_PROBE':
+/sys/compile/SLOTH/device_if.c:22: multiple definition of `device_probe_desc'
+device_if.o:/sys/compile/SLOTH/device_if.c:22: first defined here
+device_if.o: In function `DEVICE_PROBE':
+/sys/compile/SLOTH/device_if.c:22: multiple definition of `DEVICE_PROBE'
+device_if.o:/sys/compile/SLOTH/device_if.c:22: first defined here
+device_if.o: In function `DEVICE_PROBE':
+/sys/compile/SLOTH/device_if.c:23: multiple definition of `device_attach_desc'
+device_if.o:/sys/compile/SLOTH/device_if.c:23: first defined here
+device_if.o: In function `DEVICE_ATTACH':
+/sys/compile/SLOTH/device_if.c:36: multiple definition of `DEVICE_ATTACH'
+device_if.o:/sys/compile/SLOTH/device_if.c:36: first defined here
+device_if.o: In function `DEVICE_PROBE':
+/sys/compile/SLOTH/device_if.c:23: multiple definition of `device_detach_desc'
+device_if.o:/sys/compile/SLOTH/device_if.c:23: first defined here
+device_if.o: In function `DEVICE_DETACH':
+/sys/compile/SLOTH/device_if.c:50: multiple definition of `DEVICE_DETACH'
+device_if.o:/sys/compile/SLOTH/device_if.c:50: first defined here
+device_if.o: In function `DEVICE_PROBE':
+/sys/compile/SLOTH/device_if.c:23: multiple definition of `device_shutdown_desc'
+device_if.o:/sys/compile/SLOTH/device_if.c:23: first defined here
+device_if.o: In function `DEVICE_SHUTDOWN':
+/sys/compile/SLOTH/device_if.c:64: multiple definition of `DEVICE_SHUTDOWN'
+device_if.o:/sys/compile/SLOTH/device_if.c:64: first defined here
+bus_if.o: In function `BUS_PRINT_CHILD':
+/sys/compile/SLOTH/bus_if.c:24: multiple definition of `bus_print_child_desc'
+bus_if.o:/sys/compile/SLOTH/bus_if.c:24: first defined here
+bus_if.o: In function `BUS_PRINT_CHILD':
+/sys/compile/SLOTH/bus_if.c:24: multiple definition of `BUS_PRINT_CHILD'
+bus_if.o:/sys/compile/SLOTH/bus_if.c:24: first defined here
+bus_if.o: In function `BUS_PRINT_CHILD':
+/sys/compile/SLOTH/bus_if.c:25: multiple definition of `bus_read_ivar_desc'
+bus_if.o:/sys/compile/SLOTH/bus_if.c:25: first defined here
+bus_if.o: In function `BUS_READ_IVAR':
+/sys/compile/SLOTH/bus_if.c:44: multiple definition of `BUS_READ_IVAR'
+bus_if.o:/sys/compile/SLOTH/bus_if.c:44: first defined here
+bus_if.o: In function `BUS_PRINT_CHILD':
+/sys/compile/SLOTH/bus_if.c:25: multiple definition of `bus_write_ivar_desc'
+bus_if.o:/sys/compile/SLOTH/bus_if.c:25: first defined here
+bus_if.o: In function `BUS_WRITE_IVAR':
+/sys/compile/SLOTH/bus_if.c:64: multiple definition of `BUS_WRITE_IVAR'
+bus_if.o:/sys/compile/SLOTH/bus_if.c:64: first defined here
+bus_if.o: In function `BUS_PRINT_CHILD':
+/sys/compile/SLOTH/bus_if.c:25: multiple definition of `bus_create_intr_desc'
+bus_if.o:/sys/compile/SLOTH/bus_if.c:25: first defined here
+bus_if.o: In function `BUS_CREATE_INTR':
+/sys/compile/SLOTH/bus_if.c:86: multiple definition of `BUS_CREATE_INTR'
+bus_if.o:/sys/compile/SLOTH/bus_if.c:86: first defined here
+bus_if.o: In function `BUS_PRINT_CHILD':
+/sys/compile/SLOTH/bus_if.c:25: multiple definition of `bus_connect_intr_desc'
+bus_if.o:/sys/compile/SLOTH/bus_if.c:25: first defined here
+bus_if.o: In function `BUS_CONNECT_INTR':
+/sys/compile/SLOTH/bus_if.c:102: multiple definition of `BUS_CONNECT_INTR'
+bus_if.o:/sys/compile/SLOTH/bus_if.c:102: first defined here
+*** Error code 1
+
+Stop.
+-- SNIP --
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 05 19:03:02 1998
+From: Simon Shapiro <shimon () simon-shapiro ! org>
+Date: Sat, 05 Sep 1998 19:03:02 +0000
+To: freebsd-alpha
+Subject: Re: Help - No htonq, ntohq
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506881
+
+
+John Birrell, On 04-Sep-98 you wrote:
+>  Simon Shapiro wrote:
+> > Can anyone suggest a clean, portable way to support binary
+> > competability on
+> > 64bit integers between an Alpha and IA?
+>  
+>  int64_t & u_int64_t
+
+These give source compatability.  I need binary compatability.  Let me
+expand;  I am working on a new High Availability, large scale file server. 
+The entire server stores all numeric data as 64bit quantities (the decision
+to do so is a bit outside the scope of this note :-).  Part of the HAS
+concept is integral support for clustering. I.E.  Multiple nodes/hosts can
+concurrently access the same physical filesystem.  To ensure portability, I
+need to store these values in a universal format.
+
+> > We have hton{l,s} but these are good only for 16 & 32 bit values.
+>  
+>  I think hton{l,s} should be kept strictly for _network_ code.
+
+See my comment above.  You can view my need as a network need :-)
+
+> > What is the exact Alpha byte order?  12345678, 87654321, 43218765, ...
+>                                         ^^^^^^^^
+>  Little endian.
+
+Thanx!  Gone are the VAX orders, then...
+
+Simon
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Sep 05 15:17:47 1998
+From: Eivind Eklund <eivind () yes ! no>
+Date: Sat, 05 Sep 1998 15:17:47 +0000
+To: freebsd-alpha
+Subject: Re: Help - No htonq, ntohq
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506880
+
+On Sat, Sep 05, 1998 at 08:27:40AM +1000, John Birrell wrote:
+> Simon Shapiro wrote:
+> > Can anyone suggest a clean, portable way to support binary competability on
+> > 64bit integers between an Alpha and IA?
+> 
+> int64_t & u_int64_t
+> 
+> > We have hton{l,s} but these are good only for 16 & 32 bit values.
+> 
+> I think hton{l,s} should be kept strictly for _network_ code.
+
+I think Simon is working on sharing binary data between Intel and
+Alpha (running with shared disk).  Saying 'strictly for network code'
+doesn't help solve the problem at all.  May I suggest the introduction
+of
+
+hton16s(l,s)    ntoh16s(l,s)
+hton16u(l,s)	ntoh16u(l,s)
+hton32s(l,s)	ntoh32s(l,s)
+hton32u(l,s)	ntoh32u(l,s)
+hton64s(l,s)	ntoh64s(l,s)
+hton64u(l,s)	ntoh64u(l,s)
+
+as a much more clear way of handling the naming?  (I placed the
+sign-indicator after the number of bits, to avoid confusion with
+htons()).  This also give a clear answer to the question 'what should
+I use for 64-bit' :-)
+
+Eivind.
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 04 22:27:40 1998
+From: John Birrell  <jb () cimlogic ! com ! au>
+Date: Fri, 04 Sep 1998 22:27:40 +0000
+To: freebsd-alpha
+Subject: Re: Help - No htonq, ntohq
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506879
+
+Simon Shapiro wrote:
+> Can anyone suggest a clean, portable way to support binary competability on
+> 64bit integers between an Alpha and IA?
+
+int64_t & u_int64_t
+
+> We have hton{l,s} but these are good only for 16 & 32 bit values.
+
+I think hton{l,s} should be kept strictly for _network_ code.
+
+> What is the exact Alpha byte order?  12345678, 87654321, 43218765, ...
+                                       ^^^^^^^^
+Little endian.
+
+-- 
+John Birrell - jb@cimlogic.com.au; jb@freebsd.org http://www.cimlogic.com.au/
+CIMlogic Pty Ltd, GPO Box 117A, Melbourne Vic 3001, Australia +61 418 353 137
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Sep 04 22:10:25 1998
+From: Simon Shapiro <shimon () simon-shapiro ! org>
+Date: Fri, 04 Sep 1998 22:10:25 +0000
+To: freebsd-alpha
+Subject: Help - No htonq, ntohq
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506878
+
+Can anyone suggest a clean, portable way to support binary competability on
+64bit integers between an Alpha and IA?
+
+We have hton{l,s} but these are good only for 16 & 32 bit values.
+
+What is the exact Alpha byte order?  12345678, 87654321, 43218765, ...
+
+Thanx!
+
+Simon
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Sep 01 18:26:21 1998
+From: BitS <bits () oldwarez ! com>
+Date: Tue, 01 Sep 1998 18:26:21 +0000
+To: freebsd-alpha
+Subject: kernel compile under NetBSD
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030570506870
+
+
+
+Ok, I have a Multia, the lowend 166 axpci133 board, the generic kernel
+from ~dfr lockes directly after loading, I'm using the NetBSD boot loader
+to get that far.  It loads like so:
+
+>>>boot dka0 -file kernel
+(boot dka0.0.0.6.0 is a valid boot block
+reading 15 blocks from dka0.0.0.6.0
+bootstrap code read in
+base = 166000, image_start = 0, image_bytes = 1e00
+initializing HWRPB at 2000
+initializing page table at 158000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/Alpha Primary Boot
+Jumping to entry point...
+
+NetBSD/Alpha Secondary Boot, Revision 1.9
+(cgd@notunix, Mon May 11 02:03:30 PDT 1998)
+
+VMS PAL revision: 0x1000000010530
+OSF PAL rev: 0x1000000020123
+Switch to OSF PAL code succeeded.
+
+Boot file: kernel
+Boot flags:
+
+Loading kernel
+2044992+171800 [32406+1435+2249216+139322]
+
+Entering kernel at 0xfffffc00003200c0
+
+
+And thats it.... it stops and does nothing till a power cycle
+
+So... since that isn't working, I'm attempting to compile the kernel under
+NetBSD, however, make dies with this error:
+
+cc -c -x assembler-with-cpp -DLOCORE -nostdinc -I- -I. -I../..
+-I../../../include  -DKERNEL -include opt_global.h -U__NetBSD__
+../../alpha/alpha/locore.s
+../../alpha/alpha/locore.s: Assembler messages:
+../../alpha/alpha/locore.s:84: Error: syntax error
+../../alpha/alpha/locore.s:85: Error: Rest of line ignored. First ignored
+character is `1'.
+*** Error code 1
+
+Stop.
+
+
+
+For reference, I have 32megs of ram, a seagate 2gig scsi drive, and the
+SRM version info is:
+
+Multia SRM Console  BL5 V3.8-3, built on Aug 10 1995 at 3:22:55
+
+if anyone has any ideas, I'm more the willing to listen
+
+David Wimsey
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+

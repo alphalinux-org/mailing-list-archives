@@ -1,0 +1,1410 @@
+From uwe@stderr.spb.ru  Tue Feb 1 01:30:17 2011
+Path: news.gmane.org!not-for-mail
+From: "Valeriy E. Ushakov" <uwe@stderr.spb.ru>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: can't reboot after running a 5.0 kernel
+Date: Tue, 1 Feb 2011 01:30:17 +0300
+Lines: 62
+Approved: news@gmane.org
+Message-ID: <20110131223017.GA13265@bigmac.stderr.spb.ru>
+References: <20110127174250.GA3809@ece.cmu.edu> <110128182542.M0109925@mirage.ceres.dti.ne.jp> <20110128175653.GC16632@ece.cmu.edu> <AANLkTim3xkzboD5wRfG4ajguRLRDNKYjOHxPd7FaejS9@mail.gmail.com> <20110128213406.GB9300@ece.cmu.edu> <20110128234311.GA15622@mail.duskware.de> <20110129002714.GA14091@ece.cmu.edu> <20110130040323.GA9182@ece.cmu.edu> <20110130112325.GA27218@mail.duskware.de> <20110131210459.GA6547@ece.cmu.edu>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: dough.gmane.org 1296513039 28032 80.91.229.12 (31 Jan 2011 22:30:39 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Mon, 31 Jan 2011 22:30:39 +0000 (UTC)
+Cc: Martin Husemann <martin@duskware.de>, port-alpha@netbsd.org,
+	martin@netbsd.org, mrg@netbsd.org
+To: Chuck Cranor <chuck@ece.cmu.edu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Jan 31 23:30:33 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1Pk2GV-0001Tx-Ix
+	for netbsd-port-alpha@m.gmane.org; Mon, 31 Jan 2011 23:30:32 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id D7E1B19D0DB; Mon, 31 Jan 2011 22:30:26 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 279F719D0CA;
+	Mon, 31 Jan 2011 22:30:24 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id W4PCJh2JPoPY; Mon, 31 Jan 2011 22:30:23 +0000 (UTC)
+Original-Received: from bigmac.stderr.spb.ru (bigmac.stderr.spb.ru [193.124.81.111])
+	by mail.netbsd.org (Postfix) with ESMTP id 0D9BB19D0C2;
+	Mon, 31 Jan 2011 22:30:20 +0000 (UTC)
+Original-Received: by bigmac.stderr.spb.ru (Postfix, from userid 1000)
+	id 4B94F21EA8; Tue,  1 Feb 2011 01:30:17 +0300 (MSK)
+Content-Disposition: inline
+In-Reply-To: <20110131210459.GA6547@ece.cmu.edu>
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4565
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4565>
+
+On Mon, Jan 31, 2011 at 16:04:59 -0500, Chuck Cranor wrote:
+
+> I also did a survey of some of the ports in the tree, and it looks
+> some port's cpu_setfunc() still call lwp_startup() while other ports
+> have been modified (like the alpha) to not call it:
+> 
+> arch    cpu_setfunc calls       does it call lpw_startup?  when changed?
+> ------- ----------------------  ----------------------------------------
+> acorn26 lwp_trampoline          yes 
+> alpha   setfunc_trampoline      no (vm_machdep.1.100, 2009/06/01)
+> arm32   lwp_trampoline          yes
+> hppa    setfunc_trampoline      no (vm_machdep.c 1.36, 2009/06/03)
+> m68k    setfunc_trampoline      no (vm_machdep.c 1.28, 2009/05/30)
+> mips    setfunc_trampoline      no (vm_machdep.c 1.123, 2009/05/30)
+> powerpc setfunc_trampoline      no (vm_machdep.c 1.77, 2009/06/07)
+> sh3     lwp_setfunc_trampoline  no (never called lpw_startup?)
+> sparc   lwp_setfunc_trampoline  no (vm_machdep.c 1.100, 2009/05/29)
+> sparc64 lwp_setfunc_trampoline  no (vm_machep.c 1.89, 2009/05/30)
+> x86     lwp_trampoline          yes
+> 
+> the "no" ports are likely to have problems with compat_sa binaries,
+> I think.
+> 
+> 
+> The most interesting one is the sh3 (because it didn't get the change
+> in 2009) and the commit comment from mrg on the sparc (because it
+> is the earliest instance of this change --- 2009/05/29):
+> 
+> ----------------------------
+> revision 1.100
+> date: 2009/05/29 22:06:56;  author: mrg;  state: Exp;  lines: +11 -5
+> fix up cpu_setfunc() as noted by uwe:
+> 
+> - don't call lwp_startup for cpu_setfunc() users
+> - introduce lwp_setfunc_trampoline instead
+> - no need to set the "new" lwp for setfunc
+> ----------------------------
+> 
+> 
+> But I couldn't find where mrg said that uwe@netbsd noted it.
+
+Probably on ICB.
+
+As far as I can tell, sh3 never called lwp_startup for cpu_setfunc()
+users, as cvs tells me for src/sys/arch/sh3/sh3/locore_subr.S
+
+revision 1.30.4.3
+date: 2007/03/25 01:59:02;  author: uwe;  state: Exp;  lines: +47 -107
+Adapt sh3 to yamt-idlelwp.
+
+which introduced current code in its present form.  I don't remember
+any details, I guess I was just doing what I was told.
+
+My vague recollection is that my understanding at the time was that
+lwp_startup was intended for "new" lwps (cpu_lwp_fork), but
+lwp_setfunc_trampoline (cpu_setfunc) was intended for lwps that
+already exist, to make them run some new code for an upcall.
+
+I guess that was what I "noted" to mrg.
+
+-uwe
+
+
+From uwe@stderr.spb.ru  Tue Feb 1 03:20:47 2011
+Path: news.gmane.org!not-for-mail
+From: "Valeriy E. Ushakov" <uwe@stderr.spb.ru>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: can't reboot after running a 5.0 kernel
+Date: Tue, 1 Feb 2011 03:20:47 +0300
+Lines: 31
+Approved: news@gmane.org
+Message-ID: <20110201002046.GB13265@bigmac.stderr.spb.ru>
+References: <110128182542.M0109925@mirage.ceres.dti.ne.jp> <20110128175653.GC16632@ece.cmu.edu> <AANLkTim3xkzboD5wRfG4ajguRLRDNKYjOHxPd7FaejS9@mail.gmail.com> <20110128213406.GB9300@ece.cmu.edu> <20110128234311.GA15622@mail.duskware.de> <20110129002714.GA14091@ece.cmu.edu> <20110130040323.GA9182@ece.cmu.edu> <20110130112325.GA27218@mail.duskware.de> <20110131210459.GA6547@ece.cmu.edu> <20110131223017.GA13265@bigmac.stderr.spb.ru>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: dough.gmane.org 1296519670 26772 80.91.229.12 (1 Feb 2011 00:21:10 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Tue, 1 Feb 2011 00:21:10 +0000 (UTC)
+Cc: Martin Husemann <martin@duskware.de>, port-alpha@netbsd.org,
+	martin@netbsd.org, mrg@netbsd.org
+To: Chuck Cranor <chuck@ece.cmu.edu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Feb 01 01:21:05 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1Pk3zQ-0007gf-Nk
+	for netbsd-port-alpha@m.gmane.org; Tue, 01 Feb 2011 01:21:01 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 9E45419D0CB; Tue,  1 Feb 2011 00:20:55 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 0D5F319CF7C;
+	Tue,  1 Feb 2011 00:20:54 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id KQi-4PzEU7n6; Tue,  1 Feb 2011 00:20:53 +0000 (UTC)
+Original-Received: from bigmac.stderr.spb.ru (bigmac.stderr.spb.ru [193.124.81.111])
+	by mail.netbsd.org (Postfix) with ESMTP id D8D7019CF5D;
+	Tue,  1 Feb 2011 00:20:50 +0000 (UTC)
+Original-Received: by bigmac.stderr.spb.ru (Postfix, from userid 1000)
+	id 7241A21EA9; Tue,  1 Feb 2011 03:20:47 +0300 (MSK)
+Content-Disposition: inline
+In-Reply-To: <20110131223017.GA13265@bigmac.stderr.spb.ru>
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4566
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4566>
+
+On Tue, Feb 01, 2011 at 01:30:17 +0300, Valeriy E. Ushakov wrote:
+
+> I guess that was what I "noted" to mrg.
+
+Actually, I think it was this mail:
+
+  http://mail-index.netbsd.org/source-changes-d/2009/05/27/msg000502.html
+
+quoted below for convenience
+
+| On Wed, May 27, 2009 at 04:08:06 +0000, matthew green wrote:
+| 
+| > Modified Files:
+| >       src/sys/arch/sparc/sparc: vm_machdep.c
+| > 
+| > Log Message:
+| > sync this a little with sparc64: use cpu_setfunc() at the end of 
+| > cpu_lwp_fork()
+| > 
+| > 
+| > To generate a diff of this commit:
+| > cvs rdiff -u -r1.98 -r1.99 src/sys/arch/sparc/sparc/vm_machdep.c
+| 
+| Is that correct?  It used to be in 4.0, but in 5.0 lwp trampoline
+| calls lwp_startup before calling the lwp function.  For SA the
+| trampoline used to be used for recycling lwps for upcalls.  Is that
+| correct to call lwp_startup in that case?  There never was any
+| official note on that when SA became undead.
+
+-uwe
+
+
+From uwe@stderr.spb.ru  Tue Feb 1 03:54:33 2011
+Path: news.gmane.org!not-for-mail
+From: "Valeriy E. Ushakov" <uwe@stderr.spb.ru>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: can't reboot after running a 5.0 kernel
+Date: Tue, 1 Feb 2011 03:54:33 +0300
+Lines: 38
+Approved: news@gmane.org
+Message-ID: <20110201005433.GC13265@bigmac.stderr.spb.ru>
+References: <20110127174250.GA3809@ece.cmu.edu> <110128182542.M0109925@mirage.ceres.dti.ne.jp> <20110128175653.GC16632@ece.cmu.edu> <AANLkTim3xkzboD5wRfG4ajguRLRDNKYjOHxPd7FaejS9@mail.gmail.com> <20110128213406.GB9300@ece.cmu.edu> <20110128234311.GA15622@mail.duskware.de> <20110129002714.GA14091@ece.cmu.edu> <20110130040323.GA9182@ece.cmu.edu> <20110130112325.GA27218@mail.duskware.de> <20110131210459.GA6547@ece.cmu.edu>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: dough.gmane.org 1296521691 2318 80.91.229.12 (1 Feb 2011 00:54:51 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Tue, 1 Feb 2011 00:54:51 +0000 (UTC)
+Cc: Martin Husemann <martin@duskware.de>, port-alpha@netbsd.org,
+	martin@netbsd.org, mrg@netbsd.org
+To: Chuck Cranor <chuck@ece.cmu.edu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Feb 01 01:54:46 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1Pk4W3-0007TJ-Vu
+	for netbsd-port-alpha@m.gmane.org; Tue, 01 Feb 2011 01:54:44 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 381C419D112; Tue,  1 Feb 2011 00:54:41 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 62A4219D0B4;
+	Tue,  1 Feb 2011 00:54:39 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id qeYbp2jOfq9u; Tue,  1 Feb 2011 00:54:38 +0000 (UTC)
+Original-Received: from bigmac.stderr.spb.ru (bigmac.stderr.spb.ru [193.124.81.111])
+	by mail.netbsd.org (Postfix) with ESMTP id 3402619CF92;
+	Tue,  1 Feb 2011 00:54:36 +0000 (UTC)
+Original-Received: by bigmac.stderr.spb.ru (Postfix, from userid 1000)
+	id 8834021EA8; Tue,  1 Feb 2011 03:54:33 +0300 (MSK)
+Content-Disposition: inline
+In-Reply-To: <20110131210459.GA6547@ece.cmu.edu>
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4567
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4567>
+
+On Mon, Jan 31, 2011 at 16:04:59 -0500, Chuck Cranor wrote:
+
+> I also did a survey of some of the ports in the tree, and it looks
+> some port's cpu_setfunc() still call lwp_startup() while other ports
+> have been modified (like the alpha) to not call it:
+
+Ok, glancing at the code I think that cpu_setfunc must arrange for the
+trampoline to call lwp_startup, since, even though we "recycle" an
+existing lwp it still acts like a "new" one since it's not resumed in
+mi_switch() - so (as you discovered) we need lwp_startup to run the
+code that for an "old" lwp we do at kern_synch.c:791
+
+I guess what happened is that
+
+. at the time of yamt-idlelwp SA were already dead
+
+. when I adapted sh3 to yamt-idlelwp I didn't bother to investigate
+  and just conservatively left cpu_setfunc as it was (i.e. w/out call
+  to lwp_startup)
+
+. that didn't matter since SA were dead
+
+. I got mrg@ confused with my question
+  http://mail-index.netbsd.org/source-changes-d/2009/05/27/msg000502.html
+
+. mrg changed sparc and sparc64
+
+. martin propagated that change to other ports
+
+. all that still didn't matter since SA were dead
+
+. SA were resurrected, but, I guess, not tested that much on !x86
+
+
+Sorry :)
+
+-uwe
+
+
+From uwe@stderr.spb.ru  Tue Feb 1 05:11:33 2011
+Path: news.gmane.org!not-for-mail
+From: "Valeriy E. Ushakov" <uwe@stderr.spb.ru>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: can't reboot after running a 5.0 kernel
+Date: Tue, 1 Feb 2011 05:11:33 +0300
+Lines: 12
+Approved: news@gmane.org
+Message-ID: <20110201021133.GD13265@bigmac.stderr.spb.ru>
+References: <110128182542.M0109925@mirage.ceres.dti.ne.jp> <20110128175653.GC16632@ece.cmu.edu> <AANLkTim3xkzboD5wRfG4ajguRLRDNKYjOHxPd7FaejS9@mail.gmail.com> <20110128213406.GB9300@ece.cmu.edu> <20110128234311.GA15622@mail.duskware.de> <20110129002714.GA14091@ece.cmu.edu> <20110130040323.GA9182@ece.cmu.edu> <20110130112325.GA27218@mail.duskware.de> <20110131210459.GA6547@ece.cmu.edu> <20110201005433.GC13265@bigmac.stderr.spb.ru>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: dough.gmane.org 1296526315 21745 80.91.229.12 (1 Feb 2011 02:11:55 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Tue, 1 Feb 2011 02:11:55 +0000 (UTC)
+Cc: Martin Husemann <martin@duskware.de>, port-alpha@netbsd.org,
+	martin@netbsd.org, mrg@netbsd.org
+To: Chuck Cranor <chuck@ece.cmu.edu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Feb 01 03:11:47 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1Pk5ib-0004ww-UL
+	for netbsd-port-alpha@m.gmane.org; Tue, 01 Feb 2011 03:11:46 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 1F51519D168; Tue,  1 Feb 2011 02:11:41 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 1265D19D15F;
+	Tue,  1 Feb 2011 02:11:40 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id OlUcbp0IWzrz; Tue,  1 Feb 2011 02:11:39 +0000 (UTC)
+Original-Received: from bigmac.stderr.spb.ru (bigmac.stderr.spb.ru [193.124.81.111])
+	by mail.netbsd.org (Postfix) with ESMTP id 4B93519D13E;
+	Tue,  1 Feb 2011 02:11:36 +0000 (UTC)
+Original-Received: by bigmac.stderr.spb.ru (Postfix, from userid 1000)
+	id C387121EA8; Tue,  1 Feb 2011 05:11:33 +0300 (MSK)
+Content-Disposition: inline
+In-Reply-To: <20110201005433.GC13265@bigmac.stderr.spb.ru>
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4568
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4568>
+
+On Tue, Feb 01, 2011 at 03:54:33 +0300, Valeriy E. Ushakov wrote:
+
+> Ok, glancing at the code I think that cpu_setfunc must arrange for the
+> trampoline to call lwp_startup, since, even though we "recycle" an
+> existing lwp it still acts like a "new" one since it's not resumed in
+> mi_switch() - so (as you discovered) we need lwp_startup to run the
+> code that for an "old" lwp we do at kern_synch.c:791
+
+I fixed sh3.
+
+-uwe
+
+
+From mhitch@lightning.msu.montana.edu  Tue Feb 1 10:56:12 2011
+Path: news.gmane.org!not-for-mail
+From: "Michael L. Hitch" <mhitch@lightning.msu.montana.edu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: can't reboot after running a 5.0 kernel
+Date: Tue, 1 Feb 2011 10:56:12 -0700 (MST)
+Lines: 21
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.1102011054060.4855@lightning.msu.montana.edu>
+References: <20110127174250.GA3809@ece.cmu.edu> <110128182542.M0109925@mirage.ceres.dti.ne.jp>
+ <20110128175653.GC16632@ece.cmu.edu> <AANLkTim3xkzboD5wRfG4ajguRLRDNKYjOHxPd7FaejS9@mail.gmail.com>
+ <20110128213406.GB9300@ece.cmu.edu> <20110128234311.GA15622@mail.duskware.de>
+ <20110129002714.GA14091@ece.cmu.edu> <20110130040323.GA9182@ece.cmu.edu>
+ <20110130112325.GA27218@mail.duskware.de> <20110131210459.GA6547@ece.cmu.edu>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: dough.gmane.org 1296586829 25736 80.91.229.12 (1 Feb 2011 19:00:29 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Tue, 1 Feb 2011 19:00:29 +0000 (UTC)
+Cc: Martin Husemann <martin@duskware.de>, uwe@netbsd.org, 
+    port-alpha@netbsd.org
+To: Chuck Cranor <chuck@ece.cmu.edu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Feb 01 20:00:24 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1PkLSc-0007B9-Sw
+	for netbsd-port-alpha@m.gmane.org; Tue, 01 Feb 2011 20:00:19 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 8DCA219CF43; Tue,  1 Feb 2011 19:00:11 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 2CB5D19CF38;
+	Tue,  1 Feb 2011 19:00:10 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id TuuILae5heM1; Tue,  1 Feb 2011 19:00:09 +0000 (UTC)
+Original-Received: from lightning.msu.montana.edu (lightning.msu.montana.edu [153.90.169.4])
+	by mail.netbsd.org (Postfix) with ESMTP id 93E3C19CF2C;
+	Tue,  1 Feb 2011 19:00:08 +0000 (UTC)
+Original-Received: by lightning.msu.montana.edu (Postfix, from userid 271)
+	id AEA0910370; Tue,  1 Feb 2011 10:56:14 -0700 (MST)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by lightning.msu.montana.edu (Postfix) with ESMTP id 3DF7E5863;
+	Tue,  1 Feb 2011 10:56:13 -0700 (MST)
+In-Reply-To: <20110131210459.GA6547@ece.cmu.edu>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4569
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4569>
+
+On Mon, 31 Jan 2011, Chuck Cranor wrote:
+
+> I also did a survey of some of the ports in the tree, and it looks
+> some port's cpu_setfunc() still call lwp_startup() while other ports
+> have been modified (like the alpha) to not call it:
+>
+> arch    cpu_setfunc calls       does it call lpw_startup?  when changed?
+> ------- ----------------------  ----------------------------------------
+...
+> m68k    setfunc_trampoline      no (vm_machdep.c 1.28, 2009/05/30)
+
+   I can verify that m68k does hang the same way, and that reverting the 
+cpu_setfunc() change makes it work.
+
+Mike
+--
+Michael L. Hitch			mhitch@montana.edu
+Computer Consultant
+Information Technology Center
+Montana State University	Bozeman, MT	USA
+
+
+From chuck@ece.cmu.edu  Tue Feb 1 14:05:47 2011
+Path: news.gmane.org!not-for-mail
+From: Chuck Cranor <chuck@ece.cmu.edu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: can't reboot after running a 5.0 kernel
+Date: Tue, 1 Feb 2011 14:05:47 -0500
+Organization: Carnegie Mellon University
+Lines: 16
+Approved: news@gmane.org
+Message-ID: <20110201190547.GA729@ece.cmu.edu>
+References: <110128182542.M0109925@mirage.ceres.dti.ne.jp> <20110128175653.GC16632@ece.cmu.edu> <AANLkTim3xkzboD5wRfG4ajguRLRDNKYjOHxPd7FaejS9@mail.gmail.com> <20110128213406.GB9300@ece.cmu.edu> <20110128234311.GA15622@mail.duskware.de> <20110129002714.GA14091@ece.cmu.edu> <20110130040323.GA9182@ece.cmu.edu> <20110130112325.GA27218@mail.duskware.de> <20110131210459.GA6547@ece.cmu.edu> <20110201005433.GC13265@bigmac.stderr.spb.ru>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: dough.gmane.org 1296587179 27672 80.91.229.12 (1 Feb 2011 19:06:19 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Tue, 1 Feb 2011 19:06:19 +0000 (UTC)
+Cc: Martin Husemann <martin@duskware.de>, port-alpha@netbsd.org,
+	martin@netbsd.org, mrg@netbsd.org
+To: "Valeriy E. Ushakov" <uwe@stderr.spb.ru>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Feb 01 20:06:14 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1PkLYH-0002P4-3j
+	for netbsd-port-alpha@m.gmane.org; Tue, 01 Feb 2011 20:06:09 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 72CAA19CF75; Tue,  1 Feb 2011 19:06:04 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 5173C19CEA5;
+	Tue,  1 Feb 2011 19:06:03 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id c-UA1ndpPsLR; Tue,  1 Feb 2011 19:06:02 +0000 (UTC)
+Original-Received: from xxx.pdl.cmu.edu (XXX.PDL.CMU.EDU [128.2.134.93])
+	by mail.netbsd.org (Postfix) with ESMTP id AD8D619CE7B;
+	Tue,  1 Feb 2011 19:06:00 +0000 (UTC)
+Original-Received: by xxx.pdl.cmu.edu (Postfix, from userid 393)
+	id 3F91F16134; Tue,  1 Feb 2011 14:05:47 -0500 (EST)
+Content-Disposition: inline
+In-Reply-To: <20110201005433.GC13265@bigmac.stderr.spb.ru>
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4570
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4570>
+
+On Tue, Feb 01, 2011 at 03:54:33AM +0300, Valeriy E. Ushakov wrote:
+> . mrg changed sparc and sparc64
+> . martin propagated that change to other ports
+> . all that still didn't matter since SA were dead
+> . SA were resurrected, but, I guess, not tested that much on !x86
+> Sorry :)
+
+That's ok, I know the issues with SA threads were not easy to deal
+with.   Thanks for looking into it!   
+
+Martin has marked in kern/44500 that he'll cleanup and request pullups,
+so we'll get it resolved.
+
+
+chuck
+
+
+From rpug@linux.com  Sun Feb 6 16:10:13 2011
+Path: news.gmane.org!not-for-mail
+From: Ryan Pugatch <rpug@linux.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: configuring X on a PWS 500a running NetBSD 5.1/Alpha
+Date: Sun, 06 Feb 2011 16:10:13 -0500
+Lines: 12
+Approved: news@gmane.org
+Message-ID: <4D4F0E35.2060806@linux.com>
+Reply-To: rpug@linux.com
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: dough.gmane.org 1297033124 14730 80.91.229.12 (6 Feb 2011 22:58:44 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Sun, 6 Feb 2011 22:58:44 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Feb 06 23:58:39 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1PmDZ1-0006Ex-56
+	for netbsd-port-alpha@m.gmane.org; Sun, 06 Feb 2011 23:58:39 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 37C4519D0B3; Sun,  6 Feb 2011 22:58:36 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 369F119D09F
+	for <port-alpha@netbsd.org>; Sun,  6 Feb 2011 22:58:35 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id pxRr2yG9KTK8 for <port-alpha@netbsd.org>;
+	Sun,  6 Feb 2011 22:58:34 +0000 (UTC)
+Original-Received: from mail-vw0-f52.google.com (mail-vw0-f52.google.com [209.85.212.52])
+	by mail.netbsd.org (Postfix) with ESMTP id 7792219CF81
+	for <port-alpha@netbsd.org>; Sun,  6 Feb 2011 22:58:34 +0000 (UTC)
+Original-Received: by vws13 with SMTP id 13so2677082vws.25
+        for <port-alpha@netbsd.org>; Sun, 06 Feb 2011 14:58:33 -0800 (PST)
+Original-Received: by 10.220.191.200 with SMTP id dn8mr3783182vcb.147.1297026615495;
+        Sun, 06 Feb 2011 13:10:15 -0800 (PST)
+Original-Received: from moonraker.local (207-172-67-8.c3-0.frm-ubr3.sbo-frm.ma.cable.rcn.com [207.172.67.8])
+        by mx.google.com with ESMTPS id i1sm2589652vby.1.2011.02.06.13.10.14
+        (version=TLSv1/SSLv3 cipher=RC4-MD5);
+        Sun, 06 Feb 2011 13:10:14 -0800 (PST)
+User-Agent: Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.13) Gecko/20101207 Thunderbird/3.1.7
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4571
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4571>
+
+Hi,
+
+I have a DEC PWS 500a running NetBSD 5.1/Alpha.  I'd like to configure 
+X, but I am pretty sure NetBSD Alpha is using XFree86 which is a pain to 
+configure.  Is there any existing documentation on how to appropriately 
+configure X for this system?  I figured I'd ask first before I spend 
+hours hammering at xf86..
+
+Thanks,
+
+Ryan
+
+
+From uridium@deviate.fi  Mon Feb 7 02:24:40 2011
+Path: news.gmane.org!not-for-mail
+From: "..I'd rather be coding ASM!" <uridium@deviate.fi>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: configuring X on a PWS 500a running NetBSD 5.1/Alpha
+Date: Mon, 7 Feb 2011 02:24:40 +0200 (EET)
+Lines: 13
+Approved: news@gmane.org
+Message-ID: <Pine.LNX.4.64.1102070224040.1959@deviate.fi>
+References: <4D4F0E35.2060806@linux.com>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: dough.gmane.org 1297038298 3575 80.91.229.12 (7 Feb 2011 00:24:58 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Mon, 7 Feb 2011 00:24:58 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: Ryan Pugatch <rpug@linux.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Feb 07 01:24:49 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1PmEuO-0006fG-T2
+	for netbsd-port-alpha@m.gmane.org; Mon, 07 Feb 2011 01:24:49 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 2855819D0AF; Mon,  7 Feb 2011 00:24:45 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 2E2F619CFD7
+	for <port-alpha@NetBSD.org>; Mon,  7 Feb 2011 00:24:44 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id RspNdKKf2sHa for <port-alpha@NetBSD.org>;
+	Mon,  7 Feb 2011 00:24:43 +0000 (UTC)
+Original-Received: from deviate.fi (deviate.fi [83.150.87.13])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by mail.netbsd.org (Postfix) with ESMTPS id 7C82419CF89
+	for <port-alpha@NetBSD.org>; Mon,  7 Feb 2011 00:24:43 +0000 (UTC)
+Original-Received: by deviate.fi (Postfix, from userid 534)
+	id B43255F5C5; Mon,  7 Feb 2011 02:24:40 +0200 (EET)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by deviate.fi (Postfix) with ESMTP id 9EA3B5F5C4;
+	Mon,  7 Feb 2011 02:24:40 +0200 (EET)
+In-Reply-To: <4D4F0E35.2060806@linux.com>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4572
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4572>
+
+
+Hi Ryan,
+
+Have you tried the bog std script xf86config ? There was another one 
+XF86Setup (I think I have the caps correct).
+
+Al.
+
+-- 
+  --
+  Al Boyanich
+  adb -w -P "world> " -k /dev/meta/galaxy/ksyms /dev/god/brain
+
+
+From rpug@linux.com  Sun Feb 6 19:47:30 2011
+Path: news.gmane.org!not-for-mail
+From: Ryan Pugatch <rpug@linux.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: configuring X on a PWS 500a running NetBSD 5.1/Alpha
+Date: Sun, 06 Feb 2011 19:47:30 -0500
+Lines: 19
+Approved: news@gmane.org
+Message-ID: <4D4F4122.8020900@linux.com>
+References: <4D4F0E35.2060806@linux.com> <Pine.LNX.4.64.1102070224040.1959@deviate.fi>
+Reply-To: rpug@linux.com
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: dough.gmane.org 1297039665 8536 80.91.229.12 (7 Feb 2011 00:47:45 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Mon, 7 Feb 2011 00:47:45 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: "..I'd rather be coding ASM!" <uridium@deviate.fi>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Feb 07 01:47:41 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1PmFGX-0006LE-4i
+	for netbsd-port-alpha@m.gmane.org; Mon, 07 Feb 2011 01:47:41 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 8786A19D0DD; Mon,  7 Feb 2011 00:47:36 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 4460819D0DC
+	for <port-alpha@netbsd.org>; Mon,  7 Feb 2011 00:47:35 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id 4k1qWmRM1OOW for <port-alpha@netbsd.org>;
+	Mon,  7 Feb 2011 00:47:34 +0000 (UTC)
+Original-Received: from mail-vx0-f180.google.com (mail-vx0-f180.google.com [209.85.220.180])
+	(using TLSv1 with cipher RC4-MD5 (128/128 bits))
+	(Client CN "smtp.gmail.com", Issuer "Google Internet Authority" (not verified))
+	by mail.netbsd.org (Postfix) with ESMTPS id 7954A19D0CE
+	for <port-alpha@netbsd.org>; Mon,  7 Feb 2011 00:47:34 +0000 (UTC)
+Original-Received: by vxb41 with SMTP id 41so1409045vxb.25
+        for <port-alpha@netbsd.org>; Sun, 06 Feb 2011 16:47:33 -0800 (PST)
+Original-Received: by 10.220.192.202 with SMTP id dr10mr4038054vcb.67.1297039653132;
+        Sun, 06 Feb 2011 16:47:33 -0800 (PST)
+Original-Received: from moonraker.local (207-172-67-8.c3-0.frm-ubr3.sbo-frm.ma.cable.rcn.com [207.172.67.8])
+        by mx.google.com with ESMTPS id i14sm1148784vcr.35.2011.02.06.16.47.31
+        (version=TLSv1/SSLv3 cipher=RC4-MD5);
+        Sun, 06 Feb 2011 16:47:32 -0800 (PST)
+User-Agent: Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.13) Gecko/20101207 Thunderbird/3.1.7
+In-Reply-To: <Pine.LNX.4.64.1102070224040.1959@deviate.fi>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4573
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4573>
+
+On 2/6/11 7:24 PM, ..I'd rather be coding ASM! wrote:
+>
+> Hi Ryan,
+>
+> Have you tried the bog std script xf86config ? There was another one
+> XF86Setup (I think I have the caps correct).
+>
+> Al.
+>
+
+
+Interestingly enough, neither exist.  However, XalphaNetBSD, X, and 
+startx exist.. so I am not sure why that is missing.  I remember back in 
+the day with xf86 was the norm I'd always use xf86config.  I wonder if 
+maybe I need to install something from pkgsrc?  I did the 'full' install 
+of NetBSD - so my assumption is everything /should/ be there.
+
+Ryan
+
+
+From rpug@linux.com  Mon Feb 7 15:52:42 2011
+Path: news.gmane.org!not-for-mail
+From: Ryan Pugatch <rpug@linux.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: configuring X on a PWS 500a running NetBSD 5.1/Alpha
+Date: Mon, 07 Feb 2011 15:52:42 -0500
+Lines: 25
+Approved: news@gmane.org
+Message-ID: <4D505B9A.7070302@linux.com>
+References: <4D4F0E35.2060806@linux.com> <Pine.LNX.4.64.1102070224040.1959@deviate.fi> <4D4F4122.8020900@linux.com> <20110207204047.GA2172@antioche.eu.org>
+Reply-To: rpug@linux.com
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: dough.gmane.org 1297111978 3017 80.91.229.12 (7 Feb 2011 20:52:58 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Mon, 7 Feb 2011 20:52:58 +0000 (UTC)
+Cc: "..I'd rather be coding ASM!" <uridium@deviate.fi>, 
+ port-alpha@NetBSD.org
+To: Manuel Bouyer <bouyer@antioche.eu.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Feb 07 21:52:53 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1PmY4q-0004DD-NH
+	for netbsd-port-alpha@m.gmane.org; Mon, 07 Feb 2011 21:52:53 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 88CF019D195; Mon,  7 Feb 2011 20:52:47 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 0679519D18E
+	for <port-alpha@netbsd.org>; Mon,  7 Feb 2011 20:52:46 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id sL38gAMVb8AQ for <port-alpha@netbsd.org>;
+	Mon,  7 Feb 2011 20:52:45 +0000 (UTC)
+Original-Received: from mail-vx0-f180.google.com (mail-vx0-f180.google.com [209.85.220.180])
+	(using TLSv1 with cipher RC4-MD5 (128/128 bits))
+	(Client CN "smtp.gmail.com", Issuer "Google Internet Authority" (not verified))
+	by mail.netbsd.org (Postfix) with ESMTPS id 2F2E119D17E
+	for <port-alpha@netbsd.org>; Mon,  7 Feb 2011 20:52:45 +0000 (UTC)
+Original-Received: by vxb41 with SMTP id 41so1859491vxb.25
+        for <port-alpha@netbsd.org>; Mon, 07 Feb 2011 12:52:44 -0800 (PST)
+Original-Received: by 10.220.186.200 with SMTP id ct8mr1583363vcb.111.1297111963919;
+        Mon, 07 Feb 2011 12:52:43 -0800 (PST)
+Original-Received: from thunderball.tripadvisor.com ([146.115.38.3])
+        by mx.google.com with ESMTPS id b26sm3531523vby.13.2011.02.07.12.52.42
+        (version=TLSv1/SSLv3 cipher=RC4-MD5);
+        Mon, 07 Feb 2011 12:52:43 -0800 (PST)
+User-Agent: Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.13) Gecko/20101208 Thunderbird/3.1.7
+In-Reply-To: <20110207204047.GA2172@antioche.eu.org>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4574
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4574>
+
+On 02/07/2011 03:40 PM, Manuel Bouyer wrote:
+> On Sun, Feb 06, 2011 at 07:47:30PM -0500, Ryan Pugatch wrote:
+>> On 2/6/11 7:24 PM, ..I'd rather be coding ASM! wrote:
+>>>
+>>> Hi Ryan,
+>>>
+>>> Have you tried the bog std script xf86config ? There was another one
+>>> XF86Setup (I think I have the caps correct).
+>>>
+>>> Al.
+>>>
+>>
+>>
+>> Interestingly enough, neither exist.  However, XalphaNetBSD, X, and
+>> startx exist.. so I am not sure why that is missing.  I remember
+>> back in the day with xf86 was the norm I'd always use xf86config.  I
+>> wonder if maybe I need to install something from pkgsrc?  I did the
+>> 'full' install of NetBSD - so my assumption is everything /should/
+>> be there.
+>
+> XalphaNetBSD doesn't use a XF86Config file.
+>
+
+I realized this and decided to compile XFree86.. we'll see how that goes ;)
+
+
+From bouyer@antioche.eu.org  Mon Feb 7 22:50:32 2011
+Path: news.gmane.org!not-for-mail
+From: Manuel Bouyer <bouyer@antioche.eu.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: configuring X on a PWS 500a running NetBSD 5.1/Alpha
+Date: Mon, 7 Feb 2011 22:50:32 +0100
+Lines: 12
+Approved: news@gmane.org
+Message-ID: <20110207215031.GA3251@antioche.eu.org>
+References: <4D4F0E35.2060806@linux.com>
+ <Pine.LNX.4.64.1102070224040.1959@deviate.fi>
+ <4D4F4122.8020900@linux.com>
+ <20110207204047.GA2172@antioche.eu.org>
+ <4D505B9A.7070302@linux.com>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: dough.gmane.org 1297115452 22934 80.91.229.12 (7 Feb 2011 21:50:52 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Mon, 7 Feb 2011 21:50:52 +0000 (UTC)
+Cc: "..I'd rather be coding ASM!" <uridium@deviate.fi>, port-alpha@NetBSD.org
+To: Ryan Pugatch <rpug@linux.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Feb 07 22:50:47 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1PmYys-0003LS-1s
+	for netbsd-port-alpha@m.gmane.org; Mon, 07 Feb 2011 22:50:46 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 951D319CF2A; Mon,  7 Feb 2011 21:50:42 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 8CBFD19CF28
+	for <port-alpha@NetBSD.org>; Mon,  7 Feb 2011 21:50:41 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id sX-SRM1mYLkr for <port-alpha@NetBSD.org>;
+	Mon,  7 Feb 2011 21:50:41 +0000 (UTC)
+Original-Received: from chassiron.antioche.eu.org (chassiron.antioche.eu.org [IPv6:2001:7a8:242c:1::1])
+	by mail.netbsd.org (Postfix) with ESMTP id 5BE3E19CF22
+	for <port-alpha@NetBSD.org>; Mon,  7 Feb 2011 21:50:40 +0000 (UTC)
+Original-Received: from rochebonne.antioche.eu.org (rochebonne [IPv6:2001:7a8:242c:0:240:95ff:fe45:4702])
+	by chassiron.antioche.eu.org (8.14.2/8.12.11) with ESMTP id p17LoWGp011977;
+	Mon, 7 Feb 2011 22:50:32 +0100 (MET)
+Original-Received: (from bouyer@localhost)
+	by rochebonne.antioche.eu.org (8.14.4/8.12.8/Submit) id p17LoWEE003079;
+	Mon, 7 Feb 2011 22:50:32 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <4D505B9A.7070302@linux.com>
+User-Agent: Mutt/1.5.20 (2009-06-14)
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.0 (chassiron.antioche.eu.org [IPv6:2001:7a8:242c:1::1]); Mon, 07 Feb 2011 22:50:33 +0100 (MET)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4575
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4575>
+
+On Mon, Feb 07, 2011 at 03:52:42PM -0500, Ryan Pugatch wrote:
+> I realized this and decided to compile XFree86.. we'll see how that goes ;)
+
+At some time I added Xorg support in NetBSD's source tree for alpha.
+You can force building xorg with the appropriate build.sh options
+(I don't remember the syntax but build.sh -h should tell you)
+
+-- 
+Manuel Bouyer <bouyer@antioche.eu.org>
+     NetBSD: 26 ans d'experience feront toujours la difference
+--
+
+
+From rpug@linux.com  Mon Feb 7 17:14:12 2011
+Path: news.gmane.org!not-for-mail
+From: Ryan Pugatch <rpug@linux.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: configuring X on a PWS 500a running NetBSD 5.1/Alpha
+Date: Mon, 07 Feb 2011 17:14:12 -0500
+Lines: 14
+Approved: news@gmane.org
+Message-ID: <4D506EB4.5050808@linux.com>
+References: <4D4F0E35.2060806@linux.com> <Pine.LNX.4.64.1102070224040.1959@deviate.fi> <4D4F4122.8020900@linux.com> <20110207204047.GA2172@antioche.eu.org> <4D505B9A.7070302@linux.com> <20110207215031.GA3251@antioche.eu.org>
+Reply-To: rpug@linux.com
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: dough.gmane.org 1297116867 30861 80.91.229.12 (7 Feb 2011 22:14:27 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Mon, 7 Feb 2011 22:14:27 +0000 (UTC)
+Cc: "..I'd rather be coding ASM!" <uridium@deviate.fi>, 
+ port-alpha@NetBSD.org
+To: Manuel Bouyer <bouyer@antioche.eu.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Feb 07 23:14:23 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1PmZLi-0007vO-Aw
+	for netbsd-port-alpha@m.gmane.org; Mon, 07 Feb 2011 23:14:22 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 79F2419CE21; Mon,  7 Feb 2011 22:14:17 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 5860119CE07
+	for <port-alpha@netbsd.org>; Mon,  7 Feb 2011 22:14:16 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id QBoV6r8J5vl9 for <port-alpha@netbsd.org>;
+	Mon,  7 Feb 2011 22:14:15 +0000 (UTC)
+Original-Received: from mail-vx0-f180.google.com (mail-vx0-f180.google.com [209.85.220.180])
+	(using TLSv1 with cipher RC4-MD5 (128/128 bits))
+	(Client CN "smtp.gmail.com", Issuer "Google Internet Authority" (not verified))
+	by mail.netbsd.org (Postfix) with ESMTPS id 8004B19CE03
+	for <port-alpha@netbsd.org>; Mon,  7 Feb 2011 22:14:15 +0000 (UTC)
+Original-Received: by vxb41 with SMTP id 41so1913964vxb.25
+        for <port-alpha@netbsd.org>; Mon, 07 Feb 2011 14:14:14 -0800 (PST)
+Original-Received: by 10.220.176.12 with SMTP id bc12mr4548606vcb.55.1297116854131;
+        Mon, 07 Feb 2011 14:14:14 -0800 (PST)
+Original-Received: from thunderball.tripadvisor.com ([146.115.38.3])
+        by mx.google.com with ESMTPS id r7sm3609920vbx.9.2011.02.07.14.14.12
+        (version=TLSv1/SSLv3 cipher=RC4-MD5);
+        Mon, 07 Feb 2011 14:14:13 -0800 (PST)
+User-Agent: Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.13) Gecko/20101208 Thunderbird/3.1.7
+In-Reply-To: <20110207215031.GA3251@antioche.eu.org>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4576
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4576>
+
+On 02/07/2011 04:50 PM, Manuel Bouyer wrote:
+> On Mon, Feb 07, 2011 at 03:52:42PM -0500, Ryan Pugatch wrote:
+>> I realized this and decided to compile XFree86.. we'll see how that goes ;)
+>
+> At some time I added Xorg support in NetBSD's source tree for alpha.
+> You can force building xorg with the appropriate build.sh options
+> (I don't remember the syntax but build.sh -h should tell you)
+>
+
+Hmm, okay.. well I already have built and installed XFree86 so I might 
+as well try it.  I'll probably get annoyed and end up building Xorg though.
+
+Thanks for the info
+
+
+From khym@azeotrope.org  Thu Feb 10 18:46:01 2011
+Path: news.gmane.org!not-for-mail
+From: Dave Huang <khym@azeotrope.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Is COMPAT_43 really required on alpha?
+Date: Thu, 10 Feb 2011 18:46:01 -0600
+Lines: 10
+Approved: news@gmane.org
+Message-ID: <4D5486C9.2040501@azeotrope.org>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: dough.gmane.org 1297385198 20084 80.91.229.12 (11 Feb 2011 00:46:38 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Fri, 11 Feb 2011 00:46:38 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Fri Feb 11 01:46:35 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1Pnh9d-0007fR-4G
+	for netbsd-port-alpha@m.gmane.org; Fri, 11 Feb 2011 01:46:33 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 8E5F419CF76; Fri, 11 Feb 2011 00:46:27 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id AF7C719CF74
+	for <port-alpha@netbsd.org>; Fri, 11 Feb 2011 00:46:25 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id d5V7I+WadIcO for <port-alpha@netbsd.org>;
+	Fri, 11 Feb 2011 00:46:25 +0000 (UTC)
+Original-Received: from x.azeotrope.org (x.azeotrope.org [IPv6:2001:470:1f0f:634::1])
+	by mail.netbsd.org (Postfix) with ESMTP id E313819CF64
+	for <port-alpha@netbsd.org>; Fri, 11 Feb 2011 00:46:24 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by x.azeotrope.org (Postfix) with ESMTP id 1D0CE12DB4
+	for <port-alpha@netbsd.org>; Thu, 10 Feb 2011 18:46:24 -0600 (CST)
+Original-Received: from x.azeotrope.org ([127.0.0.1])
+	by localhost (x.azeotrope.org [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 520z41hyOVT6 for <port-alpha@netbsd.org>;
+	Thu, 10 Feb 2011 18:46:24 -0600 (CST)
+Original-Received: from [IPv6:2001:470:1f0f:633:cc3:9c8c:c9ca:41f9] (unknown [IPv6:2001:470:1f0f:633:cc3:9c8c:c9ca:41f9])
+	by x.azeotrope.org (Postfix) with ESMTPSA id 44C4C12C93
+	for <port-alpha@netbsd.org>; Thu, 10 Feb 2011 18:46:23 -0600 (CST)
+User-Agent: Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US; rv:1.9.2.13) Gecko/20101207 Thunderbird/3.1.7
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4577
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4577>
+
+I was looking over my kernel config file and spotted:
+
+# 4.3BSD compatibility.  Should be optional, but necessary for now.
+options         COMPAT_43
+
+That's been there forever--dating back to r1.1 of 
+sys/arch/alpha/conf/GENERIC. Anyone know if it's *really* necessary? 
+Neither the i386, amd64, nor mac68k GENERICs claim that it's necessary. 
+Just curious :)
+
+
+From duck@shangtai.net  Sat Feb 12 06:57:11 2011
+Path: news.gmane.org!not-for-mail
+From: Staffan =?iso-8859-1?Q?Thom=E9n?= <duck@shangtai.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Old AlphaPC164 firmware
+Date: Sat, 12 Feb 2011 06:57:11 +0200
+Lines: 35
+Approved: news@gmane.org
+Message-ID: <20110212045711.GA1552@knightrider.shangtai.net>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="EVF5PPMfhYS0aIcm"
+X-Trace: dough.gmane.org 1297486653 8398 80.91.229.12 (12 Feb 2011 04:57:33 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Sat, 12 Feb 2011 04:57:33 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Feb 12 05:57:29 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1Po7Xw-0001cb-0n
+	for netbsd-port-alpha@m.gmane.org; Sat, 12 Feb 2011 05:57:24 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id D3DD019D140; Sat, 12 Feb 2011 04:57:18 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 2462719D13E
+	for <port-alpha@netbsd.org>; Sat, 12 Feb 2011 04:57:17 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id YAEExFr0s-jI for <port-alpha@netbsd.org>;
+	Sat, 12 Feb 2011 04:57:16 +0000 (UTC)
+Original-Received: from agda.multi.fi (agda.multi.fi [62.80.128.30])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by mail.netbsd.org (Postfix) with ESMTPS id 3E19519D114
+	for <port-alpha@netbsd.org>; Sat, 12 Feb 2011 04:57:14 +0000 (UTC)
+Original-Received: from knightrider.shangtai.net (55865b7d.cust.multi.fi [85.134.91.125] (may be forged))
+	by agda.multi.fi (8.13.8/8.13.8) with ESMTP id p1C4v9er016733
+	for <port-alpha@netbsd.org>; Sat, 12 Feb 2011 06:57:09 +0200
+Original-Received: by knightrider.shangtai.net (Postfix, from userid 1000)
+	id B611CA75CC; Sat, 12 Feb 2011 06:57:11 +0200 (EET)
+Mail-Followup-To: port-alpha@netbsd.org
+Content-Disposition: inline
+User-Agent: Mutt/1.5.20 (2009-06-14)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4578
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4578>
+
+
+--EVF5PPMfhYS0aIcm
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+I recently happened to read a note in the freebsd handbook that it (suppose=
+dly)
+is possible to fix the problem with SRM forgetting its variables and emitti=
+ng
+"ERROR: ISA table corrupt!" by flashing a 4.x firmware and then upgrading to
+5.x, however there doesn't seem to exist old versions on hp's ftp.
+
+My question is then, would anyone here happen to be sitting on older firmwa=
+re?
+
+/Staffan
+
+--=20
+Staffan Thom=E9n - ADB3 455F 10D5 86D1 78D6  048D 11BB D66E 7C7E 2EF8
+
+--EVF5PPMfhYS0aIcm
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (NetBSD)
+
+iEYEARECAAYFAk1WEycACgkQEbvWbnx+LvgkmwCdG9O6rHTNRyR5TOlBmWUpRAtl
+I6sAn1B0ICEjKbsl4BB3ohoQoR0nM8dK
+=ciMA
+-----END PGP SIGNATURE-----
+
+--EVF5PPMfhYS0aIcm--
+
+
+From simonb@NetBSD.org  Sat Feb 12 16:04:50 2011
+Path: news.gmane.org!not-for-mail
+From: Simon Burge <simonb@NetBSD.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Old AlphaPC164 firmware
+Date: Sat, 12 Feb 2011 16:04:50 +1100
+Lines: 18
+Approved: news@gmane.org
+Message-ID: <20110212050450.DC8795985C@thoreau.thistledown.com.au>
+References: <20110212045711.GA1552@knightrider.shangtai.net>
+NNTP-Posting-Host: lo.gmane.org
+X-Trace: dough.gmane.org 1297487104 9832 80.91.229.12 (12 Feb 2011 05:05:04 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Sat, 12 Feb 2011 05:05:04 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Staffan =?iso-8859-1?Q?Thom=E9n?= <duck@shangtai.net>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Feb 12 06:04:58 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1Po7fE-0003X6-VU
+	for netbsd-port-alpha@m.gmane.org; Sat, 12 Feb 2011 06:04:57 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 3652019D14C; Sat, 12 Feb 2011 05:04:54 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 23DA419D14A
+	for <port-alpha@netbsd.org>; Sat, 12 Feb 2011 05:04:53 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id AnjLTrgVoIpR for <port-alpha@netbsd.org>;
+	Sat, 12 Feb 2011 05:04:52 +0000 (UTC)
+Original-Received: from thoreau.thistledown.com.au (thoreau.thistledown.com.au [203.217.30.154])
+	by mail.netbsd.org (Postfix) with ESMTP id 3AF8519D148
+	for <port-alpha@netbsd.org>; Sat, 12 Feb 2011 05:04:52 +0000 (UTC)
+Original-Received: from thoreau.thistledown.com.au (localhost [127.0.0.1])
+	by thoreau.thistledown.com.au (Postfix) with ESMTP id DC8795985C;
+	Sat, 12 Feb 2011 16:04:50 +1100 (EST)
+In-Reply-To: Your message of "Sat, 12 Feb 2011 06:57:11 +0200"
+	<20110212045711.GA1552@knightrider.shangtai.net>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4579
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4579>
+
+Staffan =?iso-8859-1?Q?Thom=E9n?= wrote:
+
+> I recently happened to read a note in the freebsd handbook that it (supposedly)
+> is possible to fix the problem with SRM forgetting its variables and emitting
+> "ERROR: ISA table corrupt!" by flashing a 4.x firmware and then upgrading to
+> 5.x, however there doesn't seem to exist old versions on hp's ftp.
+> 
+> My question is then, would anyone here happen to be sitting on older firmware?
+
+I just happen to have this lying around:
+
+	ftp://ftp.netbsd.org/pub/NetBSD/misc/simonb/alpha/pc164-srm.tar.gz
+
+That has SRM 4.9 and 5.6.
+
+Cheers,
+Simon.
+
+
+From bouyer@antioche.eu.org  Mon Feb 7 21:40:47 2011
+Path: news.gmane.org!not-for-mail
+From: Manuel Bouyer <bouyer@antioche.eu.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: configuring X on a PWS 500a running NetBSD 5.1/Alpha
+Date: Mon, 7 Feb 2011 21:40:47 +0100
+Lines: 26
+Approved: news@gmane.org
+Message-ID: <20110207204047.GA2172@antioche.eu.org>
+References: <4D4F0E35.2060806@linux.com>
+ <Pine.LNX.4.64.1102070224040.1959@deviate.fi>
+ <4D4F4122.8020900@linux.com>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: dough.gmane.org 1298104932 22789 80.91.229.12 (19 Feb 2011 08:42:12 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Sat, 19 Feb 2011 08:42:12 +0000 (UTC)
+Cc: "..I'd rather be coding ASM!" <uridium@deviate.fi>, port-alpha@NetBSD.org
+To: Ryan Pugatch <rpug@linux.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Feb 07 21:41:09 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1PmXtU-0005v3-6F
+	for netbsd-port-alpha@m.gmane.org; Mon, 07 Feb 2011 21:41:08 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 85AE919D18F; Mon,  7 Feb 2011 20:41:03 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id C171619D17E
+	for <port-alpha@NetBSD.org>; Mon,  7 Feb 2011 20:41:01 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id uX-YrIhof1pn for <port-alpha@NetBSD.org>;
+	Mon,  7 Feb 2011 20:41:01 +0000 (UTC)
+Original-Received: from chassiron.antioche.eu.org (chassiron.antioche.eu.org [IPv6:2001:7a8:242c:1::1])
+	by mail.netbsd.org (Postfix) with ESMTP id 829C119CE77
+	for <port-alpha@NetBSD.org>; Mon,  7 Feb 2011 20:40:59 +0000 (UTC)
+Original-Received: from rochebonne.antioche.eu.org (rochebonne [IPv6:2001:7a8:242c:0:240:95ff:fe45:4702])
+	by chassiron.antioche.eu.org (8.14.2/8.12.11) with ESMTP id p17KelhK000838;
+	Mon, 7 Feb 2011 21:40:48 +0100 (MET)
+Original-Received: (from bouyer@localhost)
+	by rochebonne.antioche.eu.org (8.14.4/8.12.8/Submit) id p17KelDF001606;
+	Mon, 7 Feb 2011 21:40:47 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <4D4F4122.8020900@linux.com>
+User-Agent: Mutt/1.5.20 (2009-06-14)
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.0 (chassiron.antioche.eu.org [IPv6:2001:7a8:242c:0:a00:20ff:fe1c:276e]); Mon, 07 Feb 2011 21:40:49 +0100 (MET)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4580
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4580>
+
+On Sun, Feb 06, 2011 at 07:47:30PM -0500, Ryan Pugatch wrote:
+> On 2/6/11 7:24 PM, ..I'd rather be coding ASM! wrote:
+> >
+> >Hi Ryan,
+> >
+> >Have you tried the bog std script xf86config ? There was another one
+> >XF86Setup (I think I have the caps correct).
+> >
+> >Al.
+> >
+> 
+> 
+> Interestingly enough, neither exist.  However, XalphaNetBSD, X, and
+> startx exist.. so I am not sure why that is missing.  I remember
+> back in the day with xf86 was the norm I'd always use xf86config.  I
+> wonder if maybe I need to install something from pkgsrc?  I did the
+> 'full' install of NetBSD - so my assumption is everything /should/
+> be there.
+
+XalphaNetBSD doesn't use a XF86Config file.
+
+-- 
+Manuel Bouyer <bouyer@antioche.eu.org>
+     NetBSD: 26 ans d'experience feront toujours la difference
+--
+
+
+From joerg@britannica.bec.de  Thu Feb 24 05:35:38 2011
+Path: news.gmane.org!not-for-mail
+From: Joerg Sonnenberger <joerg@britannica.bec.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: LWP private support / TLS support
+Date: Thu, 24 Feb 2011 05:35:38 +0100
+Lines: 14
+Approved: news@gmane.org
+Message-ID: <20110224043538.GA14534@britannica.bec.de>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: dough.gmane.org 1298522158 5374 80.91.229.12 (24 Feb 2011 04:35:58 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Thu, 24 Feb 2011 04:35:58 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Feb 24 05:35:54 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1PsSvf-0004Hj-4K
+	for netbsd-port-alpha@m.gmane.org; Thu, 24 Feb 2011 05:35:51 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id A80F819CE58; Thu, 24 Feb 2011 04:35:47 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 9A81A19CE3B
+	for <port-alpha@NetBSD.org>; Thu, 24 Feb 2011 04:35:46 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id r1vpd6Gn2tpK for <port-alpha@NetBSD.org>;
+	Thu, 24 Feb 2011 04:35:46 +0000 (UTC)
+Original-Received: from mo-p00-ob.rzone.de (mo-p00-ob.rzone.de [81.169.146.162])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by mail.netbsd.org (Postfix) with ESMTPS id B86EA19CE2E
+	for <port-alpha@NetBSD.org>; Thu, 24 Feb 2011 04:35:43 +0000 (UTC)
+X-RZG-AUTH: :JiIXek6mfvEEUpFQdo7Fj1/zg48CFjWjQv0cW+St/nW/afgnrylriWFNKUcMGu62
+X-RZG-CLASS-ID: mo00
+Original-Received: from britannica.bec.de
+	(ip-109-42-187-233.web.vodafone.de [109.42.187.233])
+	by post.strato.de (cohen mo63) (RZmta 25.5)
+	with (DHE-RSA-AES128-SHA encrypted) ESMTPA id 200d7dn1O48I7b
+	for <port-alpha@NetBSD.org>; Thu, 24 Feb 2011 05:35:40 +0100 (MET)
+Original-Received: by britannica.bec.de (sSMTP sendmail emulation); Thu, 24 Feb 2011 05:35:39 +0100
+Content-Disposition: inline
+User-Agent: Mutt/1.5.20 (2009-06-14)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4581
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4581>
+
+Hi all,
+I've just committed the first major step to TLS support on NetBSD.
+The Alpha part is not complete at the moment, since it requires some
+changes to the context switching code I can't test. What is needed
+should be approximately:
+(1) Call PAL_wdunique in cpu_switchto to ensure that the value is
+updated.
+(2) Remove the #if 0 around __HAVE___LWP_GETPRIVATE_FAST in types.h.
+
+After a rebuild of libpthread, the ATF test cases for libpthread should
+still work.
+
+Joerg
+
+
+From eric@cirr.com  Sun Feb 27 13:43:47 2011
+Path: news.gmane.org!not-for-mail
+From: eric@cirr.com (Eric Schnoebelen)
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: LWP private support / TLS support
+Date: Sun, 27 Feb 2011 13:43:47 -0600
+Lines: 25
+Approved: news@gmane.org
+Message-ID: <201102271943.p1RJhlug027995@egsner.cirr.com>
+References: <20110224043538.GA14534@britannica.bec.de>
+NNTP-Posting-Host: lo.gmane.org
+X-Trace: dough.gmane.org 1298835848 24010 80.91.229.12 (27 Feb 2011 19:44:08 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Sun, 27 Feb 2011 19:44:08 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: Joerg Sonnenberger <joerg@britannica.bec.de>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Feb 27 20:44:03 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1PtmXD-0004k8-27
+	for netbsd-port-alpha@m.gmane.org; Sun, 27 Feb 2011 20:44:03 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 50AF019CF0A; Sun, 27 Feb 2011 19:43:56 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id DF98819CEFB
+	for <port-alpha@NetBSD.org>; Sun, 27 Feb 2011 19:43:54 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id GDVd6Y2lHDex for <port-alpha@NetBSD.org>;
+	Sun, 27 Feb 2011 19:43:54 +0000 (UTC)
+Original-Received: from egsner.cirr.com (egsner.cirr.com [IPv6:2620:0:de0::1])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by mail.netbsd.org (Postfix) with ESMTPS id 21CAE19CECF
+	for <port-alpha@NetBSD.org>; Sun, 27 Feb 2011 19:43:53 +0000 (UTC)
+Original-Received: from egsner.cirr.com (IDENT:eric@localhost [127.0.0.1])
+	by egsner.cirr.com (8.14.4/8.14.2/$Revision: 1.32 $)  with ESMTP
+	id p1RJhlug027995; Sun, 27 Feb 2011 13:43:47 -0600 (CST)
+In-reply-to: Your message of "Thu, 24 Feb 2011 05:35:38 +0100."
+             <20110224043538.GA14534@britannica.bec.de>
+X-Greylist: Sender passed SPF test, not delayed by milter-greylist-4.2.6 (egsner.cirr.com [127.0.0.1]); Sun, 27 Feb 2011 13:43:47 -0600 (CST)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4582
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4582>
+
+
+Would you like console (and RCM/SRM) access to a DS10L for
+testing?
+
+I probably have some other Alpha platforms around here (much
+older) that could be made available as well.
+
+Joerg Sonnenberger writes:
+- I've just committed the first major step to TLS support on NetBSD.
+- The Alpha part is not complete at the moment, since it requires some
+- changes to the context switching code I can't test. What is needed
+- should be approximately:
+- (1) Call PAL_wdunique in cpu_switchto to ensure that the value is
+- updated.
+- (2) Remove the #if 0 around __HAVE___LWP_GETPRIVATE_FAST in types.h.
+- 
+- After a rebuild of libpthread, the ATF test cases for libpthread should
+- still work.
+
+--
+Eric Schnoebelen		eric@cirr.com		http://www.cirr.com
+  Systems programmer:  A person in sandals who has been in the elevator
+    with the senior vice president and is ultimately responsible for
+	    a phone call you are to receive from your boss.
+
+

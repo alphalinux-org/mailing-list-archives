@@ -1,0 +1,4341 @@
+From jspedron at club-internet.fr  Wed Jun  1 02:55:18 2005
+From: jspedron at club-internet.fr (=?UTF-8?B?SmVhbi1Tw6liYXN0aWVuIFDDqWRyb24=?=)
+Date: Wed Jun  1 02:55:22 2005
+Subject: [CALL FOR TESTERS] ReiserFS on non-i386 hardware patch
+Message-ID: <429D860A.5000608@club-internet.fr>
+
+Hi everyone,
+
+I made a patch that should fix portability issues of ReiserFS but I
+don't have access to all platforms supported by FreeBSD. I tested it on
+sparc64 and Olivier Houchard tried it on arm.
+
+I would like to know if someone could test it and report any success or
+failure?
+
+The patch is against latest -CURRENT and should be applied at toplevel
+source tree (eg. /usr/src). It can be found at:
+http://www.dumbbell.fr/projects/reiserfs/files/reiserfs-MI-c.patch
+
+Thanks in advance!
+
+--
+Jean-S?bastien P?dron
+http://www.dumbbell.fr/
+
+PGP Key: http://www.dumbbell.fr/pgp/pubkey.asc
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 252 bytes
+Desc: OpenPGP digital signature
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050601/f5dddfdf/signature.bin
+From sten at blinkenlights.nl  Wed Jun  1 06:55:53 2005
+From: sten at blinkenlights.nl (Sten Spans)
+Date: Wed Jun  1 06:55:58 2005
+Subject: [CALL FOR TESTERS] ReiserFS on non-i386 hardware patch
+In-Reply-To: <429D860A.5000608@club-internet.fr>
+References: <429D860A.5000608@club-internet.fr>
+Message-ID: <Pine.SOC.4.61.0506011555050.28761@tea.blinkenlights.nl>
+
+On Wed, 1 Jun 2005, [UTF-8] Jean-Sébastien Pédron wrote:
+
+> Hi everyone,
+>
+> I made a patch that should fix portability issues of ReiserFS but I
+> don't have access to all platforms supported by FreeBSD. I tested it on
+> sparc64 and Olivier Houchard tried it on arm.
+>
+> I would like to know if someone could test it and report any success or
+> failure?
+>
+> The patch is against latest -CURRENT and should be applied at toplevel
+> source tree (eg. /usr/src). It can be found at:
+> http://www.dumbbell.fr/projects/reiserfs/files/reiserfs-MI-c.patch
+>
+> Thanks in advance!
+
+A sample reiserfs image would be nice for testing.
+
+-- 
+Sten Spans
+
+"There is a crack in everything, that's how the light gets in."
+Leonard Cohen - Anthem
+From rth at twiddle.net  Wed Jun  1 10:12:15 2005
+From: rth at twiddle.net (Richard Henderson)
+Date: Wed Jun  1 10:12:16 2005
+Subject: [rfc] a new read-only plt format
+Message-ID: <20050601171214.GA4159@twiddle.net>
+
+I've recently created a new plt format for Alpha.  The main feature of
+this new format is that the plt code is read-only.  This was a requirement
+for SELinux, which does not allow executable pages to become writable,
+or writable pages to become executable.  As side effects, the plt table
+itself is smaller, allows more entries than before, and requires saving
+fewer registers.
+
+Support for this new plt format is in binutils head.  I'm writing to the
+other free alpha os'es so that they can experiment with the new format
+and if there are tweaks that need to be made, they can be made right away
+before it gets deployed to real users.
+
+The dynamic linker receives the following information:
+
+If the new format is in use, a _DYNAMIC tag DT_ALPHA_PLTRO exits.
+
+The DT_PLTGOT tag points to the .got.plt section.  This section is
+16 bytes long.  The first word should be filled in with the runtime
+resolution entry point; the second word should be filled in with the
+dynamic linker cookie.  This is the same information that was placed
+in words 3 and 4 of the plt in the old format.
+
+On entry to the runtime resolution entry point, $27 contains the 
+address of the entry point, $28 contains the dynamic linker cookie,
+and $25 contains the offset of relocation entry in .rela.plt.
+
+When resolving the relocation, the *only* thing that needs to happen
+is to write to the word indicated by the relocation.  The plt should
+not be modified.  Obviously.
+
+A sample entry point routine is appended.
+
+One complication of this is that we now clobber more registers than
+we did before, which means that the division routines cannot go through
+the plt anymore.  There are two things that are done to make this work.
+
+First, libc should be modified such that the division routines are *not*
+marked STT_FUNC.  The linker only creates plt entries for things marked
+functions.  With this change, all existing object files are correctly
+handled, *provided* that they are in fact linked against libc eventually.
+This is by far the common case.
+
+Marking the division routines as something other than STT_FUNC is done
+by *not* using the .ent/.end markers for the division routines.  Instead,
+you'll want to write
+
+	.globl	__divq
+	.type	__divq,@notype
+	.usepv	__divq,no
+__divq:
+	...
+	.size	__divq,.-__divq
+
+In addition, you'll want to use the .cfi_* directives to write unwind
+info appropriate to your implementation so that the debugger can 
+properly step over your routine.  This is slightly less convenient than
+the .ent/.end markers, but in my case .frame wasn't adequate to properly
+describe the unwinding and I'd already been using .cfi directives.
+
+Second, a new relocation marker has been added, !lituse_jsrdirect.  This
+relocation is similar to !lituse_jsr, except that it prevents the linker
+from creating a plt entry for the symbol.  Top-of-branch of gcc 3.4, 
+4.0, and 4.1 have been modified to make use of this relocation when 
+invoking the division routines.  I dunno how much in the way of hand-coded
+assembler you have that might make use of general division; probably none
+at all.
+
+Comments?  Questions?
+
+
+
+r~
+
+
+
+/* void * _dl_fixup (void *cookie, long reloc_offset, void *caller) */
+
+#define FRAMESIZE       14*8
+
+	.align  4
+        .globl  _dl_runtime_resolve_new
+        .ent    _dl_runtime_resolve_new
+_dl_runtime_resolve:
+        .frame  $30, FRAMESIZE, $26, 0
+        .mask   0x4000000, 0
+
+        ldah    $29, 0($27)             !gpdisp!1
+        lda     $30, -FRAMESIZE($30)
+        stq     $26, 0*8($30)
+        stq     $16, 2*8($30)
+
+        stq     $17, 3*8($30)
+        lda     $29, 0($29)             !gpdisp!1
+        stq     $18, 4*8($30)
+        mov     $28, $16                /* link_map from .got.plt */
+
+        stq     $19, 5*8($30)
+        mov     $25, $17                /* offset of reloc entry */
+        stq     $20, 6*8($30)
+        mov     $26, $18                /* return address */
+
+        stq     $21, 7*8($30)
+        stt     $f16, 8*8($30)
+        stt     $f17, 9*8($30)
+        stt     $f18, 10*8($30)
+
+        stt     $f19, 11*8($30)
+        stt     $f20, 12*8($30)
+        stt     $f21, 13*8($30)
+        .prologue 2
+
+        bsr     $26, _dl_fixup          !samegp
+        mov     $0, $27
+
+        ldq     $26, 0*8($30)
+        ldq     $16, 2*8($30)
+        ldq     $17, 3*8($30)
+        ldq     $18, 4*8($30)
+        ldq     $19, 5*8($30)
+        ldq     $20, 6*8($30)
+        ldq     $21, 7*8($30)
+        ldt     $f16, 8*8($30)
+        ldt     $f17, 9*8($30)
+        ldt     $f18, 10*8($30)
+        ldt     $f19, 11*8($30)
+        ldt     $f20, 12*8($30)
+        ldt     $f21, 13*8($30)
+        lda     $30, FRAMESIZE($30)
+        jmp     $31, ($27), 0
+        .end    _dl_runtime_resolve
+
+From rth at twiddle.net  Wed Jun  1 10:24:17 2005
+From: rth at twiddle.net (Richard Henderson)
+Date: Wed Jun  1 10:24:20 2005
+Subject: reloc_non_plt_obj buggy
+Message-ID: <20050601172416.GA4197@twiddle.net>
+
+>From src/libexec/rtld-elf/alpha/reloc.c:
+
+---------------------
+#define load64(p) ({						\
+	Elf_Addr __res;						\
+	__asm__("ldq_u %0,%1" : "=r"(__res) : "m"(*(p)));	\
+	__res; })
+
+#define store64(p, v)						\
+	__asm__("stq_u %1,%0" : "=m"(*(p)) : "r"(v))
+---------------------
+		case R_ALPHA_REFQUAD: {
+			const Elf_Sym *def;
+			const Obj_Entry *defobj;
+
+			def = find_symdef(ELF_R_SYM(rela->r_info), obj,
+			    &defobj, false, cache);
+			if (def == NULL)
+				return -1;
+			store64(where,
+			    (Elf_Addr) (defobj->relocbase + def->st_value) +
+			    load64(where) + rela->r_addend);
+		}
+---------------------
+
+Someone wasn't very clear on what ldq_u/stq_u actually does.
+You're not actually modifying the unaligned address, you're
+modifying (address & ~7), and corrupting the dwarf2 data in
+the process.
+
+You need to use
+
+struct ualong {
+  Elf_Addr x __attribute__((packed));
+};
+
+#define load64(p)	(((struct ualong *)(p))->x)
+#define store64(p,v)	(((struct ualong *)(p))->x = (v))
+
+
+
+r~
+From jspedron at club-internet.fr  Wed Jun  1 11:29:16 2005
+From: jspedron at club-internet.fr (=?UTF-8?B?SmVhbi1Tw6liYXN0aWVuIFDDqWRyb24=?=)
+Date: Wed Jun  1 11:29:18 2005
+Subject: [CALL FOR TESTERS] ReiserFS on non-i386 hardware patch
+In-Reply-To: <Pine.SOC.4.61.0506011555050.28761@tea.blinkenlights.nl>
+References: <429D860A.5000608@club-internet.fr>
+	<Pine.SOC.4.61.0506011555050.28761@tea.blinkenlights.nl>
+Message-ID: <429DFEA1.8000004@club-internet.fr>
+
+Sten Spans wrote:
+> A sample reiserfs image would be nice for testing.
+
+You're right, an image is available here (14 Mb compressed):
+http://people.freebsd.org/~dumbbell/reiserfs/images/REISERFS.bz2
+
+-- 
+Jean-S?bastien P?dron
+http://www.dumbbell.fr/
+
+PGP Key: http://www.dumbbell.fr/pgp/pubkey.asc
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 254 bytes
+Desc: OpenPGP digital signature
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050601/fa472671/signature.bin
+From jkim at niksun.com  Wed Jun  1 15:33:23 2005
+From: jkim at niksun.com (Jung-uk Kim)
+Date: Wed Jun  1 15:33:27 2005
+Subject: [CALL FOR TESTERS] ReiserFS on non-i386 hardware patch
+In-Reply-To: <429DFEA1.8000004@club-internet.fr>
+References: <429D860A.5000608@club-internet.fr>
+	<Pine.SOC.4.61.0506011555050.28761@tea.blinkenlights.nl>
+	<429DFEA1.8000004@club-internet.fr>
+Message-ID: <200506011833.12686.jkim@niksun.com>
+
+On Wednesday 01 June 2005 02:29 pm, Jean-S?bastien P?dron wrote:
+> Sten Spans wrote:
+> > A sample reiserfs image would be nice for testing.
+>
+> You're right, an image is available here (14 Mb compressed):
+> http://people.freebsd.org/~dumbbell/reiserfs/images/REISERFS.bz2
+
+I was able to mount and read it on amd64 but I had to modify
+src/sys/modules/reiserfs/Makefile a bit (I will explain it later).
+
+beastie# bunzip2 REISERFS.bz2
+beastie# mdconfig -a -t vnode -f REISERFS -u 0
+beastie# mount_reiserfs /dev/md0 /mnt
+beastie# ls -l /mnt
+total 8056
+drwxr-xr-x  2 root  wheel       96  8  6  2004 Evanescence
+drwxr-xr-x  5 1000  1000       120  9  1  2004 GNUstep
+-rw-r--r--  1 1000  1000   4548644  8 23  2004 Shrek.mp3
+lrwxrwxrwx  1 root  wheel       27  9  1  2004 dir_symlink -> GNUstep/Library/WindowMaker
+lrwxrwxrwx  1 root  wheel       41  9  1  2004 evanesnce.mp3 -> Evanescence/Evanescence - My Immortal.mp3
+-rw-r--r--  2 1000  1000      3176  9  1  2004 file_hardlink
+lrwxrwxrwx  1 root  wheel       23  9  1  2004 file_symlink -> GNUstep/Defaults/WPrefs
+-r-xr-xr-x  1 root  wheel  3680076 10 28  2004 ls
+-rw-r--r--  1 root  wheel       70  8  6  2004 motd
+beastie# cat /mnt/motd 
+Linux yui 2.4.26 #1 SMP Tue Jun 15 11:04:53 CEST 2004 i686 GNU/Linux
+
+beastie# uname -a
+FreeBSD beastie.xxx.xxx.xxx 6.0-CURRENT FreeBSD 6.0-CURRENT #0: Wed Jun  1 17:22:23 EDT 2005     jkim@beastie.xxx.xxx.xxx:/usr/src/sys/amd64/compile/BEASTIE  amd64
+beastie# umount /mnt
+beastie# mdconfig -d -u 0
+
+The kernel module doesn't load because of an amd64-specific GCC 3.4
+optimization bug.  To work around:
+
+Index: Makefile
+===================================================================
+RCS file: /home/ncvs/src/sys/modules/reiserfs/Makefile,v
+retrieving revision 1.1
+diff -u -r1.1 Makefile
+--- Makefile    24 May 2005 12:30:13 -0000      1.1
++++ Makefile    1 Jun 2005 22:22:52 -0000
+@@ -8,4 +8,8 @@
+        reiserfs_namei.c reiserfs_prints.c reiserfs_stree.c \
+        reiserfs_vfsops.c reiserfs_vnops.c
+ 
++.if ${MACHINE_ARCH} == "amd64"
++CFLAGS+=       -minline-all-stringops
++.endif
++
+ .include <bsd.kmod.mk>
+
+Without this, I get:
+
+link_elf_obj: symbol memset undefined
+kldload: Unsupported file type
+
+Note: 'Unsupported file type' is somewhat misleading here.  It just
+      means linker failed to find a symbol, in this case.
+
+For more information about the GCC bug, follow the thread:
+
+http://docs.freebsd.org/cgi/mid.cgi?IDTR9T00.LMF
+
+Thanks a lot for your work!
+
+Jung-uk Kim
+
+* Postscript: Is it legal to redistribute your MP3 files? ;-)
+From marcel at xcllnt.net  Wed Jun  1 22:38:06 2005
+From: marcel at xcllnt.net (Marcel Moolenaar)
+Date: Wed Jun  1 22:38:08 2005
+Subject: reloc_non_plt_obj buggy
+In-Reply-To: <20050601172416.GA4197@twiddle.net>
+References: <20050601172416.GA4197@twiddle.net>
+Message-ID: <dd23e5f52ea44881de2e59e606afb1d2@xcllnt.net>
+
+On Jun 1, 2005, at 10:24 AM, Richard Henderson wrote:
+
+>> From src/libexec/rtld-elf/alpha/reloc.c:
+>
+> ---------------------
+> #define load64(p) ({						\
+> 	Elf_Addr __res;						\
+> 	__asm__("ldq_u %0,%1" : "=r"(__res) : "m"(*(p)));	\
+> 	__res; })
+>
+> #define store64(p, v)						\
+> 	__asm__("stq_u %1,%0" : "=m"(*(p)) : "r"(v))
+> ---------------------
+>
+> Someone wasn't very clear on what ldq_u/stq_u actually does.
+> You're not actually modifying the unaligned address, you're
+> modifying (address & ~7), and corrupting the dwarf2 data in
+> the process.
+
+You're absolutely right.
+
+> You need to use
+>
+> struct ualong {
+>   Elf_Addr x __attribute__((packed));
+> };
+>
+> #define load64(p)	(((struct ualong *)(p))->x)
+> #define store64(p,v)	(((struct ualong *)(p))->x = (v))
+
+Committed as-is. Thanks,
+
+-- 
+  Marcel Moolenaar         USPA: A-39004          marcel@xcllnt.net
+
+From obrien at freebsd.org  Thu Jun  2 01:26:19 2005
+From: obrien at freebsd.org (David O'Brien)
+Date: Thu Jun  2 01:26:25 2005
+Subject: [CALL FOR TESTERS] ReiserFS on non-i386 hardware patch
+In-Reply-To: <200506011833.12686.jkim@niksun.com>
+References: <429D860A.5000608@club-internet.fr>
+	<Pine.SOC.4.61.0506011555050.28761@tea.blinkenlights.nl>
+	<429DFEA1.8000004@club-internet.fr>
+	<200506011833.12686.jkim@niksun.com>
+Message-ID: <20050602082615.GA36096@dragon.NUXI.org>
+
+On Wed, Jun 01, 2005 at 06:33:12PM -0400, Jung-uk Kim wrote:
+> The kernel module doesn't load because of an amd64-specific GCC 3.4
+> optimization bug.  To work around:
+> 
+> Index: Makefile
+> ===================================================================
+> RCS file: /home/ncvs/src/sys/modules/reiserfs/Makefile,v
+> retrieving revision 1.1
+> diff -u -r1.1 Makefile
+> --- Makefile    24 May 2005 12:30:13 -0000      1.1
+> +++ Makefile    1 Jun 2005 22:22:52 -0000
+> @@ -8,4 +8,8 @@
+>         reiserfs_namei.c reiserfs_prints.c reiserfs_stree.c \
+>         reiserfs_vfsops.c reiserfs_vnops.c
+>  
+> +.if ${MACHINE_ARCH} == "amd64"
+> +CFLAGS+=       -minline-all-stringops
+> +.endif
+> +
+
+Unfortunately we really don't like to put this type of CFLAGS in non-*.mk
+files.  Since we know the GCC 3.4.2 compiler bugs will be fixed, I
+suggest we just document this issue and be happy that otherwise the code
+is ready to go on FreeBSD/amd64.
+
+-- 
+-- David  (obrien@FreeBSD.org)
+From jspedron at club-internet.fr  Thu Jun  2 05:38:32 2005
+From: jspedron at club-internet.fr (=?ISO-8859-1?Q?Jean-S=E9bastien_P=E9dron?=)
+Date: Thu Jun  2 05:38:37 2005
+Subject: [CALL FOR TESTERS] ReiserFS on non-i386 hardware patch
+In-Reply-To: <20050602082615.GA36096@dragon.NUXI.org>
+References: <429D860A.5000608@club-internet.fr>	<Pine.SOC.4.61.0506011555050.28761@tea.blinkenlights.nl>	<429DFEA1.8000004@club-internet.fr>	<200506011833.12686.jkim@niksun.com>
+	<20050602082615.GA36096@dragon.NUXI.org>
+Message-ID: <429EFDC1.6040905@club-internet.fr>
+
+David O'Brien wrote:
+> On Wed, Jun 01, 2005 at 06:33:12PM -0400, Jung-uk Kim wrote:
+>
+>>The kernel module doesn't load because of an amd64-specific GCC 3.4
+>>optimization bug.  To work around:
+>>
+>>Index: Makefile
+>>===================================================================
+>>RCS file: /home/ncvs/src/sys/modules/reiserfs/Makefile,v
+>>retrieving revision 1.1
+>>diff -u -r1.1 Makefile
+>>--- Makefile    24 May 2005 12:30:13 -0000      1.1
+>>+++ Makefile    1 Jun 2005 22:22:52 -0000
+>>@@ -8,4 +8,8 @@
+>>        reiserfs_namei.c reiserfs_prints.c reiserfs_stree.c \
+>>        reiserfs_vfsops.c reiserfs_vnops.c
+>>
+>>+.if ${MACHINE_ARCH} == "amd64"
+>>+CFLAGS+=       -minline-all-stringops
+>>+.endif
+>>+
+>
+> Unfortunately we really don't like to put this type of CFLAGS in non-*.mk
+> files.  Since we know the GCC 3.4.2 compiler bugs will be fixed, I
+> suggest we just document this issue and be happy that otherwise the code
+> is ready to go on FreeBSD/amd64.
+
+Thank you Jung-Ku and David for your feedback.
+
+Olivier Houchard could test it on amd64 too and found another workaround
+for this same issue. The problem come from this macro:
+#define	INITIALIZE_PATH(var)					\
+     struct path var = { ILLEGAL_PATH_ELEMENT_OFFSET, }
+where gcc generates a call to memset(). By replacing it with:
+#define	INITIALIZE_PATH(var)					\
+     struct path var;						\
+     bzero(&var);						\
+     var.path_length = ILLEGAL_PATH_ELEMENT_OFFSET
+it works.
+
+I can add this (in favor of the CFLAGS workaround) and document it. When
+a fixed gcc will be in the tree, it'll be removed.
+
+--
+Jean-S?bastien P?dron
+http://www.dumbbell.fr/
+
+PGP Key: http://www.dumbbell.fr/pgp/pubkey.asc
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 252 bytes
+Desc: OpenPGP digital signature
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050602/01c437e7/signature.bin
+From jkim at niksun.com  Thu Jun  2 08:32:37 2005
+From: jkim at niksun.com (Jung-uk Kim)
+Date: Thu Jun  2 08:32:40 2005
+Subject: [CALL FOR TESTERS] ReiserFS on non-i386 hardware patch
+In-Reply-To: <429EFDC1.6040905@club-internet.fr>
+References: <429D860A.5000608@club-internet.fr>
+	<20050602082615.GA36096@dragon.NUXI.org>
+	<429EFDC1.6040905@club-internet.fr>
+Message-ID: <200506021132.29814.jkim@niksun.com>
+
+On Thursday 02 June 2005 08:38 am, Jean-S?bastien P?dron wrote:
+> David O'Brien wrote:
+> > On Wed, Jun 01, 2005 at 06:33:12PM -0400, Jung-uk Kim wrote:
+> >>The kernel module doesn't load because of an amd64-specific GCC
+> >> 3.4 optimization bug.  To work around:
+> >>
+> >>Index: Makefile
+> >>=================================================================
+> >>== RCS file: /home/ncvs/src/sys/modules/reiserfs/Makefile,v
+> >> retrieving revision 1.1
+> >>diff -u -r1.1 Makefile
+> >>--- Makefile    24 May 2005 12:30:13 -0000      1.1
+> >>+++ Makefile    1 Jun 2005 22:22:52 -0000
+> >>@@ -8,4 +8,8 @@
+> >>        reiserfs_namei.c reiserfs_prints.c reiserfs_stree.c \
+> >>        reiserfs_vfsops.c reiserfs_vnops.c
+> >>
+> >>+.if ${MACHINE_ARCH} == "amd64"
+> >>+CFLAGS+=       -minline-all-stringops
+> >>+.endif
+> >>+
+> >
+> > Unfortunately we really don't like to put this type of CFLAGS in
+> > non-*.mk files.
+
+Yeah, I agree.  That's ugly.
+
+> > Since we know the GCC 3.4.2 compiler bugs will be fixed, I suggest
+> > we just document this issue and be happy that otherwise the code
+> > is ready to go on FreeBSD/amd64. 
+
+Will it be fixed?  That's good news.  Do you know if there's GCC PR?
+
+> Thank you Jung-Ku and David for your feedback.
+            -------
+            Jung-uk ;-)
+
+> Olivier Houchard could test it on amd64 too and found another
+> workaround for this same issue.
+
+Cool.  It's good to hear that it was found.
+
+> The problem come from this macro: 
+> #define	INITIALIZE_PATH(var)					\
+>      struct path var = { ILLEGAL_PATH_ELEMENT_OFFSET, }
+> where gcc generates a call to memset(). By replacing it with:
+> #define	INITIALIZE_PATH(var)					\
+>      struct path var;						\
+>      bzero(&var);						\
+       ------------
+       bzero(&var, sizeof(struct path));
+
+>      var.path_length = ILLEGAL_PATH_ELEMENT_OFFSET
+> it works.
+
+Yes, it works (after the above fix).
+
+> I can add this (in favor of the CFLAGS workaround) and document it.
+> When a fixed gcc will be in the tree, it'll be removed.
+
+Please do so.
+
+Thanks again,
+
+Jung-uk Kim
+
+> --
+> Jean-S?bastien P?dron
+> http://www.dumbbell.fr/
+>
+> PGP Key: http://www.dumbbell.fr/pgp/pubkey.asc
+From jspedron at club-internet.fr  Thu Jun  2 09:03:49 2005
+From: jspedron at club-internet.fr (=?UTF-8?B?SmVhbi1Tw6liYXN0aWVuIFDDqWRyb24=?=)
+Date: Thu Jun  2 09:03:53 2005
+Subject: [CALL FOR TESTERS] ReiserFS on non-i386 hardware patch
+In-Reply-To: <200506021132.29814.jkim@niksun.com>
+References: <429D860A.5000608@club-internet.fr>
+	<20050602082615.GA36096@dragon.NUXI.org>
+	<429EFDC1.6040905@club-internet.fr>
+	<200506021132.29814.jkim@niksun.com>
+Message-ID: <429F2DD8.7060700@club-internet.fr>
+
+Jung-uk Kim wrote:
+>>Thank you Jung-Ku and David for your feedback.
+>
+>             -------
+>             Jung-uk ;-)
+
+Oops, sorry for this, Jung-uk :)
+
+>>The problem come from this macro:
+>>#define	INITIALIZE_PATH(var)					\
+>>     struct path var = { ILLEGAL_PATH_ELEMENT_OFFSET, }
+>>where gcc generates a call to memset(). By replacing it with:
+>>#define	INITIALIZE_PATH(var)					\
+>>     struct path var;						\
+>>     bzero(&var);						\
+>
+>        ------------
+>        bzero(&var, sizeof(struct path));
+>
+>>     var.path_length = ILLEGAL_PATH_ELEMENT_OFFSET
+>>it works.
+>
+> Yes, it works (after the above fix).
+
+I just wrote this code from memory, Olivier's fix was right at the
+beginning.
+
+--
+Jean-S?bastien P?dron
+http://www.dumbbell.fr/
+
+PGP Key: http://www.dumbbell.fr/pgp/pubkey.asc
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 252 bytes
+Desc: OpenPGP digital signature
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050602/4d9eee5f/signature.bin
+From drosih at rpi.edu  Thu Jun  2 18:28:08 2005
+From: drosih at rpi.edu (Garance A Drosihn)
+Date: Thu Jun  2 18:28:12 2005
+Subject: [CALL FOR TESTERS] ReiserFS on non-i386 hardware patch
+In-Reply-To: <429D860A.5000608@club-internet.fr>
+References: <429D860A.5000608@club-internet.fr>
+Message-ID: <p06210226bec55a4b45a4@[128.113.24.47]>
+
+At 11:55 AM +0200 6/1/05, Jean-S?bastien P?dron wrote:
+>Hi everyone,
+>
+>I made a patch that should fix portability issues of ReiserFS but I
+>don't have access to all platforms supported by FreeBSD. I tested it
+>on sparc64 and Olivier Houchard tried it on arm.
+>
+>I would like to know if someone could test it and report any success
+>or failure?
+
+I tried it on PowerPC.  Following the instructions given by
+Jung-uk Kim <jkim@niksun.com>, it looks like it is working okay
+for me:
+
+(68) # mdconfig -a -t vnode -f REISERFS -u 0
+(69) # mount_reiserfs /dev/md0 /mnt
+
+(70) # ls -l /mnt
+total 8056
+drwxr-xr-x  2 root  wheel       96 Aug  6  2004 Evanescence/
+drwxr-xr-x  5 1000  1000       120 Sep  1  2004 GNUstep/
+-rw-r--r--  1 1000  1000   4548644 Aug 23  2004 Shrek.mp3
+lrwxrwxrwx  1 root  wheel       27 Sep  1  2004 
+dir_symlink@ -> GNUstep/Library/WindowMaker
+lrwxrwxrwx  1 root  wheel       41 Sep  1  2004 
+evanesnce.mp3@ -> Evanescence/Evanescence - My 
+Immortal.mp3
+-rw-r--r--  2 1000  1000      3176 Sep  1  2004 file_hardlink
+lrwxrwxrwx  1 root  wheel       23 Sep  1  2004 
+file_symlink@ -> GNUstep/Defaults/WPrefs
+-r-xr-xr-x  1 root  wheel  3680076 Oct 28  2004 ls*
+-rw-r--r--  1 root  wheel       70 Aug  6  2004 motd
+
+(71) # ls -lL /mnt
+total 16605
+drwxr-xr-x  2 root  wheel       96 Aug  6  2004 Evanescence/
+drwxr-xr-x  5 1000  1000       120 Sep  1  2004 GNUstep/
+-rw-r--r--  1 1000  1000   4548644 Aug 23  2004 Shrek.mp3
+drwxr-xr-x  9 1000  1000      1528 Sep  1  2004 dir_symlink/
+-rw-r--r--  1 root  wheel  8737899 Aug  6  2004 evanesnce.mp3
+-rw-r--r--  2 1000  1000      3176 Sep  1  2004 file_hardlink
+-rw-r--r--  1 1000  1000       424 Sep  1  2004 file_symlink
+-r-xr-xr-x  1 root  wheel  3680076 Oct 28  2004 ls*
+-rw-r--r--  1 root  wheel       70 Aug  6  2004 motd
+
+(72) # mount
+/dev/ad0s5 on / (ufs, local)
+devfs on /dev (devfs, local)
+/dev/md0 on /mnt (reiserfs, local, read-only)
+(73) # umount /mnt
+(74) # mdconfig -d -u 0
+
+Let me know if there's anything else I should test with it.
+
+-- 
+Garance Alistair Drosehn            =   gad@gilead.netel.rpi.edu
+Senior Systems Programmer           or  gad@freebsd.org
+Rensselaer Polytechnic Institute    or  drosih@rpi.edu
+From jspedron at club-internet.fr  Fri Jun  3 04:53:33 2005
+From: jspedron at club-internet.fr (=?ISO-8859-1?Q?Jean-S=E9bastien_P=E9dron?=)
+Date: Fri Jun  3 04:53:38 2005
+Subject: [CALL FOR TESTERS] ReiserFS on non-i386 hardware patch
+In-Reply-To: <p06210226bec55a4b45a4@[128.113.24.47]>
+References: <429D860A.5000608@club-internet.fr>
+	<p06210226bec55a4b45a4@[128.113.24.47]>
+Message-ID: <42A044BF.5060300@club-internet.fr>
+
+Garance A Drosihn wrote:
+> At 11:55 AM +0200 6/1/05, Jean-S?bastien P?dron wrote:
+>
+>> Hi everyone,
+>>
+>> I made a patch that should fix portability issues of ReiserFS but I
+>> don't have access to all platforms supported by FreeBSD. I tested it
+>> on sparc64 and Olivier Houchard tried it on arm.
+>>
+>> I would like to know if someone could test it and report any success
+>> or failure?
+>
+>
+> I tried it on PowerPC.  Following the instructions given by
+> Jung-uk Kim <jkim@niksun.com>, it looks like it is working okay
+> for me:
+
+Did you try withtout Jung-uk Kim's workaround?
+
+> Let me know if there's anything else I should test with it.
+
+Thank you for your tests. You may try this with `motd' (small file which
+fits inside a block, with its metadata):
+	. cp motd /tmp (mmap(2))
+	. compare md5 of motd and /tmp/motd (read(2))
+You may do it again with `ls' which spans multiple bocks (these two
+files are stored differently in ReiserFS).
+
+--
+Jean-S?bastien P?dron
+http://www.dumbbell.fr/
+
+PGP Key: http://www.dumbbell.fr/pgp/pubkey.asc
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: signature.asc
+Type: application/pgp-signature
+Size: 252 bytes
+Desc: OpenPGP digital signature
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050603/1f4b2e7b/signature.bin
+From drosih at rpi.edu  Fri Jun  3 11:55:43 2005
+From: drosih at rpi.edu (Garance A Drosihn)
+Date: Fri Jun  3 11:55:46 2005
+Subject: [CALL FOR TESTERS] ReiserFS on non-i386 hardware patch
+In-Reply-To: <42A044BF.5060300@club-internet.fr>
+References: <429D860A.5000608@club-internet.fr>
+	<p06210226bec55a4b45a4@[128.113.24.47]>
+	<42A044BF.5060300@club-internet.fr>
+Message-ID: <p06210227bec64e5c7a33@[128.113.24.47]>
+
+At 1:53 PM +0200 6/3/05, Jean-S?bastien P?dron wrote:
+>Garance A Drosihn wrote:
+>>At 11:55 AM +0200 6/1/05, Jean-S?bastien P?dron wrote:
+>>
+>>>Hi everyone,
+>>>
+>>>I made a patch that should fix portability issues of ReiserFS but I
+>>>don't have access to all platforms supported by FreeBSD. I tested it
+>>>on sparc64 and Olivier Houchard tried it on arm.
+>>>
+>>>I would like to know if someone could test it and report any success
+>>>or failure?
+>>
+>>
+>>I tried it on PowerPC.  Following the instructions given by
+>>Jung-uk Kim <jkim@niksun.com>, it looks like it is working okay
+>>for me:
+>
+>Did you try withtout Jung-uk Kim's workaround?
+
+The only thing I applied was your original patch, and then added
+"options REISERFS" to my custom kernel configuration.  Note that
+PPC is still a 32-bit architecture on FreeBSD, so I wouldn't see
+anything which was a 64-bit issue.
+
+>>Let me know if there's anything else I should test with it.
+>
+>... try this with `motd' (small file which fits inside a block,
+>with its metadata):
+>	. cp motd /tmp (mmap(2))
+>	. compare md5 of motd and /tmp/motd (read(2))
+>You may do it again with `ls' which spans multiple bocks (these
+>two files are stored differently in ReiserFS).
+
+(90) cd /mnt
+(91) cp motd /tmp
+(92) cp evanesnce.mp3 /tmp
+(93) cp ls /tmp
+(94) md5 -r evanesnce.mp3 ls motd
+f431f46c2c3bae9b94172691a667eada evanesnce.mp3
+c9ea68636b3bea3b5cac8205fd4417ef ls
+2ffa53790de34b7561f5661fb7f22a1d motd
+
+(95) cd /tmp
+(96) md5 -r evanesnce.mp3 ls motd
+f431f46c2c3bae9b94172691a667eada evanesnce.mp3
+c9ea68636b3bea3b5cac8205fd4417ef ls
+2ffa53790de34b7561f5661fb7f22a1d motd
+
+-- 
+Garance Alistair Drosehn            =   gad@gilead.netel.rpi.edu
+Senior Systems Programmer           or  gad@freebsd.org
+Rensselaer Polytechnic Institute    or  drosih@rpi.edu
+From wb at freebie.xs4all.nl  Sun Jun  5 11:44:59 2005
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Sun Jun  5 11:45:01 2005
+Subject: 5.4-STABLE problem on 164SX?
+Message-ID: <20050605184456.GA78612@freebie.xs4all.nl>
+
+Folks,
+
+After just having built the June 2005 6.0 and 5.4-STABLE
+snapshots I tested them on my 164SX.
+
+6.0 works OK, but 5.4-STABLE after a test install gives me a hang
+when rebooting from the freshly installed disk:
+
+cd0 at ahc0 bus 0 target 0 lun 0
+cd0: <TOSHIBA CD-ROM XM-6201TA 1206> Removable CD-ROM SCSI-2 device 
+cd0: 10.000MB/s transfers (10.000MHz, offset 15)
+cd0: Attempt to query device size failed: NOT READY, Medium not present
+da0 at ahc0 bus 0 target 1 lun 0
+da0: <IBM DDRS-39130W S92A> Fixed Direct Access SCSI-2 device 
+da0: Serial Number REF38392        
+da0: 40.000MB/s transfers (20.000MHz, offset 8, 16bit), Tagged Queueing
+Enabled
+da0: 8715MB (17850000 512 byte sectors: 255H 63S/T 1111C)
+(ahc0:A:0:0): Sending SDTR period 19, offset f
+(ahc0:A:0:0): Received SDTR period 19, offset f
+        Filtered to period 19, offset f
+(cd0:ahc0:0:0:0): error 6
+(cd0:ahc0:0:0:0): Unretryable Error
+(ahc0:A:0:0): Sending SDTR period 19, offset f
+(ahc0:A:0:0): Received SDTR period 19, offset f
+        Filtered to period 19, offset f
+(cd0:ahc0:0:0:0): error 6
+(cd0:ahc0:0:0:0): Unretryable Error
+GEOM: Configure da0a, start 0 length 268435456 end 268435455
+GEOM: Configure da0b, start 268435456 length 2143109120 end 2411544575
+GEOM: Configure da0c, start 0 length 9139200000 end 9139199999
+GEOM: Configure da0d, start 2411544576 length 268435456 end 2679980031
+GEOM: Configure da0e, start 2679980032 length 268435456 end 2948415487
+GEOM: Configure da0f, start 2948415488 length 6190784512 end 9139199999
+Mounting root from ufs:/dev/da0a
+start_init: trying /sbin/init
+
+<hang>
+
+On the DS10 the same thing works just fine.
+
+I would appreciate if people with other Alpha models could try the SNAP
+to see if it is just my box.  
+
+W/
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From ticso at cicely12.cicely.de  Sun Jun  5 12:54:41 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Sun Jun  5 12:54:43 2005
+Subject: 5.4-STABLE problem on 164SX?
+In-Reply-To: <20050605184456.GA78612@freebie.xs4all.nl>
+References: <20050605184456.GA78612@freebie.xs4all.nl>
+Message-ID: <20050605195404.GR60590@cicely12.cicely.de>
+
+On Sun, Jun 05, 2005 at 08:44:56PM +0200, Wilko Bulte wrote:
+> Folks,
+> 
+> After just having built the June 2005 6.0 and 5.4-STABLE
+> snapshots I tested them on my 164SX.
+> 
+> 6.0 works OK, but 5.4-STABLE after a test install gives me a hang
+> when rebooting from the freshly installed disk:
+> 
+> cd0 at ahc0 bus 0 target 0 lun 0
+> cd0: <TOSHIBA CD-ROM XM-6201TA 1206> Removable CD-ROM SCSI-2 device 
+> cd0: 10.000MB/s transfers (10.000MHz, offset 15)
+> cd0: Attempt to query device size failed: NOT READY, Medium not present
+> da0 at ahc0 bus 0 target 1 lun 0
+> da0: <IBM DDRS-39130W S92A> Fixed Direct Access SCSI-2 device 
+> da0: Serial Number REF38392        
+> da0: 40.000MB/s transfers (20.000MHz, offset 8, 16bit), Tagged Queueing
+> Enabled
+> da0: 8715MB (17850000 512 byte sectors: 255H 63S/T 1111C)
+> (ahc0:A:0:0): Sending SDTR period 19, offset f
+> (ahc0:A:0:0): Received SDTR period 19, offset f
+>         Filtered to period 19, offset f
+> (cd0:ahc0:0:0:0): error 6
+> (cd0:ahc0:0:0:0): Unretryable Error
+> (ahc0:A:0:0): Sending SDTR period 19, offset f
+> (ahc0:A:0:0): Received SDTR period 19, offset f
+>         Filtered to period 19, offset f
+> (cd0:ahc0:0:0:0): error 6
+> (cd0:ahc0:0:0:0): Unretryable Error
+> GEOM: Configure da0a, start 0 length 268435456 end 268435455
+> GEOM: Configure da0b, start 268435456 length 2143109120 end 2411544575
+> GEOM: Configure da0c, start 0 length 9139200000 end 9139199999
+> GEOM: Configure da0d, start 2411544576 length 268435456 end 2679980031
+> GEOM: Configure da0e, start 2679980032 length 268435456 end 2948415487
+> GEOM: Configure da0f, start 2948415488 length 6190784512 end 9139199999
+> Mounting root from ufs:/dev/da0a
+> start_init: trying /sbin/init
+> 
+> <hang>
+> 
+> On the DS10 the same thing works just fine.
+> 
+> I would appreciate if people with other Alpha models could try the SNAP
+> to see if it is just my box.  
+
+I personally never had success with any ahc controller in any alpha.
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+
+From victor at bsdes.net  Sun Jun  5 12:58:16 2005
+From: victor at bsdes.net (Victor Balada Diaz)
+Date: Sun Jun  5 12:58:17 2005
+Subject: 5.4-STABLE problem on 164SX?
+In-Reply-To: <20050605184456.GA78612@freebie.xs4all.nl>
+References: <20050605184456.GA78612@freebie.xs4all.nl>
+Message-ID: <20050605195733.GK691@pato.euesrg02.net>
+
+On Sun, Jun 05, 2005 at 08:44:56PM +0200, Wilko Bulte wrote:
+> Folks,
+> 
+> After just having built the June 2005 6.0 and 5.4-STABLE
+> snapshots I tested them on my 164SX.
+> 
+> 6.0 works OK, but 5.4-STABLE after a test install gives me a hang
+> when rebooting from the freshly installed disk:
+> 
+> On the DS10 the same thing works just fine.
+> 
+> I would appreciate if people with other Alpha models could try the SNAP
+> to see if it is just my box.  
+
+I tried the bootonly iso and it crash on my MiataGL. More info of
+the hardware here[1]. boot -v:
+
+
+OK boot -v
+Entering /boot/kernel/kernel at 0xfffffc000034bbb0...
+GDB: debug ports: sio
+GDB: current port: sio
+KDB: debugger backends: ddb gdb
+KDB: current backend: ddb
+Copyright (c) 1992-2005 The FreeBSD Project.
+Copyright (c) 1979, 1980, 1983, 1986, 1988, 1989, 1991, 1992, 1993, 1994
+        The Regents of the University of California. All rights reserved.
+FreeBSD 6-CURRENT-SNAP004 #0: Sat Jun  4 20:41:35 UTC 2005
+    root@ds10.freebie.xs4all.nl:/usr/obj/usr/src/sys/GENERIC
+Preloaded elf kernel "/boot/kernel/kernel" at 0xfffffc0000e42000.
+Preloaded mfs_root "/boot/mfsroot" at 0xfffffc0000e420e0.
+Digital Personal Workstation (Miata)
+Digital Personal WorkStation 500au, 500MHz
+8192 byte page size, 1 processor.
+CPU: EV56 (21164A) major=7 minor=0 extensions=0x1<BWX>
+OSF PAL rev: 0x1000000020116
+real memory  = 132276224 (126 MB)
+Physical memory chunk(s):
+0x00e62000 - 0x07dfbfff, 117022720 bytes (14285 pages)
+avail memory = 115507200 (110 MB)
+mem: <memory>
+null: <null device, zero device>
+random: <entropy source, Software, Yarrow>
+nfslock: pseudo-device
+cia0: <2117x Core Logic chipset>
+cia0: Pyxis, pass 1
+cia0: extended capabilities: 1<BWEN>
+pcib0: <2117x PCI host bus adapter> on cia0
+pci0: <PCI bus> on pcib0
+pci0: physical bus=0
+found-> vendor=0x1011, dev=0x0019, revid=0x30
+        bus=0, slot=3, func=0
+        class=02-00-00, hdrtype=0x00, mfdev=0
+        cmdreg=0x0047, statreg=0x0280, cachelnsz=16 (dwords)
+        lattimer=0xff (7650 ns), mingnt=0x14 (5000 ns), maxlat=0x28 (10000 ns)
+        intpin=a, irq=0
+        map[10]: type 4, range 32, base 00009000, size  7, enabled
+        map[14]: type 1, range 32, base 80159000, size  7, enabled
+found-> vendor=0x1080, dev=0xc693, revid=0x00
+        bus=0, slot=7, func=0
+        class=06-01-00, hdrtype=0x00, mfdev=1
+        cmdreg=0x0047, statreg=0x0280, cachelnsz=0 (dwords)
+        lattimer=0x00 (0 ns), mingnt=0x00 (0 ns), maxlat=0x00 (0 ns)
+found-> vendor=0x1080, dev=0xc693, revid=0x00
+        bus=0, slot=7, func=1
+        class=01-01-80, hdrtype=0x00, mfdev=1
+        cmdreg=0x0045, statreg=0x0280, cachelnsz=0 (dwords)
+        lattimer=0x00 (0 ns), mingnt=0x00 (0 ns), maxlat=0x00 (0 ns)
+        intpin=a, irq=238
+        map[20]: type 4, range 32, base 000090a0, size  4, enabled
+found-> vendor=0x1080, dev=0xc693, revid=0x00
+        bus=0, slot=7, func=2
+        class=01-01-00, hdrtype=0x00, mfdev=1
+        cmdreg=0x0045, statreg=0x0280, cachelnsz=0 (dwords)
+        lattimer=0x00 (0 ns), mingnt=0x00 (0 ns), maxlat=0x00 (0 ns)
+        intpin=b, irq=239
+        map[10]: type 4, range 32, base 00000170, size  3, enabled
+        map[14]: type 4, range 32, base 00000374, size  2, enabled
+        map[20]: type 1, range 32, base 80140000, size 16, memory disabled
+found-> vendor=0x1080, dev=0xc693, revid=0x00
+        bus=0, slot=7, func=3
+        class=0c-03-10, hdrtype=0x00, mfdev=1
+        cmdreg=0x0047, statreg=0x0280, cachelnsz=0 (dwords)
+        lattimer=0xf8 (7440 ns), mingnt=0x00 (0 ns), maxlat=0x00 (0 ns)
+        intpin=a, irq=234
+        map[10]: type 1, range 32, base 80158000, size 12, enabled
+found-> vendor=0x1011, dev=0x000d, revid=0x22
+        bus=0, slot=11, func=0
+        class=03-00-00, hdrtype=0x00, mfdev=0
+        cmdreg=0x0047, statreg=0x8280, cachelnsz=0 (dwords)
+        lattimer=0xff (7650 ns), mingnt=0x08 (2000 ns), maxlat=0x40 (16000 ns)
+        intpin=a, irq=4
+        map[10]: type 3, range 32, base 90000000, size 25, enabled
+found-> vendor=0x1011, dev=0x0024, revid=0x03
+        bus=0, slot=20, func=0
+        class=06-04-00, hdrtype=0x01, mfdev=0
+        cmdreg=0x0107, statreg=0x0290, cachelnsz=16 (dwords)
+        lattimer=0xff (7650 ns), mingnt=0x20 (8000 ns), maxlat=0x00 (0 ns)
+dc0: <Intel 21143 10/100BaseTX> port 0x9000-0x907f mem 0x80159000-0x8015907f ir0
+dc0: Reserved 0x80 bytes for rid 0x10 type 4 at 0x9000
+miibus0: <MII bus> on dc0
+nsphy0: <DP83840 10/100 media interface> on miibus0
+nsphy0:  10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, auto
+dc0: bpf attached
+dc0: Ethernet address: 08:00:2b:86:35:88
+dc0: if_start running deferred for Giant
+dc0: interrupting at CIA irq 0
+dc0: [GIANT-LOCKED]
+isab0: <PCI-ISA bridge> at device 7.0 on pci0
+isa0: <ISA bus> on isab0
+atapci0: <Cypress 82C693 ATA controller> port 0x1f0-0x1f7,0x3f6,0x170-0x177,0x30
+atapci0: Reserved 0x10 bytes for rid 0x20 type 4 at 0x90a0
+ata0: <ATA channel 0> on atapci0
+atapci0: Reserved 0x8 bytes for rid 0x10 type 4 at 0x1f0
+atapci0: Reserved 0x1 bytes for rid 0x14 type 4 at 0x3f6
+ata0: reset tp1 mask=00 ostat0=ff ostat1=ff
+ata0: interrupting at ISA irq 14
+ata0: [MPSAFE]
+ata1: <ATA channel 1> on atapci0
+atapci0: Reserved 0x8 bytes for rid 0x18 type 4 at 0x170
+atapci0: Reserved 0x1 bytes for rid 0x1c type 4 at 0x376
+ata1: reset tp1 mask=03 ostat0=50 ostat1=00
+ata1: stat0=0x00 err=0x01 lsb=0x14 msb=0xeb
+ata1: stat1=0x00 err=0x04 lsb=0xff msb=0xff
+ata1: reset tp2 stat0=00 stat1=00 devices=0x4<ATAPI_MASTER>
+ata1: interrupting at ISA irq 15
+ata1: [MPSAFE]
+atapci1: <GENERIC ATA controller> port 0x170-0x177,0x374-0x377 mem 0x80140000-00
+atapci1: rid 0x20 is memory, requested 4
+atapci1: unable to map interrupt
+ata2: <ATA channel 0> on atapci1
+device_attach: ata2 attach returned 6
+ohci0: <OHCI (generic) USB controller> mem 0x80158000-0x80158fff irq 234 at dev0
+ohci0: Reserved 0x1000 bytes for rid 0x10 type 3 at 0x80158000
+ohci0: (New OHCI DeviceId=0xc6931080)
+ohci0: interrupting at ISA irq 10
+ohci0: [GIANT-LOCKED]
+usb0: OHCI version 1.0, legacy support
+usb0: <OHCI (generic) USB controller> on ohci0
+usb0: USB revision 1.0
+uhub0: (0x1080) OHCI root hub, class 9/0, rev 1.00/1.00, addr 1
+uhub0: 2 ports with 2 removable, self powered
+pci0: <display, VGA> at device 11.0 (no driver attached)
+pcib1: <PCI-PCI bridge> at device 20.0 on pci0
+pcib1:   secondary bus     1
+pcib1:   subordinate bus   0
+pcib1:   I/O decode        0x8000-0x8fff
+pcib1:   memory decode     0x80000000-0x800fffff
+pcib1:   prefetched decode 0xfff00000-0xfffff
+pci1: <PCI bus> on pcib1
+pci1: physical bus=1
+found-> vendor=0x1077, dev=0x1020, revid=0x05
+        bus=1, slot=4, func=0
+        class=01-00-00, hdrtype=0x00, mfdev=0
+        cmdreg=0x0047, statreg=0x0200, cachelnsz=16 (dwords)
+        lattimer=0xf8 (7440 ns), mingnt=0x00 (0 ns), maxlat=0x00 (0 ns)
+        intpin=a, irq=3
+        map[10]: type 4, range 32, base 00008000, size  8, enabled
+pcib1: (null) requested I/O range 0x8000-0x80ff: in range
+        map[14]: type 1, range 32, base 80010000, size 12, enabled
+pcib1: (null) requested memory range 0x80010000-0x80010fff: good
+Qlogic ISP Driver, FreeBSD Version 5.9, Core Version 2.9
+isp0: <Qlogic ISP 1020/1040 PCI SCSI Adapter> port 0x8000-0x80ff mem 0x800100001
+isp0: Reserved 0x1000 bytes for rid 0x14 type 3 at 0x80010000
+isp0: using Memory space register mapping
+isp0: interrupting at CIA irq 3
+isp0: [GIANT-LOCKED]
+isp0: Ultra Mode Capable
+isp0: Board Type 1040B, Chip Revision 0x5, loaded F/W Revision 4.66.0
+isp0: Last F/W revision was 5.57.1
+isp0: 243 max I/O commands supported
+isp0: Initiator ID is 7 on Channel 0
+
+halted CPU 0
+
+halt code = 5
+HALT instruction executed
+PC = 0
+>>>
+
+
+[1]: http://lists.freebsd.org/pipermail/freebsd-alpha/2005-April/002305.html
+-- 
+La prueba mas fehaciente de que existe vida inteligente en otros
+planetas, es que no han intentado contactar con nosotros. 
+From wb at freebie.xs4all.nl  Sun Jun  5 20:28:41 2005
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Sun Jun  5 20:28:44 2005
+Subject: 5.4-STABLE problem on 164SX?
+In-Reply-To: <20050605195404.GR60590@cicely12.cicely.de>
+References: <20050605184456.GA78612@freebie.xs4all.nl>
+	<20050605195404.GR60590@cicely12.cicely.de>
+Message-ID: <20050605202838.GA79070@freebie.xs4all.nl>
+
+On Sun, Jun 05, 2005 at 09:54:05PM +0200, Bernd Walter wrote..
+> On Sun, Jun 05, 2005 at 08:44:56PM +0200, Wilko Bulte wrote:
+> > Folks,
+> > 
+> > After just having built the June 2005 6.0 and 5.4-STABLE
+> > snapshots I tested them on my 164SX.
+> > 
+> > 6.0 works OK, but 5.4-STABLE after a test install gives me a hang
+> > when rebooting from the freshly installed disk:
+> > 
+> > cd0 at ahc0 bus 0 target 0 lun 0
+> > cd0: <TOSHIBA CD-ROM XM-6201TA 1206> Removable CD-ROM SCSI-2 device 
+> > cd0: 10.000MB/s transfers (10.000MHz, offset 15)
+> > cd0: Attempt to query device size failed: NOT READY, Medium not present
+> > da0 at ahc0 bus 0 target 1 lun 0
+> > da0: <IBM DDRS-39130W S92A> Fixed Direct Access SCSI-2 device 
+> > da0: Serial Number REF38392        
+> > da0: 40.000MB/s transfers (20.000MHz, offset 8, 16bit), Tagged Queueing
+> > Enabled
+> > da0: 8715MB (17850000 512 byte sectors: 255H 63S/T 1111C)
+> > (ahc0:A:0:0): Sending SDTR period 19, offset f
+> > (ahc0:A:0:0): Received SDTR period 19, offset f
+> >         Filtered to period 19, offset f
+> > (cd0:ahc0:0:0:0): error 6
+> > (cd0:ahc0:0:0:0): Unretryable Error
+> > (ahc0:A:0:0): Sending SDTR period 19, offset f
+> > (ahc0:A:0:0): Received SDTR period 19, offset f
+> >         Filtered to period 19, offset f
+> > (cd0:ahc0:0:0:0): error 6
+> > (cd0:ahc0:0:0:0): Unretryable Error
+> > GEOM: Configure da0a, start 0 length 268435456 end 268435455
+> > GEOM: Configure da0b, start 268435456 length 2143109120 end 2411544575
+> > GEOM: Configure da0c, start 0 length 9139200000 end 9139199999
+> > GEOM: Configure da0d, start 2411544576 length 268435456 end 2679980031
+> > GEOM: Configure da0e, start 2679980032 length 268435456 end 2948415487
+> > GEOM: Configure da0f, start 2948415488 length 6190784512 end 9139199999
+> > Mounting root from ufs:/dev/da0a
+> > start_init: trying /sbin/init
+> > 
+> > <hang>
+> > 
+> > On the DS10 the same thing works just fine.
+> > 
+> > I would appreciate if people with other Alpha models could try the SNAP
+> > to see if it is just my box.  
+> 
+> I personally never had success with any ahc controller in any alpha.
+
+In what sense?  Booting an ahc?  Only a few SRM versions / machine models
+can do that.  But the 164SX allows me to install and boot 6.0-current
+without problems.
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From ticso at cicely12.cicely.de  Sun Jun  5 22:30:43 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Sun Jun  5 22:30:46 2005
+Subject: 5.4-STABLE problem on 164SX?
+In-Reply-To: <20050605202838.GA79070@freebie.xs4all.nl>
+References: <20050605184456.GA78612@freebie.xs4all.nl>
+	<20050605195404.GR60590@cicely12.cicely.de>
+	<20050605202838.GA79070@freebie.xs4all.nl>
+Message-ID: <20050605223008.GT60590@cicely12.cicely.de>
+
+On Sun, Jun 05, 2005 at 10:28:38PM +0200, Wilko Bulte wrote:
+> On Sun, Jun 05, 2005 at 09:54:05PM +0200, Bernd Walter wrote..
+> > On Sun, Jun 05, 2005 at 08:44:56PM +0200, Wilko Bulte wrote:
+> > > Folks,
+> > > 
+> > > After just having built the June 2005 6.0 and 5.4-STABLE
+> > > snapshots I tested them on my 164SX.
+> > > 
+> > > 6.0 works OK, but 5.4-STABLE after a test install gives me a hang
+> > > when rebooting from the freshly installed disk:
+> > > 
+> > > cd0 at ahc0 bus 0 target 0 lun 0
+> > > cd0: <TOSHIBA CD-ROM XM-6201TA 1206> Removable CD-ROM SCSI-2 device 
+> > > cd0: 10.000MB/s transfers (10.000MHz, offset 15)
+> > > cd0: Attempt to query device size failed: NOT READY, Medium not present
+> > > da0 at ahc0 bus 0 target 1 lun 0
+> > > da0: <IBM DDRS-39130W S92A> Fixed Direct Access SCSI-2 device 
+> > > da0: Serial Number REF38392        
+> > > da0: 40.000MB/s transfers (20.000MHz, offset 8, 16bit), Tagged Queueing
+> > > Enabled
+> > > da0: 8715MB (17850000 512 byte sectors: 255H 63S/T 1111C)
+> > > (ahc0:A:0:0): Sending SDTR period 19, offset f
+> > > (ahc0:A:0:0): Received SDTR period 19, offset f
+> > >         Filtered to period 19, offset f
+> > > (cd0:ahc0:0:0:0): error 6
+> > > (cd0:ahc0:0:0:0): Unretryable Error
+> > > (ahc0:A:0:0): Sending SDTR period 19, offset f
+> > > (ahc0:A:0:0): Received SDTR period 19, offset f
+> > >         Filtered to period 19, offset f
+> > > (cd0:ahc0:0:0:0): error 6
+> > > (cd0:ahc0:0:0:0): Unretryable Error
+> > > GEOM: Configure da0a, start 0 length 268435456 end 268435455
+> > > GEOM: Configure da0b, start 268435456 length 2143109120 end 2411544575
+> > > GEOM: Configure da0c, start 0 length 9139200000 end 9139199999
+> > > GEOM: Configure da0d, start 2411544576 length 268435456 end 2679980031
+> > > GEOM: Configure da0e, start 2679980032 length 268435456 end 2948415487
+> > > GEOM: Configure da0f, start 2948415488 length 6190784512 end 9139199999
+> > > Mounting root from ufs:/dev/da0a
+> > > start_init: trying /sbin/init
+> > > 
+> > > <hang>
+> > > 
+> > > On the DS10 the same thing works just fine.
+> > > 
+> > > I would appreciate if people with other Alpha models could try the SNAP
+> > > to see if it is just my box.  
+> > 
+> > I personally never had success with any ahc controller in any alpha.
+> 
+> In what sense?  Booting an ahc?  Only a few SRM versions / machine models
+> can do that.  But the 164SX allows me to install and boot 6.0-current
+> without problems.
+
+Using it under FreeBSD.
+I tried 3985, 2940, 2940UW and 2944W in NoName, PC164 and AS4100 using
+memory and io mode, all with similar results - randomly ahc won't
+attach, because transport tests with io and memory space failed and
+if it attaches you see various kind of data corruption or possibly
+timeouts while probing.
+All of the cards were verified to run under i386 based systems.
+This happened to me since early 4.x times.
+Especially the ahc self test, that sometimes failed, was very promissing
+to debug things, but I got no reply when asking for details about this
+test last year, when I did lots of testing with AS4100 and bridged cards.
+IIRC this test is only run if you are using memory range, which requires
+setting AHC_ALLOW_MEMIO in kernel, which is a requirement for bridged
+cards on alpha, but I asume io space suffers from excactly the same
+problem since there shouldn't be any technically differences between
+those modes on alpha.
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+
+From tinderbox at freebsd.org  Mon Jun  6 03:33:15 2005
+From: tinderbox at freebsd.org (FreeBSD Tinderbox)
+Date: Mon Jun  6 03:33:18 2005
+Subject: [current tinderbox] failure on alpha/alpha
+Message-ID: <20050606033314.220F87306E@freebsd-current.sentex.ca>
+
+TB --- 2005-06-06 02:15:00 - tinderbox 2.3 running on freebsd-current.sentex.ca
+TB --- 2005-06-06 02:15:00 - starting CURRENT tinderbox run for alpha/alpha
+TB --- 2005-06-06 02:15:00 - cleaning the object tree
+TB --- 2005-06-06 02:15:25 - checking out the source tree
+TB --- 2005-06-06 02:15:25 - cd /home/tinderbox/CURRENT/alpha/alpha
+TB --- 2005-06-06 02:15:25 - /usr/bin/cvs -f -R -q -d/home/ncvs update -Pd -A src
+TB --- 2005-06-06 02:21:37 - building world (CFLAGS=-O2 -pipe)
+TB --- 2005-06-06 02:21:37 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-06 02:21:37 - /usr/bin/make -B buildworld
+>>> Building an up-to-date make(1)
+>>> Rebuilding the temporary build tree
+>>> stage 1.1: legacy release compatibility shims
+>>> stage 1.2: bootstrap tools
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3: cross tools
+>>> stage 4.1: building includes
+>>> stage 4.2: building libraries
+>>> stage 4.3: make dependencies
+>>> stage 4.4: building everything
+TB --- 2005-06-06 03:30:13 - building generic kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-06-06 03:30:13 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-06 03:30:13 - /usr/bin/make buildkernel KERNCONF=GENERIC
+>>> Kernel build for GENERIC started on Mon Jun  6 03:30:13 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+[...]
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99 -g -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000  -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/dev/firewire/fwohci_pci.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99 -g -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000  -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/dev/firewire/if_fwe.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99 -g -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000  -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/dev/firewire/sbp.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99 -g -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000  -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/dev/fxp/if_fxp.c
+/tinderbox/CURRENT/alpha/alpha/src/sys/dev/fxp/if_fxp.c: In function `fxp_suspend':
+/tinderbox/CURRENT/alpha/alpha/src/sys/dev/fxp/if_fxp.c:946: warning: unused variable `i'
+/tinderbox/CURRENT/alpha/alpha/src/sys/dev/fxp/if_fxp.c: In function `fxp_resume':
+/tinderbox/CURRENT/alpha/alpha/src/sys/dev/fxp/if_fxp.c:971: warning: unused variable `i'
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/obj/alpha/tinderbox/CURRENT/alpha/alpha/src/sys/GENERIC.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+TB --- 2005-06-06 03:33:13 - WARNING: /usr/bin/make returned exit code  1 
+TB --- 2005-06-06 03:33:13 - ERROR: failed to build generic kernel
+TB --- 2005-06-06 03:33:13 - tinderbox aborted
+
+From andreas.kohn at gmx.net  Mon Jun  6 08:27:59 2005
+From: andreas.kohn at gmx.net (Andreas Kohn)
+Date: Mon Jun  6 08:28:01 2005
+Subject: Machine Check 6.0-SNAP004 with TGA 21030
+Message-ID: <1118046474.20106.7.camel@klamath.syndrom23.de>
+
+Hi,
+
+FYI, I tried the new bootonly SNAP004 of June on my AlphaStation 4/200,
+and got a machine check again with a TGA2:
+
+---------------------8<-----------------
+
+>>>boot dka200 -flags h
+(boot dka200.2.0.6.0 -flags h)
+block 0 of dka200.2.0.6.0 is a valid boot block
+reading 407 blocks from dka200.2.0.6.0
+bootstrap code read in
+base = 1f2000, image_start = 0, image_bytes = 32e00
+initializing HWRPB at 2000
+initializing page table at 1e4000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+Consoles: SRM firmware console
+VMS PAL rev: 0x1000000010538
+OSF PAL rev: 0x100000002012e
+Switch to OSF PAL code succeeded.
+
+FreeBSD/alpha SRM CD9660 boot, Revision 1.2
+(root@ds10.freebie.xs4all.nl, Sat Jun  4 17:49:26 UTC 2005)
+Memory: 131072 k
+dka200.2.0.6.0 is not ready
+[...]
+dka200.2.0.6.0 is not ready
+Loading /boot/defaults/loader.conf
+/boot/kernel/kernel data=0x5fad10+0x46890 syms=[0x8+0x6d4e8+0x8+0x5937e]
+-
+Hit [Enter] to boot immediately, or any other key for command prompt.
+Booting [/boot/kernel/kernel]...
+Entering /boot/kernel/kernel at 0xfffffc000034bbb0...
+GDB: debug ports: sio
+GDB: current port: sio
+KDB: debugger backends: ddb gdb
+KDB: current backend: ddb
+Copyright (c) 1992-2005 The FreeBSD Project.
+Copyright (c) 1979, 1980, 1983, 1986, 1988, 1989, 1991, 1992, 1993, 1994
+        The Regents of the University of California. All rights
+reserved.
+FreeBSD 6-CURRENT-SNAP004 #0: Sat Jun  4 20:41:35 UTC 2005
+    root@ds10.freebie.xs4all.nl:/usr/obj/usr/src/sys/GENERIC
+AlphaStation 200/400 ("Avanti")
+AlphaStation 200 4/100, 100MHz
+8192 byte page size, 1 processor.
+CPU: EV4 (21064) major=2 minor=0
+OSF PAL rev: 0x100000002012e
+real memory  = 132169728 (126 MB)
+avail memory = 115507200 (110 MB)
+apecs0: <DECchip 21071 Core Logic chipset>
+pcib0: <2107x PCI host bus adapter> on apecs0
+pci0: <PCI bus> on pcib0
+sym0: <810> port 0x10000-0x100ff mem 0x82040000-0x820400ff irq 11 at
+device 6.0 on pci0
+sym0: No NVRAM, ID 7, Fast-10, SE, parity checking
+sym0: interrupting at ISA irq 11
+sym0: [GIANT-LOCKED]
+isab0: <PCI-ISA bridge> at device 7.0 on pci0
+isa0: <ISA bus> on isab0
+de0: <Digital 21040 Ethernet> port 0x10100-0x1017f mem
+0x82040100-0x8204017f irq 5 at device 11.0 on pci0
+de0: interrupting at ISA irq 5
+de0: [GIANT-LOCKED]
+de0: DEC 21040 [10Mb/s] pass 2.3
+de0: Ethernet address: 08:00:2b:e4:f5:af
+de0: if_start running deferred for Giant
+tga0: <DEC TGA (21030) 2D Graphics Accelerator> mem
+0x88000000-0x8fffffff irq 9 at device 13.0 on pci0
+
+unexpected machine check:
+
+    mces    = 0x1
+    vector  = 0x660
+    param   = 0xfffffc0000006000
+    pc      = 0xfffffc0000763594
+    ra      = 0xfffffc0000768d00
+    curproc = 0xfffffc00009057f8
+        pid = 0, comm = swapper
+
+[thread pid 0 tid 0 ]
+Stopped at      tga_init+0x74:  and     t0,#0x1c,t1
+<t0=0x55555455,t1=0xfffffe0000016000>
+db>
+--------------------->8-----------------
+
+The system has NetBSD on it currently, so I for testing I would have to
+build releases on my i386.
+
+Regards,
+Andreas
+
+-- 
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: not available
+Type: application/pgp-signature
+Size: 187 bytes
+Desc: This is a digitally signed message part
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050606/17100eab/attachment.bin
+From bugmaster at freebsd.org  Mon Jun  6 11:01:44 2005
+From: bugmaster at freebsd.org (FreeBSD bugmaster)
+Date: Mon Jun  6 11:01:46 2005
+Subject: Current problem reports assigned to you
+Message-ID: <200506061101.j56B1hj4065509@freefall.freebsd.org>
+
+Current FreeBSD problem reports
+Critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2004/12/20] alpha/75317 alpha       ATA DMA broken on PCalpha
+
+1 problem total.
+
+Serious problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+f [2001/09/10] alpha/30486 alpha       AlphaServer DS10 floppy access is broken
+o [2003/02/05] alpha/47952 alpha       DEFPA causes machine check with V5.0-rele
+o [2003/11/10] alpha/59116 alpha       [ntfs] mount_ntfs of a Windows 2000-forma
+o [2004/01/26] alpha/61940 alpha       Can't disklabel new disk from FreeBSD/alp
+o [2004/01/27] alpha/61973 alpha       Machine Check on boot-up of AlphaServer 2
+f [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+
+6 problems total.
+
+Non-critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2001/02/22] alpha/25284 alpha       PC164 won't reboot with graphics console
+f [2001/07/29] alpha/29299 alpha       FreeBSD 4.3 Alpha + Tekram SCSI adapter p
+o [2002/05/13] alpha/38031 alpha       osf1.ko not loaded during boot-time of li
+o [2003/02/25] alpha/48676 alpha       Changing the baud rate of serial consoles
+o [2003/04/12] alpha/50868 alpha       fd0 floppy device is not mapped into /dev
+o [2004/05/10] alpha/66478 alpha       unexpected machine check: panic for 4.9, 
+o [2004/06/13] alpha/67903 alpha       hw.chipset.memory: 1099511627776 - thats 
+
+7 problems total.
+
+From wb at freebie.xs4all.nl  Mon Jun  6 11:54:45 2005
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Mon Jun  6 11:54:47 2005
+Subject: 5.4-STABLE problem on 164SX?
+In-Reply-To: <20050605223008.GT60590@cicely12.cicely.de>
+References: <20050605184456.GA78612@freebie.xs4all.nl>
+	<20050605195404.GR60590@cicely12.cicely.de>
+	<20050605202838.GA79070@freebie.xs4all.nl>
+	<20050605223008.GT60590@cicely12.cicely.de>
+Message-ID: <20050606115442.GB83440@freebie.xs4all.nl>
+
+On Mon, Jun 06, 2005 at 12:30:08AM +0200, Bernd Walter wrote..
+> On Sun, Jun 05, 2005 at 10:28:38PM +0200, Wilko Bulte wrote:
+> > On Sun, Jun 05, 2005 at 09:54:05PM +0200, Bernd Walter wrote..
+> > > On Sun, Jun 05, 2005 at 08:44:56PM +0200, Wilko Bulte wrote:
+> > > > Folks,
+> > > > 
+> > > > After just having built the June 2005 6.0 and 5.4-STABLE
+> > > > snapshots I tested them on my 164SX.
+> > > > 
+> > > > 6.0 works OK, but 5.4-STABLE after a test install gives me a hang
+
+...
+
+> > > > GEOM: Configure da0c, start 0 length 9139200000 end 9139199999
+> > > > GEOM: Configure da0d, start 2411544576 length 268435456 end 2679980031
+> > > > GEOM: Configure da0e, start 2679980032 length 268435456 end 2948415487
+> > > > GEOM: Configure da0f, start 2948415488 length 6190784512 end 9139199999
+> > > > Mounting root from ufs:/dev/da0a
+> > > > start_init: trying /sbin/init
+> > > > 
+> > > > <hang>
+> > > > 
+> > > > On the DS10 the same thing works just fine.
+> > > > 
+> > > > I would appreciate if people with other Alpha models could try the SNAP
+> > > > to see if it is just my box.  
+> > > 
+> > > I personally never had success with any ahc controller in any alpha.
+> > 
+> > In what sense?  Booting an ahc?  Only a few SRM versions / machine models
+> > can do that.  But the 164SX allows me to install and boot 6.0-current
+> > without problems.
+> 
+> Using it under FreeBSD.
+> I tried 3985, 2940, 2940UW and 2944W in NoName, PC164 and AS4100 using
+> memory and io mode, all with similar results - randomly ahc won't
+> attach, because transport tests with io and memory space failed and
+> if it attaches you see various kind of data corruption or possibly
+> timeouts while probing.
+> All of the cards were verified to run under i386 based systems.
+> This happened to me since early 4.x times.
+> Especially the ahc self test, that sometimes failed, was very promissing
+> to debug things, but I got no reply when asking for details about this
+> test last year, when I did lots of testing with AS4100 and bridged cards.
+> IIRC this test is only run if you are using memory range, which requires
+> setting AHC_ALLOW_MEMIO in kernel, which is a requirement for bridged
+> cards on alpha, but I asume io space suffers from excactly the same
+> problem since there shouldn't be any technically differences between
+> those modes on alpha.
+
+Well, I just replaced the 2940UW with a Qlogic 1040 (aka KZPBA in DEC speak)
+driven by isp(4) and it hangs in exactly the same fashion :(
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From ticso at cicely12.cicely.de  Mon Jun  6 12:01:52 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Mon Jun  6 12:01:57 2005
+Subject: 5.4-STABLE problem on 164SX?
+In-Reply-To: <20050606115442.GB83440@freebie.xs4all.nl>
+References: <20050605184456.GA78612@freebie.xs4all.nl>
+	<20050605195404.GR60590@cicely12.cicely.de>
+	<20050605202838.GA79070@freebie.xs4all.nl>
+	<20050605223008.GT60590@cicely12.cicely.de>
+	<20050606115442.GB83440@freebie.xs4all.nl>
+Message-ID: <20050606120049.GF60590@cicely12.cicely.de>
+
+On Mon, Jun 06, 2005 at 01:54:42PM +0200, Wilko Bulte wrote:
+> On Mon, Jun 06, 2005 at 12:30:08AM +0200, Bernd Walter wrote..
+> > On Sun, Jun 05, 2005 at 10:28:38PM +0200, Wilko Bulte wrote:
+> > > On Sun, Jun 05, 2005 at 09:54:05PM +0200, Bernd Walter wrote..
+> > > > On Sun, Jun 05, 2005 at 08:44:56PM +0200, Wilko Bulte wrote:
+> > > > > Folks,
+> > > > > 
+> > > > > After just having built the June 2005 6.0 and 5.4-STABLE
+> > > > > snapshots I tested them on my 164SX.
+> > > > > 
+> > > > > 6.0 works OK, but 5.4-STABLE after a test install gives me a hang
+> 
+> ...
+> 
+> > > > > GEOM: Configure da0c, start 0 length 9139200000 end 9139199999
+> > > > > GEOM: Configure da0d, start 2411544576 length 268435456 end 2679980031
+> > > > > GEOM: Configure da0e, start 2679980032 length 268435456 end 2948415487
+> > > > > GEOM: Configure da0f, start 2948415488 length 6190784512 end 9139199999
+> > > > > Mounting root from ufs:/dev/da0a
+> > > > > start_init: trying /sbin/init
+> > > > > 
+> > > > > <hang>
+> > > > > 
+> > > > > On the DS10 the same thing works just fine.
+> > > > > 
+> > > > > I would appreciate if people with other Alpha models could try the SNAP
+> > > > > to see if it is just my box.  
+> 
+> Well, I just replaced the 2940UW with a Qlogic 1040 (aka KZPBA in DEC speak)
+> driven by isp(4) and it hangs in exactly the same fashion :(
+
+Mm - yes - after rereading your log it is likely not SCSI at all.
+You see lots of SCSI messages, but all are related to your CD.
+Any difference if you boot -s?
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+
+From wb at freebie.xs4all.nl  Mon Jun  6 12:48:44 2005
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Mon Jun  6 12:48:45 2005
+Subject: 5.4-STABLE problem on 164SX?
+In-Reply-To: <20050606120049.GF60590@cicely12.cicely.de>
+References: <20050605184456.GA78612@freebie.xs4all.nl>
+	<20050605195404.GR60590@cicely12.cicely.de>
+	<20050605202838.GA79070@freebie.xs4all.nl>
+	<20050605223008.GT60590@cicely12.cicely.de>
+	<20050606115442.GB83440@freebie.xs4all.nl>
+	<20050606120049.GF60590@cicely12.cicely.de>
+Message-ID: <20050606124840.GA84106@freebie.xs4all.nl>
+
+On Mon, Jun 06, 2005 at 02:00:49PM +0200, Bernd Walter wrote..
+> On Mon, Jun 06, 2005 at 01:54:42PM +0200, Wilko Bulte wrote:
+> > On Mon, Jun 06, 2005 at 12:30:08AM +0200, Bernd Walter wrote..
+> > > On Sun, Jun 05, 2005 at 10:28:38PM +0200, Wilko Bulte wrote:
+> > > > On Sun, Jun 05, 2005 at 09:54:05PM +0200, Bernd Walter wrote..
+> > > > > On Sun, Jun 05, 2005 at 08:44:56PM +0200, Wilko Bulte wrote:
+> > > > > > Folks,
+> > > > > > 
+> > > > > > After just having built the June 2005 6.0 and 5.4-STABLE
+> > > > > > snapshots I tested them on my 164SX.
+> > > > > > 
+> > > > > > 6.0 works OK, but 5.4-STABLE after a test install gives me a hang
+> > 
+> > ...
+> > 
+> > > > > > GEOM: Configure da0c, start 0 length 9139200000 end 9139199999
+> > > > > > GEOM: Configure da0d, start 2411544576 length 268435456 end 2679980031
+> > > > > > GEOM: Configure da0e, start 2679980032 length 268435456 end 2948415487
+> > > > > > GEOM: Configure da0f, start 2948415488 length 6190784512 end 9139199999
+> > > > > > Mounting root from ufs:/dev/da0a
+> > > > > > start_init: trying /sbin/init
+> > > > > > 
+> > > > > > <hang>
+> > > > > > 
+> > > > > > On the DS10 the same thing works just fine.
+> > > > > > 
+> > > > > > I would appreciate if people with other Alpha models could try the SNAP
+> > > > > > to see if it is just my box.  
+> > 
+> > Well, I just replaced the 2940UW with a Qlogic 1040 (aka KZPBA in DEC speak)
+> > driven by isp(4) and it hangs in exactly the same fashion :(
+> 
+> Mm - yes - after rereading your log it is likely not SCSI at all.
+> You see lots of SCSI messages, but all are related to your CD.
+> Any difference if you boot -s?
+
+No, nothing changes.
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From root at samko.org  Tue Jun  7 19:47:21 2005
+From: root at samko.org (Samo =?iso-8859-2?Q?Jelov=B9ek?=)
+Date: Tue Jun  7 19:47:22 2005
+Subject: ATA DMA
+Message-ID: <1118173701.8378.5.camel@kishta.homeunix>
+
+hello,
+
+I'm running FreeBSD 5.4 on Alpha 164SX with some 80gb ATA100 disk and
+i'm wondering is there is any option to set up ATA DMA that would my
+disk work faster..
+
+Thanks for all your answers!
+
+Best regerds,
+Samo
+
+From samo at jelovsek.net  Tue Jun  7 20:06:12 2005
+From: samo at jelovsek.net (Samo =?iso-8859-2?Q?Jelov=B9ek?=)
+Date: Tue Jun  7 20:06:16 2005
+Subject: ATA DMA
+Message-ID: <1118173614.8378.2.camel@kishta.homeunix>
+
+hello,
+
+I'm running FreeBSD 5.4 on Alpha 164SX with some 80gb ATA100 disk and
+i'm wondering is there is any option to set up ATA DMA that would my
+disk work faster..
+
+Thanks for all your answers!
+
+Best regerds,
+Samo
+
+From sten at blinkenlights.nl  Wed Jun  8 00:03:13 2005
+From: sten at blinkenlights.nl (Sten Spans)
+Date: Wed Jun  8 00:03:14 2005
+Subject: ATA DMA
+In-Reply-To: <1118173614.8378.2.camel@kishta.homeunix>
+References: <1118173614.8378.2.camel@kishta.homeunix>
+Message-ID: <Pine.SOC.4.61.0506080201200.8641@tea.blinkenlights.nl>
+
+On Tue, 7 Jun 2005, Samo [iso-8859-2] Jelov�ek wrote:
+
+> hello,
+>
+> I'm running FreeBSD 5.4 on Alpha 164SX with some 80gb ATA100 disk and
+> i'm wondering is there is any option to set up ATA DMA that would my
+> disk work faster..
+
+The onboard ata really really sucks
+last time I checked it did:
+PIO: 10-12mb
+UDMA: 8mb
+
+With a disk that easily does 20-30mb.
+The easiest speedup is to get a symbios
+875 or 895 scsi card.
+
+-- 
+Sten Spans
+
+"There is a crack in everything, that's how the light gets in."
+Leonard Cohen - Anthem
+From david at students.ncl-coll.ac.uk  Fri Jun 10 09:52:44 2005
+From: david at students.ncl-coll.ac.uk (David)
+Date: Fri Jun 10 09:52:46 2005
+Subject: kernel compile errors
+Message-ID: <200506101052.39004.david@students.ncl-coll.ac.uk>
+
+Building a kernel on an Alpha DS20E and am receiving the following...
+
+linking kernel
+smb_crypt.o(.text+0x18c): In function `smb_E':
+: undefined reference to `des_set_key'
+smb_crypt.o(.text+0x190): In function `smb_E':
+: undefined reference to `des_set_key'
+smb_crypt.o(.text+0x1ac): In function `smb_E':
+: undefined reference to `des_ecb_encrypt'
+smb_crypt.o(.text+0x1b0): In function `smb_E':
+: undefined reference to `des_ecb_encrypt'
+*** Error code 1
+
+Stop in /usr/obj/usr/src/sys/ADMPROXY.
+*** Error code 1
+
+Stop in /usr/src.
+*** Error code 1
+
+Stop in /usr/src.
+root@admproxy:/usr/src#
+
+I have the following in my config file...
+
+options         COMPAT_LINUX
+options         SCHED_ULE
+options         NETSMB
+options         NETSMBCRYPTO
+options         SMBFS
+options         LIBICONV
+options         LIBMCHAIN
+options         MAXCONS=4
+
+if I leave the NETSMBCRYPTO option out it compiles fine.
+
+Is there anything I've missed?  It compiles fine on i386.
+
+Thanks,
+
+David.
+
+This email is confidential and is intended solely for the use of the 
+parties to whom it is addressed.  If you are not the intended 
+recipient, be advised that you have received this email in error and 
+that any use, dissemination, forwarding, printing, or copying of this 
+email is strictly forbidden.  If you have received this email in error 
+please contact the sender.  Any views or opinions presented are solely 
+those of the author and do not necessarily represent the views of 
+Newcastle College.  Although this email and it's attachments are 
+believed to be free of any virus or other defects which might affect 
+any computer or IT system into which they are received, no 
+responsibility is accepted by Newcastle College or any of it's 
+associated companies for any loss or damage arising in any way from 
+the receipt or use thereof.
+From tinderbox at freebsd.org  Fri Jun 10 12:08:03 2005
+From: tinderbox at freebsd.org (FreeBSD Tinderbox)
+Date: Fri Jun 10 12:08:06 2005
+Subject: [current tinderbox] failure on alpha/alpha
+Message-ID: <20050610120646.35FC07306E@freebsd-current.sentex.ca>
+
+TB --- 2005-06-10 10:30:00 - tinderbox 2.3 running on freebsd-current.sentex.ca
+TB --- 2005-06-10 10:30:00 - starting CURRENT tinderbox run for alpha/alpha
+TB --- 2005-06-10 10:30:00 - cleaning the object tree
+TB --- 2005-06-10 10:30:26 - checking out the source tree
+TB --- 2005-06-10 10:30:26 - cd /home/tinderbox/CURRENT/alpha/alpha
+TB --- 2005-06-10 10:30:26 - /usr/bin/cvs -f -R -q -d/home/ncvs update -Pd -A src
+TB --- 2005-06-10 10:36:34 - building world (CFLAGS=-O2 -pipe)
+TB --- 2005-06-10 10:36:34 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-10 10:36:34 - /usr/bin/make -B buildworld
+>>> Building an up-to-date make(1)
+>>> Rebuilding the temporary build tree
+>>> stage 1.1: legacy release compatibility shims
+>>> stage 1.2: bootstrap tools
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3: cross tools
+>>> stage 4.1: building includes
+>>> stage 4.2: building libraries
+>>> stage 4.3: make dependencies
+>>> stage 4.4: building everything
+TB --- 2005-06-10 11:45:08 - building generic kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-06-10 11:45:08 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-10 11:45:08 - /usr/bin/make buildkernel KERNCONF=GENERIC
+>>> Kernel build for GENERIC started on Fri Jun 10 11:45:09 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+>>> Kernel build for GENERIC completed on Fri Jun 10 11:58:55 UTC 2005
+TB --- 2005-06-10 11:58:55 - generating LINT kernel config
+TB --- 2005-06-10 11:58:55 - cd /home/tinderbox/CURRENT/alpha/alpha/src/sys/alpha/conf
+TB --- 2005-06-10 11:58:55 - /usr/bin/make -B LINT
+TB --- 2005-06-10 11:58:56 - building LINT kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-06-10 11:58:56 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-10 11:58:56 - /usr/bin/make buildkernel KERNCONF=LINT
+>>> Kernel build for LINT started on Fri Jun 10 11:58:56 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+[...]
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/md4c.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/md5c.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/sched_4bsd.c
+In file included from /tinderbox/CURRENT/alpha/alpha/src/sys/kern/sched_4bsd.c:1388:
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c: In function `maybe_preempt_in_ksegrp':
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: `IPI_PREEMPT' undeclared (first use in this function)
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: (Each undeclared identifier is reported only once
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: for each function it appears in.)
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/obj/alpha/tinderbox/CURRENT/alpha/alpha/src/sys/LINT.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+TB --- 2005-06-10 12:06:46 - WARNING: /usr/bin/make returned exit code  1 
+TB --- 2005-06-10 12:06:46 - ERROR: failed to build lint kernel
+TB --- 2005-06-10 12:06:46 - tinderbox aborted
+
+From marcel at xcllnt.net  Fri Jun 10 18:02:58 2005
+From: marcel at xcllnt.net (Marcel Moolenaar)
+Date: Fri Jun 10 18:03:00 2005
+Subject: kernel compile errors
+In-Reply-To: <200506101052.39004.david@students.ncl-coll.ac.uk>
+References: <200506101052.39004.david@students.ncl-coll.ac.uk>
+Message-ID: <82f9fb2d245711a3621b9a0b81401500@xcllnt.net>
+
+On Jun 10, 2005, at 2:52 AM, David wrote:
+
+> Building a kernel on an Alpha DS20E and am receiving the following...
+>
+> linking kernel
+> smb_crypt.o(.text+0x18c): In function `smb_E':
+> : undefined reference to `des_set_key'
+> smb_crypt.o(.text+0x190): In function `smb_E':
+> : undefined reference to `des_set_key'
+> smb_crypt.o(.text+0x1ac): In function `smb_E':
+> : undefined reference to `des_ecb_encrypt'
+> smb_crypt.o(.text+0x1b0): In function `smb_E':
+> : undefined reference to `des_ecb_encrypt'
+> *** Error code 1
+>
+> Stop in /usr/obj/usr/src/sys/ADMPROXY.
+> *** Error code 1
+
+On alpha you need to add
+	options	CRYPTO
+
+On i386 and amd64 this is implied (i.e. the DES code is automatically 
+included when NETSMBCRYPTO is present). I think this can be considered
+a bug on alpha (and ia64, sparc64 and powerpc).
+
+-- 
+  Marcel Moolenaar         USPA: A-39004          marcel@xcllnt.net
+
+From emillbrandt at coldhaus.com  Fri Jun 10 23:03:41 2005
+From: emillbrandt at coldhaus.com (Eric Millbrandt)
+Date: Fri Jun 10 23:03:45 2005
+Subject: Kernel trap on linux compat load
+Message-ID: <42AA1C23.4080901@coldhaus.com>
+
+I've noticed that linux compatibility caused my system to crash since I 
+upgraded from RELENG_4_9 (RELENG_4_10, RELENG_4_11, RELENG_4).  I 
+upgraded using buildworld, I haven't had a change to test using a clean 
+binary install.  Has anyone else seen this behavior?  It's easy to 
+reproduce, the system traps right on linux compatibility load.  The only 
+similar behavior I've found on google is an unanswered post 
+http://lists.freebsd.org/pipermail/freebsd-alpha/2004-June/001555.html
+
+Jun  8 07:18:17 mongoloid /kernel: fatal kernel trap:
+Jun  8 07:18:17 mongoloid /kernel:
+Jun  8 07:18:17 mongoloid /kernel: trap entry = 0x4 (unaligned access fault)
+Jun  8 07:18:17 mongoloid /kernel: a0         = 0xfffffe0015285e34
+Jun  8 07:18:17 mongoloid /kernel: a1         = 0x2d
+Jun  8 07:18:17 mongoloid /kernel: a2         = 0x1
+Jun  8 07:18:17 mongoloid /kernel: pc         = 0xfffffc0000386e68
+Jun  8 07:18:17 mongoloid /kernel: ra         = 0xfffffc0000386dd8
+Jun  8 07:18:17 mongoloid /kernel: curproc    = 0xfffffe001177e780
+Jun  8 07:18:17 mongoloid /kernel: pid = 173, comm = ldconfig
+Jun  8 07:18:17 mongoloid /kernel:
+Jun  8 07:18:17 mongoloid /kernel: panic: trap
+
+EEM
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/x-pkcs7-signature
+Size: 6179 bytes
+Desc: S/MIME Cryptographic Signature
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050610/ac7d4a81/smime.bin
+From david at students.ncl-coll.ac.uk  Sat Jun 11 10:23:12 2005
+From: david at students.ncl-coll.ac.uk (David)
+Date: Sat Jun 11 10:23:14 2005
+Subject: kernel compile errors
+In-Reply-To: <82f9fb2d245711a3621b9a0b81401500@xcllnt.net>
+References: <200506101052.39004.david@students.ncl-coll.ac.uk>
+	<82f9fb2d245711a3621b9a0b81401500@xcllnt.net>
+Message-ID: <200506111123.08638.david@students.ncl-coll.ac.uk>
+
+On Friday 10 June 2005 19:02, Marcel Moolenaar wrote:
+
+> On alpha you need to add
+> 	options	CRYPTO
+>
+> On i386 and amd64 this is implied (i.e. the DES code is automatically
+> included when NETSMBCRYPTO is present). I think this can be considered
+> a bug on alpha (and ia64, sparc64 and powerpc).
+Ok, tried that. 
+
+After make buildkernel KERNCONF=ADMPROXY
+
+/usr/src/sys/alpha/conf/ADMPROXY: unknown option "CRYPTO"
+*** Error code 1
+
+I've tried it the "traditional" way - config ADMPROXY from the conf directory 
+- same error unsuprisingly.
+
+Does it help anyone to know this is on a 5.4-RELEASE-p1 system?
+
+My make.conf includes line to avoid building bluetooth, isdn and profile code 
+- the nocrypt line is commented out.
+
+My cvsup file has src-all defined.
+
+Thanks,
+
+David
+
+This email is confidential and is intended solely for the use of the 
+parties to whom it is addressed.  If you are not the intended 
+recipient, be advised that you have received this email in error and 
+that any use, dissemination, forwarding, printing, or copying of this 
+email is strictly forbidden.  If you have received this email in error 
+please contact the sender.  Any views or opinions presented are solely 
+those of the author and do not necessarily represent the views of 
+Newcastle College.  Although this email and it?s attachments are 
+believed to be free of any virus or other defects which might affect 
+any computer or IT system into which they are received, no 
+responsibility is accepted by Newcastle College or any of it?s 
+associated companies for any loss or damage arising in any way from 
+the receipt or use thereof.
+From tinderbox at freebsd.org  Sat Jun 11 10:36:26 2005
+From: tinderbox at freebsd.org (FreeBSD Tinderbox)
+Date: Sat Jun 11 10:36:29 2005
+Subject: [current tinderbox] failure on alpha/alpha
+Message-ID: <20050611103624.088C17306E@freebsd-current.sentex.ca>
+
+TB --- 2005-06-11 09:00:00 - tinderbox 2.3 running on freebsd-current.sentex.ca
+TB --- 2005-06-11 09:00:00 - starting CURRENT tinderbox run for alpha/alpha
+TB --- 2005-06-11 09:00:00 - cleaning the object tree
+TB --- 2005-06-11 09:00:24 - checking out the source tree
+TB --- 2005-06-11 09:00:24 - cd /home/tinderbox/CURRENT/alpha/alpha
+TB --- 2005-06-11 09:00:24 - /usr/bin/cvs -f -R -q -d/home/ncvs update -Pd -A src
+TB --- 2005-06-11 09:06:34 - building world (CFLAGS=-O2 -pipe)
+TB --- 2005-06-11 09:06:34 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-11 09:06:34 - /usr/bin/make -B buildworld
+>>> Building an up-to-date make(1)
+>>> Rebuilding the temporary build tree
+>>> stage 1.1: legacy release compatibility shims
+>>> stage 1.2: bootstrap tools
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3: cross tools
+>>> stage 4.1: building includes
+>>> stage 4.2: building libraries
+>>> stage 4.3: make dependencies
+>>> stage 4.4: building everything
+TB --- 2005-06-11 10:14:48 - building generic kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-06-11 10:14:48 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-11 10:14:48 - /usr/bin/make buildkernel KERNCONF=GENERIC
+>>> Kernel build for GENERIC started on Sat Jun 11 10:14:48 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+>>> Kernel build for GENERIC completed on Sat Jun 11 10:28:34 UTC 2005
+TB --- 2005-06-11 10:28:34 - generating LINT kernel config
+TB --- 2005-06-11 10:28:34 - cd /home/tinderbox/CURRENT/alpha/alpha/src/sys/alpha/conf
+TB --- 2005-06-11 10:28:34 - /usr/bin/make -B LINT
+TB --- 2005-06-11 10:28:34 - building LINT kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-06-11 10:28:34 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-11 10:28:34 - /usr/bin/make buildkernel KERNCONF=LINT
+>>> Kernel build for LINT started on Sat Jun 11 10:28:34 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+[...]
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/md4c.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/md5c.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/sched_4bsd.c
+In file included from /tinderbox/CURRENT/alpha/alpha/src/sys/kern/sched_4bsd.c:1388:
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c: In function `maybe_preempt_in_ksegrp':
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: `IPI_PREEMPT' undeclared (first use in this function)
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: (Each undeclared identifier is reported only once
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: for each function it appears in.)
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/obj/alpha/tinderbox/CURRENT/alpha/alpha/src/sys/LINT.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+TB --- 2005-06-11 10:36:24 - WARNING: /usr/bin/make returned exit code  1 
+TB --- 2005-06-11 10:36:24 - ERROR: failed to build lint kernel
+TB --- 2005-06-11 10:36:24 - tinderbox aborted
+
+From marcel at xcllnt.net  Sat Jun 11 19:33:50 2005
+From: marcel at xcllnt.net (Marcel Moolenaar)
+Date: Sat Jun 11 20:23:31 2005
+Subject: kernel compile errors
+In-Reply-To: <200506111123.08638.david@students.ncl-coll.ac.uk>
+References: <200506101052.39004.david@students.ncl-coll.ac.uk>
+	<82f9fb2d245711a3621b9a0b81401500@xcllnt.net>
+	<200506111123.08638.david@students.ncl-coll.ac.uk>
+Message-ID: <0d12c38eb2e66204feaba96911bffa4b@xcllnt.net>
+
+On Jun 11, 2005, at 3:23 AM, David wrote:
+
+> On Friday 10 June 2005 19:02, Marcel Moolenaar wrote:
+>
+>> On alpha you need to add
+>> 	options	CRYPTO
+>>
+>> On i386 and amd64 this is implied (i.e. the DES code is automatically
+>> included when NETSMBCRYPTO is present). I think this can be considered
+>> a bug on alpha (and ia64, sparc64 and powerpc).
+> Ok, tried that.
+>
+> After make buildkernel KERNCONF=ADMPROXY
+>
+> /usr/src/sys/alpha/conf/ADMPROXY: unknown option "CRYPTO"
+> *** Error code 1
+
+Hmm, then it's definitely a bug. I'll see if I can fix it this
+weekend.
+
+> Does it help anyone to know this is on a 5.4-RELEASE-p1 system?
+
+No, don't think so. This wasn't introduced in -CURRENT. It's been
+broken this way for a while AFAICT.
+
+-- 
+  Marcel Moolenaar         USPA: A-39004          marcel@xcllnt.net
+
+From tinderbox at freebsd.org  Sun Jun 12 08:57:50 2005
+From: tinderbox at freebsd.org (FreeBSD Tinderbox)
+Date: Sun Jun 12 08:58:00 2005
+Subject: [current tinderbox] failure on alpha/alpha
+Message-ID: <20050612085748.C44217306E@freebsd-current.sentex.ca>
+
+TB --- 2005-06-12 07:15:01 - tinderbox 2.3 running on freebsd-current.sentex.ca
+TB --- 2005-06-12 07:15:01 - starting CURRENT tinderbox run for alpha/alpha
+TB --- 2005-06-12 07:15:01 - cleaning the object tree
+TB --- 2005-06-12 07:15:33 - checking out the source tree
+TB --- 2005-06-12 07:15:33 - cd /home/tinderbox/CURRENT/alpha/alpha
+TB --- 2005-06-12 07:15:33 - /usr/bin/cvs -f -R -q -d/home/ncvs update -Pd -A src
+TB --- 2005-06-12 07:25:39 - building world (CFLAGS=-O2 -pipe)
+TB --- 2005-06-12 07:25:39 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-12 07:25:39 - /usr/bin/make -B buildworld
+>>> Building an up-to-date make(1)
+>>> Rebuilding the temporary build tree
+>>> stage 1.1: legacy release compatibility shims
+>>> stage 1.2: bootstrap tools
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3: cross tools
+>>> stage 4.1: building includes
+>>> stage 4.2: building libraries
+>>> stage 4.3: make dependencies
+>>> stage 4.4: building everything
+TB --- 2005-06-12 08:35:47 - building generic kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-06-12 08:35:47 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-12 08:35:47 - /usr/bin/make buildkernel KERNCONF=GENERIC
+>>> Kernel build for GENERIC started on Sun Jun 12 08:35:48 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+>>> Kernel build for GENERIC completed on Sun Jun 12 08:49:45 UTC 2005
+TB --- 2005-06-12 08:49:45 - generating LINT kernel config
+TB --- 2005-06-12 08:49:45 - cd /home/tinderbox/CURRENT/alpha/alpha/src/sys/alpha/conf
+TB --- 2005-06-12 08:49:45 - /usr/bin/make -B LINT
+TB --- 2005-06-12 08:49:45 - building LINT kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-06-12 08:49:45 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-12 08:49:45 - /usr/bin/make buildkernel KERNCONF=LINT
+>>> Kernel build for LINT started on Sun Jun 12 08:49:45 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+[...]
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/md4c.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/md5c.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/sched_4bsd.c
+In file included from /tinderbox/CURRENT/alpha/alpha/src/sys/kern/sched_4bsd.c:1388:
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c: In function `maybe_preempt_in_ksegrp':
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: `IPI_PREEMPT' undeclared (first use in this function)
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: (Each undeclared identifier is reported only once
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: for each function it appears in.)
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/obj/alpha/tinderbox/CURRENT/alpha/alpha/src/sys/LINT.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+TB --- 2005-06-12 08:57:48 - WARNING: /usr/bin/make returned exit code  1 
+TB --- 2005-06-12 08:57:48 - ERROR: failed to build lint kernel
+TB --- 2005-06-12 08:57:48 - tinderbox aborted
+
+From marcel at xcllnt.net  Mon Jun 13 04:49:25 2005
+From: marcel at xcllnt.net (Marcel Moolenaar)
+Date: Mon Jun 13 04:49:28 2005
+Subject: kernel compile errors
+In-Reply-To: <200506111123.08638.david@students.ncl-coll.ac.uk>
+References: <200506101052.39004.david@students.ncl-coll.ac.uk>
+	<82f9fb2d245711a3621b9a0b81401500@xcllnt.net>
+	<200506111123.08638.david@students.ncl-coll.ac.uk>
+Message-ID: <b35637a8091da3eeddd3003af3b216d7@xcllnt.net>
+
+On Jun 11, 2005, at 3:23 AM, David wrote:
+
+> On Friday 10 June 2005 19:02, Marcel Moolenaar wrote:
+>
+>> On alpha you need to add
+>> 	options	CRYPTO
+>>
+>> On i386 and amd64 this is implied (i.e. the DES code is automatically
+>> included when NETSMBCRYPTO is present). I think this can be considered
+>> a bug on alpha (and ia64, sparc64 and powerpc).
+> Ok, tried that.
+>
+> After make buildkernel KERNCONF=ADMPROXY
+>
+> /usr/src/sys/alpha/conf/ADMPROXY: unknown option "CRYPTO"
+> *** Error code 1
+
+I just committed a fix for the problem. The options to use are:
+	options	LIBMCHAIN
+	options	LIBICONV
+	options	NETSMB
+	options	NETSMBCRYPTO
+
+This is as documented in NOTES, so no need to add additional options.
+FYI,
+
+-- 
+  Marcel Moolenaar         USPA: A-39004          marcel@xcllnt.net
+
+From tinderbox at freebsd.org  Mon Jun 13 07:11:36 2005
+From: tinderbox at freebsd.org (FreeBSD Tinderbox)
+Date: Mon Jun 13 07:11:45 2005
+Subject: [current tinderbox] failure on alpha/alpha
+Message-ID: <20050613071133.ED9A47306E@freebsd-current.sentex.ca>
+
+TB --- 2005-06-13 05:15:01 - tinderbox 2.3 running on freebsd-current.sentex.ca
+TB --- 2005-06-13 05:15:01 - starting CURRENT tinderbox run for alpha/alpha
+TB --- 2005-06-13 05:15:01 - cleaning the object tree
+TB --- 2005-06-13 05:15:32 - checking out the source tree
+TB --- 2005-06-13 05:15:32 - cd /home/tinderbox/CURRENT/alpha/alpha
+TB --- 2005-06-13 05:15:32 - /usr/bin/cvs -f -R -q -d/home/ncvs update -Pd -A src
+TB --- 2005-06-13 05:28:32 - building world (CFLAGS=-O2 -pipe)
+TB --- 2005-06-13 05:28:32 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-13 05:28:32 - /usr/bin/make -B buildworld
+>>> Building an up-to-date make(1)
+>>> Rebuilding the temporary build tree
+>>> stage 1.1: legacy release compatibility shims
+>>> stage 1.2: bootstrap tools
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3: cross tools
+>>> stage 4.1: building includes
+>>> stage 4.2: building libraries
+>>> stage 4.3: make dependencies
+>>> stage 4.4: building everything
+TB --- 2005-06-13 06:48:23 - building generic kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-06-13 06:48:23 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-13 06:48:23 - /usr/bin/make buildkernel KERNCONF=GENERIC
+>>> Kernel build for GENERIC started on Mon Jun 13 06:48:23 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+>>> Kernel build for GENERIC completed on Mon Jun 13 07:02:19 UTC 2005
+TB --- 2005-06-13 07:02:19 - generating LINT kernel config
+TB --- 2005-06-13 07:02:19 - cd /home/tinderbox/CURRENT/alpha/alpha/src/sys/alpha/conf
+TB --- 2005-06-13 07:02:19 - /usr/bin/make -B LINT
+TB --- 2005-06-13 07:02:19 - building LINT kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-06-13 07:02:19 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-13 07:02:19 - /usr/bin/make buildkernel KERNCONF=LINT
+>>> Kernel build for LINT started on Mon Jun 13 07:02:19 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+[...]
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/md4c.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/md5c.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/sched_4bsd.c
+In file included from /tinderbox/CURRENT/alpha/alpha/src/sys/kern/sched_4bsd.c:1388:
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c: In function `maybe_preempt_in_ksegrp':
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: `IPI_PREEMPT' undeclared (first use in this function)
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: (Each undeclared identifier is reported only once
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: for each function it appears in.)
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/obj/alpha/tinderbox/CURRENT/alpha/alpha/src/sys/LINT.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+TB --- 2005-06-13 07:11:33 - WARNING: /usr/bin/make returned exit code  1 
+TB --- 2005-06-13 07:11:33 - ERROR: failed to build lint kernel
+TB --- 2005-06-13 07:11:33 - tinderbox aborted
+
+From david at students.ncl-coll.ac.uk  Mon Jun 13 07:44:32 2005
+From: david at students.ncl-coll.ac.uk (David)
+Date: Mon Jun 13 07:44:35 2005
+Subject: kernel compile errors
+In-Reply-To: <b35637a8091da3eeddd3003af3b216d7@xcllnt.net>
+References: <200506101052.39004.david@students.ncl-coll.ac.uk>
+	<200506111123.08638.david@students.ncl-coll.ac.uk>
+	<b35637a8091da3eeddd3003af3b216d7@xcllnt.net>
+Message-ID: <200506130844.29103.david@students.ncl-coll.ac.uk>
+
+On Monday 13 June 2005 05:49, Marcel Moolenaar wrote:
+> On Jun 11, 2005, at 3:23 AM, David wrote:
+> > On Friday 10 June 2005 19:02, Marcel Moolenaar wrote:
+
+> I just committed a fix for the problem. The options to use are:
+> 	options	LIBMCHAIN
+> 	options	LIBICONV
+> 	options	NETSMB
+> 	options	NETSMBCRYPTO
+>
+> This is as documented in NOTES, so no need to add additional options.
+> FYI,
+Excellent - thanks for the prompt help.
+
+Sorry for the dumb questions but...
+
+I'm following  RELENG_5_4 via cvsup - how long before I can receive your 
+fixes?  Did you commit them to 5_4-RELEASE?
+
+Thanks again,
+
+David
+
+This email is confidential and is intended solely for the use of the 
+parties to whom it is addressed.  If you are not the intended 
+recipient, be advised that you have received this email in error and 
+that any use, dissemination, forwarding, printing, or copying of this 
+email is strictly forbidden.  If you have received this email in error 
+please contact the sender.  Any views or opinions presented are solely 
+those of the author and do not necessarily represent the views of 
+Newcastle College.  Although this email and it?s attachments are 
+believed to be free of any virus or other defects which might affect 
+any computer or IT system into which they are received, no 
+responsibility is accepted by Newcastle College or any of it?s 
+associated companies for any loss or damage arising in any way from 
+the receipt or use thereof.
+From marcel at xcllnt.net  Mon Jun 13 07:58:29 2005
+From: marcel at xcllnt.net (Marcel Moolenaar)
+Date: Mon Jun 13 07:58:31 2005
+Subject: kernel compile errors
+In-Reply-To: <200506130844.29103.david@students.ncl-coll.ac.uk>
+References: <200506101052.39004.david@students.ncl-coll.ac.uk>
+	<200506111123.08638.david@students.ncl-coll.ac.uk>
+	<b35637a8091da3eeddd3003af3b216d7@xcllnt.net>
+	<200506130844.29103.david@students.ncl-coll.ac.uk>
+Message-ID: <2b24847704e2ba745cc13bc1f93d1a1f@xcllnt.net>
+
+On Jun 13, 2005, at 12:44 AM, David wrote:
+
+> I'm following  RELENG_5_4 via cvsup - how long before I can receive 
+> your
+> fixes?  Did you commit them to 5_4-RELEASE?
+
+I committed to 5-stable. The 5.4-release branch is for security fixes
+only, so I won't be committing on that branch. The following minimal
+change should make it work for you on alpha and RELENG_5_4:
+
+Index: files
+===================================================================
+RCS file: /home/ncvs/src/sys/conf/files,v
+retrieving revision 1.943.2.19
+diff -u -r1.943.2.19 files
+--- files	27 May 2005 11:58:00 -0000	1.943.2.19
++++ files	12 Jun 2005 00:55:36 -0000
+@@ -244,7 +244,9 @@
+  crypto/blowfish/bf_skey.c	optional ipsec ipsec_esp
+  crypto/cast128/cast128.c	optional ipsec ipsec_esp
+  crypto/des/des_ecb.c	optional ipsec ipsec_esp
++crypto/des/des_ecb.c		optional netsmbcrypto
+  crypto/des/des_setkey.c	optional ipsec ipsec_esp
++crypto/des/des_setkey.c		optional netsmbcrypto
+  crypto/rijndael/rijndael-alg-fst.c	optional ipsec
+  crypto/rijndael/rijndael-api.c	optional ipsec
+  opencrypto/rmd160.c	optional ipsec
+Index: files.alpha
+===================================================================
+RCS file: /home/ncvs/src/sys/conf/files.alpha,v
+retrieving revision 1.114
+diff -u -r1.114 files.alpha
+--- files.alpha	1 Aug 2004 11:40:51 -0000	1.114
++++ files.alpha	12 Jun 2005 00:37:23 -0000
+@@ -161,10 +161,11 @@
+  compat/linux/linux_sysctl.c	optional	compat_linux
+  compat/linux/linux_stats.c	optional	compat_linux
+  compat/linux/linux_util.c	optional	compat_linux
+-crypto/blowfish/bf_enc.c	optional	ipsec ipsec_esp
+-crypto/des/des_enc.c		optional	ipsec ipsec_esp
+  crypto/blowfish/bf_enc.c	optional	crypto
++crypto/blowfish/bf_enc.c	optional	ipsec ipsec_esp
+  crypto/des/des_enc.c		optional	crypto
++crypto/des/des_enc.c		optional	ipsec ipsec_esp
++crypto/des/des_enc.c		optional	netsmbcrypto
+  dev/advansys/adv_isa.c		optional	adv isa
+  dev/aic/aic_isa.c		optional	aic isa
+  dev/dec/mcclock.c		optional	mcclock
+
+-- 
+  Marcel Moolenaar         USPA: A-39004          marcel@xcllnt.net
+
+From david at students.ncl-coll.ac.uk  Mon Jun 13 08:49:36 2005
+From: david at students.ncl-coll.ac.uk (David)
+Date: Mon Jun 13 08:49:38 2005
+Subject: kernel compile errors
+In-Reply-To: <2b24847704e2ba745cc13bc1f93d1a1f@xcllnt.net>
+References: <200506101052.39004.david@students.ncl-coll.ac.uk>
+	<200506130844.29103.david@students.ncl-coll.ac.uk>
+	<2b24847704e2ba745cc13bc1f93d1a1f@xcllnt.net>
+Message-ID: <200506130949.34124.david@students.ncl-coll.ac.uk>
+
+On Monday 13 June 2005 08:58, Marcel Moolenaar wrote:
+> On Jun 13, 2005, at 12:44 AM, David wrote:
+> > I'm following  RELENG_5_4 via cvsup - how long before I can receive
+> > your
+> > fixes?  Did you commit them to 5_4-RELEASE?
+>
+> I committed to 5-stable. The 5.4-release branch is for security fixes
+> only, so I won't be committing on that branch. The following minimal
+> change should make it work for you on alpha and RELENG_5_4:
+>
+Thanks - but I don't know how to use that info. :-(
+
+I could track stable but I'd rather stick with 5_4-Release.
+
+Can you point me to some docs to use the info you sent?
+
+Or maybe a tarball of the necessary files?
+
+Sorry to be useless ;-)
+
+Thanks again,
+
+David.
+
+This email is confidential and is intended solely for the use of the 
+parties to whom it is addressed.  If you are not the intended 
+recipient, be advised that you have received this email in error and 
+that any use, dissemination, forwarding, printing, or copying of this 
+email is strictly forbidden.  If you have received this email in error 
+please contact the sender.  Any views or opinions presented are solely 
+those of the author and do not necessarily represent the views of 
+Newcastle College.  Although this email and it?s attachments are 
+believed to be free of any virus or other defects which might affect 
+any computer or IT system into which they are received, no 
+responsibility is accepted by Newcastle College or any of it?s 
+associated companies for any loss or damage arising in any way from 
+the receipt or use thereof.
+From bugmaster at freebsd.org  Mon Jun 13 11:02:03 2005
+From: bugmaster at freebsd.org (FreeBSD bugmaster)
+Date: Mon Jun 13 11:02:06 2005
+Subject: Current problem reports assigned to you
+Message-ID: <200506131102.j5DB228a046075@freefall.freebsd.org>
+
+Current FreeBSD problem reports
+Critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2004/12/20] alpha/75317 alpha       ATA DMA broken on PCalpha
+
+1 problem total.
+
+Serious problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+f [2001/09/10] alpha/30486 alpha       AlphaServer DS10 floppy access is broken
+o [2003/02/05] alpha/47952 alpha       DEFPA causes machine check with V5.0-rele
+o [2003/11/10] alpha/59116 alpha       [ntfs] mount_ntfs of a Windows 2000-forma
+o [2004/01/26] alpha/61940 alpha       Can't disklabel new disk from FreeBSD/alp
+o [2004/01/27] alpha/61973 alpha       Machine Check on boot-up of AlphaServer 2
+f [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+
+6 problems total.
+
+Non-critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2001/02/22] alpha/25284 alpha       PC164 won't reboot with graphics console
+f [2001/07/29] alpha/29299 alpha       FreeBSD 4.3 Alpha + Tekram SCSI adapter p
+o [2002/05/13] alpha/38031 alpha       osf1.ko not loaded during boot-time of li
+o [2003/02/25] alpha/48676 alpha       Changing the baud rate of serial consoles
+o [2003/04/12] alpha/50868 alpha       fd0 floppy device is not mapped into /dev
+o [2004/05/10] alpha/66478 alpha       unexpected machine check: panic for 4.9, 
+o [2004/06/13] alpha/67903 alpha       hw.chipset.memory: 1099511627776 - thats 
+
+7 problems total.
+
+From marcel at xcllnt.net  Mon Jun 13 18:55:49 2005
+From: marcel at xcllnt.net (Marcel Moolenaar)
+Date: Mon Jun 13 18:55:51 2005
+Subject: kernel compile errors
+In-Reply-To: <200506130949.34124.david@students.ncl-coll.ac.uk>
+References: <200506101052.39004.david@students.ncl-coll.ac.uk>
+	<200506130844.29103.david@students.ncl-coll.ac.uk>
+	<2b24847704e2ba745cc13bc1f93d1a1f@xcllnt.net>
+	<200506130949.34124.david@students.ncl-coll.ac.uk>
+Message-ID: <c6b4f9bba0357b97d2317fc7a925ad67@xcllnt.net>
+
+
+On Jun 13, 2005, at 1:49 AM, David wrote:
+
+> On Monday 13 June 2005 08:58, Marcel Moolenaar wrote:
+>> On Jun 13, 2005, at 12:44 AM, David wrote:
+>>> I'm following  RELENG_5_4 via cvsup - how long before I can receive
+>>> your
+>>> fixes?  Did you commit them to 5_4-RELEASE?
+>>
+>> I committed to 5-stable. The 5.4-release branch is for security fixes
+>> only, so I won't be committing on that branch. The following minimal
+>> change should make it work for you on alpha and RELENG_5_4:
+>>
+> Thanks - but I don't know how to use that info. :-(
+
+Ah, I see. What I sent you was the output of diff(1) and represents
+the differences between files that you have now and files your should
+get to make it work. You safe the mail and give it to patch(1), like
+	% cd /sys/conf
+	% patch --ignore-whitespace < saved_email
+
+Then you run config as normal and build the kernel.
+
+When I mention diff(1) and patch(1), I mean the user tools for which
+you can read the manual page with:
+	% man 1 diff
+	% man 1 patch
+
+This is as far as I can help you. If this doesn't help you on your
+way, then you have to wait for 5.5 to be released and switch to that.
+
+FYI,
+
+-- 
+  Marcel Moolenaar         USPA: A-39004          marcel@xcllnt.net
+
+From tinderbox at freebsd.org  Tue Jun 14 06:11:11 2005
+From: tinderbox at freebsd.org (FreeBSD Tinderbox)
+Date: Tue Jun 14 06:11:20 2005
+Subject: [current tinderbox] failure on alpha/alpha
+Message-ID: <20050614061108.EE2AD7306E@freebsd-current.sentex.ca>
+
+TB --- 2005-06-14 04:00:00 - tinderbox 2.3 running on freebsd-current.sentex.ca
+TB --- 2005-06-14 04:00:00 - starting CURRENT tinderbox run for alpha/alpha
+TB --- 2005-06-14 04:00:01 - cleaning the object tree
+TB --- 2005-06-14 04:00:25 - checking out the source tree
+TB --- 2005-06-14 04:00:25 - cd /home/tinderbox/CURRENT/alpha/alpha
+TB --- 2005-06-14 04:00:25 - /usr/bin/cvs -f -R -q -d/home/ncvs update -Pd -A src
+TB --- 2005-06-14 04:11:26 - building world (CFLAGS=-O2 -pipe)
+TB --- 2005-06-14 04:11:26 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-14 04:11:26 - /usr/bin/make -B buildworld
+>>> Building an up-to-date make(1)
+>>> Rebuilding the temporary build tree
+>>> stage 1.1: legacy release compatibility shims
+>>> stage 1.2: bootstrap tools
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3: cross tools
+>>> stage 4.1: building includes
+>>> stage 4.2: building libraries
+>>> stage 4.3: make dependencies
+>>> stage 4.4: building everything
+TB --- 2005-06-14 05:39:32 - building generic kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-06-14 05:39:32 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-14 05:39:32 - /usr/bin/make buildkernel KERNCONF=GENERIC
+>>> Kernel build for GENERIC started on Tue Jun 14 05:39:33 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+>>> Kernel build for GENERIC completed on Tue Jun 14 06:01:34 UTC 2005
+TB --- 2005-06-14 06:01:34 - generating LINT kernel config
+TB --- 2005-06-14 06:01:34 - cd /home/tinderbox/CURRENT/alpha/alpha/src/sys/alpha/conf
+TB --- 2005-06-14 06:01:34 - /usr/bin/make -B LINT
+TB --- 2005-06-14 06:01:34 - building LINT kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-06-14 06:01:34 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-14 06:01:34 - /usr/bin/make buildkernel KERNCONF=LINT
+>>> Kernel build for LINT started on Tue Jun 14 06:01:35 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+[...]
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/md4c.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/md5c.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/tinderbox/CURRENT/alpha/alpha/src/sys -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/acpica -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/altq -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ipfilter -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/pf -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/dev/ath/freebsd -I/tinderbox/CURRENT/alpha/alpha/src/sys/contrib/ngatm -I/tinderbox/CURRENT/alpha/alpha/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /tinderbox/CURRENT/alpha/alpha/src/sys/kern/sched_4bsd.c
+In file included from /tinderbox/CURRENT/alpha/alpha/src/sys/kern/sched_4bsd.c:1388:
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c: In function `maybe_preempt_in_ksegrp':
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: `IPI_PREEMPT' undeclared (first use in this function)
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: (Each undeclared identifier is reported only once
+/tinderbox/CURRENT/alpha/alpha/src/sys/kern/kern_switch.c:435: error: for each function it appears in.)
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/obj/alpha/tinderbox/CURRENT/alpha/alpha/src/sys/LINT.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+TB --- 2005-06-14 06:11:08 - WARNING: /usr/bin/make returned exit code  1 
+TB --- 2005-06-14 06:11:08 - ERROR: failed to build lint kernel
+TB --- 2005-06-14 06:11:08 - tinderbox aborted
+
+From david at students.ncl-coll.ac.uk  Tue Jun 14 13:27:25 2005
+From: david at students.ncl-coll.ac.uk (David)
+Date: Tue Jun 14 13:27:27 2005
+Subject: kernel compile errors
+In-Reply-To: <c6b4f9bba0357b97d2317fc7a925ad67@xcllnt.net>
+References: <200506101052.39004.david@students.ncl-coll.ac.uk>
+	<200506130949.34124.david@students.ncl-coll.ac.uk>
+	<c6b4f9bba0357b97d2317fc7a925ad67@xcllnt.net>
+Message-ID: <200506141427.20007.david@students.ncl-coll.ac.uk>
+
+On Monday 13 June 2005 19:55, Marcel Moolenaar wrote:
+
+> This is as far as I can help you. If this doesn't help you on your
+> way, then you have to wait for 5.5 to be released and switch to that.
+
+Thanks again for your help.  It has compiled and installed correctly now.
+
+David.
+
+This email is confidential and is intended solely for the use of the 
+parties to whom it is addressed.  If you are not the intended 
+recipient, be advised that you have received this email in error and 
+that any use, dissemination, forwarding, printing, or copying of this 
+email is strictly forbidden.  If you have received this email in error 
+please contact the sender.  Any views or opinions presented are solely 
+those of the author and do not necessarily represent the views of 
+Newcastle College.  Although this email and it?s attachments are 
+believed to be free of any virus or other defects which might affect 
+any computer or IT system into which they are received, no 
+responsibility is accepted by Newcastle College or any of it?s 
+associated companies for any loss or damage arising in any way from 
+the receipt or use thereof.
+From jhb at FreeBSD.org  Wed Jun 15 21:44:12 2005
+From: jhb at FreeBSD.org (John Baldwin)
+Date: Wed Jun 15 21:44:13 2005
+Subject: Kernel trap on linux compat load
+In-Reply-To: <42AA1C23.4080901@coldhaus.com>
+References: <42AA1C23.4080901@coldhaus.com>
+Message-ID: <200506151535.59989.jhb@FreeBSD.org>
+
+On Friday 10 June 2005 07:02 pm, Eric Millbrandt wrote:
+> I've noticed that linux compatibility caused my system to crash since I
+> upgraded from RELENG_4_9 (RELENG_4_10, RELENG_4_11, RELENG_4).  I
+> upgraded using buildworld, I haven't had a change to test using a clean
+> binary install.  Has anyone else seen this behavior?  It's easy to
+> reproduce, the system traps right on linux compatibility load.  The only
+> similar behavior I've found on google is an unanswered post
+> http://lists.freebsd.org/pipermail/freebsd-alpha/2004-June/001555.html
+>
+> Jun  8 07:18:17 mongoloid /kernel: fatal kernel trap:
+> Jun  8 07:18:17 mongoloid /kernel:
+> Jun  8 07:18:17 mongoloid /kernel: trap entry = 0x4 (unaligned access
+> fault) Jun  8 07:18:17 mongoloid /kernel: a0         = 0xfffffe0015285e34
+> Jun  8 07:18:17 mongoloid /kernel: a1         = 0x2d
+> Jun  8 07:18:17 mongoloid /kernel: a2         = 0x1
+> Jun  8 07:18:17 mongoloid /kernel: pc         = 0xfffffc0000386e68
+> Jun  8 07:18:17 mongoloid /kernel: ra         = 0xfffffc0000386dd8
+> Jun  8 07:18:17 mongoloid /kernel: curproc    = 0xfffffe001177e780
+> Jun  8 07:18:17 mongoloid /kernel: pid = 173, comm = ldconfig
+> Jun  8 07:18:17 mongoloid /kernel:
+> Jun  8 07:18:17 mongoloid /kernel: panic: trap
+>
+> EEM
+
+Did you rebuild your kernel with buildkernel / installkernel?  I believe that 
+buildworld on 4.x still builds and installs new modules into /modules 
+including the linux and osf1 compat modules.  New modules aren't guaranteed 
+to work on older kernels, so if your kernel is still 4.9, that is probably 
+your problem.
+
+-- 
+John Baldwin <jhb@FreeBSD.org>  <><  http://www.FreeBSD.org/~jhb/
+"Power Users Use the Power to Serve"  =  http://www.FreeBSD.org
+From marcel at xcllnt.net  Wed Jun 15 23:31:51 2005
+From: marcel at xcllnt.net (Marcel Moolenaar)
+Date: Wed Jun 15 23:31:53 2005
+Subject: Back to PR alpha/30486: broken floppy on DS10
+Message-ID: <6fca0ff7c7549bdc2e59ad813c82a72b@xcllnt.net>
+
+Ok,
+
+So now that I have a DS10, I tried to reproduce the floppy problem.
+I can't:
+
+ds10% sudo fdformat /dev/fd0
+Format 1440K floppy `/dev/fd0'? (y/n): y
+Processing VVVVVVVVVVVVVVVVVEEVVVVVVVVVVVVVVVVVVVVV done.
+Errors encountered:
+Cyl Head Sect   Error
+  35    1   13   CRC error in data field
+  36    1   13   CRC error in data field
+
+Other than a suspicious floppy or a dusty drive, things look ok.
+
+See for details:
+	http://www.xcllnt.net/~marcel/machines/ds10/
+
+BTW: is there a simple way to reset the SRM to a (near) virgin state?
+
+-- 
+  Marcel Moolenaar         USPA: A-39004          marcel@xcllnt.net
+
+From wb at freebie.xs4all.nl  Thu Jun 16 20:10:49 2005
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Thu Jun 16 20:10:50 2005
+Subject: Back to PR alpha/30486: broken floppy on DS10
+In-Reply-To: <6fca0ff7c7549bdc2e59ad813c82a72b@xcllnt.net>
+References: <6fca0ff7c7549bdc2e59ad813c82a72b@xcllnt.net>
+Message-ID: <20050616201046.GA29464@freebie.xs4all.nl>
+
+On Wed, Jun 15, 2005 at 04:31:48PM -0700, Marcel Moolenaar wrote..
+> Ok,
+> 
+> So now that I have a DS10, I tried to reproduce the floppy problem.
+> I can't:
+> 
+> ds10% sudo fdformat /dev/fd0
+> Format 1440K floppy `/dev/fd0'? (y/n): y
+> Processing VVVVVVVVVVVVVVVVVEEVVVVVVVVVVVVVVVVVVVVV done.
+> Errors encountered:
+> Cyl Head Sect   Error
+>  35    1   13   CRC error in data field
+>  36    1   13   CRC error in data field
+> 
+> Other than a suspicious floppy or a dusty drive, things look ok.
+> 
+> See for details:
+> 	http://www.xcllnt.net/~marcel/machines/ds10/
+
+Well, on my DS10 I still see the failure.  Running a 'current' of May 25.
+
+Obvious difference: mine is a 600MHz, your's a 466MHz.
+
+Details: 
+	http://www.freebsd.org/~wilko/ds10-pciconf.txt
+	http://www.freebsd.org/~wilko/ds10-dmesg-boot.txt
+
+I tried swapping the floppy drive and floppy cable.  No difference.
+
+> BTW: is there a simple way to reset the SRM to a (near) virgin state?
+
+ENOCLUE
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From marcel at xcllnt.net  Thu Jun 16 20:29:02 2005
+From: marcel at xcllnt.net (Marcel Moolenaar)
+Date: Thu Jun 16 20:29:04 2005
+Subject: Back to PR alpha/30486: broken floppy on DS10
+In-Reply-To: <20050616201046.GA29464@freebie.xs4all.nl>
+References: <6fca0ff7c7549bdc2e59ad813c82a72b@xcllnt.net>
+	<20050616201046.GA29464@freebie.xs4all.nl>
+Message-ID: <20050616202857.GA2141@ns1.xcllnt.net>
+
+On Thu, Jun 16, 2005 at 10:10:46PM +0200, Wilko Bulte wrote:
+> 
+> Well, on my DS10 I still see the failure.  Running a 'current' of May 25.
+> 
+> Obvious difference: mine is a 600MHz, your's a 466MHz.
+
+Well, that's a start. Let's play with this for a bit. Can you
+try the attached patch? It helps if you boot verbose and watch
+out for fdc(4) related errors.
+
+-- 
+ Marcel Moolenaar	  USPA: A-39004		 marcel@xcllnt.net
+-------------- next part --------------
+Index: fdc.c
+===================================================================
+RCS file: /home/ncvs/src/sys/dev/fdc/fdc.c,v
+retrieving revision 1.283.2.7
+diff -u -r1.283.2.7 fdc.c
+--- fdc.c	1 Mar 2005 08:22:55 -0000	1.283.2.7
++++ fdc.c	16 Jun 2005 20:25:39 -0000
+@@ -494,10 +494,10 @@
+ 
+ 	/* Try a reset, keep motor on */
+ 	fdout_wr(fdc, fdc->fdout & ~(FDO_FRST|FDO_FDMAEN));
+-	DELAY(100);
++	DELAY(1000);
+ 	/* enable FDC, but defer interrupts a moment */
+ 	fdout_wr(fdc, fdc->fdout & ~FDO_FDMAEN);
+-	DELAY(100);
++	DELAY(1000);
+ 	fdout_wr(fdc, fdc->fdout);
+ 
+ 	/* XXX after a reset, silently believe the FDC will accept commands */
+@@ -1593,7 +1593,7 @@
+ 	 * Clear the reset and see it come ready.
+ 	 */
+ 	fdout_wr(fdc, FDO_FRST);
+-	DELAY(100);
++	DELAY(1000);
+ 	if (fdsts_rd(fdc) != 0x80)
+ 		return (ENXIO);
+ 
+From wb at freebie.xs4all.nl  Thu Jun 16 21:59:11 2005
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Thu Jun 16 21:59:13 2005
+Subject: Back to PR alpha/30486: broken floppy on DS10
+In-Reply-To: <20050616202857.GA2141@ns1.xcllnt.net>
+References: <6fca0ff7c7549bdc2e59ad813c82a72b@xcllnt.net>
+	<20050616201046.GA29464@freebie.xs4all.nl>
+	<20050616202857.GA2141@ns1.xcllnt.net>
+Message-ID: <20050616215908.GA30350@freebie.xs4all.nl>
+
+On Thu, Jun 16, 2005 at 01:28:57PM -0700, Marcel Moolenaar wrote..
+> On Thu, Jun 16, 2005 at 10:10:46PM +0200, Wilko Bulte wrote:
+> > 
+> > Well, on my DS10 I still see the failure.  Running a 'current' of May 25.
+> > 
+> > Obvious difference: mine is a 600MHz, your's a 466MHz.
+> 
+> Well, that's a start. Let's play with this for a bit. Can you
+> try the attached patch? It helps if you boot verbose and watch
+> out for fdc(4) related errors.
+  
+No visible change.  No fdc related errors on the console either.
+
+Can you put a verbose dmesg.boot on your webpage?  I'm sorta
+suspicious that I might have a different fdc chip on my DS10.
+</longshot>
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From marcel at xcllnt.net  Thu Jun 16 22:30:37 2005
+From: marcel at xcllnt.net (Marcel Moolenaar)
+Date: Thu Jun 16 22:30:39 2005
+Subject: Back to PR alpha/30486: broken floppy on DS10
+In-Reply-To: <20050616215908.GA30350@freebie.xs4all.nl>
+References: <6fca0ff7c7549bdc2e59ad813c82a72b@xcllnt.net>
+	<20050616201046.GA29464@freebie.xs4all.nl>
+	<20050616202857.GA2141@ns1.xcllnt.net>
+	<20050616215908.GA30350@freebie.xs4all.nl>
+Message-ID: <20050616223033.GA3008@ns1.xcllnt.net>
+
+On Thu, Jun 16, 2005 at 11:59:08PM +0200, Wilko Bulte wrote:
+> On Thu, Jun 16, 2005 at 01:28:57PM -0700, Marcel Moolenaar wrote..
+> > On Thu, Jun 16, 2005 at 10:10:46PM +0200, Wilko Bulte wrote:
+> > > 
+> > > Well, on my DS10 I still see the failure.  Running a 'current' of May 25.
+> > > 
+> > > Obvious difference: mine is a 600MHz, your's a 466MHz.
+> > 
+> > Well, that's a start. Let's play with this for a bit. Can you
+> > try the attached patch? It helps if you boot verbose and watch
+> > out for fdc(4) related errors.
+>   
+> No visible change.  No fdc related errors on the console either.
+
+Didn't expect much, but I had to make sure.
+
+> Can you put a verbose dmesg.boot on your webpage?  I'm sorta
+> suspicious that I might have a different fdc chip on my DS10.
+> </longshot>
+
+http://www.xcllnt.net/~marcel/machines/ds10/dmesg-verbose.txt
+
+There's 1 configuration difference between the verbose and non-verbose:
+I replaced the Matrox with the TGA.
+
+There's no difference between the fdc(4)'s that I can see.
+
+-- 
+ Marcel Moolenaar	  USPA: A-39004		 marcel@xcllnt.net
+From emillbrandt at coldhaus.com  Fri Jun 17 00:22:36 2005
+From: emillbrandt at coldhaus.com (Eric Millbrandt)
+Date: Fri Jun 17 00:22:40 2005
+Subject: Kernel trap on linux compat load
+In-Reply-To: <200506151535.59989.jhb@FreeBSD.org>
+References: <42AA1C23.4080901@coldhaus.com>
+	<200506151535.59989.jhb@FreeBSD.org>
+Message-ID: <42B217A1.3060002@coldhaus.com>
+
+Skipped content of type multipart/mixed-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/x-pkcs7-signature
+Size: 6179 bytes
+Desc: S/MIME Cryptographic Signature
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050616/3ee445ac/smime.bin
+From jhb at FreeBSD.org  Fri Jun 17 13:58:30 2005
+From: jhb at FreeBSD.org (John Baldwin)
+Date: Fri Jun 17 13:58:32 2005
+Subject: Kernel trap on linux compat load
+In-Reply-To: <42B217A1.3060002@coldhaus.com>
+References: <42AA1C23.4080901@coldhaus.com>
+	<200506151535.59989.jhb@FreeBSD.org>
+	<42B217A1.3060002@coldhaus.com>
+Message-ID: <200506170924.32120.jhb@FreeBSD.org>
+
+On Thursday 16 June 2005 08:21 pm, Eric Millbrandt wrote:
+> John Baldwin wrote:
+> >On Friday 10 June 2005 07:02 pm, Eric Millbrandt wrote:
+> >>I've noticed that linux compatibility caused my system to crash since I
+> >>upgraded from RELENG_4_9 (RELENG_4_10, RELENG_4_11, RELENG_4).  I
+> >>upgraded using buildworld, I haven't had a change to test using a clean
+> >>binary install.  Has anyone else seen this behavior?  It's easy to
+> >>reproduce, the system traps right on linux compatibility load.  The only
+> >>similar behavior I've found on google is an unanswered post
+> >>http://lists.freebsd.org/pipermail/freebsd-alpha/2004-June/001555.html
+> >>
+> >>Jun  8 07:18:17 mongoloid /kernel: fatal kernel trap:
+> >>Jun  8 07:18:17 mongoloid /kernel:
+> >>Jun  8 07:18:17 mongoloid /kernel: trap entry = 0x4 (unaligned access
+> >>fault) Jun  8 07:18:17 mongoloid /kernel: a0         = 0xfffffe0015285e34
+> >>Jun  8 07:18:17 mongoloid /kernel: a1         = 0x2d
+> >>Jun  8 07:18:17 mongoloid /kernel: a2         = 0x1
+> >>Jun  8 07:18:17 mongoloid /kernel: pc         = 0xfffffc0000386e68
+> >>Jun  8 07:18:17 mongoloid /kernel: ra         = 0xfffffc0000386dd8
+> >>Jun  8 07:18:17 mongoloid /kernel: curproc    = 0xfffffe001177e780
+> >>Jun  8 07:18:17 mongoloid /kernel: pid = 173, comm = ldconfig
+> >>Jun  8 07:18:17 mongoloid /kernel:
+> >>Jun  8 07:18:17 mongoloid /kernel: panic: trap
+> >>
+> >>EEM
+> >
+> >Did you rebuild your kernel with buildkernel / installkernel?  I believe
+> > that buildworld on 4.x still builds and installs new modules into
+> > /modules including the linux and osf1 compat modules.  New modules aren't
+> > guaranteed to work on older kernels, so if your kernel is still 4.9, that
+> > is probably your problem.
+>
+> I used buildworld, buildkernel, installkernel, drop to single user,
+> installworld, and mergemaster.  This is with linux_compat loading from
+> rc.conf.  I misspoke earlier loading linux.ko works fine but running a
+> linux binary, /compat/linux/sbin/ldconfig or sophie, causes the trap.
+> On a side not osf1_compat works fine.
+>
+> Here are my stack traces after running /compat/linux/sbin/ldconfig...
+> Debugger() at Debugger=0x2c
+> panic() at panic+0x100
+> trap() at trap+0x600
+> XentUna() at XentUna+0x2c
+> --- unaligned access fault (from ipl0) ---
+> kernel_sysctl at kernel_sysctl+ox1a8
+> 347() at -0x1fffe4a63d0
+> Here ddb traps on itself (memory management fault)
+>
+> This one is from running sophie
+> Debugger() at Debugger=0x2c
+> panic() at panic+0x100
+> trap() at trap+0x600
+> XentUna() at XentUna+0x2c
+> --- unaligned access fault (from ipl0) ---
+> kernel_sysctl at kernel_sysctl+ox1a8
+> linux_newuname() at linux_newuname+0xd0
+> syscall() at syscal+0x224
+> XentSys at XentSys+0x5c
+> --- syscall (339, Linux ELF, linux_newuname) ---
+> --- user mode ---
+
+Ok, this is helpful.  Can you do 'gdb kernel.debug' and then type 'list 
+*kernel_sysctl+0x1a8'?  This will give us the source file/line that it 
+faulted at.  Thanks!
+
+-- 
+John Baldwin <jhb@FreeBSD.org> ?<>< ?http://www.FreeBSD.org/~jhb/
+"Power Users Use the Power to Serve" ?= ?http://www.FreeBSD.org
+From norseman at firstlight.net  Fri Jun 17 20:07:12 2005
+From: norseman at firstlight.net (norseman)
+Date: Fri Jun 17 20:07:14 2005
+Subject: FreeBSD boot problems on Alpha 600 5/333
+Message-ID: <42B2CAF2.3041480@firstlight.net>
+
+To whomever;
+	I was having another problem with FreeBSD (intel) and put the 
+following in too. Brooke suggests I try here. 
+
+(Alpha specific section from another letter)
+>
+> That "different animal" is a DEC ALPHA 600 5/333. The downloaded image
+> is for DEC ALPHA's.  It's not accepting the CD which checks out OK as
+> far as "it's all there" goes. The CD-BURN seems fine. All several of
+> them. Push the button and the CD slides in and the DEC kicks it out.
+> Won't even try to boot it. DEC was originally shipped with Win-NT 4.0
+> and has ARC, OpenVMS and DEC UNIX boot choices. Windows boots but the
+> passwords are long since forgotten. Would like to try FreeBSD on it.
+> The cryptic message on the screen mentions "RUN/STOP switch" but I can
+> not find any mention of it anywhere else. Not at HP help, not in the
+> few remaining manuals, not with a net search.
+> 
+> Thoughts/Comments?
+
+Steve Turner
+norseman@firstlight.net
+
+('REPLY' button won't work. I have six keyboards for myself here at
+  work plus the rest I trouble shoot. Outgoing is from whichever I'm
+  at BUT incoming is preferred as norseman. Or stevet@water.ca.gov .
+  I's a darn sight easier than always logging in somewhere else. :)
+)
+From wb at freebie.xs4all.nl  Fri Jun 17 20:42:22 2005
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Fri Jun 17 20:42:26 2005
+Subject: FreeBSD boot problems on Alpha 600 5/333
+In-Reply-To: <42B2CAF2.3041480@firstlight.net>
+References: <42B2CAF2.3041480@firstlight.net>
+Message-ID: <20050617204217.GB36667@freebie.xs4all.nl>
+
+On Fri, Jun 17, 2005 at 01:06:58PM +0000, norseman wrote..
+> To whomever;
+> 	I was having another problem with FreeBSD (intel) and put the 
+> following in too. Brooke suggests I try here. 
+> 
+> (Alpha specific section from another letter)
+> >
+> > That "different animal" is a DEC ALPHA 600 5/333. The downloaded image
+> > is for DEC ALPHA's.  It's not accepting the CD which checks out OK as
+> > far as "it's all there" goes. The CD-BURN seems fine. All several of
+> > them. Push the button and the CD slides in and the DEC kicks it out.
+> > Won't even try to boot it. DEC was originally shipped with Win-NT 4.0
+> > and has ARC, OpenVMS and DEC UNIX boot choices. Windows boots but the
+> > passwords are long since forgotten. Would like to try FreeBSD on it.
+> > The cryptic message on the screen mentions "RUN/STOP switch" but I can
+
+Thats ancient remains of the days that disks had RUN/STOP switches.
+Carryover from the DEC VAX days.
+
+Can you get me a SHOW CONF and a SHOW DEV from the >>> prompt?
+
+You could have an oldish CDROM drive that does not understand CDR / CDRW
+discs.
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From norseman at firstlight.net  Fri Jun 17 21:48:44 2005
+From: norseman at firstlight.net (norseman)
+Date: Fri Jun 17 21:48:46 2005
+Subject: on Alpha 600 5/333 problem
+Message-ID: <42B2E2BC.28E8D85F@firstlight.net>
+
+Wilko Bulte;
+
+		Per request:
+SHOW CONF
+--------
+SRM console:	V6.0-21
+ARC console:	4.48
+PALcode: 	VMS Palcoe V1.18-0 OSF PALcode V1.21-0
+SROM:		V1.2
+
+Peocessor
+ ( skipped )
+
+Memory 
+ ( skipped )
+
+PCI Bus
+	Bus 00  Slot 08: DEC ZLXp Graphics Contrlr
+	Bus 00  Slot 10: Intel 8275EB PCI to Eisa Bridge
+        Bus 00  Slot 11: DEC PCI to PCI Bridge chip
+        Bus 01  Slot 00: DECchip 21040 Network Contrlr
+				ewa0.0.01000.0 00-00-f8-21-9C-CA
+	Bus 01  Slot 01: ISP1020 SCSI Contrlr
+				pka0.7.0.1001.0		SCSI Bus ID 7
+				dka0.0.0.1001.0		RZ28M
+				dka500.5.0.1001.0	RRD45
+        Bus 01  Slot 01: ISP1020 SCSI Contrl
+				pkb0.7.0.1002.0         SCSI Bus ID 7
+
+EISA Bus Modules installed
+
+EISA/ISA NVR config
+	Slot	Module
+	 1	 ISA2000
+>>>
+
+SHOW DEV
+--------
+dka0.0.0.1001.0	 	DKA0		RZ28M	0568
+dka500.5.0.1001.0	DKA500		RRD45	1645
+dva0.0.0.0.1		DVA0
+ewa0.0.0.1000.0		EWA0		00-00-f8-21-9C-CA
+pka0.7.0.1001.0		PKA0		SCSI Bus ID 7  2.10
+pkb0.7.0.1002.0		PAB0		SCSI Bus ID 7  2.10
+
+>>>
+
+
+I left off the 'not applicable' (to me at least) sections
+since I had to type these in manually. If you need any of
+the skipped sections - say so and I'll get them to you.
+
+Also, when
+
+>>> set boot_dev DKA500
+boot_dev protected from attempted operation
+
+
+(Upper/Lower case DKA500 yield same message.)
+
+
+Sometimes hardware actions help.
+At boot the CD tray is opened by the DEC. With or without a
+CD in place, any attempt to close it causes an immediate open
+by the DEC. (won't close and stay there.) There are no external
+(to the tower) buttons or toggles or anything other than the
+open/load button, the volume dial and the system control panel's
+ON/OFF, REBOOT, HALT and LED screen. 
+Back side is cards and cables.
+
+
+Hope this has been helpfull.
+
+
+Side note:  Brooks, sorry I spelled your name wrong earlier.
+
+Steve
+norseman@firstlight.net
+
+
+('REPLY' button won't work. I have six keyboards for myself here at
+  work plus the rest I trouble shoot. Outgoing is from whichever I'm
+  at BUT incoming is preferred as norseman. Or stevet@water.ca.gov .
+  It's a darn sight easier than always logging in somewhere else. :)
+)
+From wb at freebie.xs4all.nl  Fri Jun 17 21:54:11 2005
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Fri Jun 17 21:54:13 2005
+Subject: on Alpha 600 5/333 problem
+In-Reply-To: <42B2E2BC.28E8D85F@firstlight.net>
+References: <42B2E2BC.28E8D85F@firstlight.net>
+Message-ID: <20050617215407.GA37494@freebie.xs4all.nl>
+
+On Fri, Jun 17, 2005 at 02:48:28PM +0000, norseman wrote..
+> Wilko Bulte;
+> 
+> 		Per request:
+> PCI Bus
+> 	Bus 00  Slot 08: DEC ZLXp Graphics Contrlr
+
+That is a TGA graphics adapter, you might have problems with FreeBSD
+as long is that is in.  Obviously the system must reach the booting stage
+first ;)
+
+This is WIP to see if the TGA driver problem can be fixed.
+
+> --------
+> dka0.0.0.1001.0	 	DKA0		RZ28M	0568
+> dka500.5.0.1001.0	DKA500		RRD45	1645
+
+RRD45 is quite an old 4x drive.  Do you use CDR or CDRW media?
+Dark colored CDRs gave me problems on RRD45.  
+
+Mind you, difficult to diagnose this remotely.
+
+> >>> set boot_dev DKA500
+> boot_dev protected from attempted operation
+
+hmmmm..
+
+set bootdef_dev DKA500
+
+(IIRC)
+
+> (Upper/Lower case DKA500 yield same message.)
+
+This is case insensitive throughout.
+
+> At boot the CD tray is opened by the DEC. With or without a
+> CD in place, any attempt to close it causes an immediate open
+> by the DEC. (won't close and stay there.) There are no external
+
+Probably the RRD45 is fscked beyond repair.  I had at least 2 go
+to the CD graveyard this way.
+
+You could try a boot from floppy, the floppy images are on the CD, and
+then mount the CD via NFS for further installation.
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From emillbrandt at coldhaus.com  Fri Jun 17 21:58:17 2005
+From: emillbrandt at coldhaus.com (Eric Millbrandt)
+Date: Fri Jun 17 21:58:19 2005
+Subject: Kernel trap on linux compat load
+In-Reply-To: <200506170924.32120.jhb@FreeBSD.org>
+References: <42AA1C23.4080901@coldhaus.com>
+	<200506151535.59989.jhb@FreeBSD.org>
+	<42B217A1.3060002@coldhaus.com>
+	<200506170924.32120.jhb@FreeBSD.org>
+Message-ID: <42B3471D.7050608@coldhaus.com>
+
+John Baldwin wrote:
+
+>On Thursday 16 June 2005 08:21 pm, Eric Millbrandt wrote:
+>  
+>
+>>John Baldwin wrote:
+>>    
+>>
+>>>On Friday 10 June 2005 07:02 pm, Eric Millbrandt wrote:
+>>>      
+>>>
+>>>>I've noticed that linux compatibility caused my system to crash since I
+>>>>upgraded from RELENG_4_9 (RELENG_4_10, RELENG_4_11, RELENG_4).  I
+>>>>upgraded using buildworld, I haven't had a change to test using a clean
+>>>>binary install.  Has anyone else seen this behavior?  It's easy to
+>>>>reproduce, the system traps right on linux compatibility load.  The only
+>>>>similar behavior I've found on google is an unanswered post
+>>>>http://lists.freebsd.org/pipermail/freebsd-alpha/2004-June/001555.html
+>>>>
+>>>>Jun  8 07:18:17 mongoloid /kernel: fatal kernel trap:
+>>>>Jun  8 07:18:17 mongoloid /kernel:
+>>>>Jun  8 07:18:17 mongoloid /kernel: trap entry = 0x4 (unaligned access
+>>>>fault) Jun  8 07:18:17 mongoloid /kernel: a0         = 0xfffffe0015285e34
+>>>>Jun  8 07:18:17 mongoloid /kernel: a1         = 0x2d
+>>>>Jun  8 07:18:17 mongoloid /kernel: a2         = 0x1
+>>>>Jun  8 07:18:17 mongoloid /kernel: pc         = 0xfffffc0000386e68
+>>>>Jun  8 07:18:17 mongoloid /kernel: ra         = 0xfffffc0000386dd8
+>>>>Jun  8 07:18:17 mongoloid /kernel: curproc    = 0xfffffe001177e780
+>>>>Jun  8 07:18:17 mongoloid /kernel: pid = 173, comm = ldconfig
+>>>>Jun  8 07:18:17 mongoloid /kernel:
+>>>>Jun  8 07:18:17 mongoloid /kernel: panic: trap
+>>>>
+>>>>EEM
+>>>>        
+>>>>
+>>>Did you rebuild your kernel with buildkernel / installkernel?  I believe
+>>>that buildworld on 4.x still builds and installs new modules into
+>>>/modules including the linux and osf1 compat modules.  New modules aren't
+>>>guaranteed to work on older kernels, so if your kernel is still 4.9, that
+>>>is probably your problem.
+>>>      
+>>>
+>>I used buildworld, buildkernel, installkernel, drop to single user,
+>>installworld, and mergemaster.  This is with linux_compat loading from
+>>rc.conf.  I misspoke earlier loading linux.ko works fine but running a
+>>linux binary, /compat/linux/sbin/ldconfig or sophie, causes the trap.
+>>On a side not osf1_compat works fine.
+>>
+>>Here are my stack traces after running /compat/linux/sbin/ldconfig...
+>>Debugger() at Debugger=0x2c
+>>panic() at panic+0x100
+>>trap() at trap+0x600
+>>XentUna() at XentUna+0x2c
+>>--- unaligned access fault (from ipl0) ---
+>>kernel_sysctl at kernel_sysctl+ox1a8
+>>347() at -0x1fffe4a63d0
+>>Here ddb traps on itself (memory management fault)
+>>
+>>This one is from running sophie
+>>Debugger() at Debugger=0x2c
+>>panic() at panic+0x100
+>>trap() at trap+0x600
+>>XentUna() at XentUna+0x2c
+>>--- unaligned access fault (from ipl0) ---
+>>kernel_sysctl at kernel_sysctl+ox1a8
+>>linux_newuname() at linux_newuname+0xd0
+>>syscall() at syscal+0x224
+>>XentSys at XentSys+0x5c
+>>--- syscall (339, Linux ELF, linux_newuname) ---
+>>--- user mode ---
+>>    
+>>
+>
+>Ok, this is helpful.  Can you do 'gdb kernel.debug' and then type 'list 
+>*kernel_sysctl+0x1a8'?  This will give us the source file/line that it 
+>faulted at.  Thanks!
+>
+>  
+>
+Ok here is what I found.
+
+(gdb) list *kernel_sysctl+0x1a8
+0xfffffc000038e9a8 is in kernel_sysctl 
+(/usr/src/sys/kern/kern_sysctl.c:938).
+933                     if (req.oldptr && req.oldidx > req.oldlen)
+934                             *retval = req.oldlen;
+935                     else
+936                             *retval = req.oldidx;
+937             }
+938             return (error);
+939     }
+940
+941     int
+942     kernel_sysctlbyname(struct proc *p, char *name, void *old, 
+size_t *oldlenp,
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/x-pkcs7-signature
+Size: 6179 bytes
+Desc: S/MIME Cryptographic Signature
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050617/84400d3f/smime.bin
+From bugmaster at freebsd.org  Mon Jun 20 11:01:45 2005
+From: bugmaster at freebsd.org (FreeBSD bugmaster)
+Date: Mon Jun 20 11:01:47 2005
+Subject: Current problem reports assigned to you
+Message-ID: <200506201101.j5KB1iRR011336@freefall.freebsd.org>
+
+Current FreeBSD problem reports
+Critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2004/12/20] alpha/75317 alpha       ATA DMA broken on PCalpha
+
+1 problem total.
+
+Serious problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+f [2001/09/10] alpha/30486 alpha       AlphaServer DS10 floppy access is broken
+o [2003/02/05] alpha/47952 alpha       DEFPA causes machine check with V5.0-rele
+o [2003/11/10] alpha/59116 alpha       [ntfs] mount_ntfs of a Windows 2000-forma
+o [2004/01/26] alpha/61940 alpha       Can't disklabel new disk from FreeBSD/alp
+o [2004/01/27] alpha/61973 alpha       Machine Check on boot-up of AlphaServer 2
+f [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+
+6 problems total.
+
+Non-critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2001/02/22] alpha/25284 alpha       PC164 won't reboot with graphics console
+f [2001/07/29] alpha/29299 alpha       FreeBSD 4.3 Alpha + Tekram SCSI adapter p
+o [2002/05/13] alpha/38031 alpha       osf1.ko not loaded during boot-time of li
+o [2003/02/25] alpha/48676 alpha       Changing the baud rate of serial consoles
+o [2003/04/12] alpha/50868 alpha       fd0 floppy device is not mapped into /dev
+o [2004/05/10] alpha/66478 alpha       unexpected machine check: panic for 4.9, 
+o [2004/06/13] alpha/67903 alpha       hw.chipset.memory: 1099511627776 - thats 
+
+7 problems total.
+
+From Ostashev at Lumex.ru  Mon Jun 20 16:27:13 2005
+From: Ostashev at Lumex.ru (Ostashev@Lumex.ru)
+Date: Mon Jun 20 16:27:15 2005
+Subject: (no subject)
+Message-ID: <730D0F650578D311AB6800A0C9FC1C9DC02C8B@slumex.lumex2.spb.ru>
+
+ 
+
+ 
+
+_____________________________________________________
+
+Vladimir Ostashev
+
+mailto:  <mailto:ostashev@lumex.ru> ostashev@lumex.ru
+
+            <mailto:ostashev@nwgsm.ru> ostashev@nwgsm.ru
+
+ 
+
+From jhb at FreeBSD.org  Mon Jun 20 18:33:11 2005
+From: jhb at FreeBSD.org (John Baldwin)
+Date: Mon Jun 20 18:33:14 2005
+Subject: Kernel trap on linux compat load
+In-Reply-To: <42B3471D.7050608@coldhaus.com>
+References: <42AA1C23.4080901@coldhaus.com>
+	<200506170924.32120.jhb@FreeBSD.org>
+	<42B3471D.7050608@coldhaus.com>
+Message-ID: <200506201433.46335.jhb@FreeBSD.org>
+
+On Friday 17 June 2005 05:56 pm, Eric Millbrandt wrote:
+> John Baldwin wrote:
+> >On Thursday 16 June 2005 08:21 pm, Eric Millbrandt wrote:
+> >>John Baldwin wrote:
+> >>>On Friday 10 June 2005 07:02 pm, Eric Millbrandt wrote:
+> >>>>I've noticed that linux compatibility caused my system to crash since I
+> >>>>upgraded from RELENG_4_9 (RELENG_4_10, RELENG_4_11, RELENG_4).  I
+> >>>>upgraded using buildworld, I haven't had a change to test using a clean
+> >>>>binary install.  Has anyone else seen this behavior?  It's easy to
+> >>>>reproduce, the system traps right on linux compatibility load.  The
+> >>>> only similar behavior I've found on google is an unanswered post
+> >>>>http://lists.freebsd.org/pipermail/freebsd-alpha/2004-June/001555.html
+> >>>>
+> >>>>Jun  8 07:18:17 mongoloid /kernel: fatal kernel trap:
+> >>>>Jun  8 07:18:17 mongoloid /kernel:
+> >>>>Jun  8 07:18:17 mongoloid /kernel: trap entry = 0x4 (unaligned access
+> >>>>fault) Jun  8 07:18:17 mongoloid /kernel: a0         =
+> >>>> 0xfffffe0015285e34 Jun  8 07:18:17 mongoloid /kernel: a1         =
+> >>>> 0x2d
+> >>>>Jun  8 07:18:17 mongoloid /kernel: a2         = 0x1
+> >>>>Jun  8 07:18:17 mongoloid /kernel: pc         = 0xfffffc0000386e68
+> >>>>Jun  8 07:18:17 mongoloid /kernel: ra         = 0xfffffc0000386dd8
+> >>>>Jun  8 07:18:17 mongoloid /kernel: curproc    = 0xfffffe001177e780
+> >>>>Jun  8 07:18:17 mongoloid /kernel: pid = 173, comm = ldconfig
+> >>>>Jun  8 07:18:17 mongoloid /kernel:
+> >>>>Jun  8 07:18:17 mongoloid /kernel: panic: trap
+> >>>>
+> >>>>EEM
+> >>>
+> >>>Did you rebuild your kernel with buildkernel / installkernel?  I believe
+> >>>that buildworld on 4.x still builds and installs new modules into
+> >>>/modules including the linux and osf1 compat modules.  New modules
+> >>> aren't guaranteed to work on older kernels, so if your kernel is still
+> >>> 4.9, that is probably your problem.
+> >>
+> >>I used buildworld, buildkernel, installkernel, drop to single user,
+> >>installworld, and mergemaster.  This is with linux_compat loading from
+> >>rc.conf.  I misspoke earlier loading linux.ko works fine but running a
+> >>linux binary, /compat/linux/sbin/ldconfig or sophie, causes the trap.
+> >>On a side not osf1_compat works fine.
+> >>
+> >>Here are my stack traces after running /compat/linux/sbin/ldconfig...
+> >>Debugger() at Debugger=0x2c
+> >>panic() at panic+0x100
+> >>trap() at trap+0x600
+> >>XentUna() at XentUna+0x2c
+> >>--- unaligned access fault (from ipl0) ---
+> >>kernel_sysctl at kernel_sysctl+ox1a8
+> >>347() at -0x1fffe4a63d0
+> >>Here ddb traps on itself (memory management fault)
+> >>
+> >>This one is from running sophie
+> >>Debugger() at Debugger=0x2c
+> >>panic() at panic+0x100
+> >>trap() at trap+0x600
+> >>XentUna() at XentUna+0x2c
+> >>--- unaligned access fault (from ipl0) ---
+> >>kernel_sysctl at kernel_sysctl+ox1a8
+> >>linux_newuname() at linux_newuname+0xd0
+> >>syscall() at syscal+0x224
+> >>XentSys at XentSys+0x5c
+> >>--- syscall (339, Linux ELF, linux_newuname) ---
+> >>--- user mode ---
+> >
+> >Ok, this is helpful.  Can you do 'gdb kernel.debug' and then type 'list
+> >*kernel_sysctl+0x1a8'?  This will give us the source file/line that it
+> >faulted at.  Thanks!
+>
+> Ok here is what I found.
+>
+> (gdb) list *kernel_sysctl+0x1a8
+> 0xfffffc000038e9a8 is in kernel_sysctl
+> (/usr/src/sys/kern/kern_sysctl.c:938).
+> 933                     if (req.oldptr && req.oldidx > req.oldlen)
+> 934                             *retval = req.oldlen;
+> 935                     else
+> 936                             *retval = req.oldidx;
+> 937             }
+> 938             return (error);
+> 939     }
+> 940
+> 941     int
+> 942     kernel_sysctlbyname(struct proc *p, char *name, void *old,
+> size_t *oldlenp,
+
+Ok, try this patch please:
+
+Index: compat/linux/linux_misc.c
+===================================================================
+RCS file: /usr/cvs/src/sys/compat/linux/linux_misc.c,v
+retrieving revision 1.85.2.11
+diff -u -r1.85.2.11 linux_misc.c
+--- compat/linux/linux_misc.c   23 Mar 2004 12:16:48 -0000      1.85.2.11
++++ compat/linux/linux_misc.c   20 Jun 2005 18:33:07 -0000
+@@ -687,7 +687,8 @@
+        struct l_new_utsname utsname;
+        char *osrelease, *osname;
+        int name[2];
+-       int error, plen, olen;
++       int error;
++       size_t plen, olen;
+
+ #ifdef DEBUG
+        if (ldebug(newuname))
+
+
+-- 
+John Baldwin <jhb@FreeBSD.org>  <><  http://www.FreeBSD.org/~jhb/
+"Power Users Use the Power to Serve"  =  http://www.FreeBSD.org
+From emillbrandt at coldhaus.com  Mon Jun 20 20:31:04 2005
+From: emillbrandt at coldhaus.com (Eric Millbrandt)
+Date: Mon Jun 20 20:31:08 2005
+Subject: Kernel trap on linux compat load
+In-Reply-To: <200506201433.46335.jhb@FreeBSD.org>
+References: <42AA1C23.4080901@coldhaus.com>
+	<200506170924.32120.jhb@FreeBSD.org>
+	<42B3471D.7050608@coldhaus.com>
+	<200506201433.46335.jhb@FreeBSD.org>
+Message-ID: <42B72778.5090009@coldhaus.com>
+
+John Baldwin wrote:
+
+>On Friday 17 June 2005 05:56 pm, Eric Millbrandt wrote:
+>  
+>
+>>John Baldwin wrote:
+>>    
+>>
+>>>On Thursday 16 June 2005 08:21 pm, Eric Millbrandt wrote:
+>>>      
+>>>
+>>>>John Baldwin wrote:
+>>>>        
+>>>>
+>>>>>On Friday 10 June 2005 07:02 pm, Eric Millbrandt wrote:
+>>>>>          
+>>>>>
+>>>>>>I've noticed that linux compatibility caused my system to crash since I
+>>>>>>upgraded from RELENG_4_9 (RELENG_4_10, RELENG_4_11, RELENG_4).  I
+>>>>>>upgraded using buildworld, I haven't had a change to test using a clean
+>>>>>>binary install.  Has anyone else seen this behavior?  It's easy to
+>>>>>>reproduce, the system traps right on linux compatibility load.  The
+>>>>>>only similar behavior I've found on google is an unanswered post
+>>>>>>http://lists.freebsd.org/pipermail/freebsd-alpha/2004-June/001555.html
+>>>>>>
+>>>>>>Jun  8 07:18:17 mongoloid /kernel: fatal kernel trap:
+>>>>>>Jun  8 07:18:17 mongoloid /kernel:
+>>>>>>Jun  8 07:18:17 mongoloid /kernel: trap entry = 0x4 (unaligned access
+>>>>>>fault) Jun  8 07:18:17 mongoloid /kernel: a0         =
+>>>>>>0xfffffe0015285e34 Jun  8 07:18:17 mongoloid /kernel: a1         =
+>>>>>>0x2d
+>>>>>>Jun  8 07:18:17 mongoloid /kernel: a2         = 0x1
+>>>>>>Jun  8 07:18:17 mongoloid /kernel: pc         = 0xfffffc0000386e68
+>>>>>>Jun  8 07:18:17 mongoloid /kernel: ra         = 0xfffffc0000386dd8
+>>>>>>Jun  8 07:18:17 mongoloid /kernel: curproc    = 0xfffffe001177e780
+>>>>>>Jun  8 07:18:17 mongoloid /kernel: pid = 173, comm = ldconfig
+>>>>>>Jun  8 07:18:17 mongoloid /kernel:
+>>>>>>Jun  8 07:18:17 mongoloid /kernel: panic: trap
+>>>>>>
+>>>>>>EEM
+>>>>>>            
+>>>>>>
+>>>>>Did you rebuild your kernel with buildkernel / installkernel?  I believe
+>>>>>that buildworld on 4.x still builds and installs new modules into
+>>>>>/modules including the linux and osf1 compat modules.  New modules
+>>>>>aren't guaranteed to work on older kernels, so if your kernel is still
+>>>>>4.9, that is probably your problem.
+>>>>>          
+>>>>>
+>>>>I used buildworld, buildkernel, installkernel, drop to single user,
+>>>>installworld, and mergemaster.  This is with linux_compat loading from
+>>>>rc.conf.  I misspoke earlier loading linux.ko works fine but running a
+>>>>linux binary, /compat/linux/sbin/ldconfig or sophie, causes the trap.
+>>>>On a side not osf1_compat works fine.
+>>>>
+>>>>Here are my stack traces after running /compat/linux/sbin/ldconfig...
+>>>>Debugger() at Debugger=0x2c
+>>>>panic() at panic+0x100
+>>>>trap() at trap+0x600
+>>>>XentUna() at XentUna+0x2c
+>>>>--- unaligned access fault (from ipl0) ---
+>>>>kernel_sysctl at kernel_sysctl+ox1a8
+>>>>347() at -0x1fffe4a63d0
+>>>>Here ddb traps on itself (memory management fault)
+>>>>
+>>>>This one is from running sophie
+>>>>Debugger() at Debugger=0x2c
+>>>>panic() at panic+0x100
+>>>>trap() at trap+0x600
+>>>>XentUna() at XentUna+0x2c
+>>>>--- unaligned access fault (from ipl0) ---
+>>>>kernel_sysctl at kernel_sysctl+ox1a8
+>>>>linux_newuname() at linux_newuname+0xd0
+>>>>syscall() at syscal+0x224
+>>>>XentSys at XentSys+0x5c
+>>>>--- syscall (339, Linux ELF, linux_newuname) ---
+>>>>--- user mode ---
+>>>>        
+>>>>
+>>>Ok, this is helpful.  Can you do 'gdb kernel.debug' and then type 'list
+>>>*kernel_sysctl+0x1a8'?  This will give us the source file/line that it
+>>>faulted at.  Thanks!
+>>>      
+>>>
+>>Ok here is what I found.
+>>
+>>(gdb) list *kernel_sysctl+0x1a8
+>>0xfffffc000038e9a8 is in kernel_sysctl
+>>(/usr/src/sys/kern/kern_sysctl.c:938).
+>>933                     if (req.oldptr && req.oldidx > req.oldlen)
+>>934                             *retval = req.oldlen;
+>>935                     else
+>>936                             *retval = req.oldidx;
+>>937             }
+>>938             return (error);
+>>939     }
+>>940
+>>941     int
+>>942     kernel_sysctlbyname(struct proc *p, char *name, void *old,
+>>size_t *oldlenp,
+>>    
+>>
+>
+>Ok, try this patch please:
+>
+>Index: compat/linux/linux_misc.c
+>===================================================================
+>RCS file: /usr/cvs/src/sys/compat/linux/linux_misc.c,v
+>retrieving revision 1.85.2.11
+>diff -u -r1.85.2.11 linux_misc.c
+>--- compat/linux/linux_misc.c   23 Mar 2004 12:16:48 -0000      1.85.2.11
+>+++ compat/linux/linux_misc.c   20 Jun 2005 18:33:07 -0000
+>@@ -687,7 +687,8 @@
+>        struct l_new_utsname utsname;
+>        char *osrelease, *osname;
+>        int name[2];
+>-       int error, plen, olen;
+>+       int error;
+>+       size_t plen, olen;
+>
+> #ifdef DEBUG
+>        if (ldebug(newuname))
+>
+>  
+>
+Ok, I rebuilt and installed linux.ko and linux binaries appear to be 
+working!  At least sophie, compiled for linux, catches viruses again.  
+Let me know if you need any further testing and where you will apply the 
+patch in cvs.  Thanks for the help.
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/x-pkcs7-signature
+Size: 6179 bytes
+Desc: S/MIME Cryptographic Signature
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050620/95fe1264/smime.bin
+From jhb at FreeBSD.org  Mon Jun 20 20:49:43 2005
+From: jhb at FreeBSD.org (John Baldwin)
+Date: Mon Jun 20 20:49:55 2005
+Subject: Kernel trap on linux compat load
+In-Reply-To: <42B72778.5090009@coldhaus.com>
+References: <42AA1C23.4080901@coldhaus.com>
+	<200506201433.46335.jhb@FreeBSD.org>
+	<42B72778.5090009@coldhaus.com>
+Message-ID: <200506201649.06845.jhb@FreeBSD.org>
+
+On Monday 20 June 2005 04:30 pm, Eric Millbrandt wrote:
+> John Baldwin wrote:
+> >On Friday 17 June 2005 05:56 pm, Eric Millbrandt wrote:
+> >>John Baldwin wrote:
+> >>>On Thursday 16 June 2005 08:21 pm, Eric Millbrandt wrote:
+> >>>>John Baldwin wrote:
+> >>>>>On Friday 10 June 2005 07:02 pm, Eric Millbrandt wrote:
+> >>>>>>I've noticed that linux compatibility caused my system to crash since
+> >>>>>> I upgraded from RELENG_4_9 (RELENG_4_10, RELENG_4_11, RELENG_4).  I
+> >>>>>> upgraded using buildworld, I haven't had a change to test using a
+> >>>>>> clean binary install.  Has anyone else seen this behavior?  It's
+> >>>>>> easy to reproduce, the system traps right on linux compatibility
+> >>>>>> load.  The only similar behavior I've found on google is an
+> >>>>>> unanswered post
+> >>>>>> http://lists.freebsd.org/pipermail/freebsd-alpha/2004-June/001555.ht
+> >>>>>>ml
+> >>>>>>
+> >>>>>>Jun  8 07:18:17 mongoloid /kernel: fatal kernel trap:
+> >>>>>>Jun  8 07:18:17 mongoloid /kernel:
+> >>>>>>Jun  8 07:18:17 mongoloid /kernel: trap entry = 0x4 (unaligned access
+> >>>>>>fault) Jun  8 07:18:17 mongoloid /kernel: a0         =
+> >>>>>>0xfffffe0015285e34 Jun  8 07:18:17 mongoloid /kernel: a1         =
+> >>>>>>0x2d
+> >>>>>>Jun  8 07:18:17 mongoloid /kernel: a2         = 0x1
+> >>>>>>Jun  8 07:18:17 mongoloid /kernel: pc         = 0xfffffc0000386e68
+> >>>>>>Jun  8 07:18:17 mongoloid /kernel: ra         = 0xfffffc0000386dd8
+> >>>>>>Jun  8 07:18:17 mongoloid /kernel: curproc    = 0xfffffe001177e780
+> >>>>>>Jun  8 07:18:17 mongoloid /kernel: pid = 173, comm = ldconfig
+> >>>>>>Jun  8 07:18:17 mongoloid /kernel:
+> >>>>>>Jun  8 07:18:17 mongoloid /kernel: panic: trap
+> >>>>>>
+> >>>>>>EEM
+> >>>>>
+> >>>>>Did you rebuild your kernel with buildkernel / installkernel?  I
+> >>>>> believe that buildworld on 4.x still builds and installs new modules
+> >>>>> into /modules including the linux and osf1 compat modules.  New
+> >>>>> modules aren't guaranteed to work on older kernels, so if your kernel
+> >>>>> is still 4.9, that is probably your problem.
+> >>>>
+> >>>>I used buildworld, buildkernel, installkernel, drop to single user,
+> >>>>installworld, and mergemaster.  This is with linux_compat loading from
+> >>>>rc.conf.  I misspoke earlier loading linux.ko works fine but running a
+> >>>>linux binary, /compat/linux/sbin/ldconfig or sophie, causes the trap.
+> >>>>On a side not osf1_compat works fine.
+> >>>>
+> >>>>Here are my stack traces after running /compat/linux/sbin/ldconfig...
+> >>>>Debugger() at Debugger=0x2c
+> >>>>panic() at panic+0x100
+> >>>>trap() at trap+0x600
+> >>>>XentUna() at XentUna+0x2c
+> >>>>--- unaligned access fault (from ipl0) ---
+> >>>>kernel_sysctl at kernel_sysctl+ox1a8
+> >>>>347() at -0x1fffe4a63d0
+> >>>>Here ddb traps on itself (memory management fault)
+> >>>>
+> >>>>This one is from running sophie
+> >>>>Debugger() at Debugger=0x2c
+> >>>>panic() at panic+0x100
+> >>>>trap() at trap+0x600
+> >>>>XentUna() at XentUna+0x2c
+> >>>>--- unaligned access fault (from ipl0) ---
+> >>>>kernel_sysctl at kernel_sysctl+ox1a8
+> >>>>linux_newuname() at linux_newuname+0xd0
+> >>>>syscall() at syscal+0x224
+> >>>>XentSys at XentSys+0x5c
+> >>>>--- syscall (339, Linux ELF, linux_newuname) ---
+> >>>>--- user mode ---
+> >>>
+> >>>Ok, this is helpful.  Can you do 'gdb kernel.debug' and then type 'list
+> >>>*kernel_sysctl+0x1a8'?  This will give us the source file/line that it
+> >>>faulted at.  Thanks!
+> >>
+> >>Ok here is what I found.
+> >>
+> >>(gdb) list *kernel_sysctl+0x1a8
+> >>0xfffffc000038e9a8 is in kernel_sysctl
+> >>(/usr/src/sys/kern/kern_sysctl.c:938).
+> >>933                     if (req.oldptr && req.oldidx > req.oldlen)
+> >>934                             *retval = req.oldlen;
+> >>935                     else
+> >>936                             *retval = req.oldidx;
+> >>937             }
+> >>938             return (error);
+> >>939     }
+> >>940
+> >>941     int
+> >>942     kernel_sysctlbyname(struct proc *p, char *name, void *old,
+> >>size_t *oldlenp,
+> >
+> >Ok, try this patch please:
+> >
+> >Index: compat/linux/linux_misc.c
+> >===================================================================
+> >RCS file: /usr/cvs/src/sys/compat/linux/linux_misc.c,v
+> >retrieving revision 1.85.2.11
+> >diff -u -r1.85.2.11 linux_misc.c
+> >--- compat/linux/linux_misc.c   23 Mar 2004 12:16:48 -0000      1.85.2.11
+> >+++ compat/linux/linux_misc.c   20 Jun 2005 18:33:07 -0000
+> >@@ -687,7 +687,8 @@
+> >        struct l_new_utsname utsname;
+> >        char *osrelease, *osname;
+> >        int name[2];
+> >-       int error, plen, olen;
+> >+       int error;
+> >+       size_t plen, olen;
+> >
+> > #ifdef DEBUG
+> >        if (ldebug(newuname))
+>
+> Ok, I rebuilt and installed linux.ko and linux binaries appear to be
+> working!  At least sophie, compiled for linux, catches viruses again.
+> Let me know if you need any further testing and where you will apply the
+> patch in cvs.  Thanks for the help.
+
+Excellent.  Thanks for testing.  I've just committed the fix to RELENG_4.
+
+-- 
+John Baldwin <jhb@FreeBSD.org>  <><  http://www.FreeBSD.org/~jhb/
+"Power Users Use the Power to Serve"  =  http://www.FreeBSD.org
+From bugmaster at freebsd.org  Mon Jun 27 11:01:45 2005
+From: bugmaster at freebsd.org (FreeBSD bugmaster)
+Date: Mon Jun 27 11:01:46 2005
+Subject: Current problem reports assigned to you
+Message-ID: <200506271101.j5RB1ib8042961@freefall.freebsd.org>
+
+Current FreeBSD problem reports
+Critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2004/12/20] alpha/75317 alpha       ATA DMA broken on PCalpha
+
+1 problem total.
+
+Serious problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+f [2001/09/10] alpha/30486 alpha       AlphaServer DS10 floppy access is broken
+o [2003/02/05] alpha/47952 alpha       DEFPA causes machine check with V5.0-rele
+o [2003/11/10] alpha/59116 alpha       [ntfs] mount_ntfs of a Windows 2000-forma
+o [2004/01/26] alpha/61940 alpha       Can't disklabel new disk from FreeBSD/alp
+o [2004/01/27] alpha/61973 alpha       Machine Check on boot-up of AlphaServer 2
+f [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+
+6 problems total.
+
+Non-critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2001/02/22] alpha/25284 alpha       PC164 won't reboot with graphics console
+f [2001/07/29] alpha/29299 alpha       FreeBSD 4.3 Alpha + Tekram SCSI adapter p
+o [2002/05/13] alpha/38031 alpha       osf1.ko not loaded during boot-time of li
+o [2003/02/25] alpha/48676 alpha       Changing the baud rate of serial consoles
+o [2003/04/12] alpha/50868 alpha       fd0 floppy device is not mapped into /dev
+o [2004/05/10] alpha/66478 alpha       unexpected machine check: panic for 4.9, 
+o [2004/06/13] alpha/67903 alpha       hw.chipset.memory: 1099511627776 - thats 
+
+7 problems total.
+
+From saurbier at math.uni-bielefeld.de  Wed Jun 29 10:02:29 2005
+From: saurbier at math.uni-bielefeld.de (Konstantin Saurbier)
+Date: Wed Jun 29 10:02:31 2005
+Subject: CPUTYPE=ev67 breaks ld and as on DS20E
+Message-ID: <20050629100225.GA28029@math.uni-bielefeld.de>
+
+Hi,
+
+i noticed on 5.4-RELEASE that building the world with CPUTYPE=ev67 set 
+breaks /usr/bin/as and /usr/bin/ld.
+
+I can easily reproduce this behavior. My first thought of -O2 being the 
+reason was wrong.
+
+Can anyone confirm this problem?
+Or do you need more information?
+-- 
+
+Viele Gruesse,
+
+Konstantin Saurbier
+
+------------------------------------------------------
+Konstantin Saurbier                Tel.: 0521 106 3861
+Computerlabor Mathematik                        U5-138
+Universitaet Bielefeld             Universitaetsstr.25
+33501 Bielefeld
+email:                  saurbier@math.uni-bielefeld.de
+------------------------------------------------------
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: not available
+Type: application/pgp-signature
+Size: 189 bytes
+Desc: Digital signature
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050629/80d68cd9/attachment.bin
+From patrick_dkt at yahoo.com.hk  Wed Jun 29 11:52:04 2005
+From: patrick_dkt at yahoo.com.hk (Patrick Dung)
+Date: Wed Jun 29 11:52:10 2005
+Subject: Compaq AlphaServer install problem 
+Message-ID: <20050629115202.30566.qmail@web51801.mail.yahoo.com>
+
+Hi
+
+The alphaserver don't have a dispaly card.
+I connect the machine to a notebook by using the console/serial port.
+The console works find in SRM mode. When it boot to FreeBSD
+installation, the screen is heavily corrupted.
+
+Any ideas? (both side suse 9600bps, no parity, software flow control)
+
+
+		
+____________________________________________________ 
+Yahoo! Sports 
+Rekindle the Rivalries. Sign up for Fantasy Football 
+http://football.fantasysports.yahoo.com
+From ticso at cicely12.cicely.de  Wed Jun 29 11:53:44 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Wed Jun 29 11:53:45 2005
+Subject: CPUTYPE=ev67 breaks ld and as on DS20E
+In-Reply-To: <20050629100225.GA28029@math.uni-bielefeld.de>
+References: <20050629100225.GA28029@math.uni-bielefeld.de>
+Message-ID: <20050629115319.GM35575@cicely12.cicely.de>
+
+On Wed, Jun 29, 2005 at 12:02:26PM +0200, Konstantin Saurbier wrote:
+> Hi,
+> 
+> i noticed on 5.4-RELEASE that building the world with CPUTYPE=ev67 set 
+> breaks /usr/bin/as and /usr/bin/ld.
+
+I'm not shure that ev67 is widely tested or suported at all, ev6
+should work.
+In which way as and ld are broken?
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+
+From saurbier at math.uni-bielefeld.de  Wed Jun 29 12:44:02 2005
+From: saurbier at math.uni-bielefeld.de (Konstantin Saurbier)
+Date: Wed Jun 29 12:44:04 2005
+Subject: CPUTYPE=ev67 breaks ld and as on DS20E
+In-Reply-To: <20050629115319.GM35575@cicely12.cicely.de>
+References: <20050629100225.GA28029@math.uni-bielefeld.de>
+	<20050629115319.GM35575@cicely12.cicely.de>
+Message-ID: <20050629124400.GB28029@math.uni-bielefeld.de>
+
+Bernd Walter wrote on Wed Jun 29, 2005 um 01:53:19PM:
+> On Wed, Jun 29, 2005 at 12:02:26PM +0200, Konstantin Saurbier wrote:
+> > Hi,
+> > 
+> > i noticed on 5.4-RELEASE that building the world with CPUTYPE=ev67 set 
+> > breaks /usr/bin/as and /usr/bin/ld.
+> 
+> I'm not shure that ev67 is widely tested or suported at all, ev6
+> should work.
+
+I'm not sure if i used ev67 on 5.3 maybe it was ev6 and not ev67. But as 
+far as i can see only as and ld break.
+I "solved" the problem in using no CPUTYPE at all after replacing as and 
+ld with the ones from the release base package and finally a rebuild of 
+world and kernel.
+
+
+> In which way as and ld are broken?
+
+For example while trying to build the world:
+
+===> gnu/usr.bin/texinfo/libtxi
+cc -O2 -pipe -DHAVE_CONFIG_H -DLOCALEDIR=\"/usr/share/locale\"  \
+-I/usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo \
+-I/usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo/lib \ 
+-I/usr/obj/usr/src/alpha/legacy/usr/include -c \
+/usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo/lib/substring.c
+
+cc: Internal error: Illegal instruction (program as)
+Please submit a full bug report.
+See <URL:http://gcc.gnu.org/bugs.html> for instructions.
+
+
+And for ld:
+
+c++ -O2 -pipe -I/usr/obj/usr/src/alpha/legacy/usr/include \
+-I/usr/src/gnu/usr.bin/gperf/../../../contrib/gperf/lib \
+-I/usr/src/gnu/usr.bin/gperf  -static \
+-L/usr/obj/usr/src/alpha/legacy/usr/lib -o gperf bool-array.o gen-perf.o \
+hash-table.o iterator.o key-list.o list-node.o main.o new.o options.o \
+read-line.o trace.o vectors.o version.o hash.o -legacy
+
+c++: Internal error: Illegal instruction (program ld)
+Please submit a full bug report.
+See <URL:http://gcc.gnu.org/bugs.html> for instructions.
+
+
+This also happens if i try to install any port (for example perl5.8).
+-- 
+
+Viele Gruesse,
+
+Konstantin Saurbier
+
+------------------------------------------------------
+Konstantin Saurbier                Tel.: 0521 106 3861
+Computerlabor Mathematik                        U5-138
+Universitaet Bielefeld             Universitaetsstr.25
+33501 Bielefeld
+email:                  saurbier@math.uni-bielefeld.de
+------------------------------------------------------
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: not available
+Type: application/pgp-signature
+Size: 189 bytes
+Desc: Digital signature
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050629/2f7dcfaa/attachment.bin
+From ticso at cicely12.cicely.de  Wed Jun 29 13:25:44 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Wed Jun 29 13:25:56 2005
+Subject: CPUTYPE=ev67 breaks ld and as on DS20E
+In-Reply-To: <20050629124400.GB28029@math.uni-bielefeld.de>
+References: <20050629100225.GA28029@math.uni-bielefeld.de>
+	<20050629115319.GM35575@cicely12.cicely.de>
+	<20050629124400.GB28029@math.uni-bielefeld.de>
+Message-ID: <20050629132437.GN35575@cicely12.cicely.de>
+
+On Wed, Jun 29, 2005 at 02:44:00PM +0200, Konstantin Saurbier wrote:
+> Bernd Walter wrote on Wed Jun 29, 2005 um 01:53:19PM:
+> > On Wed, Jun 29, 2005 at 12:02:26PM +0200, Konstantin Saurbier wrote:
+> > > Hi,
+> > > 
+> > > i noticed on 5.4-RELEASE that building the world with CPUTYPE=ev67 set 
+> > > breaks /usr/bin/as and /usr/bin/ld.
+> > 
+> > I'm not shure that ev67 is widely tested or suported at all, ev6
+> > should work.
+> 
+> I'm not sure if i used ev67 on 5.3 maybe it was ev6 and not ev67. But as 
+> far as i can see only as and ld break.
+> I "solved" the problem in using no CPUTYPE at all after replacing as and 
+> ld with the ones from the release base package and finally a rebuild of 
+> world and kernel.
+> 
+> 
+> > In which way as and ld are broken?
+> 
+> For example while trying to build the world:
+> 
+> ===> gnu/usr.bin/texinfo/libtxi
+> cc -O2 -pipe -DHAVE_CONFIG_H -DLOCALEDIR=\"/usr/share/locale\"  \
+> -I/usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo \
+> -I/usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo/lib \ 
+> -I/usr/obj/usr/src/alpha/legacy/usr/include -c \
+> /usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo/lib/substring.c
+> 
+> cc: Internal error: Illegal instruction (program as)
+> Please submit a full bug report.
+> See <URL:http://gcc.gnu.org/bugs.html> for instructions.
+
+Illegal instruction usually means that the programm uses instructions
+that the CPU doesn't know about.
+Are your shure that your have an EV67 CPU?
+Dmesg should tell you in CPU probe messages.
+
+Don't know about DS20E, but a DS10L only has EV6:
+COMPAQ AlphaServer DS10L 466 MHz, 462MHz
+8192 byte page size, 1 processor.
+CPU: EV6 (21264) major=8 minor=4 extensions=0x303<BWX,FIX,MVI,PRECISE>
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+
+From wb at freebie.xs4all.nl  Wed Jun 29 13:49:38 2005
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Wed Jun 29 13:49:44 2005
+Subject: CPUTYPE=ev67 breaks ld and as on DS20E
+In-Reply-To: <20050629132437.GN35575@cicely12.cicely.de>
+References: <20050629100225.GA28029@math.uni-bielefeld.de>
+	<20050629115319.GM35575@cicely12.cicely.de>
+	<20050629124400.GB28029@math.uni-bielefeld.de>
+	<20050629132437.GN35575@cicely12.cicely.de>
+Message-ID: <20050629134921.GA14000@freebie.xs4all.nl>
+
+On Wed, Jun 29, 2005 at 03:24:37PM +0200, Bernd Walter wrote..
+> On Wed, Jun 29, 2005 at 02:44:00PM +0200, Konstantin Saurbier wrote:
+> > Bernd Walter wrote on Wed Jun 29, 2005 um 01:53:19PM:
+> > > On Wed, Jun 29, 2005 at 12:02:26PM +0200, Konstantin Saurbier wrote:
+> > > > Hi,
+> > > > 
+> > > > i noticed on 5.4-RELEASE that building the world with CPUTYPE=ev67 set 
+> > > > breaks /usr/bin/as and /usr/bin/ld.
+> > > 
+> > > I'm not shure that ev67 is widely tested or suported at all, ev6
+> > > should work.
+> > 
+> > I'm not sure if i used ev67 on 5.3 maybe it was ev6 and not ev67. But as 
+> > far as i can see only as and ld break.
+> > I "solved" the problem in using no CPUTYPE at all after replacing as and 
+> > ld with the ones from the release base package and finally a rebuild of 
+> > world and kernel.
+> > 
+> > 
+> > > In which way as and ld are broken?
+> > 
+> > For example while trying to build the world:
+> > 
+> > ===> gnu/usr.bin/texinfo/libtxi
+> > cc -O2 -pipe -DHAVE_CONFIG_H -DLOCALEDIR=\"/usr/share/locale\"  \
+> > -I/usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo \
+> > -I/usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo/lib \ 
+> > -I/usr/obj/usr/src/alpha/legacy/usr/include -c \
+> > /usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo/lib/substring.c
+> > 
+> > cc: Internal error: Illegal instruction (program as)
+> > Please submit a full bug report.
+> > See <URL:http://gcc.gnu.org/bugs.html> for instructions.
+> 
+> Illegal instruction usually means that the programm uses instructions
+> that the CPU doesn't know about.
+> Are your shure that your have an EV67 CPU?
+> Dmesg should tell you in CPU probe messages.
+> 
+> Don't know about DS20E, but a DS10L only has EV6:
+> COMPAQ AlphaServer DS10L 466 MHz, 462MHz
+
+Well, it also depends on the CPU speed, a 600MHz DS10 is a EV67 (or 68, I would
+have to check)
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From saurbier at math.uni-bielefeld.de  Wed Jun 29 15:41:20 2005
+From: saurbier at math.uni-bielefeld.de (Konstantin Saurbier)
+Date: Wed Jun 29 15:41:22 2005
+Subject: CPUTYPE=ev67 breaks ld and as on DS20E
+In-Reply-To: <20050629134921.GA14000@freebie.xs4all.nl>
+References: <20050629100225.GA28029@math.uni-bielefeld.de>
+	<20050629115319.GM35575@cicely12.cicely.de>
+	<20050629124400.GB28029@math.uni-bielefeld.de>
+	<20050629132437.GN35575@cicely12.cicely.de>
+	<20050629134921.GA14000@freebie.xs4all.nl>
+Message-ID: <20050629154118.GA28902@math.uni-bielefeld.de>
+
+Wilko Bulte wrote on Wed Jun 29, 2005 um 03:49:21PM:
+> On Wed, Jun 29, 2005 at 03:24:37PM +0200, Bernd Walter wrote..
+> > On Wed, Jun 29, 2005 at 02:44:00PM +0200, Konstantin Saurbier wrote:
+> > > Bernd Walter wrote on Wed Jun 29, 2005 um 01:53:19PM:
+> > > > On Wed, Jun 29, 2005 at 12:02:26PM +0200, Konstantin Saurbier wrote:
+> > > > > Hi,
+> > > > > 
+> > > > > i noticed on 5.4-RELEASE that building the world with CPUTYPE=ev67 set 
+> > > > > breaks /usr/bin/as and /usr/bin/ld.
+> > > > 
+> > > > I'm not shure that ev67 is widely tested or suported at all, ev6
+> > > > should work.
+> > > 
+> > > I'm not sure if i used ev67 on 5.3 maybe it was ev6 and not ev67. But as 
+> > > far as i can see only as and ld break.
+> > > I "solved" the problem in using no CPUTYPE at all after replacing as and 
+> > > ld with the ones from the release base package and finally a rebuild of 
+> > > world and kernel.
+> > > 
+> > > 
+> > > > In which way as and ld are broken?
+> > > 
+> > > For example while trying to build the world:
+> > > 
+> > > ===> gnu/usr.bin/texinfo/libtxi
+> > > cc -O2 -pipe -DHAVE_CONFIG_H -DLOCALEDIR=\"/usr/share/locale\"  \
+> > > -I/usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo \
+> > > -I/usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo/lib \ 
+> > > -I/usr/obj/usr/src/alpha/legacy/usr/include -c \
+> > > /usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo/lib/substring.c
+> > > 
+> > > cc: Internal error: Illegal instruction (program as)
+> > > Please submit a full bug report.
+> > > See <URL:http://gcc.gnu.org/bugs.html> for instructions.
+> > 
+> > Illegal instruction usually means that the programm uses instructions
+> > that the CPU doesn't know about.
+> > Are your shure that your have an EV67 CPU?
+> > Dmesg should tell you in CPU probe messages.
+> > 
+> > Don't know about DS20E, but a DS10L only has EV6:
+> > COMPAQ AlphaServer DS10L 466 MHz, 462MHz
+> 
+> Well, it also depends on the CPU speed, a 600MHz DS10 is a EV67 (or 68, I would
+> have to check)
+
+For me it looks like a EV68:
+
+CPU: EV6 (21264) major=8 minor=7 extensions=0x303<BWX,FIX,MVI,PRECISE>
+-- 
+
+Viele Gruesse,
+
+Konstantin Saurbier
+
+------------------------------------------------------
+Konstantin Saurbier                Tel.: 0521 106 3861
+Computerlabor Mathematik                        U5-138
+Universitaet Bielefeld             Universitaetsstr.25
+33501 Bielefeld
+email:                  saurbier@math.uni-bielefeld.de
+------------------------------------------------------
+
+From ticso at cicely12.cicely.de  Wed Jun 29 15:45:43 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Wed Jun 29 15:45:45 2005
+Subject: CPUTYPE=ev67 breaks ld and as on DS20E
+In-Reply-To: <20050629154118.GA28902@math.uni-bielefeld.de>
+References: <20050629100225.GA28029@math.uni-bielefeld.de>
+	<20050629115319.GM35575@cicely12.cicely.de>
+	<20050629124400.GB28029@math.uni-bielefeld.de>
+	<20050629132437.GN35575@cicely12.cicely.de>
+	<20050629134921.GA14000@freebie.xs4all.nl>
+	<20050629154118.GA28902@math.uni-bielefeld.de>
+Message-ID: <20050629154441.GS35575@cicely12.cicely.de>
+
+On Wed, Jun 29, 2005 at 05:41:18PM +0200, Konstantin Saurbier wrote:
+> Wilko Bulte wrote on Wed Jun 29, 2005 um 03:49:21PM:
+> > On Wed, Jun 29, 2005 at 03:24:37PM +0200, Bernd Walter wrote..
+> > > On Wed, Jun 29, 2005 at 02:44:00PM +0200, Konstantin Saurbier wrote:
+> > > > Bernd Walter wrote on Wed Jun 29, 2005 um 01:53:19PM:
+> > > > > On Wed, Jun 29, 2005 at 12:02:26PM +0200, Konstantin Saurbier wrote:
+> > > > > > Hi,
+> > > > > > 
+> > > > > > i noticed on 5.4-RELEASE that building the world with CPUTYPE=ev67 set 
+> > > > > > breaks /usr/bin/as and /usr/bin/ld.
+> > > > > 
+> > > > > I'm not shure that ev67 is widely tested or suported at all, ev6
+> > > > > should work.
+> > > > 
+> > > > I'm not sure if i used ev67 on 5.3 maybe it was ev6 and not ev67. But as 
+> > > > far as i can see only as and ld break.
+> > > > I "solved" the problem in using no CPUTYPE at all after replacing as and 
+> > > > ld with the ones from the release base package and finally a rebuild of 
+> > > > world and kernel.
+> > > > 
+> > > > 
+> > > > > In which way as and ld are broken?
+> > > > 
+> > > > For example while trying to build the world:
+> > > > 
+> > > > ===> gnu/usr.bin/texinfo/libtxi
+> > > > cc -O2 -pipe -DHAVE_CONFIG_H -DLOCALEDIR=\"/usr/share/locale\"  \
+> > > > -I/usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo \
+> > > > -I/usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo/lib \ 
+> > > > -I/usr/obj/usr/src/alpha/legacy/usr/include -c \
+> > > > /usr/src/gnu/usr.bin/texinfo/libtxi/../../../../contrib/texinfo/lib/substring.c
+> > > > 
+> > > > cc: Internal error: Illegal instruction (program as)
+> > > > Please submit a full bug report.
+> > > > See <URL:http://gcc.gnu.org/bugs.html> for instructions.
+> > > 
+> > > Illegal instruction usually means that the programm uses instructions
+> > > that the CPU doesn't know about.
+> > > Are your shure that your have an EV67 CPU?
+> > > Dmesg should tell you in CPU probe messages.
+> > > 
+> > > Don't know about DS20E, but a DS10L only has EV6:
+> > > COMPAQ AlphaServer DS10L 466 MHz, 462MHz
+> > 
+> > Well, it also depends on the CPU speed, a 600MHz DS10 is a EV67 (or 68, I would
+> > have to check)
+> 
+> For me it looks like a EV68:
+> 
+> CPU: EV6 (21264) major=8 minor=7 extensions=0x303<BWX,FIX,MVI,PRECISE>
+
+No - it clearly states EV6.
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+
+From saurbier at math.uni-bielefeld.de  Wed Jun 29 16:04:40 2005
+From: saurbier at math.uni-bielefeld.de (Konstantin Saurbier)
+Date: Wed Jun 29 16:04:42 2005
+Subject: CPUTYPE=ev67 breaks ld and as on DS20E
+In-Reply-To: <20050629154441.GS35575@cicely12.cicely.de>
+References: <20050629100225.GA28029@math.uni-bielefeld.de>
+	<20050629115319.GM35575@cicely12.cicely.de>
+	<20050629124400.GB28029@math.uni-bielefeld.de>
+	<20050629132437.GN35575@cicely12.cicely.de>
+	<20050629134921.GA14000@freebie.xs4all.nl>
+	<20050629154118.GA28902@math.uni-bielefeld.de>
+	<20050629154441.GS35575@cicely12.cicely.de>
+Message-ID: <20050629160438.GC28902@math.uni-bielefeld.de>
+
+Bernd Walter wrote on Wed Jun 29, 2005 um 05:44:41PM:
+> On Wed, Jun 29, 2005 at 05:41:18PM +0200, Konstantin Saurbier wrote:
+> > Wilko Bulte wrote on Wed Jun 29, 2005 um 03:49:21PM:
+> > > On Wed, Jun 29, 2005 at 03:24:37PM +0200, Bernd Walter wrote..
+(...)
+> > > > 
+> > > > Illegal instruction usually means that the programm uses instructions
+> > > > that the CPU doesn't know about.
+> > > > Are your shure that your have an EV67 CPU?
+> > > > Dmesg should tell you in CPU probe messages.
+> > > > 
+> > > > Don't know about DS20E, but a DS10L only has EV6:
+> > > > COMPAQ AlphaServer DS10L 466 MHz, 462MHz
+> > > 
+> > > Well, it also depends on the CPU speed, a 600MHz DS10 is a EV67 (or 68, I would
+> > > have to check)
+> > 
+> > For me it looks like a EV68:
+> > 
+> > CPU: EV6 (21264) major=8 minor=7 extensions=0x303<BWX,FIX,MVI,PRECISE>
+> 
+> No - it clearly states EV6.
+
+Oh i feel ashamed. I apologize for bugging you.
+-- 
+
+Viele Gruesse,
+
+Konstantin Saurbier
+
+------------------------------------------------------
+Konstantin Saurbier                Tel.: 0521 106 3861
+Computerlabor Mathematik                        U5-138
+Universitaet Bielefeld             Universitaetsstr.25
+33501 Bielefeld
+email:                  saurbier@math.uni-bielefeld.de
+------------------------------------------------------
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: not available
+Type: application/pgp-signature
+Size: 189 bytes
+Desc: Digital signature
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050629/d5b7eeaa/attachment.bin
+From wb at freebie.xs4all.nl  Wed Jun 29 17:22:54 2005
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Wed Jun 29 17:22:57 2005
+Subject: CPUTYPE=ev67 breaks ld and as on DS20E
+In-Reply-To: <20050629160438.GC28902@math.uni-bielefeld.de>
+References: <20050629100225.GA28029@math.uni-bielefeld.de>
+	<20050629115319.GM35575@cicely12.cicely.de>
+	<20050629124400.GB28029@math.uni-bielefeld.de>
+	<20050629132437.GN35575@cicely12.cicely.de>
+	<20050629134921.GA14000@freebie.xs4all.nl>
+	<20050629154118.GA28902@math.uni-bielefeld.de>
+	<20050629154441.GS35575@cicely12.cicely.de>
+	<20050629160438.GC28902@math.uni-bielefeld.de>
+Message-ID: <20050629172250.GA15062@freebie.xs4all.nl>
+
+On Wed, Jun 29, 2005 at 06:04:38PM +0200, Konstantin Saurbier wrote..
+> Bernd Walter wrote on Wed Jun 29, 2005 um 05:44:41PM:
+> > On Wed, Jun 29, 2005 at 05:41:18PM +0200, Konstantin Saurbier wrote:
+> > > Wilko Bulte wrote on Wed Jun 29, 2005 um 03:49:21PM:
+> > > > On Wed, Jun 29, 2005 at 03:24:37PM +0200, Bernd Walter wrote..
+> (...)
+> > > > > 
+> > > > > Illegal instruction usually means that the programm uses instructions
+> > > > > that the CPU doesn't know about.
+> > > > > Are your shure that your have an EV67 CPU?
+> > > > > Dmesg should tell you in CPU probe messages.
+> > > > > 
+> > > > > Don't know about DS20E, but a DS10L only has EV6:
+> > > > > COMPAQ AlphaServer DS10L 466 MHz, 462MHz
+> > > > 
+> > > > Well, it also depends on the CPU speed, a 600MHz DS10 is a EV67 (or 68, I would
+> > > > have to check)
+> > > 
+> > > For me it looks like a EV68:
+> > > 
+> > > CPU: EV6 (21264) major=8 minor=7 extensions=0x303<BWX,FIX,MVI,PRECISE>
+> > 
+> > No - it clearly states EV6.
+> 
+> Oh i feel ashamed. I apologize for bugging you.
+
+Like this:
+
+AlphaServer DS10 617 MHz, 617MHz
+8192 byte page size, 1 processor.
+CPU: EV67 (21264A) major=11 minor=9
+extensions=0x307<BWX,FIX,CIX,MVI,PRECISE>
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From tinderbox at freebsd.org  Thu Jun 30 16:02:53 2005
+From: tinderbox at freebsd.org (FreeBSD Tinderbox)
+Date: Thu Jun 30 16:03:07 2005
+Subject: [current tinderbox] failure on alpha/alpha
+Message-ID: <20050630160251.CA4E37306E@freebsd-current.sentex.ca>
+
+TB --- 2005-06-30 15:45:00 - tinderbox 2.3 running on freebsd-current.sentex.ca
+TB --- 2005-06-30 15:45:00 - starting CURRENT tinderbox run for alpha/alpha
+TB --- 2005-06-30 15:45:00 - cleaning the object tree
+TB --- 2005-06-30 15:45:23 - checking out the source tree
+TB --- 2005-06-30 15:45:23 - cd /home/tinderbox/CURRENT/alpha/alpha
+TB --- 2005-06-30 15:45:23 - /usr/bin/cvs -f -R -q -d/home/ncvs update -Pd -A src
+TB --- 2005-06-30 15:51:33 - building world (CFLAGS=-O2 -pipe)
+TB --- 2005-06-30 15:51:33 - cd /home/tinderbox/CURRENT/alpha/alpha/src
+TB --- 2005-06-30 15:51:33 - /usr/bin/make -B buildworld
+>>> Building an up-to-date make(1)
+>>> Rebuilding the temporary build tree
+>>> stage 1.1: legacy release compatibility shims
+>>> stage 1.2: bootstrap tools
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3: cross tools
+>>> stage 4.1: building includes
+>>> stage 4.2: building libraries
+[...]
+===> lib/libkvm (depend,all,install)
+rm -f .depend
+mkdep -f .depend -a    -DLIBC_SCCS -I/tinderbox/CURRENT/alpha/alpha/src/lib/libkvm /tinderbox/CURRENT/alpha/alpha/src/lib/libkvm/kvm.c /tinderbox/CURRENT/alpha/alpha/src/lib/libkvm/kvm_alpha.c /tinderbox/CURRENT/alpha/alpha/src/lib/libkvm/kvm_file.c /tinderbox/CURRENT/alpha/alpha/src/lib/libkvm/kvm_getloadavg.c /tinderbox/CURRENT/alpha/alpha/src/lib/libkvm/kvm_getswapinfo.c /tinderbox/CURRENT/alpha/alpha/src/lib/libkvm/kvm_proc.c
+cc -O2 -pipe -mcpu=ev4 -mtune=ev5 -mieee -DLIBC_SCCS -I/tinderbox/CURRENT/alpha/alpha/src/lib/libkvm  -c /tinderbox/CURRENT/alpha/alpha/src/lib/libkvm/kvm.c
+cc -O2 -pipe -mcpu=ev4 -mtune=ev5 -mieee -DLIBC_SCCS -I/tinderbox/CURRENT/alpha/alpha/src/lib/libkvm  -c /tinderbox/CURRENT/alpha/alpha/src/lib/libkvm/kvm_alpha.c
+/tinderbox/CURRENT/alpha/alpha/src/lib/libkvm/kvm_alpha.c: In function `_kvm_kvatop':
+/tinderbox/CURRENT/alpha/alpha/src/lib/libkvm/kvm_alpha.c:113: error: argument "pa" doesn't match prototype
+/tinderbox/CURRENT/alpha/alpha/src/lib/libkvm/kvm_private.h:78: error: prototype declaration
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src/lib/libkvm.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+*** Error code 1
+
+Stop in /tinderbox/CURRENT/alpha/alpha/src.
+TB --- 2005-06-30 16:02:51 - WARNING: /usr/bin/make returned exit code  1 
+TB --- 2005-06-30 16:02:51 - ERROR: failed to build world
+TB --- 2005-06-30 16:02:51 - tinderbox aborted
+

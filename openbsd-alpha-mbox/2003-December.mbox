@@ -1,0 +1,774 @@
+From openbsd-alpha  Mon Dec 29 18:24:41 2003
+From: Erblichs <erblichs () earthlink ! net>
+Date: Mon, 29 Dec 2003 18:24:41 +0000
+To: openbsd-alpha
+Subject: Re: Slow disk reads with ISP1020 on Alphaserver
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=107272259121898
+
+Christian,
+
+	I don't know if this will help, since I am not sure
+	what you are complaining about..
+
+> isp0: driver initiated bus reset of bus 0
+	Seems initially to be something that isn't right...
+	
+	First, a larger amount of physical memory normally stresses
+	a FS less. What is your memory size?
+
+	Second, pure writes tend to be asynch due to the ability of
+	not waiting for the results of the writes. But most writes
+	are actually read-modify-writes.. that modify an existing
+	file system block.
+
+	Third, any disk based access is a "loss" since the order
+	of magnitude of acess speed is maybe 100x slower to disk
+	than memory. Larger memory allows fewer required writes (due
+	to lower % amount of non dirty memory) and better
+	elevator ordering of writes when writes are done..
+
+	Fourth, I am unaware of specifly the capabilities of your
+	hardware combination and whether your MB/sec speeds are
+	accurate.. More queued up writes should give a better MB/sec
+	number while possibly increasing the latency of each of the
+	writes..
+
+	Fifth, reads are dependent on a number of factors as whether
+	1000s of files that are read are located within the same
+	directory, whether the created files were lengthened over
+	time, whether the files have holes, whether the size of the
+	files are such that in a FFS double or triple indirects
+	are used, etc...
+
+	Sixth, whether your FS access is primarily of data or text..
+
+
+	Mitchell Erblich
+	Sr Software Engineer
+	----------------------------
+
+	
+
+Christian Suder wrote:
+> 
+> Hello,
+> 
+> I've been trying to find an answer/solution for the following problem
+> for quite a while now, with no success:
+> 
+> On an Alphaserver 1000A 5/400 with the integrated Qlogic 1020 disk reads
+> are in the range of 1.8 MByte/s, while writes easily reach 3.8 Mbyte/s.
+> This is pretty much independant of the drives used (narrow or wide), or
+> even the OS - it shows the same symptom running Linux with either qlogic
+> driver. It is not a limit of the drive stack as it runs much faster with
+> a different PCI controller - however as the Alphas are a bit picky with
+> bootable controllers it requires diskette boot, which I'd like to avoid.
+> 
+> It almost appears as if the drives work in async mode, although the
+> output below looks perfectly ok. There is two things that are a little
+> different in this machine compared to a PC: The controller sits on the
+> second PCI bus 1, and it is using IRQ 0. Maybe that's where the problem
+> is. A narrow qlogic in a 200MHz Pentium is faster in comparison.
+> 
+> Any hints appreciated !
+> 
+>         Thx,
+>         Christian
+> 
+> Below are the relevant parts of the boot, with the loglevel cranked up:
+> 
+> isp0 at pci1 dev 0 function 0 "QLogic ISP1020" rev 0x02: dec_1000a irq 0
+> isp0: Board Type 1020A, Chip Revision 0x2, loaded F/W Revision 4.66.0
+> isp0: Last F/W revision was 5.57.1
+> isp0: 243 max I/O commands supported
+> isp0: NVRAM CHAN 0 FTHRSH 2 IID 7 RESETD 1 RETRYC 0 RETRYD 1 ASD 0x6
+> isp0: NVRAM RAAN 0x1 DLAN 0x1 DDMAB 0x1 CDMAB 0x1 SELTIME 250 MQD 256
+> isp0: NVRAM CHAN 0 TGT 0 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 1 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 2 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 3 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 4 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 5 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 6 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 7 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 8 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 9 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 10 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 11 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 12 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 13 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 14 FLAGS 0xfd00 0xc/0x19
+> isp0: NVRAM CHAN 0 TGT 15 FLAGS 0xfd00 0xc/0x19
+> isp0: Initiator ID is 7 on Channel 0
+> isp0: Initial Settings bus0 tgt0 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt1 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt2 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt3 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt4 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt5 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt6 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt7 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt8 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt9 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt10 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt11 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt12 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt13 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt14 flags 0xc5c0 off 0x0 per 0x0
+> isp0: Initial Settings bus0 tgt15 flags 0xc5c0 off 0x0 per 0x0
+> isp0: driver initiated bus reset of bus 0
+> scsibus0 at isp0: 16 targets
+> isp0: Bus 0 Target 0 Async Mode
+> sd0 at scsibus0 targ 0 lun 0: <SEAGATE, ST32550N, 0016> SCSI2 0/direct
+> fixed
+> sd0: 2047MB, 3511 cyl, 11 head, 108 sec, 512 bytes/sec, 4194058 sec
+> total
+> st0 at scsibus0 targ 1 lun 0: <DEC, TLZ07 (C)DEC, 4BE0> SCSI2
+> 1/sequential removable
+> st0: drive empty
+> isp0: Bus 0 Target 2 Async Mode
+> sd1 at scsibus0 targ 2 lun 0: <QUANTUM, ATLAS IV 36 WLS, 0A0A> SCSI3
+> 0/direct fixed
+> sd1: 35044MB, 13816 cyl, 16 head, 324 sec, 512 bytes/sec, 71770336 sec
+> total
+> isp0: Bus 0 Target 3 Async Mode
+> sd2 at scsibus0 targ 3 lun 0: <QUANTUM, ATLAS IV 36 WLS, 0808> SCSI3
+> 0/direct fixed
+> sd2: 35044MB, 13816 cyl, 16 head, 324 sec, 512 bytes/sec, 71770336 sec
+> total
+> isp0: Bus 0 Target 4 Async Mode
+> sd3 at scsibus0 targ 4 lun 0: <QUANTUM, ATLAS IV 36 WLS, 0A0A> SCSI3
+> 0/direct fixed
+> sd3: 35044MB, 13816 cyl, 16 head, 324 sec, 512 bytes/sec, 71770336 sec
+> total
+> isp0: Bus 0 Target 5 Async Mode
+> sd4 at scsibus0 targ 5 lun 0: <QUANTUM, ATLAS IV 36 WLS, 0A0A> SCSI3
+> 0/direct fixedsd4 at scsibus0 targ 5 lun 0: <QUANTUM, ATLAS IV 36 WLS,
+> 0A0A> SCSI3 0/direct fixed
+> sd4: 35044MB, 13816 cyl, 16 head, 324 sec, 512 bytes/sec, 71770336 sec
+> total
+> [....]
+> 
+> isp0: bus 0 set tgt 0 flags 0xdd00 off 0xc period 0x19
+> isp0: Active Hiwater Mark=1
+> isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+> isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+> isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+> isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+> rootdev=0x800 rrootdev=0x800 rawdev=0x802
+> isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+> isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+> isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+> isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+> isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+> isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+> isp0: Active Hiwater Mark=2
+> isp0: bus 0 set tgt 3 flags 0xfd00 off 0xc period 0x19
+> isp0: Bus 0 Target 3 at 10MHz Max Offset 12, 16 bit wide, Tagged
+> Queueing Enabled
+> isp0: Bus 0 Target 3 at 10MHz Max Offset 12, 16 bit wide, Tagged
+> Queueing Enabled
+> isp0: bus 0 set tgt 4 flags 0xfd00 off 0xc period 0x19
+> isp0: Bus 0 Target 4 at 10MHz Max Offset 12, 16 bit wide, Tagged
+> Queueing Enabled
+> isp0: Bus 0 Target 4 at 10MHz Max Offset 12, 16 bit wide, Tagged
+> Queueing Enabled
+> isp0: bus 0 set tgt 5 flags 0xfd00 off 0xc period 0x19
+> isp0: Bus 0 Target 5 at 10MHz Max Offset 12, 16 bit wide, Tagged
+> Queueing Enabled
+> isp0: Bus 0 Target 5 at 10MHz Max Offset 12, 16 bit wide, Tagged
+> Queueing Enabled
+> isp0: bus 0 set tgt 2 flags 0xfd00 off 0xc period 0x19
+> isp0: Bus 0 Target 2 at 10MHz Max Offset 12, 16 bit wide, Tagged
+> Queueing Enabled
+> isp0: Bus 0 Target 2 at 10MHz Max Offset 12, 16 bit wide, Tagged
+> Queueing Enabled
+> isp0: Bus 0 Target 2 at 10MHz Max Offset 12, 16 bit wide, Tagged
+> Queueing Enabled
+> isp0: Bus 0 Target 2 at 10MHz Max Offset 12, 16 bit wide, Tagged
+> Queueing Enabled
+> isp0: Bus 0 Target 2 at 10MHz Max Offset 12, 16 bit wide, Tagged
+> Queueing Enabled
+> isp0: Bus 0 Target 2 at 10MHz Max Offset 12, 16 bit wide, Tagged
+> Queueing Enabled
+> isp0: Bus 0 Target 2 at 10MHz Max Offset 12, 16 bit wide, Tagged
+> Queueing Enabled
+> stray isa irq 4
+> stray isa irq 3
+> isp0: Active Hiwater Mark=3
+> isp0: Active Hiwater Mark=4
+> isp0: Active Hiwater Mark=5
+> [....]
+
+From openbsd-alpha  Mon Dec 08 13:57:59 2003
+From: Diana Eichert <deichert () wrench ! com>
+Date: Mon, 08 Dec 2003 13:57:59 +0000
+To: openbsd-alpha
+Subject: Re: kernel panic with PUC(4) compiled into GENERIC 3.4 8/22 snapshot
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=107089202317390
+
+I realize there is no maintainer for the Alpha port but I know various CVS
+committers have Alpha systems.  I can donate one of these cards to y'all
+if anyone's interested.
+
+g.day
+
+From openbsd-alpha  Tue Dec 02 20:34:50 2003
+From: "Engineer -  Mgr" <rysz_c5 () yahoo ! com>
+Date: Tue, 02 Dec 2003 20:34:50 +0000
+To: openbsd-alpha
+Subject: Sending Resume
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=107042643409568
+
+RIC  SIE
+
+Tel   (408)    482-2840    rzbig@yahoo.com  
+
+
+
+OBJECTIVE:		STRUCTURAL &  MECHANICAL  DESIGNER
+
+CIVIL, ARCHITECTURAL, TRANSPORTATION  CAD Operator 
+
+EXPERIENCE:
+
+93 - present
+DESIGNER, ENGINEER,  CAD MANAGER;  "Mech-Tronic"  
+
+Engineering & Design Service, Project Management & Development.
+Preparing technical documentation, calculations, layouts drawings &
+propositions. CAD Management and Operations, drafting & redesigning.
+Intergraph, MicroStation,  Autodesk, ACAD, Win, Net, Softdesk Mgmt
+Civil, Bridges and Structural Design, Plans, Mapping, Detail Freeway
+& Roadway, data translation & inserting. Script & CAD automation.
+Geological Structures, Viaducts, Freeways, Highways, Shopping Center. 
+Architectural and Environmental Projects and cooperation; military
+facilities and plans, Cities, Airports, remediation drawings upgrade,
+correcting and redesign. Traffic design & problem analyzes-reorganize.
+Freeway Design & Drafting Support, Site analyzing for Caltrans,
+Architectural, Archeotype & Electrical drawings, "as is" and initial design;          
+Develop remediation procedure and equipment for lead painted buildings.
+Construction management, Job site inspection, civil & structural support
+Mechanical Evaluations - Design - Service and Maintenance; R&D.
+
+EDUCATION:
+Institute for Business & Technology, California
+CAD Engineer, Programming, Design, Management
+
+Electro - Mechanical College
+Mechanical Engineering  -  BS  Degree
+
+DOS, UNIX, MAC, SUN computers;  WP, dBASE, Lotus, Network, Lisp,
+Windows & Appl., PFS, Graphics, CAD/CAM, Basic, Fortran, Analyzes.
+METRIC,  SOLAR,  AutoCAD/Computer Instructor. Transportation Spec.
+Personal Designer, MS Project, MS Works, Excel, Access, C, Script, File
+Management, File transfer. Learn quickly, work independly, shift, overtime
+
+From openbsd-alpha  Mon Jan 05 04:24:06 2004
+From: Christian Suder <csuder () cisco ! com>
+Date: Mon, 05 Jan 2004 04:24:06 +0000
+To: openbsd-alpha
+Subject: Re: Slow disk reads with ISP1020 on Alphaserver
+Message-Id: <1073276646.2320.14.camel () ibanez ! csuder ! net>
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=107327678104861
+
+Sorry,
+
+that wasn't explained in the email: Talking about bulk data transfer,
+ftp, nfs, smb services, with the file sharing also mostly file transfer
+operations. No record oriented database application, pretty much all
+sequential block reads/writes. Again, a different controller makes a big
+difference, so it is something with that specific SCSI controller. 
+
+As stated, the controller is integrated, it's not a separate card. I got
+the machine with (shiver...) Win NT on it, never had Tru64 on it. 
+
+	Christian 
+
+
+
+On Sun, 2004-01-04 at 19:22, Robert Urban wrote:
+> You wrote:
+> > I've been trying to find an answer/solution for the following problem
+> > for quite a while now, with no success:
+> > 
+> > On an Alphaserver 1000A 5/400 with the integrated Qlogic 1020 disk reads
+> > are in the range of 1.8 MByte/s, while writes easily reach 3.8 Mbyte/s.
+> > This is pretty much independant of the drives used (narrow or wide), or
+> > even the OS - it shows the same symptom running Linux with either qlogic
+> > driver. It is not a limit of the drive stack as it runs much faster with
+> > a different PCI controller - however as the Alphas are a bit picky with
+> > bootable controllers it requires diskette boot, which I'd like to avoid.
+> > 
+> > It almost appears as if the drives work in async mode, although the
+> > output below looks perfectly ok. There is two things that are a little
+> > different in this machine compared to a PC: The controller sits on the
+> > second PCI bus 1, and it is using IRQ 0. Maybe that's where the problem
+> > is. A narrow qlogic in a 200MHz Pentium is faster in comparison.
+> 
+> You speak of "writes" and "reads" as though that in itself is enough
+> information.
+> 
+> What exactly do you mean by "write" and "read"???
+> 
+> Sequential, 64KB block reads/writes will give one result, and
+> random, 2KB block operations will give entirely another...
+> 
+> Do you know the Digital part-number for this card? (example: "KZPDA-AA")
+> 
+> Btw: have you tested your disks using Tru64?
+> 
+> Rob Urban
+
+From openbsd-alpha  Mon Jan 05 03:22:38 2004
+From: Robert Urban <urban () UNIX-Beratung ! de>
+Date: Mon, 05 Jan 2004 03:22:38 +0000
+To: openbsd-alpha
+Subject: Re: Slow disk reads with ISP1020 on Alphaserver
+Message-Id: <200401050322.i053McqQ028422 () localhost ! localdomain>
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=107327309002361
+
+You wrote:
+> I've been trying to find an answer/solution for the following problem
+> for quite a while now, with no success:
+> 
+> On an Alphaserver 1000A 5/400 with the integrated Qlogic 1020 disk reads
+> are in the range of 1.8 MByte/s, while writes easily reach 3.8 Mbyte/s.
+> This is pretty much independant of the drives used (narrow or wide), or
+> even the OS - it shows the same symptom running Linux with either qlogic
+> driver. It is not a limit of the drive stack as it runs much faster with
+> a different PCI controller - however as the Alphas are a bit picky with
+> bootable controllers it requires diskette boot, which I'd like to avoid.
+> 
+> It almost appears as if the drives work in async mode, although the
+> output below looks perfectly ok. There is two things that are a little
+> different in this machine compared to a PC: The controller sits on the
+> second PCI bus 1, and it is using IRQ 0. Maybe that's where the problem
+> is. A narrow qlogic in a 200MHz Pentium is faster in comparison.
+
+You speak of "writes" and "reads" as though that in itself is enough
+information.
+
+What exactly do you mean by "write" and "read"???
+
+Sequential, 64KB block reads/writes will give one result, and
+random, 2KB block operations will give entirely another...
+
+Do you know the Digital part-number for this card? (example: "KZPDA-AA")
+
+Btw: have you tested your disks using Tru64?
+
+Rob Urban
+
+From openbsd-alpha  Mon Jan 05 02:06:40 2004
+From: Christian Suder <csuder () cisco ! com>
+Date: Mon, 05 Jan 2004 02:06:40 +0000
+To: openbsd-alpha
+Subject: Re: Slow disk reads with ISP1020 on Alphaserver
+Message-Id: <1073268400.2467.16.camel () ibanez ! csuder ! net>
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=107326892632257
+
+Hi Matt,
+
+yes it looks perfectly ok, but for some reason the numbers are way below
+what the drive/controller combination should be able to achieve. 
+
+I once tried an older BusLogic on the same PCI bus as the Qlogic, and it
+worked much better then, in the range 6-7 Mbytes/s for application level
+transfer over the network (ftp of large files). Not a solution though
+because non-bootable on Alphas. 
+
+It is endemic to the system, because it happens with OpenBSD and Linux
+using your driver. I found a few posts where people had similar results
+on the 1000A, but no solution. 
+
+A while ago when I was still running Linux I tried a number of things,
+using the DEC firmware vs. download new firmware, ignored/overrid the
+NVRAM paramaters but no dice. 
+
+Could it be that the drives slow down because the detect some error
+condition ? Or some memory access issue with the 64bit architecture ? 
+
+I can debug a little more if you can tell me what to look for,
+
+	Thx,
+	Christian 
+
+
+
+
+
+On Sun, 2004-01-04 at 13:05, Matthew Jacob wrote:
+> First of all, the drives are negotiating Fast/Wide (10MHz/wide- see
+> lower in your report).
+> 
+> The read/write numbers do seem slow given the drives you're using.
+
+From openbsd-alpha  Sun Jan 04 21:05:45 2004
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Sun, 04 Jan 2004 21:05:45 +0000
+To: openbsd-alpha
+Subject: Re: Slow disk reads with ISP1020 on Alphaserver
+Message-Id: <20040104130236.M99104 () beppo>
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=107325062017970
+
+First of all, the drives are negotiating Fast/Wide (10MHz/wide- see
+lower in your report).
+
+The read/write numbers do seem slow given the drives you're using.
+
+From openbsd-alpha  Mon Dec 29 06:33:44 2003
+From: Christian Suder <csuder () cisco ! com>
+Date: Mon, 29 Dec 2003 06:33:44 +0000
+To: openbsd-alpha
+Subject: Slow disk reads with ISP1020 on Alphaserver
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=107267971718875
+
+Hello,
+
+I've been trying to find an answer/solution for the following problem
+for quite a while now, with no success:
+
+On an Alphaserver 1000A 5/400 with the integrated Qlogic 1020 disk reads
+are in the range of 1.8 MByte/s, while writes easily reach 3.8 Mbyte/s.
+This is pretty much independant of the drives used (narrow or wide), or
+even the OS - it shows the same symptom running Linux with either qlogic
+driver. It is not a limit of the drive stack as it runs much faster with
+a different PCI controller - however as the Alphas are a bit picky with
+bootable controllers it requires diskette boot, which I'd like to avoid.
+
+It almost appears as if the drives work in async mode, although the
+output below looks perfectly ok. There is two things that are a little
+different in this machine compared to a PC: The controller sits on the
+second PCI bus 1, and it is using IRQ 0. Maybe that's where the problem
+is. A narrow qlogic in a 200MHz Pentium is faster in comparison.
+
+Any hints appreciated !
+
+	Thx,
+	Christian 
+
+
+Below are the relevant parts of the boot, with the loglevel cranked up:
+
+isp0 at pci1 dev 0 function 0 "QLogic ISP1020" rev 0x02: dec_1000a irq 0
+isp0: Board Type 1020A, Chip Revision 0x2, loaded F/W Revision 4.66.0
+isp0: Last F/W revision was 5.57.1
+isp0: 243 max I/O commands supported
+isp0: NVRAM CHAN 0 FTHRSH 2 IID 7 RESETD 1 RETRYC 0 RETRYD 1 ASD 0x6
+isp0: NVRAM RAAN 0x1 DLAN 0x1 DDMAB 0x1 CDMAB 0x1 SELTIME 250 MQD 256
+isp0: NVRAM CHAN 0 TGT 0 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 1 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 2 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 3 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 4 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 5 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 6 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 7 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 8 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 9 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 10 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 11 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 12 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 13 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 14 FLAGS 0xfd00 0xc/0x19
+isp0: NVRAM CHAN 0 TGT 15 FLAGS 0xfd00 0xc/0x19
+isp0: Initiator ID is 7 on Channel 0
+isp0: Initial Settings bus0 tgt0 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt1 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt2 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt3 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt4 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt5 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt6 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt7 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt8 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt9 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt10 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt11 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt12 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt13 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt14 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt15 flags 0xc5c0 off 0x0 per 0x0
+isp0: driver initiated bus reset of bus 0
+scsibus0 at isp0: 16 targets
+isp0: Bus 0 Target 0 Async Mode
+sd0 at scsibus0 targ 0 lun 0: <SEAGATE, ST32550N, 0016> SCSI2 0/direct
+fixed
+sd0: 2047MB, 3511 cyl, 11 head, 108 sec, 512 bytes/sec, 4194058 sec
+total
+st0 at scsibus0 targ 1 lun 0: <DEC, TLZ07 (C)DEC, 4BE0> SCSI2
+1/sequential removable
+st0: drive empty
+isp0: Bus 0 Target 2 Async Mode
+sd1 at scsibus0 targ 2 lun 0: <QUANTUM, ATLAS IV 36 WLS, 0A0A> SCSI3
+0/direct fixed
+sd1: 35044MB, 13816 cyl, 16 head, 324 sec, 512 bytes/sec, 71770336 sec
+total
+isp0: Bus 0 Target 3 Async Mode
+sd2 at scsibus0 targ 3 lun 0: <QUANTUM, ATLAS IV 36 WLS, 0808> SCSI3
+0/direct fixed
+sd2: 35044MB, 13816 cyl, 16 head, 324 sec, 512 bytes/sec, 71770336 sec
+total
+isp0: Bus 0 Target 4 Async Mode
+sd3 at scsibus0 targ 4 lun 0: <QUANTUM, ATLAS IV 36 WLS, 0A0A> SCSI3
+0/direct fixed
+sd3: 35044MB, 13816 cyl, 16 head, 324 sec, 512 bytes/sec, 71770336 sec
+total
+isp0: Bus 0 Target 5 Async Mode
+sd4 at scsibus0 targ 5 lun 0: <QUANTUM, ATLAS IV 36 WLS, 0A0A> SCSI3
+0/direct fixedsd4 at scsibus0 targ 5 lun 0: <QUANTUM, ATLAS IV 36 WLS,
+0A0A> SCSI3 0/direct fixed
+sd4: 35044MB, 13816 cyl, 16 head, 324 sec, 512 bytes/sec, 71770336 sec
+total
+[....]
+
+isp0: bus 0 set tgt 0 flags 0xdd00 off 0xc period 0x19
+isp0: Active Hiwater Mark=1
+isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+rootdev=0x800 rrootdev=0x800 rawdev=0x802
+isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+isp0: Bus 0 Target 0 at 10MHz Max Offset 12, Tagged Queueing Enabled
+isp0: Active Hiwater Mark=2
+isp0: bus 0 set tgt 3 flags 0xfd00 off 0xc period 0x19
+isp0: Bus 0 Target 3 at 10MHz Max Offset 12, 16 bit wide, Tagged
+Queueing Enabled
+isp0: Bus 0 Target 3 at 10MHz Max Offset 12, 16 bit wide, Tagged
+Queueing Enabled
+isp0: bus 0 set tgt 4 flags 0xfd00 off 0xc period 0x19
+isp0: Bus 0 Target 4 at 10MHz Max Offset 12, 16 bit wide, Tagged
+Queueing Enabled
+isp0: Bus 0 Target 4 at 10MHz Max Offset 12, 16 bit wide, Tagged
+Queueing Enabled
+isp0: bus 0 set tgt 5 flags 0xfd00 off 0xc period 0x19
+isp0: Bus 0 Target 5 at 10MHz Max Offset 12, 16 bit wide, Tagged
+Queueing Enabled
+isp0: Bus 0 Target 5 at 10MHz Max Offset 12, 16 bit wide, Tagged
+Queueing Enabled
+isp0: bus 0 set tgt 2 flags 0xfd00 off 0xc period 0x19
+isp0: Bus 0 Target 2 at 10MHz Max Offset 12, 16 bit wide, Tagged
+Queueing Enabled
+isp0: Bus 0 Target 2 at 10MHz Max Offset 12, 16 bit wide, Tagged
+Queueing Enabled
+isp0: Bus 0 Target 2 at 10MHz Max Offset 12, 16 bit wide, Tagged
+Queueing Enabled
+isp0: Bus 0 Target 2 at 10MHz Max Offset 12, 16 bit wide, Tagged
+Queueing Enabled
+isp0: Bus 0 Target 2 at 10MHz Max Offset 12, 16 bit wide, Tagged
+Queueing Enabled
+isp0: Bus 0 Target 2 at 10MHz Max Offset 12, 16 bit wide, Tagged
+Queueing Enabled
+isp0: Bus 0 Target 2 at 10MHz Max Offset 12, 16 bit wide, Tagged
+Queueing Enabled
+stray isa irq 4
+stray isa irq 3
+isp0: Active Hiwater Mark=3
+isp0: Active Hiwater Mark=4
+isp0: Active Hiwater Mark=5
+[....]
+
+From openbsd-alpha  Sun Dec 07 00:24:25 2003
+From: Diana Eichert <deichert () wrench ! com>
+Date: Sun, 07 Dec 2003 00:24:25 +0000
+To: openbsd-alpha
+Subject: Re: kernel panic with PUC(4) compiled into GENERIC 3.4 8/22 snapshot
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=107075673519409
+
+I added the verbose flag to ttyflags in rc and got a little more
+additional info.
+
+setting tty flags
+/dev/console setting flags to:
+/dev/ttyC0 settpanic: timeout_add: not initialized
+Stopped at      Debugger+0x4:   ret     zero,(ra)
+RUN AT LEAST 'trace' AND 'ps' AND INCLUDE OUTPUT WHEN REPORTING THIS
+PANIC!
+DO NOT EVEN BOTHER REPORTING THIS WITHOUT INCLUDING THAT INFORMATION!
+ddb>
+
+puc0 at pci0 dev 6 function 0 "PLX Technology I/O 9050" rev 0x01: com,
+com, com,
+ com
+com0 at puc0 port 0 eb164 irq 0: st16650, 32 byte fifo
+com1 at puc0 port 1 eb164 irq 0: st16650, 32 byte fifo
+com2 at puc0 port 2 eb164 irq 0: st16650, 32 byte fifo
+com3 at puc0 port 3 eb164 irq 0: st16650, 32 byte fifo
+sio0 at pci0 dev 8 function 0 "Intel 82378IB PCI-ISA" rev 0x43
+SNIP
+isa0 at sio0
+isadma0 at isa0
+com4 at isa0 port 0x3f8/8 irq 4: ns16550a, 16 byte fifo
+com4: console
+com5 at isa0 port 0x2f8/8 irq 3: ns16550a, 16 byte fifo
+
+From openbsd-alpha  Sat Dec 06 23:56:42 2003
+From: Diana Eichert <deichert () wrench ! com>
+Date: Sat, 06 Dec 2003 23:56:42 +0000
+To: openbsd-alpha
+Subject: kernel panic with PUC(4) compiled into GENERIC 3.4 8/22 snapshot
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=107075513018340
+
+I purchased a few Chase PCI-FAST4 cards supported by puc(4), at least
+under i386 and decided to try to add puc(4) to alpha 3.4 GENERIC 8/22
+snapshot per a thread earlier on this list.  I added the appropriate lines
+to GENERIC using sparc64 GENERIC as a guide, succesfully compiled a new
+kernel and rebooted, on reboot I get a kernel panic.
+
+Yes, I know I'm using a snapshot but that was the only system I could do
+this quick and dirty test on.
+
+boot & crash info follow.
+
+>>>boot -file bsd.PUC
+(boot dqa1.1.0.11.0 -file bsd.PUC -flags ac)
+block 0 of dqa1.1.0.11.0 is a valid boot block
+reading 15 blocks from dqa1.1.0.11.0
+bootstrap code read in
+base = 200000, image_start = 0, image_bytes = 1e00
+initializing HWRPB at 2000
+initializing page table at 1ffee000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+OpenBSD/Alpha Primary Boot
+Jumping to entry point...
+OpenBSD/Alpha Secondary Boot, Revision 1.7 (deraadt@alpha.openbsd.org, Thu
+Aug 2
+1 23:52:58 MDT 2003)
+VMS PAL rev: 0x1000200010115, OSF PAL rev: 0x1000200020117
+Switched to OSF PAL.
+
+Boot file: bsd.PUC ac
+
+Loading bsd.PUC...
+5412816+390528 [85+319344+184717]
+
+Entering bsd.PUC at 0xfffffc0000230000...
+[ using 505048 bytes of bsd ELF symbol table ]
+consinit: not using prom console
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+        The Regents of the University of California.  All rights reserved.
+Copyright (c) 1995-2003 OpenBSD. All rights reserved.
+http://www.OpenBSD.org
+
+OpenBSD 3.4-beta (PUC) #0: Sat Dec  6 14:48:23 MST 2003
+    root@devdawg.sks.com:/usr/src/sys/arch/alpha/compile/PUC
+Digital AlphaPC 164LX 533 MHz
+8192 byte page size, 1 processor.
+total memory = 536870912 (524288K)
+(2179072 reserved for PROM, 534691840 used by OpenBSD)
+avail memory = 462635008 (451792K)
+using 6527 buffers containing 53469184 bytes (52216K) of memory
+mainbus0 (root)
+cpu0 at mainbus0: ID 0 (primary), 21164A-2 (pass 2)
+cpu0: Architecture extensions: 1<BWX>
+cia0 at mainbus0: DECchip 2117x Core Logic Chipset (Pyxis), pass 1
+cia0: extended capabilities: 1<BWEN>
+cia0: using BWX for PCI config and bus access
+pci0 at cia0 bus 0
+vga0 at pci0 dev 5 function 0 "S3 ViRGE" rev 0x06
+wsdisplay0 at vga0
+wsdisplay0: screen 0-5 added (80x25, vt100 emulation)
+puc0 at pci0 dev 6 function 0 "PLX Technology I/O 9050" rev 0x01: com,
+com, com,
+ com
+com0 at puc0 port 0 eb164 irq 0: st16650, 32 byte fifo
+com1 at puc0 port 1 eb164 irq 0: st16650, 32 byte fifo
+com2 at puc0 port 2 eb164 irq 0: st16650, 32 byte fifo
+com3 at puc0 port 3 eb164 irq 0: st16650, 32 byte fifo
+sio0 at pci0 dev 8 function 0 "Intel 82378IB PCI-ISA" rev 0x43
+de0 at pci0 dev 9 function 0 "DEC 21140" rev 0x22: eb164 irq 3
+de0: 21140A [10-100Mb/s] pass 2.2 address 00:c0:f0:30:49:76
+pciide0 at pci0 dev 11 function 0 "CMD Technology PCI0646" rev 0x01: DMA,
+channe
+l 0 wired to compatibility, channel 1 wired to compatibility
+wd0 at pciide0 channel 0 drive 1: <Maxtor 54098H8>
+wd0: 16-sector PIO, LBA, 39082MB, 16383 cyl, 16 head, 63 sec, 80041248
+sectors
+wd0(pciide0:0:1): using PIO mode 4, DMA mode 2
+atapiscsi0 at pciide0 channel 1 drive 0
+scsibus0 at atapiscsi0: 2 targets
+cd0 at scsibus0 targ 0 lun 0: <SONY, CDU4811, PY0A> SCSI0 5/cdrom
+removable
+cd0(pciide0:1:0): using PIO mode 4, DMA mode 2
+isa0 at sio0
+isadma0 at isa0
+com4 at isa0 port 0x3f8/8 irq 4: ns16550a, 16 byte fifo
+com4: console
+com5 at isa0 port 0x2f8/8 irq 3: ns16550a, 16 byte fifo
+pckbc0 at isa0 port 0x60/5
+pcppi0 at isa0 port 0x61
+spkr0 at pcppi0
+midi0 at pcppi0: <PC speaker>
+isabeep0 at pcppi0
+lpt0 at isa0 port 0x3bc/4 irq 7
+fdc0 at isa0 port 0x3f0/6 irq 6 drq 2
+fd0 at fdc0 drive 0: 1.44MB 80 cyl, 2 head, 18 sec
+mcclock0 at isa0 port 0x70/2: mc146818 or compatible
+stray isa irq 3
+root on wd0a swap on wd0b
+rootdev=0x0 rrootdev=0x2400 rawdev=0x2402
+de0: enabling Full Duplex 100baseTX port
+Automatic boot in progress: starting file system checks.
+/dev/rwd0a: file system is clean; not checking
+/dev/rwd0d: file system is clean; not checking
+/dev/rwd0e: file system is clean; not checking
+/dev/rwd0f: file system is clean; not checking
+/dev/rwd0g: file system is clean; not checking
+/dev/rwd0h: file system is clean; not checking
+/dev/rwd0i: file system is clean; not checking
+/dev/rwd0j: file system is clean; not checking
+/dev/rwd0k: file system is clean; not checking
+/dev/rwd0l: file system is clean; not checking
+/dev/rwd0m: file system is clean; not checking
+/dev/rwd0n: file system is clean; not checking
+/dev/rwd0o: file system is clean; not checking
+setting tty flags
+panic: timeout_add: not initialized
+Stopped at      Debugger+0x4:   ret     zero,(ra)
+RUN AT LEAST 'trace' AND 'ps' AND INCLUDE OUTPUT WHEN REPORTING THIS
+PANIC!
+DO NOT EVEN BOTHER REPORTING THIS WITHOUT INCLUDING THAT INFORMATION!
+ddb> trace
+Debugger(4, 1, 5, 8, 3, 8) at Debugger+0x4
+panic(fffffc000067d460, 1, fffffc8580022080, 3, fffffc00046ca000,
+1200276b2) at
+ panic+0x130
+timeout_add(?, 1, fffffc8580022080, 3, fffffc00046ca000, 1200276b2) at
+timeout_
+add+0x34
+comopen(?, 5, fffffc8580022080, 3, fffffc00046ca000, 1200276b2) at
+comopen+0x27
+4
+spec_open(?, ?, ?, ?, fffffc00046ca000, 1200276b2) at spec_open+0x1d8
+spec_vnoperate(?, ?, ?, ?, fffffc00046ca000, 1200276b2) at
+spec_vnoperate+0x30
+VOP_OPEN(?, ?, fffffc00046ca000, fffffc0004bc11c0, fffffc00046ca000,
+1200276b2)
+ at VOP_OPEN+0x44
+vn_open(?, ?, ?, ?, fffffc00046ca000, 1200276b2) at vn_open+0x3a8
+sys_open(?, ?, ?, ?, fffffc00046ca000, 1200276b2) at sys_open+0xf8
+syscall(?, ?, ?, ?, fffffc00046ca000, 1200276b2) at syscall+0x248
+XentSys(1ffff8ad0, 4, 0, 12007a3f5, 1ffff8ada, 1200276b2) at XentSys+0x50
+ddb> ps
+   PID   PPID   PGRP    UID  S       FLAGS  WAIT       COMMAND
+*30092    994    994      0  2      0x4006             ttyflags
+   994      1    994      0  3      0x4086  pause      sh
+     7      0      0      0  3    0x100204  crypto_wa  crypto
+     6      0      0      0  3    0x100204  aiodoned   aiodoned
+     5      0      0      0  3    0x100204  syncer     update
+     4      0      0      0  3    0x100204  cleaner    cleaner
+     3      0      0      0  3    0x100204  reaper     reaper
+     2      0      0      0  3    0x100204  pgdaemon   pagedaemon
+     1      0      1      0  3      0x4084  wait       init
+     0     -1      0      0  3     0x80204  scheduler  swapper
+ddb> 
+

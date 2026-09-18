@@ -1,0 +1,556 @@
+From njoly@pasteur.fr  Sat Jun 11 12:36:18 2011
+Path: news.gmane.org!not-for-mail
+From: Nicolas Joly <njoly@pasteur.fr>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: fpgetround/fpsetround do not work
+Date: Sat, 11 Jun 2011 12:36:18 +0200
+Organization: Institut Pasteur, Paris.
+Lines: 92
+Approved: news@gmane.org
+Message-ID: <20110611103618.GA22842@lynche.sis.pasteur.fr>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="BXVAT5kNtrzKuDFl"
+X-Trace: dough.gmane.org 1307788593 23490 80.91.229.12 (11 Jun 2011 10:36:33 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Sat, 11 Jun 2011 10:36:33 +0000 (UTC)
+To: NetBSD alpha <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Jun 11 12:36:29 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1QVLYK-00050x-42
+	for netbsd-port-alpha@m.gmane.org; Sat, 11 Jun 2011 12:36:28 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 6956414A3B9; Sat, 11 Jun 2011 10:36:23 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id DD52C14A3B8
+	for <port-alpha@netbsd.org>; Sat, 11 Jun 2011 10:36:18 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id 5-6VnjI3y3rh for <port-alpha@netbsd.org>;
+	Sat, 11 Jun 2011 10:36:18 +0000 (UTC)
+Original-Received: from mail-interne2.pasteur.fr (mail-interne2.pasteur.fr [157.99.64.81])
+	by mail.netbsd.org (Postfix) with ESMTP id 0D7EA14A3AE
+	for <port-alpha@netbsd.org>; Sat, 11 Jun 2011 10:36:17 +0000 (UTC)
+Original-Received: from langres.sis.pasteur.fr (localhost [127.0.0.1])
+	by mail-interne2.pasteur.fr (Postfix) with ESMTP id 04495E0523;
+	Sat, 11 Jun 2011 12:36:16 +0200 (CEST)
+X-Virus-Scanned: amavisd-new at pasteur.fr
+Original-Received: from lynche.sis.pasteur.fr (lynche.sis.pasteur.fr [157.99.60.35])
+	by mail-interne2.pasteur.fr (Postfix) with ESMTP id D21E0E0518;
+	Sat, 11 Jun 2011 12:36:15 +0200 (CEST)
+Original-Received: by lynche.sis.pasteur.fr (Postfix, from userid 1000)
+	id EAABCBC9C3; Sat, 11 Jun 2011 12:36:18 +0200 (CEST)
+Content-Disposition: inline
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4615
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4615>
+
+
+--BXVAT5kNtrzKuDFl
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+
+Hi,
+
+I just had soe more time to look into the failures or regression test
+for -current NetBSD/alpha i run from time to time on a PWS500au
+machine (available at http://www.netbsd.org/~njoly/alpha-atf/).
+
+Checking the lib/libc/ieeefp/t_round/fpround test show that
+fpgetround/fpsetround do not work as expected, but FLT_ROUNDS do.
+
+njoly@thanos [~]> /usr/tests/lib/libc/ieeefp/t_round fpround
+*** Check failed: /local/src/NetBSD/src/tests/lib/libc/ieeefp/t_round.c:41: fpgetround() != FP_RN
+*** Check failed: /local/src/NetBSD/src/tests/lib/libc/ieeefp/t_round.c:64: fpsetround(FP_RN) != FP_RN
+*** Check failed: /local/src/NetBSD/src/tests/lib/libc/ieeefp/t_round.c:67: fpgetround() != FP_RN
+
+Lokking into the respective code show that both functions
+(lib/libc/arch/alpha/gen/{flt_rounds,fpgetround}.c) use the same
+code except for trapb operands which where removed in 2001.
+
+Adding back the trapb ops to fpgetround()/fpsetround() make it work as
+expected.
+
+njoly@thanos [~]> /usr/tests/lib/libc/ieeefp/t_round fpround
+passed
+
+Any reason to not commit the attached patch ?
+
+Thanks.
+
+-- 
+Nicolas Joly
+
+Projects and Developments in Bioinformatics
+Institut Pasteur, Paris.
+
+--BXVAT5kNtrzKuDFl
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="netbsd-alphafpround.diff"
+
+Index: lib/libc/arch/alpha/gen/fpgetround.c
+===================================================================
+RCS file: /cvsroot/src/lib/libc/arch/alpha/gen/fpgetround.c,v
+retrieving revision 1.9
+diff -u -p -r1.9 fpgetround.c
+--- lib/libc/arch/alpha/gen/fpgetround.c	24 Dec 2005 23:10:08 -0000	1.9
++++ lib/libc/arch/alpha/gen/fpgetround.c	11 Jun 2011 10:16:30 -0000
+@@ -54,7 +54,9 @@ fpgetround()
+ 	double fpcrval;
+ 	u_int64_t old;
+ 
++	__asm("trapb");
+ 	__asm("mf_fpcr %0" : "=f" (fpcrval));
++	__asm("trapb");
+ 	old = *(u_int64_t *)(void *)&fpcrval;
+ 
+ 	return ((old >> 58) & 0x3);
+Index: lib/libc/arch/alpha/gen/fpsetround.c
+===================================================================
+RCS file: /cvsroot/src/lib/libc/arch/alpha/gen/fpsetround.c,v
+retrieving revision 1.10
+diff -u -p -r1.10 fpsetround.c
+--- lib/libc/arch/alpha/gen/fpsetround.c	24 Dec 2005 23:10:08 -0000	1.10
++++ lib/libc/arch/alpha/gen/fpsetround.c	11 Jun 2011 10:16:30 -0000
+@@ -55,16 +55,18 @@ fpsetround(rnd_dir)
+ 	double fpcrval;
+ 	u_int64_t old, new;
+ 
+-	__asm("excb");
++	__asm("trapb");
+ 	__asm("mf_fpcr %0" : "=f" (fpcrval));
++	__asm("trapb");
+ 	old = *(u_int64_t *)(void *)&fpcrval;
+ 
+ 	new = old & ~(long)0x0c00000000000000;
+ 	new = (long)rnd_dir << 58;
+ 	*(u_int64_t *)(void *)&fpcrval = new;
+ 
++	__asm("trapb");
+ 	__asm("mt_fpcr %0" : : "f" (fpcrval));
+-	__asm("excb");
++	__asm("trapb");
+ 
+ 	return ((old >> 58) & 0x3);
+ }
+
+--BXVAT5kNtrzKuDFl--
+
+
+From mouse@Rodents-Montreal.ORG  Sun Jun 12 01:16:02 2011
+Path: news.gmane.org!not-for-mail
+From: der Mouse <mouse@Rodents-Montreal.ORG>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: magic switch to ARC console?
+Date: Sun, 12 Jun 2011 01:16:02 -0400 (EDT)
+Lines: 50
+Approved: news@gmane.org
+Message-ID: <201106120516.BAA09820@Sparkle.Rodents-Montreal.ORG>
+References: <201105302224.SAA01937@Sparkle.Rodents-Montreal.ORG> <Pine.NEB.4.64.1105301931230.2972@lightning.msu.montana.edu> <201105310208.WAA03450@Sparkle.Rodents-Montreal.ORG> <Pine.NEB.4.64.1105302014070.2972@lightning.msu.montana.edu> <201105310248.WAA03724@Sparkle.Rodents-Montreal.ORG> <59F370B2-961C-4346-BCB8-189D40628FE3@nwlink.com>
+	<6527D576-B83C-4545-AEE5-5D7312E370C5@nwlink.com>
+	<201105311309.JAA07711@Sparkle.Rodents-Montreal.ORG>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+X-Trace: dough.gmane.org 1307855775 11522 80.91.229.12 (12 Jun 2011 05:16:15 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Sun, 12 Jun 2011 05:16:15 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Jun 12 07:16:11 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1QVd1v-0005Am-4e
+	for netbsd-port-alpha@m.gmane.org; Sun, 12 Jun 2011 07:16:11 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 672A114A117; Sun, 12 Jun 2011 05:16:07 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id A00E314A103
+	for <port-alpha@netbsd.org>; Sun, 12 Jun 2011 05:16:04 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id ukVcvAiSFSNJ for <port-alpha@netbsd.org>;
+	Sun, 12 Jun 2011 05:16:04 +0000 (UTC)
+Original-Received: from Sparkle.Rodents-Montreal.ORG (Sparkle.Rodents-Montreal.ORG [216.46.5.7])
+	by mail.netbsd.org (Postfix) with ESMTP id 8184814A101
+	for <port-alpha@netbsd.org>; Sun, 12 Jun 2011 05:16:03 +0000 (UTC)
+Original-Received: (from mouse@localhost)
+	by Sparkle.Rodents-Montreal.ORG (8.8.8/8.8.8) id BAA09820;
+	Sun, 12 Jun 2011 01:16:02 -0400 (EDT)
+X-Erik-Conspiracy: There is no Conspiracy - and if there were I wouldn't be part of it anyway.
+X-Message-Flag: Microsoft: the company who gave us the botnet zombies.
+X-Composition-Start-Date: Sun, 12 Jun 2011 00:44:29 -0400 (EDT)
+In-Reply-To: <201105311309.JAA07711@Sparkle.Rodents-Montreal.ORG>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4616
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4616>
+
+Back on May 31 I (quoted and) wrote, of my PWS 600au,
+
+>> You may only power down the machine from ARC (F10), but using the
+>> soft reset on the front panel retains the CMOS.
+> Then I guess I need to replace the battery.  Needing physical access
+> to bring the machine back from a power-cycle is..a problem, in my
+> setup.
+
+Okay, today I pulled the machine apart, popped out the CPU/memory/etc
+board, and replaced the battery.
+
+Now it won't enter _either_ console.  On power-up, the console gets a
+NUL, then, after a pause, a capital A.  Nothing further.
+
+There are eight LEDs on the board, near the accessible edge, next to
+the memory sockets.  They are arranged in two rows of four, with the
+columns marked 8, 4, 2, and 1; the row nearer the edge of the board
+(the top one, with the case in its usual upright orientation) is marked
+"MSB".  These go through various codes.  Many of them are displayed too
+briefly for me to identify them; the ones that remain long enough for
+me to identify are (in hex, based on the MSB and 8/4/2/1 markings) are:
+
+Powerup, dd, flicker, dd, flicker, d0, flicker, cd, flicker, 04.
+
+It stays there as long as I've been willing to wait (certainly well
+past the time when ARC or SRM would previously have printed something).
+The first and third "flicker"s are accompanied by two ticks from the
+machine's built-in speaker.  The NUL is printed very early, roughly at
+about the time the first dd is displayed; the A is printed at
+approximately the time of the last flicker (changing from cd to 04).
+
+I assume there once existed a document describing these codes.  I even
+found a Debian mailing list archive with a message saying that it was
+the field service manuals, but, of course, no indication of the meaning
+of most codes, nor of where one might find either the manuals or a list
+of codes' meanings extracted from said manuals.  Not even a part number
+for the manual.  I wandered around bitsavers some but didn't see
+anything that looked promising.
+
+I tried reseating the removable board (the one I took out to get to the
+battery) in its socket.  I also tried reseating the RAM in its sockets
+on that board.  Neither one made any apparent difference.
+
+Anyone got any pointers?
+
+/~\ The ASCII				  Mouse
+\ / Ribbon Campaign
+ X  Against HTML		mouse@rodents-montreal.org
+/ \ Email!	     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+
+From rhialto@falu.nl  Sun Jun 12 11:53:17 2011
+Path: news.gmane.org!not-for-mail
+From: Rhialto <rhialto@falu.nl>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: magic switch to ARC console?
+Date: Sun, 12 Jun 2011 11:53:17 +0200
+Lines: 18
+Approved: news@gmane.org
+Message-ID: <20110612095317.GJ1184@falu.nl>
+References: <201105302224.SAA01937@Sparkle.Rodents-Montreal.ORG>
+ <Pine.NEB.4.64.1105301931230.2972@lightning.msu.montana.edu>
+ <201105310208.WAA03450@Sparkle.Rodents-Montreal.ORG>
+ <Pine.NEB.4.64.1105302014070.2972@lightning.msu.montana.edu>
+ <201105310248.WAA03724@Sparkle.Rodents-Montreal.ORG>
+ <59F370B2-961C-4346-BCB8-189D40628FE3@nwlink.com>
+ <6527D576-B83C-4545-AEE5-5D7312E370C5@nwlink.com>
+ <201105311309.JAA07711@Sparkle.Rodents-Montreal.ORG>
+ <201106120516.BAA09820@Sparkle.Rodents-Montreal.ORG>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: dough.gmane.org 1307872416 16613 80.91.229.12 (12 Jun 2011 09:53:36 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Sun, 12 Jun 2011 09:53:36 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: der Mouse <mouse@Rodents-Montreal.ORG>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Jun 12 11:53:31 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1QVhMJ-0002S5-2O
+	for netbsd-port-alpha@m.gmane.org; Sun, 12 Jun 2011 11:53:31 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 0108F14A124; Sun, 12 Jun 2011 09:53:25 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 1D86514A11E
+	for <port-alpha@NetBSD.org>; Sun, 12 Jun 2011 09:53:22 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id PxJT3u8wXDLs for <port-alpha@NetBSD.org>;
+	Sun, 12 Jun 2011 09:53:21 +0000 (UTC)
+Original-Received: from smtp.falu.nl (tunnel453.ipv6.xs4all.nl [IPv6:2001:888:10:1c5::2])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id F2A8614A118
+	for <port-alpha@NetBSD.org>; Sun, 12 Jun 2011 09:53:20 +0000 (UTC)
+Original-Received: from radl.falu.nl (IDENT:9353-ident-is-a-completely-pointless-protocol-that-offers-no-security-or-traceability-at-all-so-tak@localhost [127.0.0.1])
+	by smtp.falu.nl (8.14.4/8.14.3) with ESMTP id p5C9rHSo018687;
+	Sun, 12 Jun 2011 11:53:18 +0200 (CEST)
+Original-Received: (from rhialto@localhost)
+	by radl.falu.nl (8.14.4/8.13.1/Submit) id p5C9rHiw029432;
+	Sun, 12 Jun 2011 11:53:17 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <201106120516.BAA09820@Sparkle.Rodents-Montreal.ORG>
+User-Agent: Mutt/1.5.20 (2009-06-14)
+X-Greylist: Sender passed SPF test, not delayed by milter-greylist-4.2.6 (smtp.falu.nl [127.0.0.1]); Sun, 12 Jun 2011 11:53:18 +0200 (CEST)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4617
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4617>
+
+On Sun 12 Jun 2011 at 01:16:02 -0400, der Mouse wrote:
+> Anyone got any pointers?
+
+I found an SRM manual here, but it doesn't seem to mention the countdown
+values.
+http://www.compaq.com/AlphaServer/technology/literature/srmcons.pdf
+
+This page seems to imply there was an online service guide, but the link
+is dead.
+http://h18002.www1.hp.com/alphaserver/workstations/retired/auseries/index.html
+ftp://ftp.compaq.com/pub/products/workstations/miatasg.exe
+
+
+> /~\ The ASCII				  Mouse
+> \ / Ribbon Campaign
+>  X  Against HTML		mouse@rodents-montreal.org
+> / \ Email!	     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+
+From mouse@Rodents-Montreal.ORG  Sun Jun 12 19:19:18 2011
+Path: news.gmane.org!not-for-mail
+From: der Mouse <mouse@Rodents-Montreal.ORG>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: magic switch to ARC console?
+Date: Sun, 12 Jun 2011 19:19:18 -0400 (EDT)
+Lines: 25
+Approved: news@gmane.org
+Message-ID: <201106122319.TAA15201@Sparkle.Rodents-Montreal.ORG>
+References: <201105302224.SAA01937@Sparkle.Rodents-Montreal.ORG> <Pine.NEB.4.64.1105301931230.2972@lightning.msu.montana.edu> <201105310208.WAA03450@Sparkle.Rodents-Montreal.ORG> <Pine.NEB.4.64.1105302014070.2972@lightning.msu.montana.edu> <201105310248.WAA03724@Sparkle.Rodents-Montreal.ORG> <59F370B2-961C-4346-BCB8-189D40628FE3@nwlink.com>
+	<6527D576-B83C-4545-AEE5-5D7312E370C5@nwlink.com>
+	<201105311309.JAA07711@Sparkle.Rodents-Montreal.ORG>
+	<201106120516.BAA09820@Sparkle.Rodents-Montreal.ORG>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+X-Trace: dough.gmane.org 1307920772 29712 80.91.229.12 (12 Jun 2011 23:19:32 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Sun, 12 Jun 2011 23:19:32 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Jun 13 01:19:28 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1QVtwF-00065A-KD
+	for netbsd-port-alpha@m.gmane.org; Mon, 13 Jun 2011 01:19:27 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 5A41914A151; Sun, 12 Jun 2011 23:19:22 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 99BFD14A13D
+	for <port-alpha@NetBSD.org>; Sun, 12 Jun 2011 23:19:20 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id IeHOOMJs-PGf for <port-alpha@NetBSD.org>;
+	Sun, 12 Jun 2011 23:19:20 +0000 (UTC)
+Original-Received: from Sparkle.Rodents-Montreal.ORG (Sparkle.Rodents-Montreal.ORG [216.46.5.7])
+	by mail.netbsd.org (Postfix) with ESMTP id 8F91114A12F
+	for <port-alpha@NetBSD.org>; Sun, 12 Jun 2011 23:19:19 +0000 (UTC)
+Original-Received: (from mouse@localhost)
+	by Sparkle.Rodents-Montreal.ORG (8.8.8/8.8.8) id TAA15201;
+	Sun, 12 Jun 2011 19:19:18 -0400 (EDT)
+X-Erik-Conspiracy: There is no Conspiracy - and if there were I wouldn't be part of it anyway.
+X-Message-Flag: Microsoft: the company who gave us the botnet zombies.
+X-Composition-Start-Date: Sun, 12 Jun 2011 19:11:05 -0400 (EDT)
+In-Reply-To: <201106120516.BAA09820@Sparkle.Rodents-Montreal.ORG>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4618
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4618>
+
+Earlier today, I wrote, of my PWS 600au,
+
+> Okay, today I pulled the machine apart, popped out the CPU/memory/etc
+> board, and replaced the battery.
+
+> Now it won't enter _either_ console.  [...]
+
+Boy, do I feel stupid now.
+
+I must have had the serial line plugged into the wrong serial port.  It
+came up in ARC very nicely on the correct port (and, yes, plugged into
+the wrong port I still see the behaviour I described).
+
+And, the new battery does its job.  I switched from ARC to SRM and the
+setting survived a power-cycle just fine.  The machine is once again
+happily running NetBSD.
+
+My thanks to everyone who replied and my apologies for the noise on the
+list when it was really me being boneheaded.
+
+/~\ The ASCII				  Mouse
+\ / Ribbon Campaign
+ X  Against HTML		mouse@rodents-montreal.org
+/ \ Email!	     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+
+From matt@3am-software.com  Tue Jun 14 01:18:02 2011
+Path: news.gmane.org!not-for-mail
+From: Matt Thomas <matt@3am-software.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Alpha A12 support will be removed soon.
+Date: Tue, 14 Jun 2011 01:18:02 -0700
+Lines: 4
+Approved: news@gmane.org
+Message-ID: <28ADA4BA-26D7-45AC-A487-3D0B67955395@3am-software.com>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+X-Trace: dough.gmane.org 1308039499 14504 80.91.229.12 (14 Jun 2011 08:18:19 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Tue, 14 Jun 2011 08:18:19 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Jun 14 10:18:14 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1QWOpA-0008UK-Ea
+	for netbsd-port-alpha@m.gmane.org; Tue, 14 Jun 2011 10:18:12 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 1332614A143; Tue, 14 Jun 2011 08:18:06 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 5610514A141
+	for <port-alpha@netbsd.org>; Tue, 14 Jun 2011 08:18:05 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id cc+7TdPD3N+y for <port-alpha@netbsd.org>;
+	Tue, 14 Jun 2011 08:18:04 +0000 (UTC)
+Original-Received: from panix.3am-software.com (apochromatic.org [166.84.6.62])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id D0A0814A12A
+	for <port-alpha@netbsd.org>; Tue, 14 Jun 2011 08:18:04 +0000 (UTC)
+Original-Received: from [IPv6:::1] (localhost [IPv6:::1])
+	by panix.3am-software.com (Postfix) with ESMTP id 1676127863C
+	for <port-alpha@netbsd.org>; Tue, 14 Jun 2011 04:18:13 -0400 (EDT)
+X-Mailer: Apple Mail (2.1084)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4619
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4619>
+
+
+Unless someone (Ross?) can justify why it should stay.
+(it hasn't been compiled for a long time).
+
+
+From phpbbspprt840@gmail.com  Sun Jun 19 04:02:17 2011
+Path: news.gmane.org!not-for-mail
+From: phpBB Support <phpbbspprt840@gmail.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: phpBB forums update ....
+Date: Sun, 19 Jun 2011 04:02:17 +0400
+Lines: 20
+Approved: news@gmane.org
+Message-ID: <bfe6f50c2f51a4b25d862627f3159551@196.46.191.191>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+X-Trace: dough.gmane.org 1308445830 29459 80.91.229.12 (19 Jun 2011 01:10:30 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Sun, 19 Jun 2011 01:10:30 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Jun 19 03:10:26 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1QY6Wu-0003uc-9X
+	for netbsd-port-alpha@m.gmane.org; Sun, 19 Jun 2011 03:10:24 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id CE87E14A144; Sun, 19 Jun 2011 01:10:20 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 2354E14A120
+	for <port-alpha@NetBSD.org>; Sun, 19 Jun 2011 01:10:18 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+X-Spam-Flag: NO
+X-Spam-Score: 2.009
+X-Spam-Level: **
+X-Spam-Status: No, score=2.009 tagged_above=2 required=8 tests=[BAYES_00=-1.5,
+	FREEMAIL_ENVFROM_END_DIGIT=1.77, FREEMAIL_FROM=0.001,
+	FROM_LOCAL_NOVOWEL=0.5, RDNS_NONE=1.228, T_TO_NO_BRKTS_FREEMAIL=0.01]
+	autolearn=unavailable
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id 7j3RzHFUjqwV for <port-alpha@NetBSD.org>;
+	Sun, 19 Jun 2011 01:10:17 +0000 (UTC)
+Original-Received: from phpbb.com (unknown [196.46.191.191])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id AAE1214A146
+	for <port-alpha@NetBSD.org>; Sun, 19 Jun 2011 01:10:16 +0000 (UTC)
+Original-Received: (qmail 21968 invoked by uid 48); 19 Jun 2011 00:02:17 -0000
+X-Priority: 3
+X-Mailer: PHPMailer [version 1.72]
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4620
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4620>
+
+Hello,
+
+phpBB's new version ( 3.0.8 ) is now available .We recommend that you upd=
+ate your forum to fix some security bugs in earlier versions .
+
+We provide paid services , Beside updating your forum we can :
+
+                + Design for you a professional unique style with complet=
+ely new icons and imagesets.
+                + Install any MODs you like whatever its number or comple=
+xity.
+                + Update your phpBB2 to phpBB3 with its many features .
+                + Solve any problems that may face you in this moment.
+
+If you are interested , please reply this email and we will send to you o=
+ur resume .
+
+Thank you  ...
+
+
+

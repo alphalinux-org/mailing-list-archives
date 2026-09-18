@@ -1,0 +1,4957 @@
+From michael@bsdfans.org  Fri Feb 1 08:24:20 2002
+From: Michael Kukat <michael@bsdfans.org>
+To: jmt@twilley.org
+Date: Fri, 01 Feb 2002 08:24:20 +0000
+Subject: Re: Good news, bad news
+
+Hi !
+
+On Thu, 31 Jan 2002, Jack Twilley wrote:
+> I'm not quite as skillful at soldering as you, and I suspect my
+> soldering iron is still packed.  I will probably replace the chip, but
+> it's possible that won't change the behavior at all, and that would suck.
+>
+> Michael> ...Michael
+>
+> Any other suggestions?
+
+Not really. I got these Multias with the comment "2 are working, in one, SCSI
+is broken". Okay, none of them worked stable in any way, no VMS, no Tru64, no
+NetBSD. After replacing the chips, everything worked fine... You should really
+find someone who could replace the chip, as the possibility that it is broken
+is near 99% i assume.
+
+Some tricks for de-soldering it:
+
+Get an old relay coil, so you have this coated copper wire. Put the wire below
+the chip, and fix it at one place, a bit away from the chip. Now you can use
+your soldering iron to heat the pins, one at a time, and pull the wire out to
+lift the pin off the board. After this, check, that all pins are free, none
+is soldered to the board. Do this on both sides of the chip.
+Alternatively to this, you can use any tool to just cut away the wires from
+the chip (as near at the chip body as possible).
+Then, use a screwdriver or a knive to remove the chip (it is glued to the
+board). If you used the alternative way, you have to remove the pins with the
+soldering iron now.
+
+Clean the pads, and the chip is gone, you can put in the replacement part now.
+
+If you don't have a suitable soldering iron (maybe a 12W needle is the best
+way, but with a little practice, you can use a 30W iron with 1mm tip, as i
+did), ask a friend, and if you never touched any SMD parts, you should give
+this job to a friend, i think you'll find one who does this for one or two
+beers :)
+
+But in general, you can really say: "My Multia does strange things? Ok, the
+623 is burned." So, you should replace it as a first try.
+
+Good luck!
+
+...Michael
+
+-- 
+http://www.bsdfans.org/    Home network powered by: NetBSD OpenBSD FreeBSD IRIX
+Solaris AIX HP-UX Tru64 MUNIX Ultrix VMS SINIX Dolphin_Unix OpenStep MacOS A/UX
+
+From dhop@nwlink.com  Fri Feb 1 10:21:04 2002
+From: David Hopper <dhop@nwlink.com>
+To: thorpej@wasabisystems.com
+Date: Fri, 01 Feb 2002 10:21:04 +0000
+Subject: Re: AS1200 problems
+
+Jason R Thorpe wrote:
+> 
+>On Thu, Jan 31, 2002 at 03:42:14PM -0800, David Hopper wrote:
+> 
+>> I have been having frequent memory management faults on my AlphaServer 1200
+>> 5/533.  
+>> [...]
+> 
+> It's really weird that both $pc and $ra are 0.  It's almost like you
+> have a trashed stack (restored bogus value into $ra, and then executed
+> a ret, putting that bogus value into $pc).
+> 
+> Can you use gdb to tell me what $pv points to?
+>         -- Jason R. Thorpe <thorpej@wasabisystems.com>
+
+I came in this morning to yet another fault, during a build compile of
+f_enum.c; this time with a full debug kernel + symbols
+
+CPU0    trap entry = 0x2 (memory management fault)
+CPU0    a0         = 0x0
+CPU0    a1         = 0x1
+CPU0    a2         = 0xffffffffffffffff
+CPU0    pc         = 0x0
+CPU0    ra         = 0x0
+CPU0    pv         = 0xfffffc0000392280
+CPU0    curproc    = 0xfffffc001567ce78
+CPU0           pid = 22372, comm = cpp0
+
+Stopped in pid 22372 (cpp0) at cpu_Debugger+0x4:  ret  zero,(ra)
+
+}trace
+cpu_Debugger() at cpu_Debugger+0x4
+panic() at panic+0x168
+trap() at trap+0x93c
+XentMM() at XentMM+0x20
+--- memory management fault (from ipl 6) ---
+f30save() at	0
+f30save() at	0
+--- root of call graph ---
+
+}examine
+pv:	210022
+
+I can say with some certainty that the faults only happen on disk activity;
+wild speculation here (IANAP), but I really think some interaction betwixt
+isp, raidframe, and multiprocessor causes the fault.
+
+Kernel config is a modified frau-farbissina, to match my PCI and
+pseudo-devices.
+
+One more thing:  I get stray KN300 IRQ 16 errors, but I think those are
+harmless.
+
+God, I hope it's not a hardware problem.  ;^)
+
+Dave Hopper
+dhop@nwlink.com
+
+From dhop@nwlink.com  Fri Feb 1 11:17:26 2002
+From: David Hopper <dhop@nwlink.com>
+To: thorpej@wasabisystems.com, port-alpha@netbsd.org
+Date: Fri, 01 Feb 2002 11:17:26 +0000
+Subject: Re: AS1200 problems
+
+David Hopper wrote:
+> 
+> Jason R Thorpe wrote:
+> >
+> >On Thu, Jan 31, 2002 at 03:42:14PM -0800, David Hopper wrote:
+> >
+> >> I have been having frequent memory management faults on my AlphaServer 1200
+> >> 5/533.
+> >> [...]
+> >
+> > It's really weird that both $pc and $ra are 0.  It's almost like you
+> > have a trashed stack (restored bogus value into $ra, and then executed
+> > a ret, putting that bogus value into $pc).
+> >
+> > Can you use gdb to tell me what $pv points to?
+> >         -- Jason R. Thorpe <thorpej@wasabisystems.com>
+> 
+> I came in this morning to yet another fault, during a build compile of
+> f_enum.c; this time with a full debug kernel + symbols
+
+...and two more faults this morning, one on sed, the latest on nbmake. 
+Here's a full register dump from the latest, the nbmake fault:
+
+Let me know what else I can report.
+
+}show registers
+v0	0x6
+t0	0xfffffc00005dfa20	db_onpanic
+t1	0x1
+t2	0xfffffc004fff8000
+t3	0x1
+t4	0
+t5	0
+t6	0xfffffc0000533a72	fmt.144+0xf73
+t7	0xffffffffffffffff
+s0	0xfffffe0023e89398
+s1	0x8	rettmp
+s2	0xfffffc0000637b60	msgbufp
+s3	0xfffffc00005e0688	msgbufenabled
+s4	0x100	rn+0xe0
+s5	0x2
+s6	0xfffffc00005bbfec	msgperiod.210+0x1ce4
+a0	0x6
+a1	0x7ffffe7cc0003d0
+a2	0xfffffcf980007aa0
+a3	0x6000	rn+0x5fe0
+a4	0xffffffffffffffff
+a5	0x8	rettmp
+t8	0x1e	framesz+0xe
+t9	0
+t10	0x4ab8ff9e43c0
+t11	0x1fc1eacb
+ra	0xfffffc00003aab88	panic+0x168
+t12	0xfffffc0000509920	cpu_Debugger
+at	0xfffffc00005e0670	sched_whichqs
+gp	0xfffffc00005d4f98	special_symbols+0x8160
+sp	0xfffffe0023e89318
+pc	0xfffffc0000509924	cpu_Debugger+0x4
+ps	0x6
+ai	0x1fc1eacb
+pv	0xfffffc0000509920	cpu_Debugger
+cpu_Debugger_+0x4:	ret	zero,(ra)
+
+}trace
+cpu_Debugger() at cpu_Debugger+0x4
+panic() at panic+0x168
+trap() at trap+0x93c
+XentMM() at XentMM+0x20
+--- memory management fault (from ipl 6) ---
+f30save() at    0
+f30save() at    0
+--- root of call graph ---
+
+}examine pv
+pv:     210022
+
+From woods@weird.com  Fri Feb 1 15:50:36 2002
+From: Greg A. Woods <woods@weird.com>
+To: jmt@twilley.org
+Date: Fri, 01 Feb 2002 15:50:36 +0000
+Subject: Re: Good news, bad news
+
+[ On Thursday, January 31, 2002 at 23:01:36 (-0800), Jack Twilley wrote: ]
+> Subject: Re: Good news, bad news
+>
+> So maybe my problem is related to something else.  I clipped the
+> thermistor, and that had no effect.  I took the Multia completely out
+> of the case, and balanced it on a non-conducting surface.  It still
+> doesn't last more than ten minutes compiling before it hangs.  The
+> heat sink is touchable with bare fingertips for a few moments before
+> hurting.  Ditto for the 623.  It is easily the hottest chip on that
+> side of the motherboard.
+
+You know you're not supposed to run the Multia motherboard without a
+fan.  If the heatsink is too hot to hold then it's possible the die
+itself is nearly over-temp.  IIRC 125�C is the maximum and beyond that
+you risk damage.  Ross is far more familiar with these cooling
+parameters than I and will no doubt correct me if I'm wrong....  :-)
+
+As for the 74LS623, well if you can't comfortably hold your hand on the
+surface of the chip casing then it's probably getting close to being a
+bit too hot (125�C is the max temp for the 623 too).  Considering that
+it'll get a LOT hotter in next to the bottom of the case with no
+air-flow, it's probably suffered over-temp conditions several times.
+The symptoms you describe are very likely caused by a dying 74LS623.  I
+forget exactly how, but it's pretty closely related to the memory access
+path.
+
+Replace it, and secure a square of copper foil (or aluminium) to the new
+one's surface, with some thermally conductive grease under it, so that
+it can radiate a bit more heat.  See the NetBSD/alpha Multia FAQ.
+
+-- 
+								Greg A. Woods
+
++1 416 218-0098;  <gwoods@acm.org>;  <g.a.woods@ieee.org>;  <woods@robohack.ca>
+Planix, Inc. <woods@planix.com>; VE3TCP; Secrets of the Weird <woods@weird.com>
+
+From jmt@twilley.org  Fri Feb 1 13:58:03 2002
+From: Jack Twilley <jmt@twilley.org>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 01 Feb 2002 13:58:03 +0000
+Subject: Re: Good news, bad news
+
+>>>>> "Greg" == Greg A Woods <woods@weird.com> writes:
+
+Jack> So maybe my problem is related to something else.  I clipped the
+Jack> thermistor, and that had no effect.  I took the Multia
+Jack> completely out of the case, and balanced it on a non-conducting
+Jack> surface.  It still doesn't last more than ten minutes compiling
+Jack> before it hangs.  The heat sink is touchable with bare
+Jack> fingertips for a few moments before hurting.  Ditto for the 623.
+Jack> It is easily the hottest chip on that side of the motherboard.
+
+Greg> You know you're not supposed to run the Multia motherboard
+Greg> without a fan.  If the heatsink is too hot to hold then it's
+Greg> possible the die itself is nearly over-temp.  IIRC 125�C is the
+Greg> maximum and beyond that you risk damage.  Ross is far more
+Greg> familiar with these cooling parameters than I and will no doubt
+Greg> correct me if I'm wrong....  :-)
+
+The room itself has a bit of airflow that exceeds the wimpy fan.  This
+was the only way I could access the 623 in a running configuration.
+
+Greg> As for the 74LS623, well if you can't comfortably hold your hand
+Greg> on the surface of the chip casing then it's probably getting
+Greg> close to being a bit too hot (125�C is the max temp for the 623
+Greg> too).  Considering that it'll get a LOT hotter in next to the
+Greg> bottom of the case with no air-flow, it's probably suffered
+Greg> over-temp conditions several times.  The symptoms you describe
+Greg> are very likely caused by a dying 74LS623.  I forget exactly
+Greg> how, but it's pretty closely related to the memory access path.
+
+Okay.  That's the first confirmation I've received that this chip may
+really be the fault.
+
+Greg> Replace it, and secure a square of copper foil (or aluminium) to
+Greg> the new one's surface, with some thermally conductive grease
+Greg> under it, so that it can radiate a bit more heat.  See the
+Greg> NetBSD/alpha Multia FAQ.
+
+I have read the FAQ, and the repair job is a little intimidating.
+Hopefully I won't kill the motherboard with the soldering iron, or
+perhaps I can find someone who will do it for me in return for half a
+liter of home-brew mead.
+
+Greg> -- Greg A. Woods
+
+Jack.
+-- 
+Jack Twilley
+jmt at twilley dot org
+http colon slash slash www dot twilley dot org slash tilde jmt slash
+
+From rrarabie@arabie.org  Sat Feb 2 18:26:22 2002
+From: Randy Arabie <rrarabie@arabie.org>
+To: port-alpha@netbsd.org
+Date: Sat, 02 Feb 2002 18:26:22 +0000
+Subject: sysctl & process limitations (fwd)
+
+No luck on netbsd-help or mysql lists...so far.
+
+-- 
+
+Cheers!
+
+Randy
+
+---------- Forwarded message ----------
+Date: Sat, 2 Feb 2002 08:23:49 -0700 (MST)
+From: Randy Arabie <rrarabie@arabie.org>
+To: netbsd-help@netbsd.org, mysql@lists.mysql.com
+Subject: sysctl & process limitations
+
+Environment:	AlphaStation 255 w/ 64 MB RAM
+		NetBSD 1.5.2 - custom kernel
+		MySQL  3.23.47
+
+I'm trying to load data into tables in a mysql database.  When I feed the 
+load script into the database it fails about 3/4 through. Error follows:
+
+<SNIP>
+ERROR 1105 at line 11: File ./geeklog/userinfo.MYD not found (Errcode: 23)
+</SNIP>
+
+Looking at a few newsgroup postings, I beleive this is due to resource 
+limitations.  Specifically, I may have reached the max open descriptors 
+limit.
+
+I've used the sysctl command to set all soft limits to unlimited, and still 
+get the error.  Here is the output of sysctl for my mysqld process:
+
+<SNIP>
+proc.4012.rlimit.cputime.soft = unlimited
+proc.4012.rlimit.cputime.hard = unlimited
+proc.4012.rlimit.filesize.soft = unlimited
+proc.4012.rlimit.filesize.hard = unlimited
+proc.4012.rlimit.datasize.soft = 1073741824
+proc.4012.rlimit.datasize.hard = 1073741824
+proc.4012.rlimit.stacksize.soft = 33554432
+proc.4012.rlimit.stacksize.hard = 33554432
+proc.4012.rlimit.coredumpsize.soft = unlimited
+proc.4012.rlimit.coredumpsize.hard = unlimited
+proc.4012.rlimit.memoryuse.soft = 57597952
+proc.4012.rlimit.memoryuse.hard = 57597952
+proc.4012.rlimit.memorylocked.soft = 57597952
+proc.4012.rlimit.memorylocked.hard = 57597952
+proc.4012.rlimit.maxproc.soft = 532
+proc.4012.rlimit.maxproc.hard = 532
+proc.4012.rlimit.descriptors.soft = 1772
+proc.4012.rlimit.descriptors.hard = 1772
+</SNIP>
+
+According to this, I should be able to have 1772 files open...correct?
+
+I'm only trying to load data into 38 tables.  And, IIRC, mysql only opens 
+two files per table.  So, I should not be encountering my descriptors limit. 
+
+Any advice would be appreciated.
+
+TIA
+
+----
+Cheers!
+
+Randy
+
+From rrarabie@arabie.org  Sat Feb 2 18:58:53 2002
+From: Randy Arabie <rrarabie@arabie.org>
+To: mrg@eterna.com.au
+Date: Sat, 02 Feb 2002 18:58:53 +0000
+Subject: re: sysctl & process limitations (fwd)
+
+On Sun, 3 Feb 2002, matthew green wrote:
+
+> errno 23 is ENFILE -- max open file descriptors for the *system*.
+> 34 is EMFILE -- max open file descriptors for this process.  it
+> sounds like you should perhaps build a new kernel with a larger
+> `maxusers' ?  are you running lots of other stuff on this box that
+> would cause all the fd's to be used?
+
+Actually, no.  When I get it up I plan on running sendmail, so 
+root's mail will be sent to another box, and httpd and mysql.
+
+Currently, fstat | wc -l reports 136 open files...not even close 
+to 5000.
+
+Those are the big ones.  Others will be standard, sshd, syslog,
+and dhclient.
+
+I did recompile the kernel, but didn't mess with the default 
+process management settings.
+
+Any recommendations?  This box is being designed as a webserver.  I'm 
+trying to install Geeklog, an OpenSource blog / content management / 
+web portal thingy that uses mySQL and PHP.  The site will be low 
+traffic, mainly a "lab" for me to learn new things.
+
+-- 
+
+Cheers!
+
+Randy
+
+From rrarabie@arabie.org  Sat Feb 2 21:14:27 2002
+From: Randy Arabie <rrarabie@arabie.org>
+To: dnelson@allantgroup.com
+Date: Sat, 02 Feb 2002 21:14:27 +0000
+Subject: Re: sysctl & process limitations
+
+On Sat, 2 Feb 2002, Dan Nelson wrote:
+
+> In the last episode (Feb 02), Randy Arabie said:
+> > On Sat, 2 Feb 2002, Dan Nelson wrote:
+> > mysql.
+> > > > kern.maxfiles = 1772
+> > > 
+> > > Raise that to (say) 5000.  I assume netbsd has an /etc/sysctl.conf you
+> > > can use, or you can do it manually via "sysctl -w kern.maxfiles=5000" .
+> > 
+> > How high can I go??
+> > 
+> > Tried 5000, and it still bombs at the same point.  I set that at the 
+> > kernel level and the descriptors at the process level.
+> 
+> The error might not actually be the kernel limit being reached.  It
+> might just be the per-process rlimit.  What does "ulimit -n" print?
+
+I don't think so.  I raised the limit for mysqld descriptors to 5000.
+
+# sysctl -w proc.220.rlimit.descriptors.hard=unlimited
+# sysctl -w proc.220.rlimit.descriptors.soft=unlimited
+
+The kernel maxfiles was already set to 5000.  Those commands raised the 
+limit for process 220 (mysqld) to 5000.  And, the load still fails with
+Errcode: 23.
+
+-- 
+
+Cheers!
+
+Randy
+
+================================================================
+Randy Arabie
+GnuPG Key Info -- 
+
+ Fingerprint: 7E25 DFA2 EF72 9551 9C6C  8AA6 6E8C A0F5 7E33 D981
+ Key ID: 7C603AEF
+ http://www.arabie.org/keys/rrarabie.gnupg
+================================================================
+
+From mrg@eterna.com.au  Sun Feb 3 12:39:47 2002
+From: matthew green <mrg@eterna.com.au>
+To: rrarabie@arabie.org
+Date: Sun, 03 Feb 2002 12:39:47 +0000
+Subject: re: sysctl & process limitations (fwd)
+
+<SNIP>
+   ERROR 1105 at line 11: File ./geeklog/userinfo.MYD not found (Errcode: 23)
+   </SNIP>
+   
+   Looking at a few newsgroup postings, I beleive this is due to resource 
+   limitations.  Specifically, I may have reached the max open descriptors 
+   limit.
+
+
+errno 23 is ENFILE -- max open file descriptors for the *system*.
+34 is EMFILE -- max open file descriptors for this process.  it
+sounds like you should perhaps build a new kernel with a larger
+`maxusers' ?  are you running lots of other stuff on this box that
+would cause all the fd's to be used?
+
+From elric@mabelode.imrryr.org  Sun Feb 3 07:01:18 2002
+From: R. C. Dowdeswell <elric@mabelode.imrryr.org>
+To: rumi_ml@rtfm.hu
+Date: Sun, 03 Feb 2002 07:01:18 +0000
+Subject: Re: Multia serial console
+
+On 71798943= seconds since the Beginning of the UNIX epoch
+"Rumi Szabolcs" wrote:
+>
+>On 2002.01.30 at 10:59 R. C. Dowdeswell wrote:
+>
+>>was it after the kernel messages or after the rc messages?
+>
+>after the kernel messages, but before the rc execution i'd say,
+>thats why i told "at starting init", but here is the serial
+>console output:
+
+Well, I was hoping that it was the more simple problem.  What is
+happening looks a little more interesting.
+
+>isa0 at sio0
+>com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, working fifo
+>com0: console
+>com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, working fifo
+
+>stray isa irq 3
+>stray isa irq 4
+
+The stray interrupts may be indicative of the problems.
+
+>root file system type: ffs
+>init: copying out path `/sbin/init' 11
+>swapctl: adding stray isa irq 4
+>de0: autosense failed: cable problem?
+>------
+>and here is game over...
+
+So, interestingly enough you're getting stray interrupts on the
+same IRQ as com0.  This might be interesting..  Also, it looks like
+you are getting kernel messages on com0, but not regular output.
+This might also help us track down the issue.  In fact, ``swapctl:
+adding'' is output by swapctl(8), not by the kernel---so, you have
+seen a snippet of userland output in there.
+
+Can you ssh/telnet into the machine when it is in this state, or
+is it hung?  If you can ssh into the machine, you can then try to
+see if you can cause output to appear on the console via
+
+	echo foo > /dev/console
+
+or some such.  Also, is it possible that the baud rate/parity of
+the serial port is being changed by settings in /etc/ttys?  Hmmm,
+no you are probably losing too early for that.
+
+Also, does the serial port work acceptably if you are using the
+graphical console?  To test that, set it up as on it /etc/ttys and
+see if it does getty(8) properly (you want to do that anyway, for
+running in serial console mode...)
+
+>btw. those many "unknown vendor ..." messages do not appear
+>when using the tga console, i don't know if this is normal...
+>but thats another story.
+
+I believe that these messages occur on `some' multias and are not
+normally a problem.
+
+>Regards,
+>
+>Szabolcs
+
+ == Roland Dowdeswell                      http://www.Imrryr.ORG/~elric/  ==
+ == The Unofficial NetBSD Web Pages        http://www.Imrryr.ORG/NetBSD/  ==
+ == The NetBSD Project                            http://www.NetBSD.ORG/  ==
+
+From bouyer@antioche.eu.org  Sun Feb 3 14:15:39 2002
+From: Manuel Bouyer <bouyer@antioche.eu.org>
+To: rrarabie@arabie.org
+Date: Sun, 03 Feb 2002 14:15:39 +0000
+Subject: Re: sysctl & process limitations
+
+On Sat, Feb 02, 2002 at 09:14:27PM -0700, Randy Arabie wrote:
+> I don't think so.  I raised the limit for mysqld descriptors to 5000.
+> 
+> # sysctl -w proc.220.rlimit.descriptors.hard=unlimited
+> # sysctl -w proc.220.rlimit.descriptors.soft=unlimited
+> 
+> The kernel maxfiles was already set to 5000.  Those commands raised the 
+> limit for process 220 (mysqld) to 5000.  And, the load still fails with
+> Errcode: 23.
+
+This is really strange, I suspect the '23' isn't an error code from
+sys/errno.h then. 
+Sorry, I don't have more ideas. I have mysqld with several databases,
+and I don't have problems with it ...
+
+-- 
+Manuel Bouyer <bouyer@antioche.eu.org>
+--
+
+From mrfusion@uranium.vaxpower.org  Sun Feb 3 12:09:04 2002
+From: Lord Isildur <mrfusion@uranium.vaxpower.org>
+To: port-pmax@netbsd.org
+Date: Sun, 03 Feb 2002 12:09:04 +0000
+Subject: KZTSA
+
+is the KZTSA still unsupported? i just came into possession of one, which i'd
+gladly loan to anyone working on support for it. 
+
+isildur
+
+From dhop@nwlink.com  Mon Feb 4 16:19:45 2002
+From: David Hopper <dhop@nwlink.com>
+To: port-alpha@netbsd.org
+Date: Mon, 04 Feb 2002 16:19:45 +0000
+Subject: Where does the kernel pull SCSI info from?
+
+I get a message on bootup that is driving me nuts (and may be related to
+stability problems on this alphaserver):
+'WARNING: can't figure what device matches "SCSI 0 3 0 0 0 6000 10201077"'
+
+Where does the kernel pull this from?  The SRM?  It's not clear from the
+SRM enumeration what this is.  All physical devices as reported by the SRM
+are listed in the kernel probe.
+
+Second question:  what exactly is occurring when the kernel reports a stray
+IRQ on a configured and functional ISP controller?  Is this an error
+condition?  pci_kn300.c suggests that stray IRQs are due to unconfigured
+devices...
+
+thx vv much
+David
+
+NetBSD terran.gesi.net 1.5ZA NetBSD 1.5ZA (TERRAN.MP) #2: Mon Feb  4
+15:40:50 UTC 2002    
+bard@terran.gesi.net:/raid/src/sys/arch/alpha/compile/TERRAN.MP alpha
+
+[SRM enum:]
+
+>>show dev
+polling ncr0 (NCR 53C810) slot 1, bus 0 PCI, hose 1  SCSI Bus 7
+dka500.5.0.1.1     dka500        RRD46  1337
+polling floppy0 (FLOPPY) PCEB - XBUS hose 0
+dva0.0.0.1000.0    dva0          RX23
+polling isp0 (QLogic ISP10X0) slot 3, bus 0 PCI, hose 0  SCSI Bus 7
+dkb0.0.0.3.0       DKB0          RZ1CB-CA  LYJ0
+dkb200.2.0.3.0     DKB200        RZ1CB-CA  LYJ0
+dkb400.4.0.3.0     DKB400        RZ1CB-CA  LYJ0
+polling tulip0 (DECchip 21140-AA) slot 4, bus 0 PCI, hose 0
+ewa0.0.0.4.0       [MAC ADDRESS] Auto-Sensing
+
+[boot messages:]
+stray kn300 irq 12
+scsibus0: waiting 2 seconds for devices to settle...
+de0: enabling 100baseTX port
+siop0: alloc newcdb at PHY addr 0x84ab6000
+cd0 at scsibus0 target 5 lun 0: <DEC, RRD46   (C) DEC, 1337> SCSI2 5/cdrom
+removable
+cd0: sync (100.0ns offset 8), 8-bit (10.000MB/s) transfers
+scsibus1: waiting 2 seconds for devices to settle...
+sd0 at scsibus1 target 0 lun 0: <DEC, RZ1CB-CA (C) DEC, LYJ0> SCSI2
+0/direct fixed
+sd0: 4091 MB, 3708 cyl, 20 head, 113 sec, 512 bytes/sect x 8380080 sectors
+isp0: bus 0 set tgt 0 flags 0xfd00 off 0x8 period 0xc
+sd0: sync (50.0ns offset 8), 16-bit (40.000MB/s) transfers, tagged queueing
+sd1 at scsibus1 target 2 lun 0: <DEC, RZ1CB-CA (C) DEC, LYJ0> SCSI2
+0/direct fixed
+sd1: 4091 MB, 3708 cyl, 20 head, 113 sec, 512 bytes/sect x 8380080 sectors
+isp0: bus 0 set tgt 2 flags 0xfd00 off 0x8 period 0xc
+sd1: sync (50.0ns offset 8), 16-bit (40.000MB/s) transfers, tagged queueing
+sd2 at scsibus1 target 4 lun 0: <DEC, RZ1CB-CA (C) DEC, LYJ0> SCSI2
+0/direct fixed
+sd2: 4091 MB, 3708 cyl, 20 head, 113 sec, 512 bytes/sect x 8380080 sectors
+isp0: bus 0 set tgt 4 flags 0xfd00 off 0x8 period 0xc
+sd2: sync (50.0ns offset 8), 16-bit (40.000MB/s) transfers, tagged queueing
+raidattach: Asked for 4 units
+Kernelized RAIDframe activated
+IPsec: Initialized Security Association Processing.
+WARNING: can't figure what device matches "SCSI 0 3 0 0 0 6000 10201077"
+root on sd0a dumps on sd0b
+readclock: 2/2/4/15/42/34=>1012837354 (1012837301)
+init: copying out path `/sbin/init' 11
+RAIDFRAME: protectedSectors is 64
+sd1: no disk label
+raid0: Summary of serial numbers:
+12151999 2
+raid0: Summary of mod counters:
+859007476 2
+raid0: Component /dev/sd1c being configured at row: 0 col: 0
+         Row: 0 Column: 0 Num Rows: 1 Num Columns: 2
+         Version: 1 Serial Number: 12151999 Mod Counter: 859007476
+         Clean: Yes Status: 0
+raid0: Component /dev/sd2c being configured at row: 0 col: 1
+         Row: 0 Column: 1 Num Rows: 1 Num Columns: 2
+         Version: 1 Serial Number: 12151999 Mod Counter: 859007476
+         Clean: Yes Status: 0
+RAIDFRAME: Configure (RAID Level 0): total number of sectors is 16760000
+(8183 MB)
+RAIDFRAME(RAID Level 0): Using 6 floating recon bufs with no head sep limit
+
+From fair@clock.org  Mon Feb 4 19:46:29 2002
+From: Erik E. Fair <fair@clock.org>
+To: dhop@nwlink.com
+Date: Mon, 04 Feb 2002 19:46:29 +0000
+Subject: Re: Where does the kernel pull SCSI info from?
+
+NetBSD probes SCSI busses itself.
+
+How many disks do you have on that controller? Three, or four? Three 
+were found, but I am wondering about ID#3 - there is a gap there. 
+Perhaps there is a fouth disk on the bus which has lost its marbles 
+and is returning trash to the inquiry command.
+
+I'll let someone else inquire after the interrupt irregularity.
+
+	Erik <fair@clock.org>
+
+From sdegler@degler.net  Mon Feb 4 23:42:58 2002
+From: Stephen Degler <sdegler@degler.net>
+To: port-alpha@netbsd.org
+Date: Mon, 04 Feb 2002 23:42:58 +0000
+Subject: Alpha Xserver for MGA?
+
+Hi,
+
+I have a PWS500au with a Matrox Millenium 2 card in it, replacing
+the original 8 bit TGA.  SRM is happy with the card, and I've run X on it
+when under Linux.  I was wondering if anyone knows how hard it
+would be to get a working Xserver under NetBSD.  I'm thinking about just
+trying USE_XF86_4 and seeing what happens.  Any ideas or suggestions?
+
+Thanks,
+skd
+
+From mcguire@neurotica.com  Mon Feb 4 23:49:33 2002
+From: Dave McGuire <mcguire@neurotica.com>
+To: sdegler@degler.net
+Date: Mon, 04 Feb 2002 23:49:33 +0000
+Subject: Re: Alpha Xserver for MGA?
+
+On February 4, Stephen Degler wrote:
+> I have a PWS500au with a Matrox Millenium 2 card in it, replacing
+> the original 8 bit TGA.  SRM is happy with the card, and I've run X on it
+> when under Linux.  I was wondering if anyone knows how hard it
+> would be to get a working Xserver under NetBSD.  I'm thinking about just
+> trying USE_XF86_4 and seeing what happens.  Any ideas or suggestions?
+
+  I followed the instructions found in this email message, more or
+less.
+
+  http://mail-index.netbsd.org/port-alpha/2001/09/29/0003.html
+
+  It's unstable when acceleration is enabled, but seems to work ok
+otherwise.  Any suggestions from more XFree86-knowledgeable folk would
+be greatly appreciated. :-)
+
+     -Dave
+
+-- 
+Dave McGuire
+St. Petersburg, FL         "Less talk.  More synthohol." --Lt. Worf
+
+From deddingf@wecs.bc.ca  Mon Feb 4 21:41:54 2002
+From: Duane Eddingfield <deddingf@wecs.bc.ca>
+To: port-alpha@netbsd.org
+Date: Mon, 04 Feb 2002 21:41:54 +0000
+Subject: Re: Alpha Xserver for MGA?
+
+On February 4, 2002 08:49 pm, Dave McGuire wrote:
+>
+>   I followed the instructions found in this email message, more or
+> less.
+>
+>   http://mail-index.netbsd.org/port-alpha/2001/09/29/0003.html
+>
+    So did I, on my Alphastation 255 with and it works. I am impressed :)
+
+    But.. The edge of the screen is in the middle. I.e. the display is shifted
+over by about half the screen width. The XF86Config that I made with
+xf86cfg is essential the same as ones I used on Linux, FreeBSD etc.
+
+    Anyone got any idea what I've done wrong this time?
+
+</Duane>
+
+From Riccardo.Veraldi@fi.infn.it  Tue Feb 5 08:46:59 2002
+From: None <Riccardo.Veraldi@fi.infn.it>
+To: sdegler@degler.net
+Date: Tue, 05 Feb 2002 08:46:59 +0000
+Subject: Re: Alpha Xserver for MGA?
+
+I Actually use a Millennium 2 PCI card replaced to the AccelGraphics
+default card on my DPW500a. The Millennium 2 works great, and I have
+FreeBSD 4.4
+
+Rick
+
+
+On Mon, 4 Feb 2002, Stephen Degler wrote:
+
+> Hi,
+>
+> I have a PWS500au with a Matrox Millenium 2 card in it, replacing
+> the original 8 bit TGA.  SRM is happy with the card, and I've run X on it
+> when under Linux.  I was wondering if anyone knows how hard it
+> would be to get a working Xserver under NetBSD.  I'm thinking about just
+> trying USE_XF86_4 and seeing what happens.  Any ideas or suggestions?
+>
+> Thanks,
+> skd
+>
+>
+
+From dhop@nwlink.com  Tue Feb 5 00:35:45 2002
+From: David Hopper <dhop@nwlink.com>
+To: mcguire@neurotica.com
+Date: Tue, 05 Feb 2002 00:35:45 +0000
+Subject: Re: Alpha Xserver for MGA?
+
+Dave McGuire wrote:
+> 
+> On February 4, Stephen Degler wrote:
+> > I have a PWS500au with a Matrox Millenium 2 card in it, replacing
+> > the original 8 bit TGA.  SRM is happy with the card, and I've run X on it
+> > when under Linux.  I was wondering if anyone knows how hard it
+> > would be to get a working Xserver under NetBSD.  I'm thinking about just
+> > trying USE_XF86_4 and seeing what happens.  Any ideas or suggestions?
+> 
+>   I followed the instructions found in this email message, more or
+> less.
+> 
+>   http://mail-index.netbsd.org/port-alpha/2001/09/29/0003.html
+> 
+>   It's unstable when acceleration is enabled, but seems to work ok
+> otherwise.  Any suggestions from more XFree86-knowledgeable folk would
+> be greatly appreciated. :-)
+
+Just to clarify the referenced post, the bsd_axp.c and bsd_video.c patches
+are still required for XFree 4 to compile on NetBSD-alpha, even with the
+very latest xsrc (Feb. 2, at least).
+
+My track record so far:  I'm still running XFree4 accelerated on a PWS500a
++ Matrox Millenium II with absolutely no crashes whatsoever.  I have not
+had the same luck with either an AlphaStation 255 + Millenium II, or an
+AlphaServer 1200 + Millenium II.  These latter two crap out with garbled
+displays, or reveal a display only to lock up with PLT errors upon
+blitting.  This is with the exact same binary set as compiled on the
+functional PWS500a via the referenced post above (i.e. with -Wl,-E). 
+Something smells funny betwixt the different Alpha machine types, for
+certain.  Your mileage may vary.
+
+>      -Dave
+> 
+> --
+> Dave McGuire
+> St. Petersburg, FL         "Less talk.  More synthohol." --Lt. Worf
+
+David
+
+From melk@switchpwr.com  Tue Feb 5 12:14:01 2002
+From: mel kravitz <melk@switchpwr.com>
+To: port-alpha@netbsd.org
+Date: Tue, 05 Feb 2002 12:14:01 +0000
+Subject: XFree86 on alpha
+
+My track record -to add to the data base: XFree86-4.0.2 sources with
+Elsa Gloria Synergy card 8MB vram:
+alphaserver 1000a ...up for 220+ days (wi0 gateway box)
+alpha workstation 433au (2 machines ) running as workstations both up
+190+ days
+alpha station 600 as workstation up 100+ days
+installed and ran correctly on 600au -no longer have that machine.
+Did not 'see' pci bus on as1200 and as4000 both of which are dual pci
+machines, scanpci fails to return pci bus data.
+vga driver works on both machines. FWIW the as1000a  runs current as of
+today's cvs.
+-Mel
+
+From ross@ghs.com  Tue Feb 5 10:59:45 2002
+From: R.o.s.s  H.a.r.v.e.y <ross@ghs.com>
+To: dhop@nwlink.com, port-alpha@netbsd.org
+Date: Tue, 05 Feb 2002 10:59:45 +0000
+Subject: Re: Where does the kernel pull SCSI info from?
+
+> From: David Hopper <dhop@nwlink.com>
+>
+> I get a message on bootup that is driving me nuts (and may be related to
+> stability problems on this alphaserver):
+> 'WARNING: can't figure what device matches "SCSI 0 3 0 0 0 6000 10201077"'
+>
+> Where does the kernel pull this from?  The SRM?  It's not clear from the
+> SRM enumeration what this is.  All physical devices as reported by the SRM
+> are listed in the kernel probe.
+
+Yes, from SRM, however the kernel then failed to correctly traverse
+the configured device tree. I can fix that easily but you will need
+to send me all of the boot messages.
+
+> Second question:  what exactly is occurring when the kernel reports a stray
+> IRQ on a configured and functional ISP controller?  Is this an error
+> condition?  pci_kn300.c suggests that stray IRQs are due to unconfigured
+> devices...
+
+Either it's a device we didn't configure or an interrupt we didn't
+map correctly.
+
+	r.o.s.s
+
+From dhop@nwlink.com  Tue Feb 5 11:21:40 2002
+From: David Hopper <dhop@nwlink.com>
+To: port-alpha@netbsd.org
+Date: Tue, 05 Feb 2002 11:21:40 +0000
+Subject: AS1200 SMP instability
+
+I've narrowed the search down for the source of the instability on this
+tincup platform.  By removing the multiprocessor code from the kernel, I am
+able to survive full builds now without the disk crashes that I had
+mentioned earlier on the list.
+
+The instability dates all the way back to when the multiprocessor code was
+enabled (which makes a lot of sense now that I think of it-- I ran SMP
+since the changes were committed).  In other words, my kernel right now is
+1.5ZA (Jan 26), but the errors have been going back all the way through
+1.5Y (November) and beyond.
+
+Since going single-processor, I'm solid.
+
+The first clue that the MP code was the culprit was this halt I received
+yesterday on cc1plus during a build; it's different than the other debugger
+halts outlined previously:
+
+db{0}> show registers
+v0	0x6
+t0	0x1
+t1	0x1
+t2	0x10001	rn+0xffe1
+t3	0xf423f	rn+0xf421f
+t4	0xfffffc000062d798	lasttime.132
+t5	0xfffffc00005e0168	microtime_slock.133
+t6	0xfffffc0004df7640	end+0x47aefe8
+t7	0xfffffc0004aaf14c	end+0x4466af4
+s0	0x4
+s1	0x8	rettmp
+s2	0x102	rn+0xe2
+s3	0x200086d20000
+s4	0x200099122000
+s5	0x31	rn+0x11
+s6	0x12029b91c
+a0	0x6
+a1	0x1
+a2	0x199	rn+0x179
+a3	0
+a4	0
+a5	0
+t8	0x1e	framesz+0xe
+t9	0xfffffc00004f7d30	microtime+0xb0
+t10	0x1116faa6ca6c0
+t11	0x1fc1e058
+ra	0xfffffe0023eb1688
+t12	0xfffffc0000392280	spinlock_acquire_count
+at	0xfffffc00005e0690	sched_whichqs
+gp	0xfffffc00005d4fb8	special_symbols+0x8160
+sp	0xfffffe0023eb1550
+pc	0xfffffe0023eb168c
+ps	0x6
+ai	0x1fc1e058
+pv	0xfffffc0000392280	spinlock_acquire_count
+0xfffffe0023eb168c:	call_pal halt
+
+db{0}> ps
+
+PID	PPID	PGRP	UID	S	FLAGS	COMMAND	WAIT
+>22799	22797	22796	0	7	0X84006	cc1plus
+22797	22796	22796	0	3	0x84086	c++	wait
+22796	22790	22796	0	3	0x84086	sh	wait
+22790	22782	22233	0	3	0x84086	nbmake	select
+22782	22237	22233	0	3	0x84086	sh	wait
+22237	222333	22233	0	3	0x84086	nbmake	wait
+22233	22232	22233	0	3	0x84086	sh	wait
+22232	22231	241	0	3	0x84086	nbmake	select
+22231	21324	241	0	3	0x84086	sh	wait
+21324	21323	241	0	3	0x84086	nbmake	wait
+21323	21320	241	0	3	0x84086	sh	wait
+21320	21319	241	0	3	0x84086	nbmake	wait
+21319	20599	241	0	3	0x84086	sh	wait
+20599	20598	241	0	3	0x84086	nbmake	wait
+20598	20597	241	0	3	0x84086	sh	wait
+20597	20596	241	0	3	0x84086	nbmake	wait
+20596	1102	241	0	3	0x84086	sh	wait
+1102	241	241	0	3	0x84086	nbmake	wait
+241	237	241	0	3	0x84086	sh	wait
+237	234	237	0	3	0x84086	tcsh	pause
+234	210	234	0	3	0x84086	csh	pause
+228	224	228	0	3	0x84086	tcsh	ttyin
+224	212	224	0	3	0x84086	csh	pause
+212	211	212	150	3	0x84086	tcsh	pause
+211	187	187	0	3	0x80084	sshd	select
+210	1	210	150	3	0X84086	tcsh	pause
+209	178	178	32767	3	0x80184	httpd	lockf
+208	178	178	32767	3	0x80184	httpd	lockf
+206	1	206	0	3	0x80084	cron	nanosle
+205	178	178	32767	3	0x80184	httpd	lockf
+204	178	178	32767	3	0x80184	httpd	lockf
+203	178	178	32767	3	0x80184	httpd	select
+198	1	198	0	3	0x80084	inetd	select
+190	1	190	0	3	0x80084	sendmail	select
+187	1	187	0	3	0x80084	sshd	select
+178	1	178	0	3	0x80085	httpd	select
+177	160	8	1000	3	0x84186	mysqld	select
+160	1	8	0	3	0x84086	sh	wait
+145	1	145	0	3	0x80084	ntpd	pause
+76	1	76	0	3	0x80084	syslogd	select
+14	0	0	0	7	0xa0204	raid
+7	0	0	0	3	0xa0204	aiodoned	aiodone
+6	0	0	0	3	0xa0204	ioflush	drainvp
+5	0	0	0	3	0x20204	reaper	reaper
+4	0	0	0	3	0xa0204 pagedaemon	pgdaemo
+3	0	0	0	3	0xa0204	isp0:0	sccomp
+2	0	0	0	3	0xa0204	siop0:0	sccomp
+1	0	1	0	3	0x84084	init	wait
+0	-1	0	0	3	0xa0204	swapper	schedul
+
+spinlock_acquire_count: 27bb0024
+
+From dhop@nwlink.com  Tue Feb 5 11:28:53 2002
+From: David Hopper <dhop@nwlink.com>
+To: ross@ghs.com
+Date: Tue, 05 Feb 2002 11:28:53 +0000
+Subject: Re: Where does the kernel pull SCSI info from?
+
+"R.o.s.s H.a.r.v.e.y" wrote:
+> 
+> > From: David Hopper <dhop@nwlink.com>
+> >
+> > I get a message on bootup that is driving me nuts (and may be related to
+> > stability problems on this alphaserver):
+> > 'WARNING: can't figure what device matches "SCSI 0 3 0 0 0 6000 10201077"'
+> >
+> > Where does the kernel pull this from?  The SRM?  It's not clear from the
+> > SRM enumeration what this is.  All physical devices as reported by the SRM
+> > are listed in the kernel probe.
+> 
+> Yes, from SRM, however the kernel then failed to correctly traverse
+> the configured device tree. I can fix that easily but you will need
+> to send me all of the boot messages.
+
+Thank you, Ross.  I will append the full dmesg below.
+
+> > Second question:  what exactly is occurring when the kernel reports a stray
+> > IRQ on a configured and functional ISP controller?  Is this an error
+> > condition?  pci_kn300.c suggests that stray IRQs are due to unconfigured
+> > devices...
+> 
+> Either it's a device we didn't configure or an interrupt we didn't
+> map correctly.
+
+So this is an error condition?  In looking at a lot of the historical boot
+logs on this list, it would seem that the stray IRQ is pretty common in a
+lot of the functional kernels out there.
+
+Do I need to worry about it?
+
+>         r.o.s.s
+
+[begin inserted text]
+
+NetBSD 1.5ZA (TERRAN) #1: Tue Feb  5 11:14:12 UTC 2002
+    bard@terran.gesi.net:/raid/src/sys/arch/alpha/compile/TERRAN
+AlphaServer 1200 5/533 4MB, 531MHz, s/n NI80901AEW
+8192 byte page size, 2 processors.
+total memory = 1024 MB
+(2072 KB reserved for PROM, 1021 MB used by NetBSD)
+avail memory = 947 MB
+using 6553 buffers containing 52424 KB of memory
+mainbus0 (root)
+cpu0 at mainbus0: ID 0 (primary), 21164A-2
+cpu0: VAX FP support, IEEE FP support, Primary Eligible
+cpu0: Architecture extensions: 1<BWX>
+cpu1 at mainbus0: ID 1, 21164A-2
+cpu1: VAX FP support, IEEE FP support
+cpu1: processor off-line; multiprocessor support not present in kernel
+mcbus0 at mainbus0: 4MB BCache
+mcmem0 at mcbus0 mid 1: Memory
+mcpcia0 at mcbus0 mid 5: PCI Bridge
+mcpcia0: Horse Revision 3, Left Handed Saddle Revision 0, CAP Revision 2
+pci0 at mcpcia0 bus 0
+pci0: i/o space, memory space enabled, rd/line, rd/mult, wr/inv ok
+siop0 at pci0 dev 1 function 0: Symbios Logic 53c810 (fast scsi)
+siop0: interrupting at kn300 irq 36
+scsibus0 at siop0: 8 targets, 8 luns per target
+mcpcia1 at mcbus0 mid 4: PCI Bridge
+mcpcia1: Horse Revision 3, Left Handed Saddle Revision 0, CAP Revision 2
+pci1 at mcpcia1 bus 0
+pci1: i/o space, memory space enabled, rd/line, rd/mult, wr/inv ok
+pceb0 at pci1 dev 1 function 0: Intel 82375EB/SB PCI-EISA Bridge (PCEB)
+(rev. 0x15)
+vga0 at pci1 dev 2 function 0: S3 Trio32/64 (rev. 0x54)
+wsdisplay0 at vga0 kbdmux 1: console (80x25, vt100 emulation)
+isp0 at pci1 dev 3 function 0
+isp0: interrupting at kn300 irq 12
+isp0: NVRAM CHAN 0 FTHRSH 3 IID 7 RESETD 1 RETRYC 0 RETRYD 1 ASD 0x9
+isp0: NVRAM RAAN 0x1 DLAN 0x1 DDMAB 0x1 CDMAB 0x1 SELTIME 250 MQD 256
+isp0: NVRAM CHAN 0 TGT 0 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 1 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 2 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 3 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 4 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 5 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 6 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 7 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 8 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 9 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 10 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 11 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 12 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 13 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 14 FLAGS 0xfd00 0x8/0xc
+isp0: NVRAM CHAN 0 TGT 15 FLAGS 0xfd00 0x8/0xc
+isp0: Initial Settings bus0 tgt0 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt1 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt2 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt3 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt4 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt5 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt6 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt7 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt8 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt9 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt10 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt11 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt12 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt13 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt14 flags 0xc5c0 off 0x0 per 0x0
+isp0: Initial Settings bus0 tgt15 flags 0xc5c0 off 0x0 per 0x0
+scsibus1 at isp0: 16 targets, 8 luns per target
+de0 at pci1 dev 4 function 0
+de0: interrupting at kn300 irq 16
+de0: 21140A [10-100Mb/s] pass 2.2
+de0: address 00:40:05:41:a4:0e
+eisa0 at pceb0
+isa0 at pceb0
+com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, working fifo
+com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, working fifo
+pckbc0 at isa0 port 0x60-0x64
+pckbd0 at pckbc0 (kbd slot)
+pckbc0: using irq 1 for kbd slot
+wskbd0 at pckbd0: console keyboard, using wsdisplay0
+pms0 at pckbc0 (aux slot)
+pckbc0: using irq 12 for aux slot
+wsmouse0 at pms0 mux 1
+lpt0 at isa0 port 0x3bc-0x3bf irq 7
+pcppi0 at isa0 port 0x61
+spkr0 at pcppi0
+isabeep0 at pcppi0
+fdc0 at isa0 port 0x3f0-0x3f7 irq 6 drq 2
+fd0 at fdc0 drive 0: 1.44MB, 80 cyl, 2 head, 18 sec
+mcclock0 at isa0 port 0x70-0x71: mc146818 or compatible
+stray kn300 irq 12
+scsibus0: waiting 2 seconds for devices to settle...
+de0: enabling 100baseTX port
+siop0: alloc newcdb at PHY addr 0x84aae000
+cd0 at scsibus0 target 5 lun 0: <DEC, RRD46   (C) DEC, 1337> SCSI2 5/cdrom
+removable
+cd0: sync (100.0ns offset 8), 8-bit (10.000MB/s) transfers
+scsibus1: waiting 2 seconds for devices to settle...
+sd0 at scsibus1 target 0 lun 0: <DEC, RZ1CB-CA (C) DEC, LYJ0> SCSI2
+0/direct fixed
+sd0: 4091 MB, 3708 cyl, 20 head, 113 sec, 512 bytes/sect x 8380080 sectors
+isp0: bus 0 set tgt 0 flags 0xfd00 off 0x8 period 0xc
+sd0: sync (50.0ns offset 8), 16-bit (40.000MB/s) transfers, tagged queueing
+sd1 at scsibus1 target 2 lun 0: <DEC, RZ1CB-CA (C) DEC, LYJ0> SCSI2
+0/direct fixed
+sd1: 4091 MB, 3708 cyl, 20 head, 113 sec, 512 bytes/sect x 8380080 sectors
+isp0: bus 0 set tgt 2 flags 0xfd00 off 0x8 period 0xc
+sd1: sync (50.0ns offset 8), 16-bit (40.000MB/s) transfers, tagged queueing
+sd2 at scsibus1 target 4 lun 0: <DEC, RZ1CB-CA (C) DEC, LYJ0> SCSI2
+0/direct fixed
+sd2: 4091 MB, 3708 cyl, 20 head, 113 sec, 512 bytes/sect x 8380080 sectors
+isp0: bus 0 set tgt 4 flags 0xfd00 off 0x8 period 0xc
+sd2: sync (50.0ns offset 8), 16-bit (40.000MB/s) transfers, tagged queueing
+raidattach: Asked for 4 units
+Kernelized RAIDframe activated
+IPsec: Initialized Security Association Processing.
+WARNING: can't figure what device matches "SCSI 0 3 0 0 0 6000 10201077"
+root on sd0a dumps on sd0b
+readclock: 2/2/5/11/16/16=>1012907776 (1012907723)
+init: copying out path `/sbin/init' 11
+RAIDFRAME: protectedSectors is 64
+sd1: no disk label
+raid0: Summary of serial numbers:
+12151999 2
+raid0: Summary of mod counters:
+859007501 2
+raid0: Component /dev/sd1c being configured at row: 0 col: 0
+         Row: 0 Column: 0 Num Rows: 1 Num Columns: 2
+         Version: 1 Serial Number: 12151999 Mod Counter: 859007501
+         Clean: Yes Status: 0
+raid0: Component /dev/sd2c being configured at row: 0 col: 1
+         Row: 0 Column: 1 Num Rows: 1 Num Columns: 2
+         Version: 1 Serial Number: 12151999 Mod Counter: 859007501
+         Clean: Yes Status: 0
+RAIDFRAME: Configure (RAID Level 0): total number of sectors is 16760000
+(8183 MB)
+RAIDFRAME(RAID Level 0): Using 6 floating recon bufs with no head sep limit
+
+[end inserted text]
+
+From thorpej@wasabisystems.com  Tue Feb 5 11:38:30 2002
+From: Jason R Thorpe <thorpej@wasabisystems.com>
+To: dhop@nwlink.com
+Date: Tue, 05 Feb 2002 11:38:30 +0000
+Subject: Re: AS1200 SMP instability
+
+On Tue, Feb 05, 2002 at 11:21:40AM -0800, David Hopper wrote:
+
+ > The instability dates all the way back to when the multiprocessor code was
+ > enabled (which makes a lot of sense now that I think of it-- I ran SMP
+ > since the changes were committed).  In other words, my kernel right now is
+ > 1.5ZA (Jan 26), but the errors have been going back all the way through
+ > 1.5Y (November) and beyond.
+ > 
+ > Since going single-processor, I'm solid.
+
+Ah!  I didn't realize you were running an MP kernel!
+
+Yah, there are some known problems lurking in there, but I have been
+way too busy with Paying Work to have a chance to debug them.
+
+-- 
+        -- Jason R. Thorpe <thorpej@wasabisystems.com>
+
+From dhop@nwlink.com  Tue Feb 5 11:38:57 2002
+From: David Hopper <dhop@nwlink.com>
+To: thorpej@wasabisystems.com
+Date: Tue, 05 Feb 2002 11:38:57 +0000
+Subject: Re: AS1200 SMP instability
+
+Jason R Thorpe wrote:
+> 
+> On Tue, Feb 05, 2002 at 11:21:40AM -0800, David Hopper wrote:
+> 
+>  > Since going single-processor, I'm solid.
+> 
+> Ah!  I didn't realize you were running an MP kernel!
+> 
+> Yah, there are some known problems lurking in there, but I have been
+> way too busy with Paying Work to have a chance to debug them.
+
+hehe, no problem Jason...  Just glad to have 100% uptime again.  :)
+
+*cracks open a Mirror Pond Ale*
+
+> --
+>         -- Jason R. Thorpe <thorpej@wasabisystems.com>
+
+David
+
+From melk@switchpwr.com  Wed Feb 6 21:25:40 2002
+From: mel kravitz <melk@switchpwr.com>
+To: port-alpha@netbsd.org
+Date: Wed, 06 Feb 2002 21:25:40 +0000
+Subject: aue0: 1 usberrors on intr: IOERROR
+
+Updated to latest sources (cvs 2/5) and now i am getting the USB aue0
+ethernet error,
+dmesg reports:
+NetBSD 1.5ZA (NEW) #1: Tue Feb  5 14:27:00 EST 2002
+    mel@casey182:/usr/local/src/sys/arch/alpha/compile/NEW
+AlphaServer 1000A 5/333, 333MHz, s/n NI74400JYD
+<snip>
+uaudio0 at uhub0 port 2 configuration 1 interface 0: Griffin Technology,
+Inc iMic USB audio system, rev 1.00/3.00, addr 3
+uaudio0: audio rev 1.00
+audio1 at uaudio0: half duplex
+aue0: 1 usb errors on intr: IOERROR
+aue0: 1 usb errors on intr: IOERROR
+aue0: 1 usb errors on intr: IOERROR
+aue0: 1 usb errors on intr: IOERROR
+aue0: 1 usb errors on intr: IOERROR
+aue0: 1 usb errors on intr: IOERROR
+aue0: 1 usb errors on intr: IOERROR
+aue0: 1 usb errors on intr: IOERROR
+aue0: 1 usb errors on intr: IOERROR
+aue0: 1 usb errors on intr: IOERROR
+aue0: 1 usb errors on intr: IOERROR
+my kernel file contains the standard GENERIC usb 'options"
+any hints..
+-Mel
+
+From sdegler@degler.net  Wed Feb 6 20:06:56 2002
+From: Stephen Degler <sdegler@degler.net>
+To: dhop@nwlink.com
+Date: Wed, 06 Feb 2002 20:06:56 +0000
+Subject: Re: Alpha Xserver for MGA?
+
+Hi,
+
+I was able to build the server,  but it locks the system
+up hard.   There is nothing  but the X startup on the screen,
+
+% startx
+
+XFree86 Version 4.2.0 / X Window System
+(protocol Version 11, revision 0, vendor release 6600)
+Release Date: 23 January 2002
+        If the server is older than 6-12 months, or if your card is
+        newer than the above date, look for a newer version before
+        reporting problems.  (See http://www.XFree86.Org/)
+Build Operating System: NetBSD/alpha 1.5ZA [ELF] The NetBSD Foundation, Inc.
+Markers: (--) probed, (**) from config file, (==) default setting,
+         (++) from command line, (!!) notice, (II) informational,
+         (WW) warning, (EE) error, (NI) not implemented, (??) unknown.
+(==) Log file: "/var/log/XFree86.0.log", Time: Wed Feb  6 19:43:33 2002
+(==) Using config file: "/etc/XF86Config"
+xf86OpenConsole
+
+I'm going to double check my patching a later tonight, but does anyone
+have any ideas?
+
+My system is running -current , updated just a few days ago, and a current
+kernel as well.  Its rock solid otherwise.   My kernel conf is generic
++ kernfs , procfs, and ipsec.  I'm not using ipsec at the moment.
+
+Thanks, for all the helpful responses BTW,
+skd
+
+On Tue, Feb 05, 2002 at 12:35:45AM -0800, David Hopper wrote:
+> Dave McGuire wrote:
+> > 
+> > On February 4, Stephen Degler wrote:
+> > > I have a PWS500au with a Matrox Millenium 2 card in it, replacing
+> > > the original 8 bit TGA.  SRM is happy with the card, and I've run X on it
+> > > when under Linux.  I was wondering if anyone knows how hard it
+> > > would be to get a working Xserver under NetBSD.  I'm thinking about just
+> > > trying USE_XF86_4 and seeing what happens.  Any ideas or suggestions?
+> > 
+> >   I followed the instructions found in this email message, more or
+> > less.
+> > 
+> >   http://mail-index.netbsd.org/port-alpha/2001/09/29/0003.html
+> > 
+> >   It's unstable when acceleration is enabled, but seems to work ok
+> > otherwise.  Any suggestions from more XFree86-knowledgeable folk would
+> > be greatly appreciated. :-)
+> 
+> Just to clarify the referenced post, the bsd_axp.c and bsd_video.c patches
+> are still required for XFree 4 to compile on NetBSD-alpha, even with the
+> very latest xsrc (Feb. 2, at least).
+> 
+> My track record so far:  I'm still running XFree4 accelerated on a PWS500a
+> + Matrox Millenium II with absolutely no crashes whatsoever.  I have not
+> had the same luck with either an AlphaStation 255 + Millenium II, or an
+> AlphaServer 1200 + Millenium II.  These latter two crap out with garbled
+> displays, or reveal a display only to lock up with PLT errors upon
+> blitting.  This is with the exact same binary set as compiled on the
+> functional PWS500a via the referenced post above (i.e. with -Wl,-E). 
+> Something smells funny betwixt the different Alpha machine types, for
+> certain.  Your mileage may vary.
+> 
+> >      -Dave
+> > 
+> > --
+> > Dave McGuire
+> > St. Petersburg, FL         "Less talk.  More synthohol." --Lt. Worf
+> 
+> David
+
+From jmt@twilley.org  Thu Feb 7 19:50:22 2002
+From: Jack Twilley <jmt@twilley.org>
+To: port-alpha@netbsd.org
+Date: Thu, 07 Feb 2002 19:50:22 +0000
+Subject: Unsuccessful chip replacement attempt
+
+I killed my Multia.
+
+I used a Dremel to remove the failed chip, and that almost worked.
+A couple of lands came up, and a couple of legs didn't come off.  The
+soldering iron removed the leg fragments, but it also revealed that
+the grinder had also taken out several traces.
+
+I attempted to install the chip, but my soldering skills were
+suboptimal.  I won't even insult the machine with an attempt to boot.
+I'm just going to throw it away and unsub from the list.
+
+Thanks for the tips.
+
+Jack.
+-- 
+Jack Twilley
+jmt at twilley dot org
+http colon slash slash www dot twilley dot org slash tilde jmt slash
+
+From wkb@freebie.xs4all.nl  Fri Feb 8 19:58:21 2002
+From: Wilko Bulte <wkb@freebie.xs4all.nl>
+To: jmt@twilley.org
+Date: Fri, 08 Feb 2002 19:58:21 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+On Thu, Feb 07, 2002 at 07:50:22PM -0800, Jack Twilley wrote:
+> I killed my Multia.
+
+:(
+
+> I used a Dremel to remove the failed chip, and that almost worked.
+> A couple of lands came up, and a couple of legs didn't come off.  The
+> soldering iron removed the leg fragments, but it also revealed that
+> the grinder had also taken out several traces.
+
+Bad idea... A sharp knife would have worked if you don't dare to do
+it with a soldering iron.
+
+-- 
+|   / o / /_  _   		wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, the Netherlands
+
+From hpeyerl@beer.org  Fri Feb 8 12:54:29 2002
+From: Herb Peyerl <hpeyerl@beer.org>
+To: wkb@freebie.xs4all.nl
+Date: Fri, 08 Feb 2002 12:54:29 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+Wilko Bulte <wkb@freebie.xs4all.nl>  wrote:
+ > On Thu, Feb 07, 2002 at 07:50:22PM -0800, Jack Twilley wrote:
+ > > I killed my Multia.
+ > 
+ > > I used a Dremel to remove the failed chip, and that almost worked.
+ > > A couple of lands came up, and a couple of legs didn't come off.  The
+ > > soldering iron removed the leg fragments, but it also revealed that
+ > > the grinder had also taken out several traces.
+ > 
+ > Bad idea... A sharp knife would have worked if you don't dare to do
+ > it with a soldering iron.
+
+
+"Hey Cecil, pass me the belt sander! I gots ta replace this har 
+cee peuwww"
+
+From woods@weird.com  Fri Feb 8 15:11:18 2002
+From: Greg A. Woods <woods@weird.com>
+To: port-alpha@netbsd.org
+Date: Fri, 08 Feb 2002 15:11:18 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+[ On Friday, February 8, 2002 at 19:58:21 (+0100), Wilko Bulte wrote: ]
+> Subject: Re: Unsuccessful chip replacement attempt
+>
+> On Thu, Feb 07, 2002 at 07:50:22PM -0800, Jack Twilley wrote:
+> > 
+> > I used a Dremel to remove the failed chip, and that almost worked.
+> > A couple of lands came up, and a couple of legs didn't come off.  The
+> > soldering iron removed the leg fragments, but it also revealed that
+> > the grinder had also taken out several traces.
+> 
+> Bad idea... A sharp knife would have worked if you don't dare to do
+> it with a soldering iron.
+
+Yeah -- using a Dremel grinder for any such job is like using a hastily
+chipped flint knife to do brain surgery.  Even if the tool were mounted
+on a precision milling machine and controlled by very fine verniers I'd
+still be unwilling to trust it!  :-)
+
+-- 
+								Greg A. Woods
+
++1 416 218-0098;  <gwoods@acm.org>;  <g.a.woods@ieee.org>;  <woods@robohack.ca>
+Planix, Inc. <woods@planix.com>; VE3TCP; Secrets of the Weird <woods@weird.com>
+
+From werner@bit-1.de  Fri Feb 8 23:11:48 2002
+From: Werner Backes <werner@bit-1.de>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 08 Feb 2002 23:11:48 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+"Greg A. Woods" wrote:
+> Yeah -- using a Dremel grinder for any such job is like using a hastily
+> chipped flint knife to do brain surgery. 
+
+I agree.. unfortunately the Multia FAQ mentions this method.
+I didn't trust the sharp knife method also but I tried it 
+some weeks ago and it worked better and easier than I would 
+have expected.
+
+From woods@weird.com  Fri Feb 8 18:06:21 2002
+From: Greg A. Woods <woods@weird.com>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 08 Feb 2002 18:06:21 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+[ On Friday, February 8, 2002 at 23:11:48 (+0100), Werner Backes wrote: ]
+> Subject: Re: Unsuccessful chip replacement attempt
+>
+> I agree.. unfortunately the Multia FAQ mentions this method.
+
+I really don't understand why -- removing the chip is very easy.  Just
+cut the leads, pry it loose from the glue pad, and then with tweezers
+and any small soldering iron (and maybe a magnifying glass too) remove
+the leads and very carefully clean the pads without rubbing them too
+hard or pulling on them with anything that's not well hot enough to melt
+solder.  It's quite simple and safe.
+
+>From my perspective it's getting the new one soldered on properly and
+without any solder bridges that's hard (especially without a very
+fine-tipped low-power iron to use).
+
+Maybe that should be my weekend project -- I've got three or four to do
+here, and I've had the new chips sitting and waiting for far too long
+now, and I really wouldn't mind playing with the Multias again!  I might
+even replace my stupid ugly pentium firewall with one, assuming I can
+get the other two into shape for building and testing NetBSD on....
+
+I need more RAM though -- all the RAM I had for them is now in other
+machines, including my RAID controllers which are still hungry for more,
+and I don't have cash for such toys just now....
+
+-- 
+								Greg A. Woods
+
++1 416 218-0098;  <gwoods@acm.org>;  <g.a.woods@ieee.org>;  <woods@robohack.ca>
+Planix, Inc. <woods@planix.com>; VE3TCP; Secrets of the Weird <woods@weird.com>
+
+From nathanw@wasabisystems.com  Fri Feb 8 18:37:15 2002
+From: Nathan J. Williams <nathanw@wasabisystems.com>
+To: port-alpha@netbsd.org
+Date: Fri, 08 Feb 2002 18:37:15 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+I really, really, really don't understand this thread.
+
+I mean, even if all of the SMT rework (whether professional-style or
+gonzo-style) works out properly, what do you have when you're done?
+
+A multia!
+
+Ugh.
+
+        - Nathan
+
+From woods@weird.com  Fri Feb 8 19:17:42 2002
+From: Greg A. Woods <woods@weird.com>
+To: jmt@twilley.org
+Date: Fri, 08 Feb 2002 19:17:42 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+[ On Saturday, February 9, 2002 at 01:07:15 (+0100), Rumi Szabolcs wrote: ]
+> Subject: Re: Unsuccessful chip replacement attempt
+>
+> BTW, its _very_ unfortunate that the Multia FAQ mentions this
+> method, which is probably more dangerous than any other coming
+> to my mind right now...
+
+I think the problem is that some people seem to believe that once they
+have a Dremel tool any hardware modification is possible.  They couldn't
+be further from the truth, though most of them can be excused since the
+fault no doubt lies with the marketing and advertising that has
+convinved us all to buy one (or one of the many clones).  I know I've
+nearly made as many ugly messes with mine as I have successful
+applications.  Dremel tools should probably be restricted and sold only
+to licensed and highly trained professionals!  ;-)
+
+-- 
+								Greg A. Woods
+
++1 416 218-0098;  <gwoods@acm.org>;  <g.a.woods@ieee.org>;  <woods@robohack.ca>
+Planix, Inc. <woods@planix.com>; VE3TCP; Secrets of the Weird <woods@weird.com>
+
+From hpeyerl@beer.org  Fri Feb 8 17:51:57 2002
+From: Herb Peyerl <hpeyerl@beer.org>
+To: port-alpha@netbsd.org
+Date: Fri, 08 Feb 2002 17:51:57 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+woods@weird.com (Greg A. Woods)  wrote:
+ > applications.  Dremel tools should probably be restricted and sold only
+ > to licensed and highly trained professionals!  ;-)
+
+licensed and highly trained professionals wouldn't go near a Dremel
+Tool.
+
+From kpneal@pobox.com  Fri Feb 8 22:11:06 2002
+From: None <kpneal@pobox.com>
+To: port-alpha@netbsd.org
+Date: Fri, 08 Feb 2002 22:11:06 +0000
+Subject: Re:  Unsuccessful chip replacement attempt
+
+On Fri, Feb 08, 2002 at 06:06:21PM -0500, Greg A. Woods wrote:
+> I really don't understand why -- removing the chip is very easy.  Just
+> cut the leads, pry it loose from the glue pad, and then with tweezers
+> and any small soldering iron (and maybe a magnifying glass too) remove
+> the leads and very carefully clean the pads without rubbing them too
+> hard or pulling on them with anything that's not well hot enough to melt
+> solder.  It's quite simple and safe.
+
+Spoken like a man who already has the proper equipment and skills. 
+
+I'm not even going to tell how many times I messed up trying to wire
+up a serial port for an AXPpci33. The part that really sucks is that
+I have three of these boards, and I need two ports per board. Oh, and
+I'll never get the parallel ports right. I wish I could buy the cables.
+-- 
+Kevin P. Neal                                http://www.pobox.com/~kpn/
+      'Concerns about "rights" and "ownership" of domains are inappropriate.  
+ It is appropriate to be concerned about "responsibilities" and "service" 
+ to the community.' -- RFC 1591, page 4: March 1994
+
+From kpneal@pobox.com  Fri Feb 8 22:17:06 2002
+From: None <kpneal@pobox.com>
+To: port-alpha@netbsd.org
+Date: Fri, 08 Feb 2002 22:17:06 +0000
+Subject: Re:  Unsuccessful chip replacement attempt
+
+On Fri, Feb 08, 2002 at 05:51:57PM -0700, Herb Peyerl wrote:
+> licensed and highly trained professionals wouldn't go near a Dremel
+> Tool.
+
+Licensed and highly trained professionals have access to the proper
+equipment. The rest of us have duct tape, electrical tape, coat hangers,
+chewing gum, bailing wire, and (yes) a Dremel Tool.
+
+I'm still trying to figure out how I'm going to fix a ZIF socket that
+I accidentally broke the lever on. Plastic. I should have known I'd
+have trouble with a machine I picked up on the side of the road right
+down from the Jack Daniels grocery store. 
+-- 
+Kevin P. Neal                                http://www.pobox.com/~kpn/
+
+"It sounded pretty good, but it's hard to tell how it will work out
+in practice." -- Dennis Ritchie, ~1977, "Summary of a DEC 32-bit machine"
+
+From woods@weird.com  Fri Feb 8 23:26:38 2002
+From: Greg A. Woods <woods@weird.com>
+To: port-alpha@netbsd.org
+Date: Fri, 08 Feb 2002 23:26:38 +0000
+Subject: Re:  Unsuccessful chip replacement attempt
+
+[ On Friday, February 8, 2002 at 22:11:06 (-0500), kpneal@pobox.com wrote: ]
+> Subject: Re:  Unsuccessful chip replacement attempt
+>
+> Spoken like a man who already has the proper equipment and skills. 
+
+Unfortunatley the word "proper" doesn't (yet) apply....  :-)
+
+Someday I'll either find a used SMT workstation, or be able to afford a
+new one.  As for the skills, well they may or may not come along
+sometime after that.  :-)
+
+In the mean time I will someday get enough incentive to actually bring
+my Multias alive again -- they are damn nice little machines, very
+elegant and frugal but functional and featureful design for their time.
+
+> I'm not even going to tell how many times I messed up trying to wire
+> up a serial port for an AXPpci33. The part that really sucks is that
+> I have three of these boards, and I need two ports per board. Oh, and
+> I'll never get the parallel ports right. I wish I could buy the cables.
+
+You probably can buy them, but perhaps not at a price you're willing to
+pay.  Black Box and many lesser known cable companies will make cables
+to order.
+
+-- 
+								Greg A. Woods
+
++1 416 218-0098;  <gwoods@acm.org>;  <g.a.woods@ieee.org>;  <woods@robohack.ca>
+Planix, Inc. <woods@planix.com>; VE3TCP; Secrets of the Weird <woods@weird.com>
+
+From rumi_ml@rtfm.hu  Sat Feb 9 01:07:15 2002
+From: Rumi Szabolcs <rumi_ml@rtfm.hu>
+To: jmt@twilley.org
+Date: Sat, 09 Feb 2002 01:07:15 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+On 2002.02.07 at 19:50 Jack Twilley wrote:
+
+>I killed my Multia.
+>
+>I used a Dremel to remove the failed chip, and that almost worked.
+>A couple of lands came up, and a couple of legs didn't come off.  The
+>soldering iron removed the leg fragments, but it also revealed that
+>the grinder had also taken out several traces.
+>
+>I attempted to install the chip, but my soldering skills were
+>suboptimal.  I won't even insult the machine with an attempt to boot.
+>I'm just going to throw it away and unsub from the list.
+
+Hello Jack,
+
+i'd say if you havent cut a trace _inside_ the panel, but only
+one or some on the surface, those are probably repairable.
+The shorter ones can be just soldered together with a precision
+soldering iron. If longer parts of a trace are rendered
+unusable, it can be patched with a thin patch wire. So if
+you dont have the proper tools, chemicals, and knowledge to
+do this yourself maybe ask someone who does, but i dont think
+you really have to throw away your Multia...
+
+BTW, its _very_ unfortunate that the Multia FAQ mentions this
+method, which is probably more dangerous than any other coming
+to my mind right now...
+
+Regards,
+
+Szabolcs Rumi
+
+From fair@clock.org  Sat Feb 9 03:45:46 2002
+From: Erik E. Fair <fair@clock.org>
+To: port-alpha@netbsd.org
+Date: Sat, 09 Feb 2002 03:45:46 +0000
+Subject: intro(4) for alpha
+
+I just committed an overhaul of the "hardware" list in intro(4) and 
+would like people in the know to check it over for accuracy. Mostly, 
+I researched it on the web; I only have first-hand information about 
+the DigitalServer 3305 (AlphaServer 800), and the PC164.
+
+	Erik <fair@clock.org>
+
+From hpeyerl@beer.org  Sat Feb 9 05:54:53 2002
+From: Herb Peyerl <hpeyerl@beer.org>
+To: port-alpha@netbsd.org
+Date: Sat, 09 Feb 2002 05:54:53 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+woods@weird.com (Greg A. Woods)  wrote:
+ > Unfortunatley the word "proper" doesn't (yet) apply....  :-)
+ > 
+ > Someday I'll either find a used SMT workstation, or be able to afford a
+ > new one.  As for the skills, well they may or may not come along
+ > sometime after that.  :-)
+
+We build proto's of PCI Weasel's in house using some fairly inexpensive
+tools. An $800 Leister heat gun, a pneumatic solder paste dispenser
+we found at a bay area junkyard, and cheap-ass air compressor. Total
+investment, <$1000.  And we have 244 pin TQFP's with .5mm spacing
+on them.
+
+So while this is out of range of most home hobbyists, it shows you
+don't need a hugely expensive workbench if you're doing it once a
+year.
+
+From wkb@freebie.xs4all.nl  Sat Feb 9 14:46:36 2002
+From: Wilko Bulte <wkb@freebie.xs4all.nl>
+To: hpeyerl@beer.org
+Date: Sat, 09 Feb 2002 14:46:36 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+On Fri, Feb 08, 2002 at 12:54:29PM -0700, Herb Peyerl wrote:
+> Wilko Bulte <wkb@freebie.xs4all.nl>  wrote:
+>  > On Thu, Feb 07, 2002 at 07:50:22PM -0800, Jack Twilley wrote:
+>  > > I killed my Multia.
+>  > 
+>  > > I used a Dremel to remove the failed chip, and that almost worked.
+>  > > A couple of lands came up, and a couple of legs didn't come off.  The
+>  > > soldering iron removed the leg fragments, but it also revealed that
+>  > > the grinder had also taken out several traces.
+>  > 
+>  > Bad idea... A sharp knife would have worked if you don't dare to do
+>  > it with a soldering iron.
+> 
+> "Hey Cecil, pass me the belt sander! I gots ta replace this har 
+> cee peuwww"
+
+C'mon, it works. I tried it. Having replaced a 100+ lead QFP keyboard
+controller on SMP mainboard I do have some experience here 8-)
+OK, I used a stereo microscope for that one. But also an ordinary
+Weller WECP thermostatically controlled soldering iron with a needle tip.
+
+One could always hack up the severed Multia to get something like
+
+http://people.freebsd.org/~wilko/NCR_hack/ncr_hack.html
+
+Enjoy ;)
+
+Wilko
+-- 
+|   / o / /_  _   		wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, the Netherlands
+
+From fair@clock.org  Sat Feb 9 17:13:44 2002
+From: Erik E. Fair <fair@clock.org>
+To: itohy@netbsd.org
+Date: Sat, 09 Feb 2002 17:13:44 +0000
+Subject: Re: intro(4) for alpha
+
+This:
+
+	http://www.support.compaq.com/alpha-tools/info/system-codes.html
+
+lists those systems as I committed; my guess is that the "4" is for EV4.
+
+	Erik <fair@clock.org>
+
+From itohy@netbsd.org  Sun Feb 10 08:14:42 2002
+From: ITOH Yasufumi <itohy@netbsd.org>
+To: port-alpha@netbsd.org
+Date: Sun, 10 Feb 2002 08:14:42 +0000
+Subject: Re: intro(4) for alpha
+
+In article <p05100304b88abc026f0f@[216.240.40.200]>
+fair@clock.org writes:
+
+> I just committed an overhaul of the "hardware" list in intro(4) and 
+> would like people in the know to check it over for accuracy. Mostly, 
+
+     21064-A    EV45 (225-333 MHz, 0.50 micron)
+	 :
+		Avanti family
+		    :
+		      AlphaStation 255 4/133-333 (LX3+)
+		                      ^^
+
+I have two AS255's, and they have no " 4"s in the model strings.
+They claim to be
+
+	Alpha boot: available memory from 0xa3a000 to 0x7ffe000
+	Digital UNIX V3.2D-1 (Rev. 41); Thu Jun 20 11:00:32 JST 1996
+	physical memory = 128.00 megabytes.
+	available memory = 117.77 megabytes.
+	using 484 buffers containing 3.78 megabytes of memory
+	AlphaStation 255/233 system
+and
+	Alpha boot: available memory from 0x86a000 to 0x7ffe000
+	Digital UNIX V4.0D  (Rev. 878); Wed Jul 14 12:11:44 JST 1999
+	physical memory = 128.00 megabytes.
+	available memory = 119.57 megabytes.
+	using 484 buffers containing 3.78 megabytes of memory
+	AlphaStation 255/300 system
+
+(from OSF/1 booting message).
+
+Thanks,
+-- 
+ITOH Yasufumi
+
+From DAW@yalepress3.unipress.yale.edu  Mon Feb 11 10:40:29 2002
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: port-alpha@netbsd.org
+Date: Mon, 11 Feb 2002 10:40:29 +0000
+Subject: RE: Unsuccessful chip replacement attempt
+
+> ----------
+> From: 	Wilko Bulte
+> 
+> One could always hack up the severed Multia to get something like
+> 
+> http://people.freebsd.org/~wilko/NCR_hack/ncr_hack.html
+> 
+> Enjoy ;)
+> 
+> Wilko
+> -- 
+> 
+	I wonder, if you do that to one with the PCI slot, would the PCI
+slot still work?
+
+	***SMT Help needed***
+I have 5 Multias that need the chip replaced, and one that needs a power
+connector pin fixed. Is there someone in the New Haven CT area who can do
+this work? I have the chips, just need someone with the steady hand and
+tools... I can trade/barter for the labor.
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 90581
+Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+Running since 01/22/2002 without a crash
+
+From lavalamp@spiritual-machines.org  Tue Feb 12 03:11:55 2002
+From: Brian A. Seklecki <lavalamp@spiritual-machines.org>
+To: lavalamp@burghcom.com
+Date: Tue, 12 Feb 2002 03:11:55 +0000
+Subject: Re: Compaq Testdrive: NetBSD 1.5.1/Alpha
+
+...just another note on this: the machine had failed and was replaced with
+a fresh 1.5.2 install.  Compaq didn't seem receptive to adding a named
+group/user to the system to permit tracking of -current, so that bet is
+off (i don't blame them, with a user request like that, that raises the
+question of where you draw the line)
+
+...other than that, the machine is still readily available for use.
+
+-lava
+
+From reed@reedmedia.net  Tue Feb 12 16:21:37 2002
+From: Jeremy C. Reed <reed@reedmedia.net>
+To: port-alpha@netbsd.org
+Date: Tue, 12 Feb 2002 16:21:37 +0000
+Subject: RAM and drive for Multia?
+
+I found several Multias for sale without memory and drives.
+
+I was told that they need parity RAM and some sort of proprietary SCSI
+drive.
+
+What are some good links that indicate what part numbers or what type of
+RAM and SCSI drives it supports?
+
+Any suggestions on where to buy RAM and a drive?
+
+I'd like to try NetBSD on a Alpha ...
+
+   Jeremy C. Reed
+   http://www.reedmedia.net/
+
+From sanac@optushome.com.au  Wed Feb 13 00:17:07 2002
+From: Collin Baillie <sanac@optushome.com.au>
+To: port-alpha@netbsd.org
+Date: Wed, 13 Feb 2002 00:17:07 +0000
+Subject: current snapshot adn twsconsole
+
+Hey guys,
+
+I recently updated my Dec 3000/400 to the December 23 2001 snapshot of
+1.5ZA. I've recently aquired a PMAGB-B and a HP A1097D 19" monitor for it,
+and would like to compile a kernel with TWSconsole.
+
+I've trying to download the src from that day via cvs, but it fails with an
+unexpected EOF on some file in the m68k arch directory.
+
+Just wondering if you're intending on making another snapshot anytime soon,
+as th current src tarball gives a lot of 'deprecated' warnings and fails to
+build. If someone builds a new snapshot, I'd probably get that and then get
+the syssrc from current.
+
+Unless someone can give me a tarball of the kernel src from when that
+snapshot was done.
+
+Cheers,
+
+Collin
+
+From rumi_ml@rtfm.hu  Wed Feb 13 02:25:03 2002
+From: Rumi Szabolcs <rumi_ml@rtfm.hu>
+To: reed@reedmedia.net
+Date: Wed, 13 Feb 2002 02:25:03 +0000
+Subject: Re: RAM and drive for Multia?
+
+On 2002.02.12 at 16:21 Jeremy C. Reed wrote:
+
+>I found several Multias for sale without memory and drives.
+>
+>I was told that they need parity RAM and some sort of proprietary SCSI
+>drive.
+>
+>What are some good links that indicate what part numbers or what type of
+>RAM and SCSI drives it supports?
+>
+>Any suggestions on where to buy RAM and a drive?
+>
+>I'd like to try NetBSD on a Alpha ...
+
+Hello,
+
+it needs normal 36bit True Parity SIMMs (FPM or EDO).
+
+if you are lucky you get one with the SCSI riser and a piece
+of metal you can build a fully normal 3.5" half height (1")
+SCSI-2 (50 pin) drive into it over the TGA part of the mobo,
+in place of the PCI card.
+
+if you are not so lucky you can still install a 2.5" IDE
+laptop drive and have NetBSD root fs on it, but you will
+need to boot from a floppy (for this your Multia needs to
+have that thin laptop floppy drive Multias used to have)
+
+Regards,
+
+Szabolcs Rumi
+
+From DAW@yalepress3.unipress.yale.edu  Wed Feb 13 10:02:14 2002
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: rumi_ml@rtfm.hu
+Date: Wed, 13 Feb 2002 10:02:14 +0000
+Subject: RE: RAM and drive for Multia?
+
+> ----------
+> From: 	Rumi Szabolcs
+> 
+> On 2002.02.12 at 16:21 Jeremy C. Reed wrote:
+> 
+> >I found several Multias for sale without memory and drives.
+> >
+> >I was told that they need parity RAM and some sort of proprietary SCSI
+> >drive.
+> >
+> >What are some good links that indicate what part numbers or what type of
+> >RAM and SCSI drives it supports?
+> >
+> >Any suggestions on where to buy RAM and a drive?
+> >
+> >I'd like to try NetBSD on a Alpha ...
+> 
+> Hello,
+> 
+> it needs normal 36bit True Parity SIMMs (FPM or EDO).
+> 
+	Actually, IIRC, there is no such thing as EDO True Parity SIMMs. But
+I could be wrong. :)
+
+> if you are lucky you get one with the SCSI riser and a piece
+> of metal you can build a fully normal 3.5" half height (1")
+> SCSI-2 (50 pin) drive into it over the TGA part of the mobo,
+> in place of the PCI card.
+> 
+	I have two or three of these brackets for the full size drive. Make
+an offer for them. You would also need an adapter for the power connector
+that's on the SCSI riser.
+	Personally, I wouldn't recommend putting a full-size drive in,
+because of possible heat issues. The SCSI risers that have the PCI slot are
+a better choice, I think.
+
+> if you are not so lucky you can still install a 2.5" IDE
+> laptop drive and have NetBSD root fs on it, but you will
+> need to boot from a floppy (for this your Multia needs to
+> have that thin laptop floppy drive Multias used to have)
+> 
+	And here is a basic rundown on how I created a bootfloppy. 
+http://pages.cthome.net/squeege/multia/
+It's from the 1.5 version, but the process is the same.
+
+I'm sure you've seen the FAQ here...
+http://www.netbsd.org/Ports/alpha/multiafaq.html
+
+And some other links I have...
+http://pages.cthome.net/squeege/multiainfo/index2.html
+
+I also have a couple Multias for sale too. Need a chip replaced though...
+
+Let me know if you have any other questions about the hardware...
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 90581
+Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+Running since 01/22/2002 without a crash
+
+From rrarabie@arabie.org  Wed Feb 13 08:24:51 2002
+From: Randy Arabie <rrarabie@arabie.org>
+To: port-alpha@netbsd.org
+Date: Wed, 13 Feb 2002 08:24:51 +0000
+Subject: shared libs
+
+I'm trying to compile php4 from pkgsrc to include gettext.  It seems 
+the necessary shared libs are not found, but they are in my 
+/usr/pkg/lib/ directory.
+
+I know  NetBSD Alpha doesn't use the LD_LIBRARY_PATH variable,
+and it seems I need a -rpath to be passed so that these libs 
+can be found.  I'm assuming I need to update/modify a variable 
+to handle this.
+
+I've done some poking around, and it seems that most of this 
+stuff is managed from /usr/pkgsrc/mk, but I'm not sure which
+file needs the update.
+
+TIA.
+
+--- 
+Cheers!
+
+Randy
+
+From jochen.kmietsch@tu-clausthal.de  Wed Feb 13 16:58:27 2002
+From: None <jochen.kmietsch@tu-clausthal.de>
+To: rrarabie@arabie.org
+Date: Wed, 13 Feb 2002 16:58:27 +0000
+Subject: RE: shared libs
+
+Hello!
+
+On 13-Feb-2002 Randy Arabie wrote concerning shared libs:
+
+> I'm trying to compile php4 from pkgsrc to include gettext.  It seems=20
+> the necessary shared libs are not found, but they are in my=20
+> /usr/pkg/lib/ directory.
+
+Use the -R/usr/pkg/lib and -L/usr/pkg/lib flags for gcc.  At least for me t=
+hat
+worked.
+
+Use the CFLAGS or the CC variable for this, the config scripts will honor t=
+hem.
+
+HTH, Jochen
+--=20
+Pilot: "Tower, please call me a fuel truck."
+Tower: "Roger. You are a fuel truck."
+
+From wkb@freebie.xs4all.nl  Wed Feb 13 19:45:56 2002
+From: Wilko Bulte <wkb@freebie.xs4all.nl>
+To: reed@reedmedia.net
+Date: Wed, 13 Feb 2002 19:45:56 +0000
+Subject: Re: RAM and drive for Multia?
+
+On Tue, Feb 12, 2002 at 04:21:37PM -0800, Jeremy C. Reed wrote:
+> I found several Multias for sale without memory and drives.
+> 
+> I was told that they need parity RAM and some sort of proprietary SCSI
+> drive.
+
+Yes, you need 36 bit FPM SIMMs. The SCSI drive is not proprietary. It is
+however, a 2.5" disk (if you want to stick it in the Multia itself).
+
+-- 
+|   / o / /_  _   		wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, the Netherlands
+
+From wkb@freebie.xs4all.nl  Wed Feb 13 19:46:40 2002
+From: Wilko Bulte <wkb@freebie.xs4all.nl>
+To: DAW@yalepress3.unipress.yale.edu
+Date: Wed, 13 Feb 2002 19:46:40 +0000
+Subject: Re: RAM and drive for Multia?
+
+On Wed, Feb 13, 2002 at 10:02:14AM -0500, David Woyciesjes wrote:
+> > ----------
+
+> > Hello,
+> > 
+> > it needs normal 36bit True Parity SIMMs (FPM or EDO).
+> > 
+> 	Actually, IIRC, there is no such thing as EDO True Parity SIMMs. But
+> I could be wrong. :)
+
+Multia needs FPM, not EDO.
+
+-- 
+|   / o / /_  _   		wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, the Netherlands
+
+From DAW@yalepress3.unipress.yale.edu  Wed Feb 13 13:55:28 2002
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: reed@reedmedia.net
+Date: Wed, 13 Feb 2002 13:55:28 +0000
+Subject: RE: RAM and drive for Multia?
+
+> ----------
+> From: 	Wilko Bulte
+> 
+> On Tue, Feb 12, 2002 at 04:21:37PM -0800, Jeremy C. Reed wrote:
+> > I found several Multias for sale without memory and drives.
+> > 
+> > I was told that they need parity RAM and some sort of proprietary SCSI
+> > drive.
+> 
+> Yes, you need 36 bit FPM SIMMs. The SCSI drive is not proprietary. It is
+> however, a 2.5" disk (if you want to stick it in the Multia itself).
+> 
+> -- 
+	I seem to remember someone once saying that some older Apple
+PowerBook laptops used the 2.5" SCSI hard drives...
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 90581
+Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+Running since 01/22/2002 without a crash
+
+From wkb@freebie.xs4all.nl  Wed Feb 13 19:49:54 2002
+From: 'Wilko Bulte' <wkb@freebie.xs4all.nl>
+To: DAW@yalepress3.unipress.yale.edu
+Date: Wed, 13 Feb 2002 19:49:54 +0000
+Subject: Re: RAM and drive for Multia?
+
+On Wed, Feb 13, 2002 at 01:55:28PM -0500, David Woyciesjes wrote:
+> > ----------
+> > From: 	Wilko Bulte
+> > 
+> > On Tue, Feb 12, 2002 at 04:21:37PM -0800, Jeremy C. Reed wrote:
+> > > I found several Multias for sale without memory and drives.
+> > > 
+> > > I was told that they need parity RAM and some sort of proprietary SCSI
+> > > drive.
+> > 
+> > Yes, you need 36 bit FPM SIMMs. The SCSI drive is not proprietary. It is
+> > however, a 2.5" disk (if you want to stick it in the Multia itself).
+> > 
+> > -- 
+> 	I seem to remember someone once saying that some older Apple
+> PowerBook laptops used the 2.5" SCSI hard drives...
+
+Yep, that is correct. Personally I would not bother putting it inside.
+I think the PB drives were pretty small in size too.
+
+-- 
+|   / o / /_  _   		wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, the Netherlands
+
+From DAW@yalepress3.unipress.yale.edu  Wed Feb 13 13:59:52 2002
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: wkb@freebie.xs4all.nl
+Date: Wed, 13 Feb 2002 13:59:52 +0000
+Subject: RE: RAM and drive for Multia?
+
+> ----------
+> From: 	'Wilko Bulte'
+> 
+> On Wed, Feb 13, 2002 at 01:55:28PM -0500, David Woyciesjes wrote:
+> > > ----------
+> > > From: 	Wilko Bulte
+> > > 
+> > > On Tue, Feb 12, 2002 at 04:21:37PM -0800, Jeremy C. Reed wrote:
+> > > > I found several Multias for sale without memory and drives.
+> > > > 
+> > > > I was told that they need parity RAM and some sort of proprietary
+> SCSI
+> > > > drive.
+> > > 
+> > > Yes, you need 36 bit FPM SIMMs. The SCSI drive is not proprietary. It
+> is
+> > > however, a 2.5" disk (if you want to stick it in the Multia itself).
+> > > 
+> > > -- 
+> > 	I seem to remember someone once saying that some older Apple
+> > PowerBook laptops used the 2.5" SCSI hard drives...
+> 
+> Yep, that is correct. Personally I would not bother putting it inside.
+> I think the PB drives were pretty small in size too.
+> 
+> -- 
+> 
+	Very true, just a good parts source to know. And you don't need much
+size for a firewall, or DHCP server, or X terminal, or netbooting, or NFS
+drives, etc... (you get the idea :-)
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 90581
+Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+Running since 01/22/2002 without a crash
+
+From agrier@poofygoof.com  Wed Feb 13 14:46:54 2002
+From: Aaron J. Grier <agrier@poofygoof.com>
+To: nathanw@wasabisystems.com
+Date: Wed, 13 Feb 2002 14:46:54 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+On Fri, Feb 08, 2002 at 06:37:15PM -0500, Nathan J. Williams wrote:
+
+> I mean, even if all of the SMT rework (whether professional-style or
+> gonzo-style) works out properly, what do you have when you're done?
+> 
+> A multia!
+> 
+> Ugh.
+
+but multias are so cute!  (in an island of dr. moreau / engineering
+experiment gone wrong sort of way.)
+
+they are the slowest alphas ever made, no?
+
+-- 
+  Aaron J. Grier | "Not your ordinary poofy goof." | agrier@poofygoof.com
+      "[...] I generally haven't found IDM guys to be very good
+       live acts, most of them just sit down at their laptop and
+       tweak reaktor."  -- Brandon Daniel
+
+From allan@physics.umn.edu  Wed Feb 13 16:56:29 2002
+From: Graham Allan <allan@physics.umn.edu>
+To: port-alpha@netbsd.org
+Date: Wed, 13 Feb 2002 16:56:29 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+On Wed, Feb 13, 2002 at 02:46:54PM -0800, Aaron J. Grier wrote:
+> 
+> but multias are so cute!  (in an island of dr. moreau / engineering
+> experiment gone wrong sort of way.)
+> 
+> they are the slowest alphas ever made, no?
+
+Not quite... they're faster than the 100MHz 21064 systems (DEC3000m300L
+and Alphastation 200 4/100)! The 233MHz Multia was about the same speed
+for our code as the 150MHz 3000m300.
+
+I think they're cute too. They would be *so* much more useful if SRM
+could boot from IDE though - if only I could replace those stupid SCSI
+laptop drives (most of which have by now failed) with IDE ones...
+that's the biggest failing to me.
+
+Graham
+-- 
+-------------------------------------------------------------------------
+Graham Allan
+School of Physics and Astronomy - University of Minnesota
+-------------------------------------------------------------------------
+
+From nathanw@MIT.EDU  Wed Feb 13 17:56:52 2002
+From: Nathan J. Williams <nathanw@MIT.EDU>
+To: agrier@poofygoof.com
+Date: Wed, 13 Feb 2002 17:56:52 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+"Aaron J. Grier" <agrier@poofygoof.com> writes:
+
+> > Ugh.
+> 
+> but multias are so cute!  (in an island of dr. moreau / engineering
+> experiment gone wrong sort of way.)
+> 
+> they are the slowest alphas ever made, no?
+
+I've heard that rumor.
+
+A year or so ago I interviewed for a job with Compaq, at one of the
+plants that used to be Digital (they referred to it as "Digital
+Classic"). When I said I hacked on NetBSD/alpha, almost every person I
+talked to immediately denied having anything to do with the Multia,
+without my even mentioning them. So I don't think they're well-loved
+there, either :)
+
+        - Nathan
+
+From kpneal@pobox.com  Wed Feb 13 22:53:07 2002
+From: None <kpneal@pobox.com>
+To: port-alpha@netbsd.org
+Date: Wed, 13 Feb 2002 22:53:07 +0000
+Subject: Re:  Unsuccessful chip replacement attempt
+
+On Wed, Feb 13, 2002 at 02:46:54PM -0800, Aaron J. Grier wrote:
+> but multias are so cute!  (in an island of dr. moreau / engineering
+> experiment gone wrong sort of way.)
+> 
+> they are the slowest alphas ever made, no?
+
+Supposedly there exist 66 and 100 MHz 21068 chips. They're supposed
+to work on the AXPpci33 board. 
+
+Incidentally, if anyone has any of these chips I won't mind taking
+them off your hands.
+-- 
+Kevin P. Neal                                http://www.pobox.com/~kpn/
+           On the community of supercomputer fans:
+"But what we lack in size we make up for in eccentricity." 
+  from Steve Gombosi, comp.sys.super, 31 Jul 2000 11:22:43 -0600
+
+From wkb@freebie.xs4all.nl  Thu Feb 14 07:52:46 2002
+From: Wilko Bulte <wkb@freebie.xs4all.nl>
+To: nathanw@MIT.EDU
+Date: Thu, 14 Feb 2002 07:52:46 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+On Wed, Feb 13, 2002 at 05:56:52PM -0500, Nathan J. Williams wrote:
+> "Aaron J. Grier" <agrier@poofygoof.com> writes:
+> 
+> > > Ugh.
+> > 
+> > but multias are so cute!  (in an island of dr. moreau / engineering
+> > experiment gone wrong sort of way.)
+> > 
+> > they are the slowest alphas ever made, no?
+> 
+> I've heard that rumor.
+> 
+> A year or so ago I interviewed for a job with Compaq, at one of the
+> plants that used to be Digital (they referred to it as "Digital
+> Classic"). When I said I hacked on NetBSD/alpha, almost every person I
+> talked to immediately denied having anything to do with the Multia,
+> without my even mentioning them. So I don't think they're well-loved
+> there, either :)
+
+Multia is a bit like the Vietnam of Alpha engineering :-/ 
+Remember that the whole idea was to have WinNT on these things, hooked
+up to a fat server etc. I suppose Larry Elisson would have like that
+idea ;)
+
+-- 
+|   / o / /_  _   		wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, the Netherlands
+
+From jdc@coris.demon.co.uk  Thu Feb 14 12:02:28 2002
+From: Julian Coleman <jdc@coris.demon.co.uk>
+To: port-alpha@netbsd.org
+Date: Thu, 14 Feb 2002 12:02:28 +0000
+Subject: Re: RAM and drive for Multia?
+
+> 	I seem to remember someone once saying that some older Apple
+> PowerBook laptops used the 2.5" SCSI hard drives...
+
+Yes.  Sparcbooks (and Alphabooks?) used them too.  I think the largest
+capacity was the 1.2GB IBM drive.  You can also get a SCSI to IDE converter
+(made by ADTX) so that you can use 2.5" IDE drives.  However, I believe that
+the earlier ones are not that fast and also have a 6.4GB size limit.  
+
+J
+
+-- 
+                    My other computer also runs NetBSD
+                          http://www.netbsd.org/
+
+From DAW@yalepress3.unipress.yale.edu  Thu Feb 14 10:24:00 2002
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: port-alpha@netbsd.org
+Date: Thu, 14 Feb 2002 10:24:00 +0000
+Subject: RE: Unsuccessful chip replacement attempt
+
+> ----------
+> From: 	Graham Allan
+> 
+> On Wed, Feb 13, 2002 at 02:46:54PM -0800, Aaron J. Grier wrote:
+> > 
+> > but multias are so cute!  (in an island of dr. moreau / engineering
+> > experiment gone wrong sort of way.)
+> > 
+> > they are the slowest alphas ever made, no?
+> 
+> Not quite... they're faster than the 100MHz 21064 systems (DEC3000m300L
+> and Alphastation 200 4/100)! The 233MHz Multia was about the same speed
+> for our code as the 150MHz 3000m300.
+> 
+> I think they're cute too. They would be *so* much more useful if SRM
+> could boot from IDE though - if only I could replace those stupid SCSI
+> laptop drives (most of which have by now failed) with IDE ones...
+> that's the biggest failing to me.
+> 
+> Graham
+> -- 
+> 
+	Why not have it boot off the floppy, then it can mount the IDE
+drives normally? IIRC, you can then remove the kernel floppy, and use it
+normally...
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 90581
+Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+Running since 01/22/2002 without a crash
+
+From jmaier@midamerica.net  Thu Feb 14 17:08:21 2002
+From: John Maier <jmaier@midamerica.net>
+To: port-alpha@netbsd.org
+Date: Thu, 14 Feb 2002 17:08:21 +0000
+Subject: Setting Console on 3000/300 to serial without video or keyboard connected..
+
+When I power up my 3000/300 without a video cable or keyboard attached, I never see any
+activity on the serial port.
+
+If I attach just the video, and power up, I see the test on the monitor, then it mentions
+that the keyboard is not available, then I can interact via the serial console.
+
+Is there a way to eliminate the video cable all together?
+
+John Maier - Administrator
+Midamerica Internet Services
+573-446-8881
+http://www.midamerica.net
+ICQ# 38643380
+Yahoo: toolboy1968
+MSN: toolboy68
+/=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=\
+/ Nothing great was ever achieved without
+/ enthusiasm. --- Ralph Waldo Emerson
+/=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=\
+
+From mikeride@mac.com  Thu Feb 14 14:39:09 2002
+From: Michael G. Schabert <mikeride@mac.com>
+To: DAW@yalepress3.unipress.yale.edu
+Date: Thu, 14 Feb 2002 14:39:09 +0000
+Subject: RE: Unsuccessful chip replacement attempt
+
+At 10:24 AM -0500 2/14/02, David Woyciesjes wrote:
+>  > ----------
+>>  From:	Graham Allan
+>>
+>>  On Wed, Feb 13, 2002 at 02:46:54PM -0800, Aaron J. Grier wrote:
+>>  >
+>>  > but multias are so cute!  (in an island of dr. moreau / engineering
+>>  > experiment gone wrong sort of way.)
+>>  >
+>>  > they are the slowest alphas ever made, no?
+>>
+>>  Not quite... they're faster than the 100MHz 21064 systems (DEC3000m300L
+>>  and Alphastation 200 4/100)! The 233MHz Multia was about the same speed
+>>  for our code as the 150MHz 3000m300.
+>>
+>>  I think they're cute too. They would be *so* much more useful if SRM
+>>  could boot from IDE though - if only I could replace those stupid SCSI
+>>  laptop drives (most of which have by now failed) with IDE ones...
+>>  that's the biggest failing to me.
+>>
+>>  Graham
+>>  --
+>>
+>	Why not have it boot off the floppy, then it can mount the IDE
+>drives normally? IIRC, you can then remove the kernel floppy, and use it
+>normally...
+
+Heh, but if you remove the floppy, then you had better be sure that 
+you're present anytime it needs a reboot ;-)
+
+Mike
+-- 
+Bikers don't *DO* taglines.
+
+From cgd@netbsd.org  Thu Feb 14 23:43:21 2002
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: wkb@freebie.xs4all.nl
+Date: Thu, 14 Feb 2002 23:43:21 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+Wilko Bulte <wkb@freebie.xs4all.nl> writes:
+> I suppose Larry Elisson would have like that
+> idea ;)
+
+Nah, he tended to be more keen on hardware that didn't suck.
+
+Like the Shark.  8-)
+
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From mikeride@mac.com  Fri Feb 15 01:04:25 2002
+From: Michael G. Schabert <mikeride@mac.com>
+To: jmaier@midamerica.net
+Date: Fri, 15 Feb 2002 01:04:25 +0000
+Subject: Re: Setting Console on 3000/300 to serial without video or
+
+>When I power up my 3000/300 without a video cable or keyboard 
+>attached, I never see any
+>activity on the serial port.
+>
+>If I attach just the video, and power up, I see the test on the 
+>monitor, then it mentions
+>that the keyboard is not available, then I can interact via the 
+>serial console.
+>
+>Is there a way to eliminate the video cable all together?
+
+I have no experience with 3000s at all. My AS200 4/166 worked fine 
+with serial console with the TGA card yanked back before we had TGA 
+support (it's great with X on my IntelliColor monitor now tho ;-)
+
+However, I've been running Macintoshes for years, and they require a 
+monitor to be present. So for headless servers, generally there are 
+two suggestions. One is to use a video adapter...you could use an 
+HD-15 to DB-15 (VGA to old Mac video) to do this. Apple actually has 
+a knowledgebase article giving the part numbers for what adapter to 
+use to fool each of their server models. The other method is to use a 
+paper clip to short pins in the port to make it "sense" that there is 
+a monitor. Unfortunately, I don't remember offhand which pins 
+required shorting.
+
+HTH
+Mike
+-- 
+Bikers don't *DO* taglines.
+
+From mouse@Rodents.Montreal.QC.CA  Fri Feb 15 01:24:54 2002
+From: der Mouse <mouse@Rodents.Montreal.QC.CA>
+To: port-alpha@netbsd.org
+Date: Fri, 15 Feb 2002 01:24:54 +0000
+Subject: Re: Setting Console on 3000/300 to serial without video or
+
+> However, I've been running Macintoshes for years, and they require a
+> monitor to be present.  So for headless servers, generally there are
+> two suggestions.
+
+I'm not quite sure what this is doing on port-alpha, but shrug....
+
+> The other method is to use a paper clip to short pins in the port to
+> make it "sense" that there is a monitor.  Unfortunately, I don't
+> remember offhand which pins required shorting.
+
+Well, I have a IIci which I've used this method on, and I just now
+looked - it's got pin 4 shorted to pin 11, none of the other pins
+connected at all.  (It has a DB15 monitor connector.)
+
+/~\ The ASCII				der Mouse
+\ / Ribbon Campaign
+ X  Against HTML	       mouse@rodents.montreal.qc.ca
+/ \ Email!	     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+From Riccardo.Veraldi@fi.infn.it  Fri Feb 15 08:45:53 2002
+From: None <Riccardo.Veraldi@fi.infn.it>
+To: jmaier@midamerica.net
+Date: Fri, 15 Feb 2002 08:45:53 +0000
+Subject: Re: Setting Console on 3000/300 to serial without video or keyboard
+
+You have to open your 3000/30 and on the motherboard, right close to the
+disk you will notice some jumpers, you have to toggle the w3 jumper to
+enable output on the serial console. Then you have to attach a NULL modem
+cable. It is not hard to build it yourself, just search on Google how to
+build a serial NULL modem cable. The port settings are 9600 8 N 1
+
+I had the same problem of yours and I could fix it moving on w3 switch and
+building my own serial cable.
+good luck
+
+Rick
+
+
+On Thu, 14 Feb 2002, John Maier wrote:
+
+> When I power up my 3000/300 without a video cable or keyboard attached, I never see any
+> activity on the serial port.
+>
+> If I attach just the video, and power up, I see the test on the monitor, then it mentions
+> that the keyboard is not available, then I can interact via the serial console.
+>
+> Is there a way to eliminate the video cable all together?
+>
+> John Maier - Administrator
+> Midamerica Internet Services
+> 573-446-8881
+> http://www.midamerica.net
+> ICQ# 38643380
+> Yahoo: toolboy1968
+> MSN: toolboy68
+> /=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=\
+> / Nothing great was ever achieved without
+> / enthusiasm. --- Ralph Waldo Emerson
+> /=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=\
+>
+>
+
+From DAW@yalepress3.unipress.yale.edu  Fri Feb 15 09:52:21 2002
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: port-alpha@netbsd.org
+Date: Fri, 15 Feb 2002 09:52:21 +0000
+Subject: RE: Unsuccessful chip replacement attempt
+
+> ----------
+> From: 	Michael G. Schabert
+> 
+<<<<<clipped>>>>>
+
+> >>
+> >>  I think they're cute too. They would be *so* much more useful if SRM
+> >>  could boot from IDE though - if only I could replace those stupid SCSI
+> >>  laptop drives (most of which have by now failed) with IDE ones...
+> >>  that's the biggest failing to me.
+> >>
+> >>  Graham
+> >>  --
+> >>
+> >	Why not have it boot off the floppy, then it can mount the IDE
+> >drives normally? IIRC, you can then remove the kernel floppy, and use it
+> >normally...
+> 
+> Heh, but if you remove the floppy, then you had better be sure that 
+> you're present anytime it needs a reboot ;-)
+> 
+> Mike
+> -- 
+> 
+	Uh, too true. But also, who still uses floppies for storage anymore?
+They're only for installing, and Multia kernels, right?
+
+;-)
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 90581
+Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+Running since 01/22/2002 without a crash
+
+From allan@physics.umn.edu  Fri Feb 15 09:54:08 2002
+From: Graham Allan <allan@physics.umn.edu>
+To: cgd@netbsd.org
+Date: Fri, 15 Feb 2002 09:54:08 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+On Thu, Feb 14, 2002 at 11:43:21PM -0800, Chris G. Demetriou wrote:
+> Wilko Bulte <wkb@freebie.xs4all.nl> writes:
+> > I suppose Larry Elisson would have like that
+> > idea ;)
+> 
+> Nah, he tended to be more keen on hardware that didn't suck.
+> 
+> Like the Shark.  8-)
+
+Well, the Multia doesn't suck totally... but having said that, we have
+both some Sharks and some Multias which we used as NetBSD "X terminal"
+type devices, and the Sharks were always infinitely faster (even
+diskless)!
+
+Graham
+-- 
+-------------------------------------------------------------------------
+Graham Allan - I.T. Manager - gta@umn.edu - (612) 624-5040
+School of Physics and Astronomy - University of Minnesota
+-------------------------------------------------------------------------
+
+From allan@physics.umn.edu  Fri Feb 15 10:01:35 2002
+From: Graham Allan <allan@physics.umn.edu>
+To: DAW@yalepress3.unipress.yale.edu
+Date: Fri, 15 Feb 2002 10:01:35 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+On Fri, Feb 15, 2002 at 09:52:21AM -0500, David Woyciesjes wrote:
+> > >>
+> > >	Why not have it boot off the floppy, then it can mount the IDE
+> > >drives normally? IIRC, you can then remove the kernel floppy, and use it
+> > >normally...
+> > 
+> > Heh, but if you remove the floppy, then you had better be sure that 
+> > you're present anytime it needs a reboot ;-)
+> > 
+> > Mike
+> > -- 
+> > 
+> 	Uh, too true. But also, who still uses floppies for storage anymore?
+> They're only for installing, and Multia kernels, right?
+
+True... we were sticking our Multias out in the wilds, as xterms for
+students whose advisors wouldn't buy them anything better (seriously,
+I've had long arguments about why I *won't* run a serial line to set up
+that old VT100 - though not for a couple of years!), so the floppy idea
+seemed a bit fallable to me. On the other hand... close the little
+flap, and who would even know the floppy drive was there?
+
+Graham
+-- 
+-------------------------------------------------------------------------
+Graham Allan - I.T. Manager - gta@umn.edu - (612) 624-5040
+School of Physics and Astronomy - University of Minnesota
+-------------------------------------------------------------------------
+
+From DAW@yalepress3.unipress.yale.edu  Fri Feb 15 11:11:46 2002
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: allan@physics.umn.edu
+Date: Fri, 15 Feb 2002 11:11:46 +0000
+Subject: RE: Unsuccessful chip replacement attempt
+
+> ----------
+> From: 	Graham Allan
+> 
+> On Fri, Feb 15, 2002 at 09:52:21AM -0500, David Woyciesjes wrote:
+> > > >>
+> > > >	Why not have it boot off the floppy, then it can mount the IDE
+> > > >drives normally? IIRC, you can then remove the kernel floppy, and use
+> it
+> > > >normally...
+> > > 
+> > > Heh, but if you remove the floppy, then you had better be sure that 
+> > > you're present anytime it needs a reboot ;-)
+> > > 
+> > > Mike
+> > > -- 
+> > > 
+> > 	Uh, too true. But also, who still uses floppies for storage anymore?
+> > They're only for installing, and Multia kernels, right?
+> 
+> True... we were sticking our Multias out in the wilds, as xterms for
+> students whose advisors wouldn't buy them anything better (seriously,
+> I've had long arguments about why I *won't* run a serial line to set up
+> that old VT100 - though not for a couple of years!), so the floppy idea
+> seemed a bit fallable to me. On the other hand... close the little
+> flap, and who would even know the floppy drive was there?
+> 
+> Graham
+> -- 
+> 
+	Yep. But after having done support work at Quinnipiac Law School, I
+would have to say you better superglue that little door shut, if you don't
+want a student walking off with that floppy...
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 90581
+Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+Running since 01/22/2002 without a crash
+
+From allan@physics.umn.edu  Fri Feb 15 10:17:54 2002
+From: Graham Allan <allan@physics.umn.edu>
+To: DAW@yalepress3.unipress.yale.edu
+Date: Fri, 15 Feb 2002 10:17:54 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+On Fri, Feb 15, 2002 at 11:11:46AM -0500, David Woyciesjes wrote:
+> > 
+> 	Yep. But after having done support work at Quinnipiac Law School, I
+> would have to say you better superglue that little door shut, if you don't
+> want a student walking off with that floppy...
+
+And if you think law school is bad, try physicists...
+
+Once our router filled up with water from a leak in the roof (for some
+reason it was on the top floor). This was a while back, so it was a big
+old Cisco AGS+... anyway once the water reaches a certain level inside
+the case, you get a bang and an intense burning smell. I called the
+campus network people to come over, but by the time they arrived, a
+couple of our faculty had the router taken apart into about 30 pieces
+across the floor.
+
+Somehow I don't think superglue would be enough on those floppy drives.
+
+G.
+-- 
+-------------------------------------------------------------------------
+Graham Allan - I.T. Manager - gta@umn.edu - (612) 624-5040
+School of Physics and Astronomy - University of Minnesota
+-------------------------------------------------------------------------
+
+From DAW@yalepress3.unipress.yale.edu  Fri Feb 15 11:27:41 2002
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: allan@physics.umn.edu
+Date: Fri, 15 Feb 2002 11:27:41 +0000
+Subject: RE: Unsuccessful chip replacement attempt
+
+> ----------
+> From: 	Graham Allan
+> 
+> On Fri, Feb 15, 2002 at 11:11:46AM -0500, David Woyciesjes wrote:
+> > > 
+> > 	Yep. But after having done support work at Quinnipiac Law School, I
+> > would have to say you better superglue that little door shut, if you
+> don't
+> > want a student walking off with that floppy...
+> 
+> And if you think law school is bad, try physicists...
+> 
+> Once our router filled up with water from a leak in the roof (for some
+> reason it was on the top floor). This was a while back, so it was a big
+> old Cisco AGS+... anyway once the water reaches a certain level inside
+> the case, you get a bang and an intense burning smell. I called the
+> campus network people to come over, but by the time they arrived, a
+> couple of our faculty had the router taken apart into about 30 pieces
+> across the floor.
+> 
+> Somehow I don't think superglue would be enough on those floppy drives.
+> 
+> G.
+> -- 
+> 
+> 
+	But the important question is, did they get it working again? Or did
+they just bust it up?
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 90581
+Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+Running since 01/22/2002 without a crash
+
+From allan@physics.umn.edu  Fri Feb 15 10:26:08 2002
+From: Graham Allan <allan@physics.umn.edu>
+To: DAW@yalepress3.unipress.yale.edu
+Date: Fri, 15 Feb 2002 10:26:08 +0000
+Subject: Re: Unsuccessful chip replacement attempt
+
+On Fri, Feb 15, 2002 at 11:27:41AM -0500, David Woyciesjes wrote:
+> > 
+> > Once our router filled up with water from a leak in the roof (for some
+> > reason it was on the top floor). This was a while back, so it was a big
+> > old Cisco AGS+... anyway once the water reaches a certain level inside
+> > the case, you get a bang and an intense burning smell. I called the
+> > campus network people to come over, but by the time they arrived, a
+> > couple of our faculty had the router taken apart into about 30 pieces
+> > across the floor.
+> > 
+> 	But the important question is, did they get it working again? Or did
+> they just bust it up?
+
+I think it just got carried away in its 30 pieces and was replaced by
+another. Unless they were ready to start winding a new power supply I
+don't think there was anything that could be done.
+
+It was worthwhile though just for the look on the faces of the network
+guys when they arrived...
+
+G.
+-- 
+-------------------------------------------------------------------------
+Graham Allan - I.T. Manager - gta@umn.edu - (612) 624-5040
+School of Physics and Astronomy - University of Minnesota
+-------------------------------------------------------------------------
+
+From DAW@yalepress3.unipress.yale.edu  Fri Feb 15 11:35:28 2002
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: allan@physics.umn.edu
+Date: Fri, 15 Feb 2002 11:35:28 +0000
+Subject: RE: Unsuccessful chip replacement attempt
+
+> ----------
+> From: 	Graham Allan
+> 
+> On Fri, Feb 15, 2002 at 11:27:41AM -0500, David Woyciesjes wrote:
+> > > 
+> > > Once our router filled up with water from a leak in the roof (for some
+> > > reason it was on the top floor). This was a while back, so it was a
+> big
+> > > old Cisco AGS+... anyway once the water reaches a certain level inside
+> > > the case, you get a bang and an intense burning smell. I called the
+> > > campus network people to come over, but by the time they arrived, a
+> > > couple of our faculty had the router taken apart into about 30 pieces
+> > > across the floor.
+> > > 
+> > 	But the important question is, did they get it working again? Or did
+> > they just bust it up?
+> 
+> I think it just got carried away in its 30 pieces and was replaced by
+> another. Unless they were ready to start winding a new power supply I
+> don't think there was anything that could be done.
+> 
+> It was worthwhile though just for the look on the faces of the network
+> guys when they arrived...
+> 
+> G.
+> -- 
+	I can imagine. Wish I could've seen it. 
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 90581
+Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+Running since 01/22/2002 without a crash
+
+From mikeride@mac.com  Fri Feb 15 12:57:53 2002
+From: Michael G. Schabert <mikeride@mac.com>
+To: mouse@Rodents.Montreal.QC.CA
+Date: Fri, 15 Feb 2002 12:57:53 +0000
+Subject: Re: Setting Console on 3000/300 to serial without video or
+
+>  > However, I've been running Macintoshes for years, and they require a
+>>  monitor to be present.  So for headless servers, generally there are
+>>  two suggestions.
+>
+>I'm not quite sure what this is doing on port-alpha, but shrug....
+
+It was on port-alpha because that's what the question was. The poster 
+had a 3000/300 which he needed to remove the video card before serial 
+console would work. My Mac experience was attempting to provide an 
+"anecdotal solution" to an alpha problem. I am on the alpha list as 
+well as the mac68k list (and a few others) because I do run NetBSD on 
+a Mac and an alpha. I just run it on an AS200 and not a 3000/300. On 
+my AS200, all I needed to do was remove the kbrd & it would 
+auto-switch to serial console, so I had no need to use any "tricks" 
+like that to get my alpha to work.
+
+>
+>>  The other method is to use a paper clip to short pins in the port to
+>>  make it "sense" that there is a monitor.  Unfortunately, I don't
+>>  remember offhand which pins required shorting.
+>
+>Well, I have a IIci which I've used this method on, and I just now
+>looked - it's got pin 4 shorted to pin 11, none of the other pins
+>connected at all.  (It has a DB15 monitor connector.)
+
+OK...I have an actual monitor on my Q840AV, & my PowerBook 3400c has 
+a built-in monitor (obviously).
+
+Mike
+-- 
+Bikers don't *DO* taglines.
+
+From reed@reedmedia.net  Sat Feb 16 05:18:03 2002
+From: Jeremy C. Reed <reed@reedmedia.net>
+To: port-alpha@netbsd.org
+Date: Sat, 16 Feb 2002 05:18:03 +0000
+Subject: RE: RAM and drive for Multia?
+
+On Wed, 13 Feb 2002, David Woyciesjes wrote:
+
+> 	And here is a basic rundown on how I created a bootfloppy.
+> http://pages.cthome.net/squeege/multia/
+> It's from the 1.5 version, but the process is the same.
+>
+> I'm sure you've seen the FAQ here...
+> http://www.netbsd.org/Ports/alpha/multiafaq.html
+>
+> And some other links I have...
+> http://pages.cthome.net/squeege/multiainfo/index2.html
+
+Thanks for your links. I am unable to get to pages.cthome.net but I'll try
+again later. I already looked at the multiafaq and the NetBSD/alpha faq.
+
+> Let me know if you have any other questions about the hardware...
+
+I am guessing that a standard (on i386) ps/2 keyboard and possibly my
+newer video monitors may work with it. But it doesn't matter, because I
+can just use serial. (I've never used a keyboard or monitor with my HP 710
+"apollo" or Sun SparcStation either.)
+
+I was told that the Multias may have onboard memory, but I can't find any
+reference to it.
+
+   Jeremy C. Reed
+   http://www.reedmedia.net/
+
+From funky.peen@telia.com  Sat Feb 16 15:48:59 2002
+From: Mattias Paulsson <funky.peen@telia.com>
+To: port-alpha@netbsd.org
+Date: Sat, 16 Feb 2002 15:48:59 +0000
+Subject: AlphaServer 2000 4/233
+
+Hi!
+I've just got my hands on an AlphaServer 2000 4/233.
+Tried to install NetBSD/alpha 1.5.2 on it, but got an error message telling
+me to rebuild the kernel with options DEC_2100_500 or something...
+
+Does NetBSD even run an a AplhaServer 2000? If not, is there any other
+(free)
+operating system (preferrably unix-like) out there, that will?
+
+Thanks!
+
+Mattias "Peen" Paulsson
+Gothenburg, Sweden
+
+From wkb@freebie.xs4all.nl  Sat Feb 16 19:11:53 2002
+From: Wilko Bulte <wkb@freebie.xs4all.nl>
+To: funky.peen@telia.com
+Date: Sat, 16 Feb 2002 19:11:53 +0000
+Subject: Re: AlphaServer 2000 4/233
+
+On Sat, Feb 16, 2002 at 03:48:59PM +0100, Mattias Paulsson wrote:
+> Hi!
+> I've just got my hands on an AlphaServer 2000 4/233.
+> Tried to install NetBSD/alpha 1.5.2 on it, but got an error message telling
+> me to rebuild the kernel with options DEC_2100_500 or something...
+> 
+> Does NetBSD even run an a AplhaServer 2000? If not, is there any other
+> (free)
+> operating system (preferrably unix-like) out there, that will?
+
+FreeBSD should run on it. It's been a long time since I had a AS2100[A]
+to test it on though.
+
+-- 
+|   / o / /_  _   		wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, the Netherlands
+
+From bryan-spamtrap0@darkforest.org  Sat Feb 16 18:17:20 2002
+From: B. James Phillippe <bryan-spamtrap0@darkforest.org>
+To: port-alpha@netbsd.org
+Date: Sat, 16 Feb 2002 18:17:20 +0000
+Subject: Unaligned access in C library
+
+Hello,
+
+I am running 1.5.2 on a DEC Alpha, and have bumped into what I believe is
+an unaligned access in the C library.  At least, I have an application
+which blows up with "unaligned access" only when compiled with "-pg" for
+profiling.  When I run the address through gbd, this is what I get:
+
+% test/unix_util.TEST -r test/input.dump.1 tcp
+pid 25891 (unix_util.TEST): unaligned access: va=0x1201aef14 pc=0x1200244d8 ra=0x120016e1c op=ldq
+Segmentation fault
+% gdb !:0                                                        (returned 139)
+gdb test/unix_util.TEST
+GNU gdb 4.17
+Copyright 1998 Free Software Foundation, Inc.
+GDB is free software, covered by the GNU General Public License, and you are
+welcome to change it and/or distribute copies of it under certain conditions.
+Type "show copying" to see the conditions.
+There is absolutely no warranty for GDB.  Type "show warranty" for details.
+This GDB was configured as "alpha--netbsd"...
+(gdb) l *0x1200244d8
+0x1200244d8 is in __setjmp14 (/usr/src/lib/libc/arch/alpha/gen/__setjmp14.S:67).
+/usr/src/lib/libc/arch/alpha/gen/__setjmp14.S:62: No such file or directory.
+(gdb) p *0x1201aef14
+$1 = 0
+(gdb) l *0x120016e1c
+No source file for address 0x120016e1c.
+(gdb)
+
+If I pop open __setjmp14.c, line 67 contains CALL:
+
+    /* see what's blocked */
+    mov zero, a0            /* how (insignificant) */
+    mov zero, a1            /* set (NULL) */
+    lda a2, 648(s0)         /* point to mask in sc */
+    CALL(__sigprocmask14)
+
+Which expands to:
+
+/*
+ * CALL
+ *  Function invocation
+ */
+#define CALL(_name_)                        \
+    .loc    1 __LINE__;                 \
+    jsr ra,_name_;                  \
+    ldgp    gp,0(ra)
+
+
+Any advice?
+
+-bp
+--
+# bryan at darkforest dot org
+# Software Engineer
+
+From ross@netbsd.org  Sat Feb 16 22:29:12 2002
+From: r.o.s.s <ross@netbsd.org>
+To: funky.peen@telia.com, wkb@freebie.xs4all.nl
+Date: Sat, 16 Feb 2002 22:29:12 +0000
+Subject: Re: AlphaServer 2000 4/233
+
+> From: Wilko Bulte <wkb@freebie.xs4all.nl>
+> On Sat, Feb 16, 2002 at 03:48:59PM +0100, Mattias Paulsson wrote:
+> > Hi!
+> > I've just got my hands on an AlphaServer 2000 4/233.
+> > Tried to install NetBSD/alpha 1.5.2 on it, but got an error message telling
+> > me to rebuild the kernel with options DEC_2100_500 or something...
+> > 
+> > Does NetBSD even run an a AplhaServer 2000? If not, is there any other
+> > (free)
+> > operating system (preferrably unix-like) out there, that will?
+>
+> FreeBSD should run on it. It's been a long time since I had a AS2100[A]
+> to test it on though.
+
+That's a really strange answer to give, Wilko, since as you know
+NetBSD supports the same systems that FreeBSD does, plus a couple
+more. Correct me if I'm wrong, but isn't the only system type added
+by FreeBSD the 6600? That's the main type that appeared after
+FreeBSD imported the NetBSD code to start their port. (And it's
+one also added by NetBSD, of course.)
+
+Anyway, I'll correspond with MP privately and send him a kernel.
+But thanks for being so helpful!
+
+	r.o.s.s
+
+From r.phillips@jkmrc.uq.edu.au  Sun Feb 17 03:44:10 2002
+From: Ray Phillips <r.phillips@jkmrc.uq.edu.au>
+To: port-alpha@netbsd.org
+Date: Sun, 17 Feb 2002 03:44:10 +0000
+Subject: Z buffer
+
+Dear NetBSD/alpha:
+
+Is a Z buffer on the DEC ZLXp-E3 video card a hardware/firmware 
+device which operates independently of the operating system, and will 
+hence work under NetBSD/alpha?
+
+(I'm just wondering if there's anything to be gained by purchasing a 
+ZLXp-E3 rather than a ZLXp-E2.)
+
+
+Ray
+
+From bryan-spamtrap0@darkforest.org  Mon Feb 18 01:07:23 2002
+From: B. James Phillippe <bryan-spamtrap0@darkforest.org>
+To: port-alpha@netbsd.org
+Date: Mon, 18 Feb 2002 01:07:23 +0000
+Subject: Bug: setjmp() when profiling enabled
+
+On the cold day of Feb 16, B. James Phillippe mused:
+
+> Hello,
+>
+> I am running 1.5.2 on a DEC Alpha, and have bumped into what I believe is
+> an unaligned access in the C library.  At least, I have an application
+> which blows up with "unaligned access" only when compiled with "-pg" for
+> profiling.  When I run the address through gbd, this is what I get:
+
+Hello,
+
+I still haven't found a solution, but here is some more information.  It
+seems this problem happens whenever setjmp()/longjmp() are used in an
+application which has been compiled with "-pg".  Here is a sample program:
+
+/*
+ * Compile with: gcc -pg test.c
+ */
+#include <setjmp.h>
+
+jmp_buf env;
+
+int foo(void)
+{
+    int val;
+
+    if ((val = setjmp(env)) != 0) {    /* <------ boom */
+        return val;
+    }
+
+    longjmp(env, 1);
+
+    return val;
+}
+
+int main(int argc, char *argv[])
+{
+    foo();
+
+    return 0;
+}
+
+The limited testing I'm currently capable of leads me to suspect this is
+some kind of stack corruption problem.  The problem happens when __setjmp14
+is entered after a _mcount has returned within the same stack frame.  At
+that point, the application will get an unaligned access and then segfault.
+I'm hoping someone with experience can take a closer look.
+
+-bp
+--
+# bryan at darkforest dot org
+# Software Engineer
+
+From DAW@yalepress3.unipress.yale.edu  Tue Feb 19 10:25:18 2002
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: reed@reedmedia.net
+Date: Tue, 19 Feb 2002 10:25:18 +0000
+Subject: RE: RAM and drive for Multia?
+
+> ----------
+> From: 	Jeremy C. Reed
+> 
+> On Wed, 13 Feb 2002, David Woyciesjes wrote:
+> 
+> > 	And here is a basic rundown on how I created a bootfloppy.
+> > http://pages.cthome.net/squeege/multia/
+> > It's from the 1.5 version, but the process is the same.
+> >
+> > I'm sure you've seen the FAQ here...
+> > http://www.netbsd.org/Ports/alpha/multiafaq.html
+> >
+> > And some other links I have...
+> > http://pages.cthome.net/squeege/multiainfo/index2.html
+> 
+> Thanks for your links. I am unable to get to pages.cthome.net but I'll try
+> again later. I already looked at the multiafaq and the NetBSD/alpha faq.
+> 
+--	Really? That's odd... Man I can't wait until I get my DSL back into
+the new house. Then I can serve all that from there...
+
+
+> > Let me know if you have any other questions about the hardware...
+> 
+> I am guessing that a standard (on i386) ps/2 keyboard and possibly my
+> newer video monitors may work with it. But it doesn't matter, because I
+> can just use serial. (I've never used a keyboard or monitor with my HP 710
+> "apollo" or Sun SparcStation either.)
+> 
+--	Yeah, any PC keyboard will work, and any monitor too. Serial console
+works for the SRM prompt, and I tried to get it to work for NetBSD too back
+in 1.5, but had to give up before I could finish. I'd like to give another
+shot soon.
+
+
+> I was told that the Multias may have onboard memory, but I can't find any
+> reference to it.
+> 
+--	Well there's the cache memory, and the memory that holds the
+firmware. But that's it, IIRC. You have to add the RAM for the OS.
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 90581
+Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+Running since 01/22/2002 without a crash
+
+From elric@mabelode.imrryr.org  Tue Feb 19 14:16:54 2002
+From: R. C. Dowdeswell <elric@mabelode.imrryr.org>
+To: r.phillips@jkmrc.uq.edu.au
+Date: Tue, 19 Feb 2002 14:16:54 +0000
+Subject: Re: Z buffer
+
+On 719031512 seconds since the Beginning of the UNIX epoch
+Ray Phillips wrote:
+>
+>Dear NetBSD/alpha:
+>
+>Is a Z buffer on the DEC ZLXp-E3 video card a hardware/firmware 
+>device which operates independently of the operating system, and will 
+>hence work under NetBSD/alpha?
+>
+>(I'm just wondering if there's anything to be gained by purchasing a 
+>ZLXp-E3 rather than a ZLXp-E2.)
+
+Our X server for the TGA cards doesn't make use of the Z buffer.
+I don't think that XF86 does either, and IIRC a Z buffer only really
+helps 3D apps---a rare commodity in the Open Source world (other
+than xlockmore.)
+
+ == Roland Dowdeswell                      http://www.Imrryr.ORG/~elric/  ==
+ == The Unofficial NetBSD Web Pages        http://www.Imrryr.ORG/NetBSD/  ==
+ == The NetBSD Project                            http://www.NetBSD.ORG/  ==
+
+From bryan-spamtrap0@darkforest.org  Tue Feb 19 13:07:14 2002
+From: B. James Phillippe <bryan-spamtrap0@darkforest.org>
+To: port-alpha@netbsd.org
+Date: Tue, 19 Feb 2002 13:07:14 +0000
+Subject: -current: Thinking about taking the plunge
+
+Hello,
+
+I have a moderate-duty AlphaStation 200 4/233 currently running 1.5.2, and
+I'm seriously considering moving up to current.  I'm still new to NetBSD
+(and BSD in general), and I haven't installed anything from current before.
+The machine in question is currently being used as a moderate load build
+server (lots of gcc/gmake use) on an IPv4 ethernet.  Anyone have
+success/horror stories or other words of advice that would help me decide
+whether or not to take the plunge?
+
+thanks,
+-bp
+--
+# bryan at darkforest dot org
+# Software Engineer
+
+From ali@alikat.org  Tue Feb 19 14:46:12 2002
+From: Ali Mashtizadeh <ali@alikat.org>
+To: port-alpha@netbsd.org
+Date: Tue, 19 Feb 2002 14:46:12 +0000
+Subject: Alpha 250 4/266 Problems
+
+My alpha 250 4/266 doesn't come on. Can someone give me some suggestions
+I have been trying to fix it for a while. I tried two video cards so I
+don't think its the video card and it doesnot give any errors. No sounds
+either. Please give me some sugestions.
+
+Ali
+
+From mcguire@neurotica.com  Tue Feb 19 17:34:57 2002
+From: Dave McGuire <mcguire@neurotica.com>
+To: ali@alikat.org
+Date: Tue, 19 Feb 2002 17:34:57 +0000
+Subject: Re: Alpha 250 4/266 Problems
+
+On February 19, Ali Mashtizadeh wrote:
+> My alpha 250 4/266 doesn't come on. Can someone give me some suggestions
+> I have been trying to fix it for a while. I tried two video cards so I
+> don't think its the video card and it doesnot give any errors. No sounds
+> either. Please give me some sugestions.
+
+  Have you tried a serial console?
+
+    -Dave
+
+-- 
+Dave McGuire
+St. Petersburg, FL         "Less talk.  More synthohol." --Lt. Worf
+
+From allan@physics.umn.edu  Tue Feb 19 16:44:37 2002
+From: Graham Allan <allan@physics.umn.edu>
+To: mcguire@neurotica.com
+Date: Tue, 19 Feb 2002 16:44:37 +0000
+Subject: Re: Alpha 250 4/266 Problems
+
+On Tue, Feb 19, 2002 at 05:34:57PM -0500, Dave McGuire wrote:
+> On February 19, Ali Mashtizadeh wrote:
+> > My alpha 250 4/266 doesn't come on. Can someone give me some suggestions
+> > I have been trying to fix it for a while. I tried two video cards so I
+> > don't think its the video card and it doesnot give any errors. No sounds
+> > either. Please give me some sugestions.
+> 
+>   Have you tried a serial console?
+
+Also check if either of the fans are spinning.
+
+If the fan in the front of the case is bad, then the system won't power
+on (or it will for a second, then immediately switch off). You may be
+able to replace it with a generic 3-wire PC case fan.
+
+If the fan in the PSU is bad, or the PSU itself is bad, that's more
+terminal. They're non-standard power supplies, and not easy to find.
+And, unfortunately, Alphastion 200/250's seem to be getting to the age
+where their power spplies are failing. We've had a few replaced through
+having the workstations on maintenance contract (which was in itself an
+oversight, given the age of them!), but outside of that, I think
+they're very expensive and difficult to get hold of.
+
+Graham
+-- 
+-------------------------------------------------------------------------
+Graham Allan
+School of Physics and Astronomy - University of Minnesota
+-------------------------------------------------------------------------
+
+From jkunz@unixag-kl.fh-kl.de  Wed Feb 20 19:48:16 2002
+From: Jochen Kunz <jkunz@unixag-kl.fh-kl.de>
+To: ali@alikat.org
+Date: Wed, 20 Feb 2002 19:48:16 +0000
+Subject: Re: Alpha 250 4/266 Problems
+
+On 2002.02.19 23:46 Ali Mashtizadeh wrote:
+
+> My alpha 250 4/266 doesn't come on. 
+[...]
+> Please give me some sugestions.
+Anything on the serial console?
+What does the 8 LED status indicator display? (I don't know where it is
+on the 250. On my 200 it is on the back, on my PWS500au it is inside
+near the CPU.)
+-- 
+
+
+
+tsch��,
+         Jochen
+
+Homepage: http://www.unixag-kl.fh-kl.de/~jkunz/
+
+From bouyer@antioche.eu.org  Wed Feb 20 19:54:57 2002
+From: Manuel Bouyer <bouyer@antioche.eu.org>
+To: bryan-spamtrap0@darkforest.org
+Date: Wed, 20 Feb 2002 19:54:57 +0000
+Subject: Re: -current: Thinking about taking the plunge
+
+On Tue, Feb 19, 2002 at 01:07:14PM -0800, B. James Phillippe wrote:
+> Hello,
+> 
+> I have a moderate-duty AlphaStation 200 4/233 currently running 1.5.2, and
+> I'm seriously considering moving up to current.  I'm still new to NetBSD
+> (and BSD in general), and I haven't installed anything from current before.
+> The machine in question is currently being used as a moderate load build
+> server (lots of gcc/gmake use) on an IPv4 ethernet.  Anyone have
+> success/horror stories or other words of advice that would help me decide
+> whether or not to take the plunge?
+
+I have a few machines running -current, no much problems with them.
+
+--
+Manuel Bouyer, LIP6, Universite Paris VI.           Manuel.Bouyer@lip6.fr
+--
+
+From cpg@aladdin.de  Thu Feb 21 11:52:38 2002
+From: Christian Groessler <cpg@aladdin.de>
+To: port-alpha@netbsd.org
+Date: Thu, 21 Feb 2002 11:52:38 +0000
+Subject: -current build fails in sys/lkm/compat/linux
+
+Hi,
+
+-current from 2 or 3 days ago fails with
+
+alpha:/usr/src/sys/lkm/compat/linux# make all
+/usr/oth/tmp/tooldir/bin/alpha--netbsd-gcc -O2  -D_KERNEL -D_LKM -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wno-uninitialized  -Werror -mno-fp-regs  -Demul_find=linux_emul_find                            -Dstackgap_init=linux_stackgap_init                     -Demul_flags_translate=linux_emul_flags_translate       -Dstackgap_alloc=linux_stackgap_alloc                   -Dcompat_offseterr=linux_compat_offseterr -DNWSDISPLAY=1 -DSYSVSEM -DSYSVMSG -DSYSVSHM -DCOMPAT_LINUX -nostdinc -DKTRACE -DNSEQUENCER=1 -DINET6 -Dalpha -nostdinc -I. -I/usr/src/sys/lkm/compat/linux -isystem /net/swamp/zeug/netbsd-chkout/sys -isystem /net/swamp/zeug/netbsd-chkout/sys/arch  -c /net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c: In function `linux_sys_mmap2':
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:444: dereferencing pointer to incomplete type
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:445: dereferencing pointer to incomplete type
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:446: dereferencing pointer to incomplete type
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:447: dereferencing pointer to incomplete type
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:450: dereferencing pointer to incomplete type
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:451: dereferencing pointer to incomplete type
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:452: dereferencing pointer to incomplete type
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:456: dereferencing pointer to incomplete type
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:457: dereferencing pointer to incomplete type
+cc1: warnings being treated as errors
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c: At top level:
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:1488: warning: function declaration isn't a prototype
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c: In function `linux_sys_getrlimit':
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:1502: dereferencing pointer to incomplete type
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:1511: dereferencing pointer to incomplete type
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c: At top level:
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:1516: warning: function declaration isn't a prototype
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c: In function `linux_sys_setrlimit':
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:1530: dereferencing pointer to incomplete type
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:1534: dereferencing pointer to incomplete type
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:1537: dereferencing pointer to incomplete type
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c: At top level:
+/net/swamp/zeug/netbsd-chkout/sys/compat/linux/common/linux_misc.c:1546: warning: function declaration isn't a prototype
+*** Error code 1
+
+Stop.
+make: stopped in /usr/src/sys/lkm/compat/linux
+
+
+regards,
+chris
+
+From thorpej@wasabisystems.com  Thu Feb 21 07:40:37 2002
+From: Jason R Thorpe <thorpej@wasabisystems.com>
+To: cpg@aladdin.de
+Date: Thu, 21 Feb 2002 07:40:37 +0000
+Subject: Re: -current build fails in sys/lkm/compat/linux
+
+On Thu, Feb 21, 2002 at 11:52:38AM +0100, Christian Groessler wrote:
+
+ > -current from 2 or 3 days ago fails with
+
+If you update again, this should be fixed now.
+
+-- 
+        -- Jason R. Thorpe <thorpej@wasabisystems.com>
+
+From mjasner@snowhite.cis.temple.edu  Thu Feb 21 19:06:36 2002
+From: Little Buddah <mjasner@snowhite.cis.temple.edu>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 21 Feb 2002 19:06:36 +0000
+Subject: multia + arc not working?
+
+Hi all, I'm a linux/bsd guy for several years now (if it weren't for bsd
+my decstation would be almost useless!) and I recently got my hands on a
+Multia (166mhz).
+
+When i got it the rom was empty because the battery had long since died. I
+replaced the battery with one that i knew was weak, but it was the best
+one I had. I ran the failsafe disk and then flashed the rom with the image
+from udbupd38.img (or something like that) and now when I boot I get the
+SRM console.
+
+I want to install either bsd or linux on it (not sure yet) but I hear you
+need to use the ARC console for that. So i type "arc" and the system says
+"loading the ARC firmware" or something like that and then it hangs. No
+output, no keyboard activity, etc... If i reboot the machine it tries to
+go into arc by default and does the same thing.
+
+I'm thinking it's either the dead battery (would this keep arc from
+loading if srm loads fine?) or a video problem (does arc use a different
+graphics mode? Should i change the jumpers for that? I'm use an IBM e15 or
+15v for my monitor. Can't remember which it is. Something like that).
+
+I really want to get this working. It's a cool little box and I got it in
+exchange for a dumb terminal, so if it works then i clearly won the trade.
+;P
+
+Any ideas?
+
+Thanks in advance
+Marc
+-------------------------------------------------------------------------------
+                       Useless Quotes of the Day
+-------------------------------------------------------------------------------
+
+A man without religion is like a fish without a bicycle.
+
+Eagles may soar free and proud, but weasels never get sucked into jet engines.
+
+Half of the people in the world are below average.
+
+Madness takes it's toll, please have exact change
+
+Useless advice #986:  Never sit on a tack.
+
+-------------------------------------------------------------------------------
+Generated by SIGQUOTE by Marc Jasner
+http://thunder.temple.edu/~mjasner/sigquote
+-------------------------------------------------------------------------------
+
+From ross@netbsd.org  Thu Feb 21 16:59:17 2002
+From: r.o.s.s <ross@netbsd.org>
+To: mjasner@snowhite.cis.temple.edu, rumi_ml@rtfm.hu
+Date: Thu, 21 Feb 2002 16:59:17 +0000
+Subject: Re: multia + arc not working?
+
+Ahh, ARC is not necessary.  NetBSD only needs SRM.
+
+> ...I hear you need to use the ARC console for that...
+
+From mjasner@snowhite.cis.temple.edu  Thu Feb 21 21:29:12 2002
+From: Little Buddah <mjasner@snowhite.cis.temple.edu>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 21 Feb 2002 21:29:12 +0000
+Subject: Re: multia + arc not working?
+
+THanks for the help, everyone :)
+
+I just need to pick up the drive cable for the ide drive and then I start
+installing :)
+
+Does anyone have any idea why arc won't come up, though? I'm just afraid
+it's a symptom of a bigger problem, maybe.
+
+Ah well, if it ain't broke....
+
+Thanks again
+Marc
+
+-------------------------------------------------------------------------------
+                       Useless Quotes of the Day
+-------------------------------------------------------------------------------
+
+A man without religion is like a fish without a bicycle.
+
+Eagles may soar free and proud, but weasels never get sucked into jet engines.
+
+Half of the people in the world are below average.
+
+Madness takes it's toll, please have exact change
+
+Useless advice #986:  Never sit on a tack.
+
+-------------------------------------------------------------------------------
+Generated by SIGQUOTE by Marc Jasner
+http://thunder.temple.edu/~mjasner/sigquote
+-------------------------------------------------------------------------------
+
+From rumi_ml@rtfm.hu  Fri Feb 22 01:24:01 2002
+From: Rumi Szabolcs <rumi_ml@rtfm.hu>
+To: mjasner@snowhite.cis.temple.edu
+Date: Fri, 22 Feb 2002 01:24:01 +0000
+Subject: Re: multia + arc not working?
+
+On 2002.02.21 at 19:06 Little Buddah wrote:
+
+>Hi all, I'm a linux/bsd guy for several years now (if it weren't for bsd
+>my decstation would be almost useless!) and I recently got my hands on a
+>Multia (166mhz).
+>
+>When i got it the rom was empty because the battery had long since died. I
+>replaced the battery with one that i knew was weak, but it was the best
+>one I had. I ran the failsafe disk and then flashed the rom with the image
+>from udbupd38.img (or something like that) and now when I boot I get the
+>SRM console.
+>
+>I want to install either bsd or linux on it (not sure yet) but I hear you
+>need to use the ARC console for that. So i type "arc" and the system says
+>"loading the ARC firmware" or something like that and then it hangs. No
+>output, no keyboard activity, etc... If i reboot the machine it tries to
+>go into arc by default and does the same thing.
+
+i dont think you really had to reflash it to work just because
+of the battery. it should have been booting with just the battery
+replaced. make sure you flash a firmware that is both having the
+SRM and ARC because as far as i know are SRM-only firmwares
+out there as well...
+
+Regards,
+
+Szabolcs
+
+From Topi.Junkkari@iki.fi  Fri Feb 22 03:23:09 2002
+From: Topi K Junkkari <Topi.Junkkari@iki.fi>
+To: port-alpha@netbsd.org
+Date: Fri, 22 Feb 2002 03:23:09 +0000
+Subject: Re: multia + arc not working?
+
+"r.o.s.s" <ross@netbsd.org> wrote:
+> Ahh, ARC is not necessary.  NetBSD only needs SRM.
+
+You are correct. AFAIK the only thing that needs ARC for booting is
+Windows NT. All other operating systems available for the Multia, be
+they BSD, Linux, Unix or VMS-based, can be booted from SRM. Most of them
+do not support ARC at all.
+
+Regards,
+Topi
+
+From cpg@aladdin.de  Fri Feb 22 13:15:01 2002
+From: Christian Groessler <cpg@aladdin.de>
+To: thorpej@wasabisystems.com
+Date: Fri, 22 Feb 2002 13:15:01 +0000
+Subject: Re: -current build fails in sys/lkm/compat/linux
+
+On 02/21/2002 07:40:37 AM PST Jason R Thorpe wrote:
+>
+>On Thu, Feb 21, 2002 at 11:52:38AM +0100, Christian Groessler wrote:
+>
+> > -current from 2 or 3 days ago fails with
+>
+>If you update again, this should be fixed now.
+
+Thanks, I'm currently trying a new build ...
+
+chris
+
+From DAW@yalepress3.unipress.yale.edu  Fri Feb 22 10:25:14 2002
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: mjasner@snowhite.cis.temple.edu
+Date: Fri, 22 Feb 2002 10:25:14 +0000
+Subject: RE: multia + arc not working?
+
+> ----------
+> From: 	Little Buddah
+> 
+> THanks for the help, everyone :)
+> 
+> I just need to pick up the drive cable for the ide drive and then I start
+> installing :)
+> 
+	Well, SRM doesn't see IDE drives, so you'll have to boot from a
+floppy first, or a SCSI drive.
+	Here's how I created a boot floppy for NetBSD, so it could use the
+IDE drive...
+http://pages.cthome.net/squeege/multia/
+It's from the 1.5 version, but the process is the same.
+
+> Does anyone have any idea why arc won't come up, though? I'm just afraid
+> it's a symptom of a bigger problem, maybe.
+> 
+	I have a copy of the latest firmware here...
+http://pages.cthome.net/squeege/multiainfo/index2.html
+...you could give that a shot.
+It's not a pretty web page, but it works...
+
+> Ah well, if it ain't broke....
+> 
+	Hot-rod it! :-)
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 90581
+Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+Running since 01/22/2002 without a crash
+
+From mjasner@snowhite.cis.temple.edu  Fri Feb 22 13:17:04 2002
+From: Little Buddah <mjasner@snowhite.cis.temple.edu>
+To: port-alpha@netbsd.org
+Date: Fri, 22 Feb 2002 13:17:04 +0000
+Subject: RE: multia + arc not working?
+
+> 	Well, SRM doesn't see IDE drives, so you'll have to boot from a
+> floppy first, or a SCSI drive.
+
+I don't have the scsi card :( Anyone have one they are willing to part
+with cheaply? I know they sell em online but it's a little pricey for me
+right now...
+
+I have a pcmcia scsi card that i KNOW is supported by linux and bsd
+(adaptec 1460). Can I used that? If not then a floppy isn't a big deal...
+
+> 	I have a copy of the latest firmware here...
+> http://pages.cthome.net/squeege/multiainfo/index2.html
+
+Firmware.zip and the arc setup files aren't there. The links look broken.
+
+
+> > Ah well, if it ain't broke....
+> >
+> 	Hot-rod it! :-)
+
+Well i'm actually thinking of being adventurous and constructing a copper
+pipe + water cooling system. I figure with a little 1/4 inch compressable
+copper pipe, a small pump, and some water I can make a nice zig-zag tube
+through the case, between the heatsink fins, and back out... I can jacket
+the pipe to keep condensation from forming maybe... That might help a lot
+with the heat. Since i didn't pay for the multia i'm not sure i'd be
+HORRIBLY upset if something awful happened to. It might be worth screwing
+around with.
+
+Anyway, thanks for the help so far everyone.
+
+Should i spent time trying to get arc to work or just go with the floppy
+boot?
+
+Marc
+
+From mjasner@snowhite.cis.temple.edu  Fri Feb 22 13:20:55 2002
+From: Little Buddah <mjasner@snowhite.cis.temple.edu>
+To: port-alpha@netbsd.org
+Date: Fri, 22 Feb 2002 13:20:55 +0000
+Subject: Multia + scsi
+
+Another question (hope I'm not being annoying but this multia is quite the
+interesting little box. I love it.) Will the multia work with ANY pci scsi
+card? If i get a standard pci riser and plug in an off the shelf scsi card
+will it work? Or is the mini card it comes with a special one that MUST be
+in the multia or else no scsi for the multia...
+
+If any scsi card wil work.....
+
+Marc
+
+-------------------------------------------------------------------------------
+                       Useless Quotes of the Day
+-------------------------------------------------------------------------------
+
+A man without religion is like a fish without a bicycle.
+
+Eagles may soar free and proud, but weasels never get sucked into jet engines.
+
+Half of the people in the world are below average.
+
+Madness takes it's toll, please have exact change
+
+Useless advice #986:  Never sit on a tack.
+
+-------------------------------------------------------------------------------
+Generated by SIGQUOTE by Marc Jasner
+http://thunder.temple.edu/~mjasner/sigquote
+-------------------------------------------------------------------------------
+
+From DAW@yalepress3.unipress.yale.edu  Fri Feb 22 13:51:12 2002
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: mjasner@snowhite.cis.temple.edu
+Date: Fri, 22 Feb 2002 13:51:12 +0000
+Subject: RE: multia + arc not working?
+
+> ----------
+> From: 	Little Buddah
+> 
+> > 	Well, SRM doesn't see IDE drives, so you'll have to boot from a
+> > floppy first, or a SCSI drive.
+> 
+> I don't have the scsi card :( Anyone have one they are willing to part
+> with cheaply? I know they sell em online but it's a little pricey for me
+> right now...
+> 
+	Huh? that short little riser is the SCSI card. What connectors are
+on it?
+
+	On my first Multia, I took the IDC cable off the ribbon connector,
+and crimped on a salvaged Centronics -type external connector, and rigged it
+to mount in the PCI hole, just so I could have an external SCSI connector...
+
+> I have a pcmcia scsi card that i KNOW is supported by linux and bsd
+> (adaptec 1460). Can I used that? If not then a floppy isn't a big deal...
+> 
+	I personally don't know...
+
+> > 	I have a copy of the latest firmware here...
+> > http://pages.cthome.net/squeege/multiainfo/index2.html
+> 
+> Firmware.zip and the arc setup files aren't there. The links look broken.
+> 
+	Aww, bugger... have to fix that
+
+
+> > > Ah well, if it ain't broke....
+> > >
+> > 	Hot-rod it! :-)
+> 
+> Well i'm actually thinking of being adventurous and constructing a copper
+> pipe + water cooling system. I figure with a little 1/4 inch compressable
+> copper pipe, a small pump, and some water I can make a nice zig-zag tube
+> through the case, between the heatsink fins, and back out... I can jacket
+> the pipe to keep condensation from forming maybe... That might help a lot
+> with the heat. Since i didn't pay for the multia i'm not sure i'd be
+> HORRIBLY upset if something awful happened to. It might be worth screwing
+> around with.
+> 
+	Here's one tip. Open it up, and replace the fan with a higher output
+one. Or, you can clip the thermal resistor off of the existaing fan. That
+will allow the fan to run at full speed all the time.
+	If you are going to water cool, look at some of the OC sites for
+info. And crank up the speed of it while you're at it... ;-)
+
+> Anyway, thanks for the help so far everyone.
+> 
+> Should i spent time trying to get arc to work or just go with the floppy
+> boot?
+> 
+	If you're gonna use just NetBSD, I wouldn't worry.
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 90581
+Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+Running since 01/22/2002 without a crash
+
+From mjasner@snowhite.cis.temple.edu  Fri Feb 22 14:16:43 2002
+From: Little Buddah <mjasner@snowhite.cis.temple.edu>
+To: DAW@yalepress3.unipress.yale.edu
+Date: Fri, 22 Feb 2002 14:16:43 +0000
+Subject: RE: multia + arc not working?
+
+> 	Huh? that short little riser is the SCSI card. What connectors are
+> on it?
+
+Yeah I know, but I got the multia 3rd or 4th hand and even that was
+missing. It came BAREbones... The case, power supply, board, floppy drive
+and floppy cable. That's it... I had some memory for it laying around the
+house, and I have a laptop hard drive, but i need the cable. I don't have
+the scsi card/riser at all. Someone removed it at some point... It's
+expensive on starship too...
+
+Does anyone know if other PCI scsi cards are supported? Which ones?
+
+> 	Here's one tip. Open it up, and replace the fan with a higher output
+> one. Or, you can clip the thermal resistor off of the existaing fan. That
+> will allow the fan to run at full speed all the time.
+> 	If you are going to water cool, look at some of the OC sites for
+> info. And crank up the speed of it while you're at it... ;-)
+
+One thing at a time. I'm thinking a water cooled, sped up multia would be
+a nice thing... *rubbing fingers maniacly together*
+
+> 	If you're gonna use just NetBSD, I wouldn't worry.
+
+Well my first pref is linux, but either is ok.
+
+Thanks again
+Marc
+
+From reinoud@netbsd.org  Sat Feb 23 02:13:24 2002
+From: Reinoud Zandijk <reinoud@netbsd.org>
+To: port-alpha@netbsd.org
+Date: Sat, 23 Feb 2002 02:13:24 +0000
+Subject: XFree86 3 on PCI Alpha
+
+Hiya folks,
+
+'ve got XFree 86 from our xsrc/xc working now on my Alpha PWS 500 with PCI 
+but the keyboard is a bit off.... cursor keys don't work f.e.
+
+When i try to use `xmodmap -e "keycode 211 = Cursor_L"` it gives bad 
+keycode value (out of range)....
+
+Should i try XFree 4.2 in our xsrc/xfree sources? is anyone working on it ? 
+should i volunteer ;) ?
+
+Thanks a lot in advance,
+Reinoud
+
+From cryptr@cryptr.net  Sun Feb 24 01:42:54 2002
+From: Lars <cryptr@cryptr.net>
+To: port-alpha@netbsd.org
+Date: Sun, 24 Feb 2002 01:42:54 +0000
+Subject: DEC 3000/(600/700) Memory Chips
+
+Hi folks!
+
+Im not sure if anyone cares or are interested, but i got 8 memory modules
+from Digital to DEC 3000, if im correct the serial is DEC 5022388-01 and i
+think they are 16MB modules.
+
+If anyone would be interested in these i might be able to ship them.
+
+Lars
+
+Mail: cryptr@cryptr.net
+Home: http://www.cryptr.net/
+
+From jwbirdsa@picarefy.com  Sun Feb 24 04:44:57 2002
+From: None <jwbirdsa@picarefy.com>
+To: port-alpha@netbsd.org
+Date: Sun, 24 Feb 2002 04:44:57 +0000
+Subject: DEC CIPCA cable
+
+Picked up a very odd DEC cable today. I've never seen anything like it
+before, which probably means somebody out there has been looking for
+one for years. :) You can see the two ends of it at
+www.picarefy.com/~jwbirdsa/transient/IMAGE034.JPG and 
+www.picarefy.com/~jwbirdsa/transient/IMAGE035.JPG and it's labelled
+as a d|i|g|i|t|a|l 17-03427-01. It seems to be part of the CIPCA kit
+for high-end Alphas.
+
+   Who need this? It's yours for postage.
+
+   --James B.
+
+From dave@bagpuss.nu  Sun Feb 24 22:27:39 2002
+From: Dave Brown <dave@bagpuss.nu>
+To: port-alpha@netbsd.org
+Date: Sun, 24 Feb 2002 22:27:39 +0000
+Subject: Free to good home
+
+Hi,
+
+Well in the process of having a clear out, and have the following parts up
+for grabs:
+
+	3 x 16Mb (pairs) of Simms for a DEC 3000 300X
+	1 x Alpha Procesor (unknown condition) from same machine
+
+Anyone want this kit...
+
+Dave.
+
+From mrg@eterna.com.au  Mon Feb 25 15:17:11 2002
+From: matthew green <mrg@eterna.com.au>
+To: port-alpha@netbsd.org
+Date: Mon, 25 Feb 2002 15:17:11 +0000
+Subject: alpha-netbsd cross building lossage does seem ILP32.
+
+FYI:
+
+i can build an alpha-netbsd toolchain & kernel, though i haven't booted
+the kernel yet, on my sparc64 box.  this would definately seem to indicate
+that there are IPL32 bugs in alpha.
+
+From DAW@yalepress3.unipress.yale.edu  Mon Feb 25 10:32:42 2002
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: cryptr@cryptr.net
+Date: Mon, 25 Feb 2002 10:32:42 +0000
+Subject: RE: DEC 3000/(600/700) Memory Chips
+
+> From: 	Lars
+> 
+> Hi folks!
+> 
+> Im not sure if anyone cares or are interested, but i got 8 memory modules
+> from Digital to DEC 3000, if im correct the serial is DEC 5022388-01 and i
+> think they are 16MB modules.
+> 
+> If anyone would be interested in these i might be able to ship them.
+> 
+> Lars
+> 
+-------
+Lars ---
+	Any takers yet? I'll have to check my 3000/400 to see what's in it
+(never started it since I got it a couple of months ago!), and if those
+would work...
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 90581
+Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+Running since 01/22/2002 without a crash
+
+From mjasner@snowhite.cis.temple.edu  Mon Feb 25 14:44:49 2002
+From: Little Buddah <mjasner@snowhite.cis.temple.edu>
+To: port-alpha@netbsd.org
+Date: Mon, 25 Feb 2002 14:44:49 +0000
+Subject: SCSI on MULTIA
+
+Does anyone know of any scsi cards that work in the multia other than the
+tiny riser card one that digital had in there originally?
+
+I don't have the riser card but if i can find a suitable replacement
+(adaptec or tekram maybe?) then that would be good.
+
+Anybody?
+
+Marc
+
+
+
+-------------------------------------------------------------------------------
+                       Useless Quotes of the Day
+-------------------------------------------------------------------------------
+
+A man without religion is like a fish without a bicycle.
+
+Eagles may soar free and proud, but weasels never get sucked into jet engines.
+
+Half of the people in the world are below average.
+
+Madness takes it's toll, please have exact change
+
+Useless advice #986:  Never sit on a tack.
+
+-------------------------------------------------------------------------------
+Generated by SIGQUOTE by Marc Jasner
+http://thunder.temple.edu/~mjasner/sigquote
+-------------------------------------------------------------------------------
+
+From DAW@yalepress3.unipress.yale.edu  Mon Feb 25 15:01:44 2002
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: mjasner@snowhite.cis.temple.edu
+Date: Mon, 25 Feb 2002 15:01:44 +0000
+Subject: RE: SCSI on MULTIA
+
+> From: 	Little Buddah
+> 
+> Does anyone know of any scsi cards that work in the multia other than the
+> tiny riser card one that digital had in there originally?
+> 
+> I don't have the riser card but if i can find a suitable replacement
+> (adaptec or tekram maybe?) then that would be good.
+> 
+> Anybody?
+> 
+	Best I can do it to offer a whole Multia for sale, and it will
+include the little riser card :-) And maybe a floppy drive too, I believe.
+Have to go home and check... Then you'll have some spare parts also. The
+notorius heat death chip on it needs to be replaced, but I do have a
+replacement chip, if you want to solder it on...
+	Let me know.
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 90581
+Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+Running since 01/22/2002 without a crash
+
+From letsgonhlcanes@yahoo.com  Mon Feb 25 12:27:35 2002
+From: Lets Go Canes <letsgonhlcanes@yahoo.com>
+To: jwbirdsa@picarefy.com, port-alpha@netbsd.org
+Date: Mon, 25 Feb 2002 12:27:35 +0000
+Subject: Re: DEC CIPCA cable
+
+--- jwbirdsa@picarefy.com wrote:
+>    Picked up a very odd DEC cable today. I've never seen anything
+> like it
+> before, which probably means somebody out there has been looking for
+> one for years. :) You can see the two ends of it at
+> www.picarefy.com/~jwbirdsa/transient/IMAGE034.JPG and 
+> www.picarefy.com/~jwbirdsa/transient/IMAGE035.JPG and it's labelled
+> as a d|i|g|i|t|a|l 17-03427-01. It seems to be part of the CIPCA kit
+> for high-end Alphas.
+
+I dont need one, but I can confirm that one end of that cable appears
+to be the bulkhead for connecting CI cables (the end shown in
+IMAGE034.JPG).
+
+
+=====
+--------------
+Lets Go Canes!
+
+__________________________________________________
+Do You Yahoo!?
+Yahoo! Sports - Coverage of the 2002 Olympic Games
+http://sports.yahoo.com
+
+From cryptr@cryptr.net  Mon Feb 25 23:30:10 2002
+From: Lars <cryptr@cryptr.net>
+To: DAW@yalepress3.unipress.yale.edu
+Date: Mon, 25 Feb 2002 23:30:10 +0000
+Subject: RE: DEC 3000/(600/700) Memory Chips
+
+On Mon, 25 Feb 2002, David Woyciesjes wrote:
+
+> > From: 	Lars
+> >
+> > Hi folks!
+> >
+> > Im not sure if anyone cares or are interested, but i got 8 memory modules
+> > from Digital to DEC 3000, if im correct the serial is DEC 5022388-01 and i
+> > think they are 16MB modules.
+> >
+> > If anyone would be interested in these i might be able to ship them.
+> >
+> > Lars
+> >
+> -------
+> Lars ---
+> 	Any takers yet? I'll have to check my 3000/400 to see what's in it
+> (never started it since I got it a couple of months ago!), and if those
+> would work...
+>
+None so far, im in the middle of a move now though, but as soon as i
+settle, i can prolly ship them anywhere, if it doesnt cost a fortune that
+is.
+
+> ---   David A Woyciesjes
+> ---   C & IS Support Specialist
+> ---   Yale University Press
+> ---   mailto:david.woyciesjes@yale.edu
+> ---   (203) 432-0953
+> ---   ICQ # - 90581
+> Mac OS X 10.1.2 - Darwin Kernel Version 5.2: Fri Dec  7 21:39:35 PST 2001
+> Running since 01/22/2002 without a crash
+>
+
+Cell: +46 70 328 02 46
+Mail: cryptr@cryptr.net
+Home: http://www.cryptr.net/
+
+From tron@zhadum.de  Wed Feb 27 08:42:44 2002
+From: Matthias Scheler <tron@zhadum.de>
+To: port-alpha@netbsd.org
+Date: Wed, 27 Feb 2002 08:42:44 +0000
+Subject: Re: Free to good home
+
+[Posted and mailed]
+
+In article <000001c1bd82$78867380$0afea8c0@severn>,
+	"Dave Brown" <dave@bagpuss.nu> writes:
+> Well in the process of having a clear out, and have the following parts up
+> for grabs:
+> 
+> 	3 x 16Mb (pairs) of Simms for a DEC 3000 300X
+
+So you got 6 8MB SIMMs?
+
+	Kind regards
+
+-- 
+Matthias Scheler                                  http://scheler.de/~matthias/
+
+From gnuorder@tampabay.rr.com  Wed Feb 27 11:10:28 2002
+From: GNUOrder <gnuorder@tampabay.rr.com>
+To: reed@reedmedia.net
+Date: Wed, 27 Feb 2002 11:10:28 +0000
+Subject: Re: RAM and drive for Multia?
+
+Yes, the Multia  needs True Parity, much PC ram fakes the parity, but I'm=
+ not=20
+sure about EDO.  I know FPM works.  Also there is a bracket for a 3.5" dr=
+ive=20
+that fits in the PCI card area.  Also it wont boot unless the battery is=20
+fresh.  I have a question about them though.  Does anyone know if there i=
+s a=20
+backup image of the BIOS on board incase of a bad flash?=20
+
+On Tuesday 12 February 2002 20:25, Rumi Szabolcs wrote:
+> On 2002.02.12 at 16:21 Jeremy C. Reed wrote:
+> >I found several Multias for sale without memory and drives.
+> >
+> >I was told that they need parity RAM and some sort of proprietary SCSI
+> >drive.
+> >
+> >What are some good links that indicate what part numbers or what type =
+of
+> >RAM and SCSI drives it supports?
+> >
+> >Any suggestions on where to buy RAM and a drive?
+> >
+> >I'd like to try NetBSD on a Alpha ...
+>
+> Hello,
+>
+> it needs normal 36bit True Parity SIMMs (FPM or EDO).
+>
+> if you are lucky you get one with the SCSI riser and a piece
+> of metal you can build a fully normal 3.5" half height (1")
+> SCSI-2 (50 pin) drive into it over the TGA part of the mobo,
+> in place of the PCI card.
+>
+> if you are not so lucky you can still install a 2.5" IDE
+> laptop drive and have NetBSD root fs on it, but you will
+> need to boot from a floppy (for this your Multia needs to
+> have that thin laptop floppy drive Multias used to have)
+>
+> Regards,
+>
+> Szabolcs Rumi
+
+From root@garbled.net  Wed Feb 27 10:37:02 2002
+From: Tim Rightnour <root@garbled.net>
+To: gnuorder@tampabay.rr.com
+Date: Wed, 27 Feb 2002 10:37:02 +0000
+Subject: Re: RAM and drive for Multia?
+
+On 27-Feb-02 GNUOrder wrote:
+> Yes, the Multia  needs True Parity, much PC ram fakes the parity, but I'm not
+> sure about EDO.  I know FPM works.  Also there is a bracket for a 3.5" drive 
+> that fits in the PCI card area.  Also it wont boot unless the battery is 
+> fresh.  I have a question about them though.  Does anyone know if there is a 
+> backup image of the BIOS on board incase of a bad flash? 
+
+There is a jumper that allows you to boot an emergency floppy to reload a
+corrupt firmware.
+
+---
+Tim Rightnour <root@garbled.net>
+NetBSD: Free multi-architecture OS http://www.netbsd.org/
+NetBSD supported hardware database: http://mail-index.netbsd.org/cgi-bin/hw.cgi
+
+From woods@weird.com  Wed Feb 27 13:22:16 2002
+From: Greg A. Woods <woods@weird.com>
+To: gnuorder@tampabay.rr.com
+Date: Wed, 27 Feb 2002 13:22:16 +0000
+Subject: Re: RAM and drive for Multia?
+
+[ On Wednesday, February 27, 2002 at 11:10:28 (-0500), GNUOrder wrote: ]
+> Subject: Re: RAM and drive for Multia?
+>
+> Yes, the Multia  needs True Parity, much PC ram fakes the parity, but I'm not 
+> sure about EDO.  I know FPM works.  Also there is a bracket for a 3.5" drive 
+> that fits in the PCI card area.  Also it wont boot unless the battery is 
+> fresh.  I have a question about them though.  Does anyone know if there is a 
+> backup image of the BIOS on board incase of a bad flash? 
+
+no, but you can re-flash them by changing a jumper under the floppy and
+booting them from a specially created FailSafe Loader diskette....  See
+the hardware users manual for more details -- I think the floppy image is
+still available by FTP.... hmmm, yes, it should be here in the same
+directory as this readme describing the recovery procedure:
+
+	http://gatekeeper.dec.com/pub/DEC/Alpha/firmware/readmes/archive/multia/readme.txt
+
+-- 
+								Greg A. Woods
+
++1 416 218-0098;  <gwoods@acm.org>;  <g.a.woods@ieee.org>;  <woods@robohack.ca>
+Planix, Inc. <woods@planix.com>; VE3TCP; Secrets of the Weird <woods@weird.com>
+
+From seebs@plethora.net  Wed Feb 27 21:21:26 2002
+From: Peter Seebach <seebs@plethora.net>
+To: port-alpha@netbsd.org
+Date: Wed, 27 Feb 2002 21:21:26 +0000
+Subject: Re: Corrupted 20011221-1.5ZA Snapshot
+
+In message <Pine.NEB.4.43.0202281205550.971-100000@angelic.cynic.net>, Curt Sa
+mpson writes:
+>The 20011221-1.5ZA snapshot appears to be too corrupt to use. Newfs
+>is known to be broken (both on the install floppies and in the main
+>system), dump has blown up for me, and god knows what else could
+>go wrong.
+
+Yup.  I was able to do okay by installing the snapshot, using the old
+1.5W floppies.
+
+>If there's no objection, I'm going to delete this snapshot.
+>Please cc responses to me directly to make sure I receive them.
+
+Sounds reasonable.
+
+So, hypothetically, if I thought one of my alphas might be able to do
+a functional snapshot, what's the procedure look like?
+
+-s
+
+From jsharp@psychoses.org  Wed Feb 27 22:23:04 2002
+From: James Sharp <jsharp@psychoses.org>
+To: cjs@cynic.net
+Date: Wed, 27 Feb 2002 22:23:04 +0000
+Subject: Re: Corrupted 20011221-1.5ZA Snapshot
+
+> Leaving this kind of thing around is problamatic. For example, a
+> recent customer of mine and I lost about eight hours trying to get
+> this snapshot installed on one of this machines, at a cost to him
+> of about $1200. Needless to say, we're running Linux on those alphas
+> now, and he will never touch NetBSD on any machine ever again.
+
+I always thought it was caveat emptor...snapshots are likely to blow chow
+at any given moment...don't trust real data on them...burning ring of fire
+& all that.
+
+Just curious...or maybe what i've been told about snapshots is wrong.
+
+From seebs@plethora.net  Wed Feb 27 21:30:42 2002
+From: Peter Seebach <seebs@plethora.net>
+To: port-alpha@netbsd.org
+Date: Wed, 27 Feb 2002 21:30:42 +0000
+Subject: Re: Corrupted 20011221-1.5ZA Snapshot
+
+In message <20020228032338.0A5301E4FE@thoreau.thistledown.com.au>, Simon Burge 
+writes:
+>Peter Seebach wrote:
+>> So, hypothetically, if I thought one of my alphas might be able to do
+>> a functional snapshot, what's the procedure look like?
+
+>In theory it should be as simple as
+
+>	./build-sh -D /some/dest/dir -R /some/release/dir
+
+>but I haven't tried that on an alpha.  Also note that this doesn't
+>build the X sets.
+
+Cool.  I might have one of the systems have a go at it some time soon.
+
+-s
+
+From mikeride@mac.com  Wed Feb 27 22:48:10 2002
+From: Michael G. Schabert <mikeride@mac.com>
+To: cjs@cynic.net
+Date: Wed, 27 Feb 2002 22:48:10 +0000
+Subject: Re: Corrupted 20011221-1.5ZA Snapshot
+
+At 12:16 PM +0900 2/28/02, Curt Sampson wrote:
+>The 20011221-1.5ZA snapshot appears to be too corrupt to use. Newfs
+>is known to be broken (both on the install floppies and in the main
+>system), dump has blown up for me, and god knows what else could
+>go wrong.
+>
+>Leaving this kind of thing around is problamatic. For example, a
+>recent customer of mine and I lost about eight hours trying to get
+>this snapshot installed on one of this machines, at a cost to him
+>of about $1200. Needless to say, we're running Linux on those alphas
+>now, and he will never touch NetBSD on any machine ever again.
+>
+>If there's no objection, I'm going to delete this snapshot.
+>Please cc responses to me directly to make sure I receive them.
+
+Hmm, odd. I downloaded and installed the snapshot on my AS200 4/166. 
+I've been running ever since with no problems. I built world at the 
+end of January, but was running the snapshot until then (although I 
+made my own kernel shortly after upgrading). Granted, this was an 
+upgrade of a running system, so I didn't use newfs for anything, and 
+I don't use restore/dump.
+
+Mike
+-- 
+Bikers don't *DO* taglines.
+
+From tv@wasabisystems.com  Wed Feb 27 23:43:58 2002
+From: Todd Vierling <tv@wasabisystems.com>
+To: simonb@wasabisystems.com
+Date: Wed, 27 Feb 2002 23:43:58 +0000
+Subject: Re: Corrupted 20011221-1.5ZA Snapshot
+
+On Thu, 28 Feb 2002, Simon Burge wrote:
+
+: > So, hypothetically, if I thought one of my alphas might be able to do
+: > a functional snapshot, what's the procedure look like?
+:
+: In theory it should be as simple as
+:
+: 	./build-sh -D /some/dest/dir -R /some/release/dir
+
+Well, "./build.sh", but yes, this *should* work.  Note that you must do this
+on an alpha host at the moment, because the release stuff is not
+cross-capable yet.  (Not to mention that you can only compile LP64 from an
+LP64 host successfully at the moment.  8-)
+
+-- 
+-- Todd Vierling <tv@wasabisystems.com>  *  Wasabi & NetBSD:  Run with it.
+-- CDs, Integration, Embedding, Support -- http://www.wasabisystems.com/
+
+From cjs@cynic.net  Thu Feb 28 12:16:03 2002
+From: Curt Sampson <cjs@cynic.net>
+To: port-alpha@netbsd.org
+Date: Thu, 28 Feb 2002 12:16:03 +0000
+Subject: Corrupted 20011221-1.5ZA Snapshot
+
+The 20011221-1.5ZA snapshot appears to be too corrupt to use. Newfs
+is known to be broken (both on the install floppies and in the main
+system), dump has blown up for me, and god knows what else could
+go wrong.
+
+Leaving this kind of thing around is problamatic. For example, a
+recent customer of mine and I lost about eight hours trying to get
+this snapshot installed on one of this machines, at a cost to him
+of about $1200. Needless to say, we're running Linux on those alphas
+now, and he will never touch NetBSD on any machine ever again.
+
+If there's no objection, I'm going to delete this snapshot.
+Please cc responses to me directly to make sure I receive them.
+
+cjs
+-- 
+Curt Sampson  <cjs@cynic.net>   +81 90 7737 2974   http://www.netbsd.org
+    Don't you know, in this new Dark Age, we're all light.  --XTC
+
+From simonb@wasabisystems.com  Thu Feb 28 14:23:37 2002
+From: Simon Burge <simonb@wasabisystems.com>
+To: seebs@plethora.net
+Date: Thu, 28 Feb 2002 14:23:37 +0000
+Subject: Re: Corrupted 20011221-1.5ZA Snapshot
+
+Peter Seebach wrote:
+
+> So, hypothetically, if I thought one of my alphas might be able to do
+> a functional snapshot, what's the procedure look like?
+
+In theory it should be as simple as
+
+	./build-sh -D /some/dest/dir -R /some/release/dir
+
+but I haven't tried that on an alpha.  Also note that this doesn't
+build the X sets.
+
+Simon.
+--
+Simon Burge                            <simonb@wasabisystems.com>
+NetBSD CDs, Support and Service:    http://www.wasabisystems.com/
+
+From cjs@cynic.net  Thu Feb 28 13:20:17 2002
+From: Curt Sampson <cjs@cynic.net>
+To: mikeride@mac.com
+Date: Thu, 28 Feb 2002 13:20:17 +0000
+Subject: Re: Corrupted 20011221-1.5ZA Snapshot
+
+On Wed, 27 Feb 2002, Michael G. Schabert wrote:
+
+> Hmm, odd. I downloaded and installed the snapshot on my AS200 4/166.
+> I've been running ever since with no problems. I built world at the
+> end of January, but was running the snapshot until then (although I
+> made my own kernel shortly after upgrading). Granted, this was an
+> upgrade of a running system, so I didn't use newfs for anything, and
+> I don't use restore/dump.
+
+Well, the newfs thing has not been a problem for just me:
+
+	http://www.geocrawler.com/lists/3/NetBSD/472/25/7615537/
+
+Can you check out newfs and see if it does this for you, too?
+
+The machines we're using are quite different, so perhaps the gcc
+problems only cause failures on 21[12]64 chips. But I also had a
+fresh kernel (thanks simonb!) that I am told runs multiuser on a
+fairly new machine completely fail to boot on the DS-20 I tried it on.
+
+It seems to me fairly unlikely that there are any real hardware
+problems here, as I've had problems with NetBSD on both of the two
+DS-20s, and Linux and DU run without problems on both. I'm thinking
+perhaps our support for the DS-20 is lacking somewhere.
+
+Unfortunately, there's no way for me to debug this further; the
+client simply won't have anything to do with NetBSD any more (and
+he really wants to get these machines into production).
+
+I've updated the README file in the 1.5ZA snapshot directory;
+perhaps I'll just leave it at that. Someone else more involved with
+alphas should take over and deal with this issue, I think. (I no
+longer own any alphas myself, so I don't have the ability to test
+or build any more.)
+
+cjs
+-- 
+Curt Sampson  <cjs@cynic.net>   +81 90 7737 2974   http://www.netbsd.org
+    Don't you know, in this new Dark Age, we're all light.  --XTC
+
+From cjs@cynic.net  Thu Feb 28 13:32:32 2002
+From: Curt Sampson <cjs@cynic.net>
+To: jsharp@psychoses.org
+Date: Thu, 28 Feb 2002 13:32:32 +0000
+Subject: Re: Corrupted 20011221-1.5ZA Snapshot
+
+On Wed, 27 Feb 2002, James Sharp wrote:
+
+> I always thought it was caveat emptor...snapshots are likely to blow chow
+> at any given moment...don't trust real data on them...burning ring of fire
+> & all that.
+>
+> Just curious...or maybe what i've been told about snapshots is wrong.
+
+No, that's true. However, this problem had been known for a month
+before I downloaded and tried to use the snapshot, and nobody
+bothered even to create a README in that snapshot directory giving
+a warning about this. That's what I find a bit frustrating.
+
+And really, that disclaimer is fine, but let's face it, people have
+to use snapshots in production systems. The most recent release
+becomes very much not recent long before the next major release,
+and the patches just don't catch up. NetBSD 1.5.2 won't even boot
+on the DS-20s I was using.
+
+Now you could say that the correct solution to this is to release
+more often, fold more patches into the last major release, etc.
+But that's not happening, and when you look at how much work it is
+to do that, it's not a huge suprise. There's a reasonable argument
+to be made that it's a better use of our very limited manpower to
+work on current rather than the last release, and compensate for
+the age of releases by trying to make stable snapshots.
+
+cjs
+-- 
+Curt Sampson  <cjs@cynic.net>   +81 90 7737 2974   http://www.netbsd.org
+    Don't you know, in this new Dark Age, we're all light.  --XTC
+
+From jochen.kmietsch@tu-clausthal.de  Thu Feb 28 10:13:55 2002
+From: None <jochen.kmietsch@tu-clausthal.de>
+To: cjs@cynic.net
+Date: Thu, 28 Feb 2002 10:13:55 +0000
+Subject: RE: Corrupted 20011221-1.5ZA Snapshot
+
+Hello!
+
+On 28-Feb-2002 Curt Sampson wrote concerning Corrupted 20011221-1.5ZA
+Snapshot:
+
+> The 20011221-1.5ZA snapshot appears to be too corrupt to use. Newfs
+
+Indeed.
+
+> If there's no objection, I'm going to delete this snapshot.
+> Please cc responses to me directly to make sure I receive them.
+
+I spent a day getting my alpha to run again after I tried to install 1.5ZA.=
+=20
+I wanted a new GCC and all that, now I am still stuck with 1.5.2, waiting f=
+or
+a new snapshot.  It was a frustrating experience, yes, and as you mentioned=
+,
+the problem is that 1.5.2 is kinda old, so people are likely to try a
+snapshot to get an up-to-date system, even if it's a risky thing to do.
+
+Still, nice to have s.th. running on that machine, and I have learned to us=
+e
+a different disk next time...
+
+Jochen
+--=20
+My employers don't acknowledge my existence much less my opinions.
+
+From mrg@eterna.com.au  Thu Feb 28 22:34:26 2002
+From: matthew green <mrg@eterna.com.au>
+To: tv@wasabisystems.com
+Date: Thu, 28 Feb 2002 22:34:26 +0000
+Subject: re: Corrupted 20011221-1.5ZA Snapshot
+
+Well, "./build.sh", but yes, this *should* work.  Note that you must do this
+   on an alpha host at the moment, because the release stuff is not
+   cross-capable yet.  (Not to mention that you can only compile LP64 from an
+   LP64 host successfully at the moment.  8-)
+
+
+i wish people would stop slagging off the sparc64 port where
+it *doesn't* suck!  :-) AFAIK, you can use it as both host &
+target from anywhere, including for cross-alpha target.
+
+
+.mrg.
+
+From mikeride@mac.com  Thu Feb 28 15:04:29 2002
+From: Michael G. Schabert <mikeride@mac.com>
+To: cjs@cynic.net
+Date: Thu, 28 Feb 2002 15:04:29 +0000
+Subject: Re: Corrupted 20011221-1.5ZA Snapshot
+
+At 1:20 PM +0900 2/28/02, Curt Sampson wrote:
+>On Wed, 27 Feb 2002, Michael G. Schabert wrote:
+>
+>>  Hmm, odd. I downloaded and installed the snapshot on my AS200 4/166.
+>>  I've been running ever since with no problems. I built world at the
+>>  end of January, but was running the snapshot until then (although I
+>>  made my own kernel shortly after upgrading). Granted, this was an
+>>  upgrade of a running system, so I didn't use newfs for anything, and
+>>  I don't use restore/dump.
+>
+>Well, the newfs thing has not been a problem for just me:
+>
+>	http://www.geocrawler.com/lists/3/NetBSD/472/25/7615537/
+>
+>Can you check out newfs and see if it does this for you, too?
+
+Point taken ;-). I threw in a Quantum 1GB drive I had lying around, & 
+ran newfs on it from my active system (Jan 22 or so). I also had a 
+directory with the Dec 23rd stuff still on my drive, so I ran that 
+one also:
+
+alpha# ls /sbin/newfs
+-r-xr-xr-x  2 root  wheel  487872 Jan 22 11:46 /sbin/newfs
+alpha#
+alpha#
+alpha# newfs /dev/rsd1a
+Warning: 368 sector(s) in last cylinder unallocated
+/dev/rsd1a:     2109376 sectors in 2898 cylinders of 8 tracks, 91 sectors
+         1030.0MB in 7 cyl groups (436 c/g, 154.98MB/g, 18560 i/g)
+super-block backups (for fsck -b #) at:
+       32,  317536,  635040,  952544, 1270048, 1587552, 1905056,
+alpha#
+alpha#
+alpha# cd /safetarballs/
+alpha#
+alpha#
+alpha# ls base.tgz
+-rw-r--r--  1 root  wheel  24650400 Dec 23 03:44 base.tgz
+alpha#
+alpha#
+alpha# tar -zxpf base.tgz ./sbin/newfs
+22.553u 4.436s 0:28.21 95.6%    0+0k 3+9io 9pf+0w
+alpha#
+alpha#
+alpha# ls /safetarballs/sbin/newfs
+-r-xr-xr-x  2 root  wheel  215160 Dec 23 01:08 /safetarballs/sbin/newfs
+alpha#
+alpha#
+alpha# /safetarballs/sbin/newfs /dev/sd1a
+Warning: 368 sector(s) in last cylinder unallocated
+/dev/sd1a:      2109376 sectors in 2898 cylinders of 8 tracks, 91 sectors
+         1030.0MB in 7 cyl groups (436 c/g, 154.98MB/g, 18560 i/g)
+super-block backups (for fsck -b #) at:
+       32,  317536,Segmentation fault(core dumped)
+alpha#
+
+I'm just glad that I was on a running system & never would have run 
+into this prob ;-). Sorry about it making you lose face with the 
+client Curt. So it isn't because of differences in the hardware...I 
+just never encountered the error because I didn't need newfs.
+
+Mike
+-- 
+Bikers don't *DO* taglines.
+
+From agrier@poofygoof.com  Thu Feb 28 12:36:38 2002
+From: Aaron J. Grier <agrier@poofygoof.com>
+To: christian.lavoie@mail.mcgill.ca
+Date: Thu, 28 Feb 2002 12:36:38 +0000
+Subject: Re: Q: Blind installation on DEC 3000 m300
+
+On Wed, Feb 27, 2002 at 05:37:07PM -0500, Christian Lavoie wrote:
+> Message http://mail-index.netbsd.org/port-alpha/2001/08/17/0001.html
+> describes very well my problem: A pair of DEC 3000 m300 machines, and
+> a "SWITCHING TO SERIAL CONSOLE" message that ends all my installation
+> attemps.
+> 
+> I've got no CD-ROM, no floppy, only- a working BOOTP/TFTP setup. I
+> need to install a NFS-root NetBSD system on both of those. The NFS
+> server is already up and kicking, and NetBSD is already booting. (NFS
+> server is i386 Debian linux)
+> 
+> What do I need to modify on the nfs server to make netbsd boot, start
+> SSH, and let me login as root to finish everything?
+
+all you're missing a usable console.  if you've gotten this far,
+everything else appears to be in order.  you can either get an install
+kernel that has console support for your framebuffer, or make/find a
+cable and do the initial install over a serial console.
+
+I know PMAGB-B is supported -- where are those kernels again?
+
+-- 
+  Aaron J. Grier | "Not your ordinary poofy goof." | agrier@poofygoof.com
+
+From christian.lavoie@mail.mcgill.ca  Thu Feb 28 18:09:16 2002
+From: Christian Lavoie <christian.lavoie@mail.mcgill.ca>
+To: agrier@poofygoof.com
+Date: Thu, 28 Feb 2002 18:09:16 +0000
+Subject: Re: Q: Blind installation on DEC 3000 m300
+
+On Thursday 28 February 2002 15:36, Aaron J. Grier wrote:
+
+> all you're missing a usable console.  if you've gotten this far,
+> everything else appears to be in order.  you can either get an install
+> kernel that has console support for your framebuffer, or make/find a
+> cable and do the initial install over a serial console.
+
+What exactly happens when I get the "SWITCHING TO SERIAL CONSOLE" message? It 
+hangs until a console is found?
+
+Quite frankly, if I could use a network console instead of a physical one, 
+that would help like nothing else could (I think =). Two machines (maybe more 
+in the future), only one (working) set of keyboard-mouse-screen...
+
+Which is why I was hoping to bypass the installation steps and get SSH 
+running as soon as possible. From there, I'll manage. If I could disable the 
+console, redirect it to a file or a socket or anything like that, that'd be 
+great. As I've mentionned, I've got linux machines on the network that I 
+could use for networking magic. Is there any way to plug a "TCP/IP terminal" 
+to a NetBSD machine?
+
+> I know PMAGB-B is supported -- where are those kernels again?
+
+-- 
+I don't suffer from insanity; I enjoy every minute of it.
+
+Christian Lavoie, christian.lavoie@mail.mcgill.ca
+http://www.christianlavoie.com
+
+From agrier@poofygoof.com  Thu Feb 28 16:42:11 2002
+From: Aaron J. Grier <agrier@poofygoof.com>
+To: christian.lavoie@mail.mcgill.ca
+Date: Thu, 28 Feb 2002 16:42:11 +0000
+Subject: Re: Q: Blind installation on DEC 3000 m300
+
+On Thu, Feb 28, 2002 at 06:09:16PM -0500, Christian Lavoie wrote:
+
+> What exactly happens when I get the "SWITCHING TO SERIAL CONSOLE"
+> message?
+
+the computer starts talking to a serial port on the back of the machine.
+if you plug in a null modem cable to a dumb terminal (or another
+computer that is acting like one via tip, kermit, or minicom), you'll be
+able to continue the installation.
+
+> It hangs until a console is found?
+
+it has found a console it can use (the serial port on the back of the
+machine) and if you had a terminal hooked to it, you'd see sysinst there
+waiting for you.
+
+> Quite frankly, if I could use a network console instead of a physical
+> one, that would help like nothing else could (I think =). Two machines
+> (maybe more in the future), only one (working) set of
+> keyboard-mouse-screen...
+
+you can't log in on the network until the network is configured.  in
+order to configure the network, you need to be at the console.
+
+> Which is why I was hoping to bypass the installation steps and get SSH
+> running as soon as possible.
+
+except ssh needs the network to be set up, and you can't set up the
+network over the network.
+
+> From there, I'll manage. If I could disable the console, redirect it
+> to a file or a socket or anything like that, that'd be great. As I've
+> mentionned, I've got linux machines on the network that I could use
+> for networking magic.
+
+you need one of two things to install netbsd on your machine:
+
+1) a serial console cable and a dumb terminal (or equivalent)
+
+- OR -
+
+2) a kernel to boot which supports a console on your graphics card.
+
+what version of NetBSD are you trying to install?
+
+> Is there any way to plug a "TCP/IP terminal" to a NetBSD machine?
+
+again... you cannot configure the network over the network if it's down.
+
+-- 
+  Aaron J. Grier | "Not your ordinary poofy goof." | agrier@poofygoof.com
+      "[...] I generally haven't found IDM guys to be very good
+       live acts, most of them just sit down at their laptop and
+       tweak reaktor."  -- Brandon Daniel
+
+From smj@cirr.com  Thu Feb 28 19:07:46 2002
+From: Stephen M Jones <smj@cirr.com>
+To: cjs@cynic.net
+Date: Thu, 28 Feb 2002 19:07:46 +0000
+Subject: Re: Corrupted 20011221-1.5ZA Snapshot
+
+> The 20011221-1.5ZA snapshot appears to be too corrupt to use. Newfs
+> is known to be broken (both on the install floppies and in the main
+> system), dump has blown up for me, and god knows what else could
+> go wrong.
+
+There is something I've not seen from everyone else .. isn't 1.5ZA
+considered experimental??
+
+I run NetBSD on three of my production DEC 5305s and reserved the
+fourth to run 1.5ZA because I consider that kernel to be very much
+experimental and I wouldn't run it in a production environment.
+
+I did have the same problem installing it with the floppies and 
+actually went in with 1.5.2 floppies to do the newfs and such .. 
+there was a thread a few weeks ago pointing out this problem, but
+apparently no one addressed it.  Again, being experimental code,
+I wasn't surprised, but because I wanted to run an SMP kernel I
+got around the broken newfs with the 1.5.2 floppies.
+
+I won't tell you what you should and shouldn't do, but you should
+just update from the 1-5 Release directory .. There you can find
+the 1.5.3_alpha kernel and friends.
+
+> Leaving this kind of thing around is problamatic. For example, a
+> recent customer of mine and I lost about eight hours trying to get
+> this snapshot installed on one of this machines, at a cost to him
+> of about $1200. Needless to say, we're running Linux on those alphas
+> now, and he will never touch NetBSD on any machine ever again.
+
+If he knows anything about UNIX he'll probably come screaming back.
+
+I gave linux way too many second chances .. from 0.99 to 2.4.x and
+I will never touch it again.
+
+I still kick myself for ditching my AT&T 3b2/522 machines and SystemVr3.2.3
+to give linux a shot on PCs .. that was 1997.  I went from hundreds of
+days of uptime to about 15 days with an occasional max of about 30 days.
+Sure they were faster (though at the time, not by too much) but its the
+same story with the LISP hackers that had their Symbolics LISP Machines
+traded in for SUNs.  They boot fast, and they love to show you how fast
+they boot, but when it came down to getting work done they didn't perform.
+
+I've already posted the reasons why I wasn't using NetBSD at the
+time but I guess it won't hurt again (though I was already running it
+on another project site since at least 1995 along with a handful of
+other machines I was administering to).  I was dealing with a userbase
+of over 10,000 people .. BSD style hashed password file building was
+just way too slow and linux used the SystemV shadow suite .. that was
+the only reason why.
+
+Stephen
+
+From christian.lavoie@mail.mcgill.ca  Thu Feb 28 20:13:43 2002
+From: Christian Lavoie <christian.lavoie@mail.mcgill.ca>
+To: agrier@poofygoof.com
+Date: Thu, 28 Feb 2002 20:13:43 +0000
+Subject: Re: Q: Blind installation on DEC 3000 m300
+
+On Thursday 28 February 2002 19:42, Aaron J. Grier wrote:
+
+> > Quite frankly, if I could use a network console instead of a physical
+> > one, that would help like nothing else could (I think =). Two machines
+> > (maybe more in the future), only one (working) set of
+> > keyboard-mouse-screen...
+>
+> you can't log in on the network until the network is configured.  in
+> order to configure the network, you need to be at the console.
+
+The configuration files (/etc) are available on another UNIX system. I can 
+edit them right now. Why am I restricted to doing that from the working 
+NetBSD install? It magically patches the running kernel?
+
+Wait... This is supposed to be a diskless client (the disks are pretty much 
+reserved for databases) I hope there's nothing fundamentally opposing getting 
+the configuration from the NFS server, right? Once that's done, all I need to 
+do is change a couple of text files that physically reside on a machine 
+that's already fully working, so I can edit them. Right?
+
+So what are the files I need to toy with?
+
+> > From there, I'll manage. If I could disable the console, redirect it
+> > to a file or a socket or anything like that, that'd be great. As I've
+> > mentionned, I've got linux machines on the network that I could use
+> > for networking magic.
+>
+> you need one of two things to install netbsd on your machine:
+>
+> 1) a serial console cable and a dumb terminal (or equivalent)
+
+Hmmm... A null modem cable? I don't have anything that remotely looks like 
+that around. Can I build one? DEC 3000 m300 serial port to Intel i386 serial 
+port. Where can I find docs about the pinouts? What's involved in terms of 
+software?
+
+> - OR -
+>
+> 2) a kernel to boot which supports a console on your graphics card.
+>
+> what version of NetBSD are you trying to install?
+
+Anything that's gonna work, the latest possible. Right now, I'm trying to get 
+1.5.2 to run.
+
+These machines are gonna run a couple of database servers (SQL and LDAP), 
+maybe a kerberos master, that kind of things, nothing remotely fancy. Some 
+assembly exploration is planned too. (I wanna learn *low level* Alpha 
+programming)
+
+All I'm interested in is running the latest possible versions of the packages 
+I need and being capable of writing assembler. Anything that can give me that 
+is fair game.
+
+> > Is there any way to plug a "TCP/IP terminal" to a NetBSD machine?
+>
+> again... you cannot configure the network over the network if it's down.
+
+Yes, but it already got the BOOTP parameters, so it already knows a solid 
+part of what the network looks like. And once the rest is NFS-mounted, I can 
+hardly imagine what I cannot do by modifying the files directly on the 
+NFS-server. The only thing it really needs is, as far as I can see:
+
+IP address/netmask <-> eth card mapping
+NFS server address + path on server
+
+Am I missing something?
+
+Thanx in advance,
+Chris
+
+-- 
+I don't suffer from insanity; I enjoy every minute of it.
+
+Christian Lavoie, christian.lavoie@mail.mcgill.ca
+http://www.christianlavoie.com
+
+From nathanw@wasabisystems.com  Thu Feb 28 20:55:53 2002
+From: Nathan J. Williams <nathanw@wasabisystems.com>
+To: cjs@cynic.net
+Date: Thu, 28 Feb 2002 20:55:53 +0000
+Subject: Re: Corrupted 20011221-1.5ZA Snapshot
+
+Curt Sampson <cjs@cynic.net> writes:
+
+> On Thu, 28 Feb 2002, Stephen M Jones wrote:
+> 
+> > There is something I've not seen from everyone else .. isn't 1.5ZA
+> > considered experimental??
+> 
+> Well, yes, of course. But as I've posted before, there's "experimental,"
+> and there's "known to be seriously broken." :-) Problems with
+> drivers and the like I consider to be standard bad luck; it could
+> happen to any system. It was the known corruption that there was
+> no notice of in the notes for that snapshot that really annoyed me.
+
+The 1.5ZA snapshot you used was in a subdirectory of the alpha
+snapshots directory called "pending.untested" (You never mentioned
+that).
+
+i.e. you should have assumed that it was even less usable than an
+average snapshot.
+
+For not doing so, and for inflicting the untested snapshot on a
+customer, when there were older snapshots, you are a disgrace.
+
+        - Nathan
+
+From seebs@plethora.net  Thu Feb 28 20:16:33 2002
+From: Peter Seebach <seebs@plethora.net>
+To: port-alpha@netbsd.org
+Date: Thu, 28 Feb 2002 20:16:33 +0000
+Subject: Re: Corrupted 20011221-1.5ZA Snapshot
+
+In message <Pine.NEB.4.43.0203011102380.437-100000@angelic.cynic.net>, Curt Sam
+pson writes:
+>On 28 Feb 2002, Nathan J. Williams wrote:
+>
+>> The 1.5ZA snapshot you used was in a subdirectory of the alpha
+>> snapshots directory called "pending.untested" (You never mentioned
+>> that).
+>
+>I never mentioned that because it was not in that subdirectory. It
+>was in the same directory as all of the other snapshots; the
+>pending.untested directory was empty.
+
+Yup.  That's where I got it.  I never knew there *was* a pending.untested
+directory.
+
+Now, if someone wants to say that it *SHOULD* have been in a
+"pending.untested" directory, I'll agree.
+
+-s
+

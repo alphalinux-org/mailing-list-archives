@@ -1,0 +1,114 @@
+From openbsd-alpha  Fri Feb 18 16:53:21 2005
+From: nikns <nikns () secure ! lv>
+Date: Fri, 18 Feb 2005 16:53:21 +0000
+To: openbsd-alpha
+Subject: alphastation ipsec and hight cpu utilization
+Message-Id: <20050218165321.GA24122 () secure ! lv>
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=110874640331526
+
+Hello,
+I have alpha current [the same problem with newer snapshot].
+It doesnt accept ipsec traffic after it hightly utilizes cpu.
+
+I have manual ipsec keying:
+---------------------------------------
+ipsecadm flush
+IP_A=10.195.2.103
+IP_B=10.195.2.123
+ipsecadm new esp -spi 1000 -src $IP_A -dst $IP_B -forcetunnel -enc 3des -auth sha1 -keyfile enc_key -authkeyfile auth_key
+ipsecadm new esp -spi 1001 -src $IP_B -dst $IP_A -forcetunnel -enc 3des -auth sha1 -keyfile enc_key -authkeyfile auth_key
+ipsecadm flow -dst $IP_A -proto esp -addr $IP_B 255.255.255.255 $IP_A 255.255.255.255 -out -require -src $IP_B
+---------------------------------------
+
+
+I see:
+
+# tcpdump -i de0 host 10.195.2.103
+tcpdump: listening on de0
+18:38:34.275400 esp 10.195.2.103 > 10.195.2.123 spi 0x00001000 seq 3581 len 84 [tos 0x10]
+18:38:34.432623 esp 10.195.2.123 > 10.195.2.103 spi 0x00001001 seq 120 len 148 (DF) [tos 0x10]
+18:38:34.625976 esp 10.195.2.103 > 10.195.2.123 spi 0x00001000 seq 3582 len 84 [tos 0x10]
+18:38:35.469730 esp 10.195.2.123 > 10.195.2.103 spi 0x00001001 seq 121 len 212 (DF) [tos 0x10]
+18:38:35.476562 esp 10.195.2.123 > 10.195.2.103 spi 0x00001001 seq 122 len 404 (DF) [tos 0x10]
+18:38:35.476563 esp 10.195.2.103 > 10.195.2.123 spi 0x00001000 seq 3583 len 84 [tos 0x10]
+
+# tcpdump -i enc0 host 10.195.2.103
+tcpdump: WARNING: enc0: no IPv4 address assigned
+tcpdump: listening on enc0
+tcpdump: WARNING: compensating for unaligned libpcap packets
+18:44:01.278320 (authentic,confidential): SPI 0x00001001: 10.195.2.123.ssh > 10.195.2.103.10326: P 2997871600:2997871664(64)
+ack 3989917040 win 17376 <nop,nop,timestamp 3047897169 0> (DF) [tos 0x10] (encap)
+18:44:01.477543 (authentic,confidential): SPI 0x00001000: 10.195.2.103.10326 > 10.195.2.123.ssh: . ack 64 win 16384
+<nop,nop,timestamp 2600457472 3047897169> [tos 0x10] (encap)
+18:44:02.294921 (authentic,confidential): SPI 0x00001001: 10.195.2.123.ssh > 10.195.2.103.10326: P 64:128(64) ack 1 win 17376
+<nop,nop,timestamp 3047897171 0> (DF) [tos 0x10] (encap)
+
+After I hightly utilize cpu [like doing select's from mysql], it drops
+ipsec rules: after that i see no traffic on enc0,
+and on de0 i see only traffic from 10.195.2.103:
+
+# tcpdump -i de0 host 10.195.2.103
+tcpdump: listening on de0
+18:38:34.275400 esp 10.195.2.103 > 10.195.2.123 spi 0x00001000 seq 3581 len 84 [tos 0x10]
+18:38:34.625976 esp 10.195.2.103 > 10.195.2.123 spi 0x00001000 seq 3582 len 84 [tos 0x10]
+18:38:35.476563 esp 10.195.2.103 > 10.195.2.123 spi 0x00001000 seq 3583 len 84 [tos 0x10]
+
+
+Doesnt help even flushing ipsec rules with [ipsecadm flush] and seting them again.
+
+Dmesg:
+OpenBSD 3.6-current (GENERIC) #421: Mon Jan 24 18:44:55 MST 2005
+    pvalchev@alpha.openbsd.org:/usr/src/sys/arch/alpha/compile/GENERIC
+AlphaStation 200 4/166, 166MHz
+8192 byte page size, 1 processor.
+total memory = 100663296 (98304K)
+(2048000 reserved for PROM, 98615296 used by OpenBSD)
+avail memory = 79847424 (77976K)
+using 1203 buffers containing 9854976 bytes (9624K) of memory
+mainbus0 (root)
+cpu0 at mainbus0: ID 0 (primary), 21064-0 (pass 2 or 2.1)
+apecs0 at mainbus0: DECchip 21071 Core Logic chipset
+apecs0: DC21071-CA pass 2, 64-bit memory bus
+apecs0: DC21071-DA pass 2
+pci0 at apecs0 bus 0
+siop0 at pci0 dev 6 function 0 "Symbios Logic 53c810" rev 0x02: isa irq 11
+scsibus0 at siop0: 8 targets
+sd0 at scsibus0 targ 0 lun 0: <DEC, RZ26L (C) DEC, 440C> SCSI2 0/direct fixed
+sd0: 1001MB, 3117 cyl, 8 head, 82 sec, 512 bytes/sec, 2050860 sec total
+sd1 at scsibus0 targ 3 lun 0: <FUJITSU, M2934S-512, 0138> SCSI2 0/direct fixed
+sd1: 4153MB, 3421 cyl, 18 head, 138 sec, 512 bytes/sec, 8506782 sec total
+cd0 at scsibus0 targ 4 lun 0: <DEC, RRD43 (C) DEC, 1084> SCSI2 5/cdrom removable
+sio0 at pci0 dev 7 function 0 "Intel 82378IB ISA" rev 0x03
+de0 at pci0 dev 11 function 0 "DEC 21040" rev 0x23: isa irq 5
+de1 at pci0 dev 12 function 0 "DEC 21140" rev 0x22: isa irq 9
+de1: DEC DE500-AA 21140A [10-100Mb/s] pass 2.2 address 00:00:f8:09:8c:16
+tga0 at pci0 dev 13 function 0 "DEC 21030" rev 0x02: DC21030 step B, board type T8-02
+tga0: 1280 x 1024, 8bpp, Bt485 RAMDAC
+tga0: interrupting at isa irq 10
+wsdisplay0 at tga0: console (std, vt100 emulation)  
+isa0 at sio0
+isadma0 at isa0
+com0 at isa0 port 0x3f8/8 irq 4: ns16550a, 16 byte fifo
+com1 at isa0 port 0x2f8/8 irq 3: ns16550a, 16 byte fifo
+pckbc0 at isa0 port 0x60/5  
+pckbd0 at pckbc0 (kbd slot)
+pckbc0: using irq 1 for kbd slot
+wskbd0 at pckbd0 (mux 1 ignored for console): console keyboard, using wsdisplay0
+pmsi0 at pckbc0 (aux slot)
+pckbc0: using irq 12 for aux slot
+wsmouse0 at pmsi0 mux 0
+pcppi0 at isa0 port 0x61
+midi0 at pcppi0: <PC speaker>
+spkr0 at pcppi0
+isabeep0 at pcppi0
+lpt0 at isa0 port 0x3bc/4 irq 7
+fdc0 at isa0 port 0x3f0/6 irq 6 drq 2
+fd0 at fdc0 drive 0: 1.44MB 80 cyl, 2 head, 18 sec
+mcclock0 at isa0 port 0x70/2: mc146818 or compatible
+root on sd0a swap on sd0b
+siop0: target 0 now using tagged 8 bit 10.0 MHz 8 REQ/ACK offset xfers
+rootdev=0x800 rrootdev=0x800 rawdev=0x802
+siop0: target 3 now using tagged 8 bit 10.0 MHz 8 REQ/ACK offset xfers
+stray isa irq 4
+stray isa irq 3
+

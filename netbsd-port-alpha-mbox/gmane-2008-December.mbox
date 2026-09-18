@@ -1,0 +1,2637 @@
+From njoly@pasteur.fr  Mon Dec 1 17:32:46 2008
+Path: news.gmane.org!not-for-mail
+From: Nicolas Joly <njoly@pasteur.fr>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: COMPAT_OSF1 getdirentries(2) fix
+Date: Mon, 1 Dec 2008 17:32:46 +0100
+Organization: Institut Pasteur, Paris.
+Lines: 248
+Approved: news@gmane.org
+Message-ID: <20081201163246.GA438898@medusa.sis.pasteur.fr>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="+QahgC5+KEYLbs62"
+X-Trace: ger.gmane.org 1228149192 12501 80.91.229.12 (1 Dec 2008 16:33:12 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Mon, 1 Dec 2008 16:33:12 +0000 (UTC)
+To: NetBSD alpha <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Dec 01 17:34:16 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L7Bix-00036j-AR
+	for netbsd-port-alpha@m.gmane.org; Mon, 01 Dec 2008 17:34:15 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 7F61963B1A5; Mon,  1 Dec 2008 16:32:53 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from munster3.sis.pasteur.fr (munster3.sis.pasteur.fr [157.99.64.214])
+	by mail.netbsd.org (Postfix) with ESMTP id 64CFB63B104
+	for <port-alpha@netbsd.org>; Mon,  1 Dec 2008 16:32:51 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by munster3.sis.pasteur.fr (Postfix) with ESMTP id AFB73119C98;
+	Mon,  1 Dec 2008 17:32:50 +0100 (CET)
+X-Virus-Scanned: amavisd-new at pasteur.fr
+Original-Received: from medusa.sis.pasteur.fr (medusa.sis.pasteur.fr [157.99.60.100])
+	by munster3.sis.pasteur.fr (Postfix) with ESMTP id 64197119C8C;
+	Mon,  1 Dec 2008 17:32:50 +0100 (CET)
+Original-Received: by medusa.sis.pasteur.fr (Postfix, from userid 16821)
+	id 01DE4407; Mon,  1 Dec 2008 17:32:46 +0100 (CET)
+Content-Disposition: inline
+User-Agent: Mutt/1.5.8i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4306
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4306>
+
+
+--+QahgC5+KEYLbs62
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+
+I'd like to commit, unless someone objects, the following patch.
+
+It fix the compat_osf1 getdirentries syscall which seems to have been
+broken for quite some time now ... mostly because native and osf1
+struct dirent differs (members number and types).
+
+-- 
+Nicolas Joly
+
+Biological Software and Databanks.
+Institut Pasteur, Paris.
+
+--+QahgC5+KEYLbs62
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="netbsd-osf1getdirentries.diff"
+
+Index: sys/compat/osf1/osf1_dirent.h
+===================================================================
+RCS file: sys/compat/osf1/osf1_dirent.h
+diff -N sys/compat/osf1/osf1_dirent.h
+--- /dev/null	1 Jan 1970 00:00:00 -0000
++++ sys/compat/osf1/osf1_dirent.h	1 Dec 2008 16:25:10 -0000
+@@ -0,0 +1,47 @@
++/*	$NetBSD$	 */
++
++/*-
++ * Copyright (c) 1994 The NetBSD Foundation, Inc.
++ * All rights reserved.
++ *
++ * This code is derived from software contributed to The NetBSD Foundation
++ * by Christos Zoulas.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
++ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
++ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef	_OSF1_DIRENT_H_
++#define	_OSF1_DIRENT_H_
++
++#define OSF1_MAXNAMLEN	255
++
++struct osf1_dirent {
++	osf1_ino_t	d_ino;
++	u_short		d_reclen;
++	u_short		d_namlen;
++	char		d_name[OSF1_MAXNAMLEN + 1];
++};
++
++#define OSF1_NAMEOFF(dp)       ((char *)&(dp)->d_name - (char *)dp)
++#define OSF1_RECLEN(de,namlen) ALIGN((OSF1_NAMEOFF(de) + (namlen) + 1))
++
++#endif /* !_OSF1_DIRENT_H_ */
+Index: sys/compat/osf1/osf1_file.c
+===================================================================
+RCS file: /cvsroot/src/sys/compat/osf1/osf1_file.c,v
+retrieving revision 1.30
+diff -u -p -r1.30 osf1_file.c
+--- sys/compat/osf1/osf1_file.c	21 Mar 2008 21:54:59 -0000	1.30
++++ sys/compat/osf1/osf1_file.c	1 Dec 2008 16:25:10 -0000
+@@ -86,11 +86,13 @@ __KERNEL_RCSID(0, "$NetBSD: osf1_file.c,
+ #include <sys/resourcevar.h>
+ #include <sys/wait.h>
+ #include <sys/vfs_syscalls.h>
++#include <sys/dirent.h>
+ 
+ #include <compat/osf1/osf1.h>
+ #include <compat/osf1/osf1_syscallargs.h>
+ #include <compat/common/compat_util.h>
+ #include <compat/osf1/osf1_cvt.h>
++#include <compat/osf1/osf1_dirent.h>
+ 
+ int
+ osf1_sys_access(struct lwp *l, const struct osf1_sys_access_args *uap, register_t *retval)
+@@ -121,6 +123,129 @@ osf1_sys_execve(struct lwp *l, const str
+ 	return sys_execve(l, &ap, retval);
+ }
+ 
++int
++osf1_sys_getdirentries(struct lwp *l, const struct osf1_sys_getdirentries_args *uap, register_t *retval)
++{
++	/* {
++		syscallarg(int) fd;
++		syscallarg(char *) buf;
++		syscallarg(u_int) nbytes;
++		syscallarg(long *) basep;
++	} */
++	struct dirent *bdp;
++	struct vnode *vp;
++	char *inp, *buf;        /* BSD-format */
++	int len, reclen;        /* BSD-format */
++	char *outp;             /* OSF1-format */
++	int resid, osf1_reclen; /* OSF1-format */
++	struct file *fp;
++	struct uio auio;
++	struct iovec aiov;
++	struct osf1_dirent idb;
++	off_t off;              /* true file offset */
++	int buflen, error, eofflag;
++	off_t *cookiebuf = NULL, *cookie;
++	int ncookies, fd;
++
++	fd = SCARG(uap, fd);
++	if ((error = fd_getvnode(fd, &fp)) != 0)
++		return (error);
++	if ((fp->f_flag & FREAD) == 0) {
++		error = EBADF;
++		goto out1;
++	}
++
++	vp = (struct vnode *)fp->f_data;
++	if (vp->v_type != VDIR) {
++		error = EINVAL;
++		goto out1;
++	}
++
++	buflen = min(MAXBSIZE, SCARG(uap, nbytes));
++	buf = malloc(buflen, M_TEMP, M_WAITOK);
++	vn_lock(vp, LK_EXCLUSIVE | LK_RETRY);
++	off = fp->f_offset;
++again:
++	aiov.iov_base = buf;
++	aiov.iov_len = buflen;
++	auio.uio_iov = &aiov;
++	auio.uio_iovcnt = 1;
++	auio.uio_rw = UIO_READ;
++	auio.uio_resid = buflen;
++	auio.uio_offset = off;
++	UIO_SETUP_SYSSPACE(&auio);
++	/*
++	 * First we read into the malloc'ed buffer, then
++	 * we massage it into user space, one record at a time.
++	 */
++	error = VOP_READDIR(vp, &auio, fp->f_cred, &eofflag, &cookiebuf,
++	    &ncookies);
++	if (error)
++		goto out;
++
++	inp = buf;
++	outp = (char *)SCARG(uap, buf);
++	resid = SCARG(uap, nbytes);
++	if ((len = buflen - auio.uio_resid) == 0)
++		goto eof;
++
++	for (cookie = cookiebuf; len > 0; len -= reclen) {
++		bdp = (struct dirent *)inp;
++		reclen = bdp->d_reclen;
++		if (reclen & 3)
++			panic("osf1_sys_getdirentries: bad reclen");
++		if (cookie)
++			off = *cookie++; /* each entry points to the next */
++		else
++			off += reclen;
++		if ((off >> 32) != 0) {
++			compat_offseterr(vp, "osf1_sys_getdirentries");
++			error = EINVAL;
++			goto out;
++		}
++		osf1_reclen = OSF1_RECLEN(&idb, bdp->d_namlen);
++		if (reclen > len || resid < osf1_reclen) {
++			/* entry too big for buffer, so just stop */
++			outp++;
++			break;
++		}
++		/*
++		 * Massage in place to make a OSF1-shaped dirent (otherwise
++		 * we have to worry about touching user memory outside of
++		 * the copyout() call).
++		 */
++		idb.d_ino = (osf1_ino_t)bdp->d_fileno;
++		idb.d_reclen = (u_short)osf1_reclen;
++		idb.d_namlen = (u_short)bdp->d_namlen;
++		strlcpy(idb.d_name, bdp->d_name, sizeof(idb.d_name));
++		if ((error = copyout((void *)&idb, outp, osf1_reclen)))
++			goto out;
++		/* advance past this real entry */
++		inp += reclen;
++		/* advance output past OSF1-shaped entry */
++		outp += osf1_reclen;
++		resid -= osf1_reclen;
++	}
++
++	/* if we squished out the whole block, try again */
++	if (outp == (char *)SCARG(uap, buf))
++		goto again;
++	fp->f_offset = off;     /* update the vnode offset */
++
++eof:
++	*retval = SCARG(uap, nbytes) - resid;
++out:
++	VOP_UNLOCK(vp, 0);
++	if (cookiebuf)
++		free(cookiebuf, M_TEMP);
++	free(buf, M_TEMP);
++out1:
++	fd_putfile(fd);
++	if (SCARG(uap, basep) != NULL)
++		error = copyout(&eofflag, SCARG(uap, basep), sizeof(long));
++	return error;
++}
++
+ /*
+  * Get file status; this version does not follow links.
+  */
+Index: sys/compat/osf1/syscalls.master
+===================================================================
+RCS file: /cvsroot/src/sys/compat/osf1/syscalls.master,v
+retrieving revision 1.46
+diff -u -p -r1.46 syscalls.master
+--- sys/compat/osf1/syscalls.master	24 Nov 2008 00:25:30 -0000	1.46
++++ sys/compat/osf1/syscalls.master	1 Dec 2008 16:25:11 -0000
+@@ -266,8 +266,8 @@
+ 			    struct osf1_sigaction *osa); }
+ 157	UNIMPL		sigwaitprim
+ 158	UNIMPL		nfssvc
+-159	NOARGS		{ int compat_43_sys_getdirentries(int fd, char *buf, \
+-			    u_int count, long *basep); }
++159	STD		{ int osf1_sys_getdirentries(int fd, char *buf, \
++			    int nbytes, long *basep); }
+ 160	STD		{ int osf1_sys_statfs(const char *path, \
+ 			    struct osf1_statfs *buf, int len); }
+ 161	STD		{ int osf1_sys_fstatfs(int fd, \
+
+--+QahgC5+KEYLbs62--
+
+
+From mhmccabe@alltel.net  Mon Dec 1 11:51:20 2008
+Path: news.gmane.org!not-for-mail
+From: "Micheal H. McCabe" <mhmccabe@alltel.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Configuring a serial printer, etc...
+Date: Mon, 1 Dec 2008 11:51:20 -0600
+Lines: 25
+Approved: news@gmane.org
+Message-ID: <20081201115120.L175U.151166.root@ispmxfep10-z01>
+Reply-To: mhmccabe@alltel.net
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228154831 1442 80.91.229.12 (1 Dec 2008 18:07:11 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Mon, 1 Dec 2008 18:07:11 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Dec 01 19:08:15 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L7DBg-0006Sm-FA
+	for netbsd-port-alpha@m.gmane.org; Mon, 01 Dec 2008 19:08:00 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 4A90B63B1C0; Mon,  1 Dec 2008 18:06:26 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from ispmxmta09-srv.windstream.net (ispmxmta09-srv.windstream.net [166.102.165.170])
+	by mail.netbsd.org (Postfix) with ESMTP id 017D863B1B5
+	for <port-alpha@netbsd.org>; Mon,  1 Dec 2008 18:06:24 +0000 (UTC)
+Original-Received: from ispmxfep10-z01 ([10.135.32.116])
+          by ispmxmta07-srv.windstream.net with ESMTP
+          id <20081201175118.UTQD18947.ispmxmta07-srv.windstream.net@ispmxfep10-z01>
+          for <port-alpha@netbsd.org>; Mon, 1 Dec 2008 11:51:18 -0600
+X-Priority: 3 (Normal)
+Sensitivity: Normal
+X-Originating-IP: 71.121.70.207
+X-Auth-IP: 71.121.70.207
+X-Cloudmark-Analysis: v=1.0 c=1 a=3YHHJZ2X6CgA:10 a=4UDjgrg2mcEA:10 a=mD5IMJx2biUA:10 a=lou-B-xyCgqAgSIcB9oA:9 a=gIqQ0QWc2-Ekz1lndi2uMdtxbvIA:4 a=_KtGf5bnNxAA:10 a=rPt6xJ-oxjAA:10
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4307
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4307>
+
+---- Mark Ter Morshuizen <mark@itbox.co.za> wrote: 
+> Hi Michael, 
+> 
+> I don't think I can help you with the printing problem. 
+> 
+> I have a DEC 3000 / 600S running NetBSD and thought I was the only idiot on 
+> earth still running something like that. Mine's got a 175 MHz CPU with 196 Mb 
+> of RAM with some old 2 Gb disks. What's yours? 
+ 
+DEC 3000M700S with 196mb RAM, 4 gb disk, and an Apple CD-ROM to liven things up.  
+I have a turbochannel graphics board that I might install (if and when I can 
+find an appropriate mouse and keyboard.) 
+ 
+I first installed NetBSD in 2003 after playing with VMS for a while.  It's been 
+my first experience as a UNIX Sysadmin and the learning curve has been pretty 
+slow going. 
+ 
+I love the DEC systems, and I'm starting to get used to the UNIX environment.  
+Glad to hear that someone else is still running the original Alpha hardware. 
+ 
+-- 
+Micheal H. McCabe 
+mhmccabe@alltel.net 
+
+
+
+From christos@astron.com  Tue Dec 2 05:41:50 2008
+Path: news.gmane.org!not-for-mail
+From: christos@astron.com (Christos Zoulas)
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: COMPAT_OSF1 getdirentries(2) fix
+Date: Tue, 2 Dec 2008 05:41:50 +0000 (UTC)
+Lines: 19
+Approved: news@gmane.org
+Message-ID: <gh2hqu$s6s$1@ger.gmane.org>
+References: <20081201163246.GA438898@medusa.sis.pasteur.fr>
+NNTP-Posting-Host: lo.gmane.org
+X-Trace: ger.gmane.org 1228196552 28974 80.91.229.12 (2 Dec 2008 05:42:32 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Tue, 2 Dec 2008 05:42:32 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Dec 02 06:43:28 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L7O2i-00083n-8e
+	for netbsd-port-alpha@m.gmane.org; Tue, 02 Dec 2008 06:43:28 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 1AF2463B108; Tue,  2 Dec 2008 05:42:03 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from ciao.gmane.org (main.gmane.org [80.91.229.2])
+	(using TLSv1 with cipher AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by mail.netbsd.org (Postfix) with ESMTPS id 0BC0363B103
+	for <port-alpha@netbsd.org>; Tue,  2 Dec 2008 05:42:01 +0000 (UTC)
+Original-Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1L7O1E-00061U-V4
+	for port-alpha@netbsd.org; Tue, 02 Dec 2008 05:41:56 +0000
+Original-Received: from rebar.astron.com ([208.77.212.97])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <port-alpha@netbsd.org>; Tue, 02 Dec 2008 05:41:56 +0000
+Original-Received: from christos by rebar.astron.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <port-alpha@netbsd.org>; Tue, 02 Dec 2008 05:41:56 +0000
+X-Injected-Via-Gmane: http://gmane.org/
+Original-Lines: 17
+Original-X-Complaints-To: usenet@ger.gmane.org
+X-Gmane-NNTP-Posting-Host: rebar.astron.com
+X-Newsreader: trn 4.0-test76 (Apr 2, 2001)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4308
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4308>
+
+In article <20081201163246.GA438898@medusa.sis.pasteur.fr>,
+Nicolas Joly  <njoly@pasteur.fr> wrote:
+>-=-=-=-=-=-
+>
+>
+>I'd like to commit, unless someone objects, the following patch.
+>
+>It fix the compat_osf1 getdirentries syscall which seems to have been
+>broken for quite some time now ... mostly because native and osf1
+>struct dirent differs (members number and types).
+>
+
+Commit it, but I think it is about time to merge some of all these
+getdents/getdirentries copies via some CPP magic. Perhaps some other
+day.
+
+christos
+
+
+
+From uwe.lienig@fif.mw.htw-dresden.de  Tue Dec 2 10:20:21 2008
+Path: news.gmane.org!not-for-mail
+From: Uwe Lienig <uwe.lienig@fif.mw.htw-dresden.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring a serial printer, etc...
+Date: Tue, 02 Dec 2008 10:20:21 +0100
+Lines: 49
+Approved: news@gmane.org
+Message-ID: <4934FDD5.1040000@fif.mw.htw-dresden.de>
+References: <20081201115120.L175U.151166.root@ispmxfep10-z01>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+X-Trace: ger.gmane.org 1228213292 8097 80.91.229.12 (2 Dec 2008 10:21:32 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Tue, 2 Dec 2008 10:21:32 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Dec 02 11:22:15 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L7SOV-00088a-9U
+	for netbsd-port-alpha@m.gmane.org; Tue, 02 Dec 2008 11:22:15 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 7175863B114; Tue,  2 Dec 2008 10:20:53 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mfifmx0.fif.mw.htw-dresden.de (mfifmx0.fif.mw.htw-dresden.de [141.56.22.4])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by mail.netbsd.org (Postfix) with ESMTPS id E126163B103
+	for <port-alpha@netbsd.org>; Tue,  2 Dec 2008 10:20:51 +0000 (UTC)
+Original-Received: from [141.56.22.45] (malta.fif.mw.htw-dresden.de [141.56.22.45])
+	by mfifmx0.fif.mw.htw-dresden.de (8.13.3/8.13.3) with ESMTP id mB29KSSG017850
+	for <port-alpha@netbsd.org>; Tue, 2 Dec 2008 10:20:29 +0100 (CET)
+User-Agent: Thunderbird 2.0.0.17 (X11/20080922)
+In-Reply-To: <20081201115120.L175U.151166.root@ispmxfep10-z01>
+X-Enigmail-Version: 0.95.7
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4309
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4309>
+
+port-alpha wrote:
+> ---- Mark Ter Morshuizen <mark@itbox.co.za> wrote:=20
+>> Hi Michael,=20
+>>
+>> I don't think I can help you with the printing problem.=20
+>>
+>> I have a DEC 3000 / 600S running NetBSD and thought I was the only idi=
+ot on=20
+>> earth still running something like that. Mine's got a 175 MHz CPU with=
+ 196 Mb=20
+>> of RAM with some old 2 Gb disks. What's yours?=20
+> =20
+> DEC 3000M700S with 196mb RAM, 4 gb disk, and an Apple CD-ROM to liven t=
+hings up. =20
+> I have a turbochannel graphics board that I might install (if and when =
+I can=20
+> find an appropriate mouse and keyboard.)=20
+> =20
+Hi there. I've got those here as well. DEC3000/800 w/ 256MB, DEC 3000/300=
+L w/
+256MB, DEC 3000/300LX w/ 208MB. All with different harddisks. Some Turbo =
+Channel
+adapters rescued (ZLX E, 3D-Turbo Channel graphics adapters from DEC MIPS=
+). Used
+as servers for DHCP, WWW and the like, and for historical reasons.
+
+NetBSD seems to be the one and only alternative for a decent unix on thos=
+e old,
+but rock solid systems.
+
+Regards
+
+--=20
+
+
+Uwe Lienig
+----------
+fon: (+49 351) 462 2780
+fax: (+49 351) 462 3476
+mailto:uwe.lienig@fif.mw.htw-dresden.de
+
+Forschungsinstitut Fahrzeugtechnik
+<http://www.fif.mw.htw-dresden.de>
+parcels: Gutzkowstr. 22, 01069 Dresden
+letters: PF 12 07 01,    01008 Dresden
+
+Hochschule f=C3=BCr Technik und Wirtschaft Dresden (FH)
+Friedrich-List-Platz 1, 01069 Dresden
+
+
+From mcguire@neurotica.com  Tue Dec 2 11:46:55 2008
+Path: news.gmane.org!not-for-mail
+From: Dave McGuire <mcguire@neurotica.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring a serial printer, etc...
+Date: Tue, 2 Dec 2008 11:46:55 -0500
+Lines: 39
+Approved: news@gmane.org
+Message-ID: <CDEAFC6E-A10B-43C4-BF53-288FC377266B@neurotica.com>
+References: <20081201115120.L175U.151166.root@ispmxfep10-z01> <4934FDD5.1040000@fif.mw.htw-dresden.de>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (Apple Message framework v753.1)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228236390 23677 80.91.229.12 (2 Dec 2008 16:46:30 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Tue, 2 Dec 2008 16:46:30 +0000 (UTC)
+To: NetBSD/Alpha Discussion List <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Dec 02 17:47:33 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L7YPH-0001BT-Bw
+	for netbsd-port-alpha@m.gmane.org; Tue, 02 Dec 2008 17:47:27 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 9DECE63B113; Tue,  2 Dec 2008 16:46:03 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from newmail.coconet.com (newmail.coconet.com [204.176.96.40])
+	by mail.netbsd.org (Postfix) with ESMTP id D794963B103
+	for <port-alpha@netbsd.org>; Tue,  2 Dec 2008 16:46:01 +0000 (UTC)
+Original-Received: from mail.neurotica.com (fl-76-2-120-33.sta.embarqhsd.net [76.2.120.33])
+	by newmail.coconet.com (Postfix) with ESMTP id 1376F19830F
+	for <port-alpha@netbsd.org>; Tue,  2 Dec 2008 11:46:00 -0500 (EST)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.neurotica.com (Postfix) with ESMTP id DDF621EBB66
+	for <port-alpha@netbsd.org>; Tue,  2 Dec 2008 11:45:54 -0500 (EST)
+X-Virus-Scanned: amavisd-new at neurotica.com
+Original-Received: from mail.neurotica.com ([127.0.0.1])
+	by localhost (mail.neurotica.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id G+N5prZkqZrd for <port-alpha@netbsd.org>;
+	Tue,  2 Dec 2008 11:45:53 -0500 (EST)
+Original-Received: from [192.168.0.11] (fl-76-2-120-32.sta.embarqhsd.net [76.2.120.32])
+	(Authenticated sender: mcguire@neurotica.com)
+	by mail.neurotica.com (Postfix) with ESMTPA id 71F451EBB57
+	for <port-alpha@netbsd.org>; Tue,  2 Dec 2008 11:45:53 -0500 (EST)
+In-Reply-To: <4934FDD5.1040000@fif.mw.htw-dresden.de>
+X-Mailer: Apple Mail (2.753.1)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4310
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4310>
+
+On Dec 2, 2008, at 4:20 AM, Uwe Lienig wrote:
+>>> I don't think I can help you with the printing problem.
+>>>
+>>> I have a DEC 3000 / 600S running NetBSD and thought I was the  
+>>> only idiot on
+>>> earth still running something like that. Mine's got a 175 MHz CPU  
+>>> with 196 Mb
+>>> of RAM with some old 2 Gb disks. What's yours?
+>>
+>> DEC 3000M700S with 196mb RAM, 4 gb disk, and an Apple CD-ROM to  
+>> liven things up.
+>> I have a turbochannel graphics board that I might install (if and  
+>> when I can
+>> find an appropriate mouse and keyboard.)
+>>
+> Hi there. I've got those here as well. DEC3000/800 w/ 256MB, DEC  
+> 3000/300L w/
+> 256MB, DEC 3000/300LX w/ 208MB. All with different harddisks. Some  
+> Turbo Channel
+> adapters rescued (ZLX E, 3D-Turbo Channel graphics adapters from  
+> DEC MIPS). Used
+> as servers for DHCP, WWW and the like, and for historical reasons.
+>
+> NetBSD seems to be the one and only alternative for a decent unix  
+> on those old,
+> but rock solid systems.
+
+   I agree.  I don't use them much these days, but I have a few old  
+DEC3000-series machines.  I really like them.  They're surprisingly  
+zippy for their age, and they are built like tanks.
+
+         -Dave
+
+-- 
+Dave McGuire
+Port Charlotte, FL
+
+
+
+
+From he@NetBSD.org  Thu Dec 4 22:25:58 2008
+Path: news.gmane.org!not-for-mail
+From: Havard Eidnes <he@NetBSD.org>
+Newsgroups: gmane.os.netbsd.devel.pkgsrc.user,gmane.os.netbsd.ports.alpha
+Subject: Package binaries for NetBSD/alpha 3.1 / pkgsrc-2008Q3
+Date: Thu, 04 Dec 2008 22:25:58 +0100 (CET)
+Lines: 23
+Approved: news@gmane.org
+Message-ID: <20081204.222558.155841628.he@uninett.no>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+X-Trace: ger.gmane.org 1228426000 12711 80.91.229.12 (4 Dec 2008 21:26:40 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Thu, 4 Dec 2008 21:26:40 +0000 (UTC)
+Cc: pkgsrc-users@NetBSD.org
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-pkgsrc-users-owner-gondpu-pkgsrc-users=m.gmane.org@NetBSD.org Thu Dec 04 22:27:42 2008
+Return-path: <bounces-pkgsrc-users-owner-gondpu-pkgsrc-users=m.gmane.org@NetBSD.org>
+Envelope-to: gondpu-pkgsrc-users@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L8LjO-0001mK-JG
+	for gondpu-pkgsrc-users@m.gmane.org; Thu, 04 Dec 2008 22:27:30 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id B6F0C63B193; Thu,  4 Dec 2008 21:26:03 +0000 (UTC)
+Delivered-To: pkgsrc-users@NetBSD.org
+Original-Received: from smistad.uninett.no (smistad.uninett.no [IPv6:2001:700:1:0:211:9ff:fe8c:7386])
+	by mail.netbsd.org (Postfix) with ESMTP id B62B463B188;
+	Thu,  4 Dec 2008 21:25:59 +0000 (UTC)
+Original-Received: from smistad.uninett.no (smistad.uninett.no [158.38.62.77])
+	by smistad.uninett.no (Postfix) with ESMTP id 75F2C21DC43;
+	Thu,  4 Dec 2008 22:25:58 +0100 (CET)
+X-Mailer: Mew version 5.2 on Emacs 22.1 / Mule 5.0 (SAKAKI)
+Original-Sender: pkgsrc-users-owner@NetBSD.org
+List-Id: pkgsrc-users
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.devel.pkgsrc.user:8809 gmane.os.netbsd.ports.alpha:4311
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4311>
+
+Hi,
+
+I've uploaded the results of a bulk rebuild for NetBSD/alpha
+3.1 to
+
+   ftp://ftp.NetBSD.org/pub/pkgsrc/packages/NetBSD/alpha/3.1_2008Q3/
+
+A total of 6.2GB of packages were uploaded for a total count of 6468
+packages.
+
+The source tree this was built from was updated Oct 26 2008, and the
+packages were built on a system running 3.1_STABLE.
+
+I'll update this tree along pkgsrc-2008Q3 and do a rebuild.
+
+Adhering to established practice, the packages for 3.1 2008Q1
+have been tossed in the bit-bucket, since we keep at most 2 sets
+of binary packages for a given arch/os-version.
+
+Regards,
+
+- H=E5vard
+
+
+From he@NetBSD.org  Thu Dec 4 23:54:40 2008
+Path: news.gmane.org!not-for-mail
+From: Havard Eidnes <he@NetBSD.org>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.devel.pkgsrc.user
+Subject: Re: Package binaries for NetBSD/alpha 4.0 / pkgsrc-2008Q3
+Date: Thu, 04 Dec 2008 23:54:40 +0100 (CET)
+Lines: 34
+Approved: news@gmane.org
+Message-ID: <20081204.235440.95043522.he@uninett.no>
+References: <20081103.092037.179945165.he@uninett.no>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+X-Trace: ger.gmane.org 1228431316 451 80.91.229.12 (4 Dec 2008 22:55:16 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Thu, 4 Dec 2008 22:55:16 +0000 (UTC)
+Cc: pkgsrc-users@NetBSD.org
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Dec 04 23:56:18 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L8N78-0001fC-V2
+	for netbsd-port-alpha@m.gmane.org; Thu, 04 Dec 2008 23:56:07 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 2C51363B16F; Thu,  4 Dec 2008 22:54:45 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from smistad.uninett.no (smistad.uninett.no [IPv6:2001:700:1:0:211:9ff:fe8c:7386])
+	by mail.netbsd.org (Postfix) with ESMTP id 5F0B463B157;
+	Thu,  4 Dec 2008 22:54:41 +0000 (UTC)
+Original-Received: from smistad.uninett.no (smistad.uninett.no [158.38.62.77])
+	by smistad.uninett.no (Postfix) with ESMTP id 51EF021DC43;
+	Thu,  4 Dec 2008 23:54:40 +0100 (CET)
+In-Reply-To: <20081103.092037.179945165.he@uninett.no>
+X-Mailer: Mew version 5.2 on Emacs 22.1 / Mule 5.0 (SAKAKI)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4312 gmane.os.netbsd.devel.pkgsrc.user:8814
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4312>
+
+Hi,
+
+I've uploaded the results of a bulk rebuild for NetBSD/alpha
+4.0 to
+
+   ftp://ftp.NetBSD.org/pub/pkgsrc/packages/NetBSD/alpha/4.0_2008Q3/
+
+A total of 2.9GB of packages were uploaded for a total count of 1567
+packages.  The packages available in new versions or which were not
+available before are: aegis-4.22nb2, clamav-0.94.1,
+crossfire-maps-1.9.0.1nb1, cups-1.3.9, dbus-1.2.4, dovecot-1.1.6,
+drupal-5.12, drupal-6.6nb1, ed-1.1, gpsdrive-1.31nb11, graphviz-2.16.1n=
+b3,
+imlib2-1.4.2, jhead-2.84, ktorrent-2.2.8, libspf2-1.2.8, libxml2-2.7.1n=
+b1,
+mantis-1.1.4, mktemp-1.6, nagios-base-3.0.3, openldap-server-2.4.11nb4,=
+
+optipng-0.6.1, php-5.2.6nb2, phpmyadmin-2.11.9.3, png-1.2.33rc02,
+powerdns-sqlite-2.9.21.1, rrdtool-1.3.4, rt-mysql-2.0.15nb6,
+rt-pgsql-2.0.15nb6, samba-3.0.32nb1, sarg-2.1nb3, squid-2.6.21nb2,
+squid-2.7.4nb1, squid-3.0.9nb1, swfdec-0.2.2nb8, tnftpd-20081009,
+typo3-4.2.1nb3, vlc-0.9.5, wireshark-1.0.4, and xapian-omega-1.0.7nb2.
+
+The source tree this was built from was updated 6 Nov 2008, and
+the packages were built on a system running 4.0.
+
+I'll continue building for this branch for now.
+
+Regards,
+
+- H=E5vard
+
+
+
+
+From harenberg@physik.uni-wuppertal.de  Sat Dec 6 09:31:59 2008
+Path: news.gmane.org!not-for-mail
+From: Torsten Harenberg <harenberg@physik.uni-wuppertal.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Sat, 06 Dec 2008 09:31:59 +0100
+Lines: 32
+Approved: news@gmane.org
+Message-ID: <493A387F.30400@physik.uni-wuppertal.de>
+References: <7E5AEDE09538455881AC8AA57779FA41@McCabeLaptop> <20081129210737.5f19c3b0.jkunz@unixag-kl.fh-kl.de> <4B7FB89D13404805AC170F5DC3CF2CF8@McCabeLaptop>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228555976 19358 80.91.229.12 (6 Dec 2008 09:32:56 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sat, 6 Dec 2008 09:32:56 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Dec 06 10:34:00 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L8tXz-0002nN-Ua
+	for netbsd-port-alpha@m.gmane.org; Sat, 06 Dec 2008 10:34:00 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id EAE9463B146; Sat,  6 Dec 2008 09:32:36 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from mail.physik.uni-wuppertal.de (mail.physik.uni-wuppertal.de [132.195.104.215])
+	by mail.netbsd.org (Postfix) with ESMTP id D1D0063B144
+	for <port-alpha@NetBSD.org>; Sat,  6 Dec 2008 09:32:34 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.physik.uni-wuppertal.de (Postfix) with ESMTP id 08F3E53186AA
+	for <port-alpha@NetBSD.org>; Sat,  6 Dec 2008 09:32:06 +0100 (CET)
+Original-Received: from mail.physik.uni-wuppertal.de ([127.0.0.1])
+ by localhost (mail.physik.uni-wuppertal.de [127.0.0.1]) (amavisd-new, port 10024)
+ with ESMTP id 28356-05 for <port-alpha@NetBSD.org>;
+ Sat,  6 Dec 2008 09:32:03 +0100 (CET)
+Original-Received: from torsten-harenbergs-macbook.local (p57bdae99.dip0.t-ipconnect.de [87.189.174.153])
+	by mail.physik.uni-wuppertal.de (Postfix) with ESMTP id 22ABE53186A0
+	for <port-alpha@NetBSD.org>; Sat,  6 Dec 2008 09:32:03 +0100 (CET)
+User-Agent: Thunderbird 2.0.0.18 (Macintosh/20081105)
+In-Reply-To: <4B7FB89D13404805AC170F5DC3CF2CF8@McCabeLaptop>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4313
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4313>
+
+Hi Michael,
+
+Micheal H. McCabe schrieb:
+>
+>> Can you talk to the printer using tip(1) or cu(1) like:
+>> cu -l /dev/ttyB0 -s 9600
+> 
+> Yes.  I'm able to send text from the console keyboard to the line 
+> printer using cu. Since cu
+> sets the baud rate and communication parameters, this works without a 
+> problem.
+
+maybe a stupid advice, but have you tried to set the serial line speed 
+with stty to have a certain serial line speed even outside of cu? See 
+stty(1) for details.
+
+Best regards,
+
+   Torsten
+
+
+-- 
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+<>                                                              <>
+<> Dr. Torsten Harenberg     harenberg@physik.uni-wuppertal.de  <>
+<> Bergische Universitaet                                       <>
+<> FB C - Physik             Tel.: +49 (0)202 439-3521          <>
+<> Gaussstr. 20              Fax : +49 (0)202 439-2811          <>
+<> 42097 Wuppertal                                              <>
+<>                                                              <>
+<><><><><><><>< Of course it runs NetBSD http://www.netbsd.org ><>
+
+
+From mhmccabe@alltel.net  Sat Dec 6 10:43:20 2008
+Path: news.gmane.org!not-for-mail
+From: "Micheal H. McCabe" <mhmccabe@alltel.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Sat, 6 Dec 2008 10:43:20 -0600
+Lines: 65
+Approved: news@gmane.org
+Message-ID: <20081206104320.AFJ2O.251465.root@ispmxfep11-z01>
+References: <493A387F.30400@physik.uni-wuppertal.de>
+Reply-To: mhmccabe@alltel.net
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228581911 22828 80.91.229.12 (6 Dec 2008 16:45:11 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sat, 6 Dec 2008 16:45:11 +0000 (UTC)
+To: port-alpha@NetBSD.org, Torsten Harenberg <harenberg@physik.uni-wuppertal.de>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Dec 06 17:46:15 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L90II-0002I3-Ck
+	for netbsd-port-alpha@m.gmane.org; Sat, 06 Dec 2008 17:46:14 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 27F3963B190; Sat,  6 Dec 2008 16:44:51 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from ispmxmta05-srv.windstream.net (ispmxmta05-srv.windstream.net [166.102.165.166])
+	by mail.netbsd.org (Postfix) with ESMTP id 59D4863B18E
+	for <port-alpha@NetBSD.org>; Sat,  6 Dec 2008 16:44:49 +0000 (UTC)
+Original-Received: from ispmxfep11-z01 ([10.135.32.117])
+          by ispmxmta07-srv.windstream.net with ESMTP
+          id <20081206164320.KFDC18947.ispmxmta07-srv.windstream.net@ispmxfep11-z01>;
+          Sat, 6 Dec 2008 10:43:20 -0600
+In-Reply-To: <493A387F.30400@physik.uni-wuppertal.de>
+X-Priority: 3 (Normal)
+Sensitivity: Normal
+X-Originating-IP: 174.130.63.64
+X-Auth-IP: 174.130.63.64
+X-Cloudmark-Analysis: v=1.0 c=1 a=sO53SElE4XIA:10 a=WQuhj6R27SEA:10 a=mD5IMJx2biUA:10 a=NSwHTYXqLXcZY_RyTiwA:9 a=T7M7Wg5_UadBa9MhiI0A:7 a=4COfNhHp2Jha6zjzeFognWO1NvoA:4 a=_KtGf5bnNxAA:10 a=rPt6xJ-oxjAA:10
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4314
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4314>
+
+---- Torsten Harenberg <harenberg@physik.uni-wuppertal.de> wrote:
+
+> Hi Michael,
+> 
+> maybe a stupid advice, but have you tried to set the serial line speed 
+> with stty to have a certain serial line speed even outside of cu? See 
+> stty(1) for details.
+> 
+
+Not stupid at all :-)  I thought about that... Really, I did!
+
+Checking the status with stty gives me the following:
+
+# stty -a -f /dev/ttyB0
+ispeed 0 baud; ospeed 9600 baud; 0 rows; 0 columns;
+lflags: icanon isig iexten echo echoe -echok echoke -echonl echoctl
+        -echoprt -altwerase -noflsh -tostop -flusho -pendin -nokerninfo
+        -extproc
+iflags: -istrip icrnl -inlcr -igncr ixon -ixoff ixany imaxbel -ignbrk
+        brkint -inpck -ignpar -parmrk
+oflags: opost onlcr -ocrnl oxtabs onocr onlret
+cflags: cread cs8 -parenb -parodd hupcl -clocal -cstopb -crtscts -mdmbuf
+        -cdtrcts
+cchars: discard = ^O; dsusp = ^Y; eof = ^D; eol = <undef>;
+        eol2 = <undef>; erase = ^?; intr = ^C; kill = ^U; lnext = ^V;
+        min = 1; quit = ^\; reprint = ^R; start = ^Q; status = ^T;
+        stop = ^S; susp = ^Z; time = 0; werase = ^W;
+#
+
+The output baud rate is correct (9600) and that should give me (at least) some garbage when I try to send data to the printer.
+
+What usually happens looks something like this:
+
+#
+# lp Test.Substances
+request id is 2
+# ps -ax | grep lpd
+ 307 ?     Ss   0:00.02 /usr/sbin/lpd -s
+2298 ?     I    0:00.01 /usr/sbin/lpd -s
+#
+#
+
+lp acknowledges the request and puts it in the queue. lpd is running.  Then, when I check the lpq, I get the following:
+
+# lpq
+# Warning: lp queue is turned off
+Warning:: not found
+# lp is ready and printing
+Rank   Owner      Job  Files                                 Total Size
+1st    root       1    Test.Substances                       4925 bytes
+2nd    root       2    Test.Substances                       4925 bytes
+#
+
+No further errors.  Nothing in the log.  No output.
+
+I checked the cable (again.)  It works fine to connect a tty to the very same port.  Checked the port as a regular tty -- no problems. Changed the baud rate on the terminal, worked fine. Changed data formats - worked fine. Checked the printer with another computer -- works fine.  Checked the handshaking lines with a breakout box.  No hardware handshaking seems to be implemented.
+
+I'm thinking that I'm just missing something vital in printcap or another configuration file (somewhere!)
+
+-- 
+Micheal H. McCabe
+mhmccabe@alltel.net
+
+
+
+
+From harenberg@physik.uni-wuppertal.de  Sat Dec 6 18:44:57 2008
+Path: news.gmane.org!not-for-mail
+From: Torsten Harenberg <harenberg@physik.uni-wuppertal.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Sat, 06 Dec 2008 18:44:57 +0100
+Lines: 36
+Approved: news@gmane.org
+Message-ID: <493ABA19.5030200@physik.uni-wuppertal.de>
+References: <20081206104320.AFJ2O.251465.root@ispmxfep11-z01>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228585539 502 80.91.229.12 (6 Dec 2008 17:45:39 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sat, 6 Dec 2008 17:45:39 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: mhmccabe@alltel.net
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Dec 06 18:46:42 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L91Eo-00064y-19
+	for netbsd-port-alpha@m.gmane.org; Sat, 06 Dec 2008 18:46:42 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 73B4D63B12D; Sat,  6 Dec 2008 17:45:10 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from mail.physik.uni-wuppertal.de (mail.physik.uni-wuppertal.de [132.195.104.215])
+	by mail.netbsd.org (Postfix) with ESMTP id 8C6B463B1C2
+	for <port-alpha@NetBSD.org>; Sat,  6 Dec 2008 17:45:02 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.physik.uni-wuppertal.de (Postfix) with ESMTP id 92F7553268E2;
+	Sat,  6 Dec 2008 18:45:01 +0100 (CET)
+Original-Received: from mail.physik.uni-wuppertal.de ([127.0.0.1])
+ by localhost (mail.physik.uni-wuppertal.de [127.0.0.1]) (amavisd-new, port 10024)
+ with ESMTP id 11790-03; Sat,  6 Dec 2008 18:44:59 +0100 (CET)
+Original-Received: from torsten-harenbergs-macbook.local (p57bd88ef.dip0.t-ipconnect.de [87.189.136.239])
+	by mail.physik.uni-wuppertal.de (Postfix) with ESMTP id 1FC4E53268C8;
+	Sat,  6 Dec 2008 18:44:59 +0100 (CET)
+User-Agent: Thunderbird 2.0.0.18 (Macintosh/20081105)
+In-Reply-To: <20081206104320.AFJ2O.251465.root@ispmxfep11-z01>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4315
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4315>
+
+Hi Michael,
+
+Micheal H. McCabe schrieb:
+
+> # lpq
+> # Warning: lp queue is turned off
+> Warning:: not found
+> # lp is ready and printing
+>
+
+that looks fishy to me. But the ": not found" doesn't seem to come from 
+lpd itself (at least I couldn't find such an output in 3.1_STABLE 
+sources, which I use to run on my PWS433au).
+
+I assume (but I'm not an expert at all on lpd!!) the message comes from 
+const char* checkremote(void) in common_source/common.c, which return 
+errbuf several times.
+
+Does "localhost" etc. resolve okay on your machine? Is loopback 
+networking active?
+
+Hope this helps to dig down to the source of the problem,
+
+   Torsten
+
+-- 
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+<>                                                              <>
+<> Dr. Torsten Harenberg     harenberg@physik.uni-wuppertal.de  <>
+<> Bergische Universitaet                                       <>
+<> FB C - Physik             Tel.: +49 (0)202 439-3521          <>
+<> Gaussstr. 20              Fax : +49 (0)202 439-2811          <>
+<> 42097 Wuppertal                                              <>
+<>                                                              <>
+<><><><><><><>< Of course it runs NetBSD http://www.netbsd.org ><>
+
+
+From mouse@Rodents-Montreal.ORG  Sat Dec 6 12:59:20 2008
+Path: news.gmane.org!not-for-mail
+From: der Mouse <mouse@Rodents-Montreal.ORG>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Sat, 6 Dec 2008 12:59:20 -0500 (EST)
+Lines: 23
+Approved: news@gmane.org
+Message-ID: <200812061803.NAA06797@Sparkle.Rodents-Montreal.ORG>
+References: <20081206104320.AFJ2O.251465.root@ispmxfep11-z01>
+	<493ABA19.5030200@physik.uni-wuppertal.de>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+X-Trace: ger.gmane.org 1228586635 3733 80.91.229.12 (6 Dec 2008 18:03:55 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sat, 6 Dec 2008 18:03:55 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Dec 06 19:04:59 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L91WL-0003R8-4A
+	for netbsd-port-alpha@m.gmane.org; Sat, 06 Dec 2008 19:04:49 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 4F58063B19C; Sat,  6 Dec 2008 18:03:28 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from Sparkle.Rodents-Montreal.ORG (Sparkle.Rodents-Montreal.ORG [216.46.5.7])
+	by mail.netbsd.org (Postfix) with ESMTP id CD5A063B18D
+	for <port-alpha@NetBSD.org>; Sat,  6 Dec 2008 18:03:25 +0000 (UTC)
+Original-Received: (from mouse@localhost)
+	by Sparkle.Rodents-Montreal.ORG (8.8.8/8.8.8) id NAA06797;
+	Sat, 6 Dec 2008 13:03:24 -0500 (EST)
+X-Erik-Conspiracy: There is no Conspiracy - and if there were I wouldn't be part of it anyway.
+X-Message-Flag: Microsoft: the company who gave us the botnet zombies.
+In-Reply-To: <493ABA19.5030200@physik.uni-wuppertal.de>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4316
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4316>
+
+>> # lpq
+>> # Warning: lp queue is turned off
+>> Warning:: not found
+
+> that looks fishy to me.  But the ": not found" doesn't seem to come
+> from lpd itself
+
+I think it's probably coming from the shell.  That looks as though the
+string "Warning: lp queue is turned off" got fed to the shell as a
+command.  The shell, naturally enough, couldn't find any command named
+"Warning:", so it printed the message it usually does under those
+circumstances.  (How that string got fed to the shell as command input
+is a separate issue.)
+
+Whether any of this has anything to do with the printing problem is, of
+course, another question - and one I'm not competent to speak to.  It's
+been *ages* since I used anything lprish.
+
+/~\ The ASCII				  Mouse
+\ / Ribbon Campaign
+ X  Against HTML		mouse@rodents-montreal.org
+/ \ Email!	     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+
+From mhmccabe@alltel.net  Sat Dec 6 16:23:05 2008
+Path: news.gmane.org!not-for-mail
+From: "Micheal H. McCabe" <mhmccabe@alltel.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Sat, 06 Dec 2008 16:23:05 -0500
+Lines: 104
+Approved: news@gmane.org
+Message-ID: <C5605769.6C9B%mhmccabe@alltel.net>
+References: <493ABDC6.1000307@softjar.se>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228598612 3917 80.91.229.12 (6 Dec 2008 21:23:32 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sat, 6 Dec 2008 21:23:32 +0000 (UTC)
+To: <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Dec 06 22:24:35 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L94de-0007u1-Ms
+	for netbsd-port-alpha@m.gmane.org; Sat, 06 Dec 2008 22:24:35 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 3DBD063B10A; Sat,  6 Dec 2008 21:23:08 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from ispmxmta09-srv.windstream.net (ispmxmta09-srv.windstream.net [166.102.165.170])
+	by mail.netbsd.org (Postfix) with ESMTP id A921D63B100
+	for <port-alpha@netbsd.org>; Sat,  6 Dec 2008 21:23:06 +0000 (UTC)
+Original-Received: from ispmxaamta04-gx.windstream.net ([98.16.75.216])
+          by ispmxmta09-srv.windstream.net with ESMTP
+          id <20081206212305.UXLD4904.ispmxmta09-srv.windstream.net@ispmxaamta04-gx.windstream.net>
+          for <port-alpha@netbsd.org>; Sat, 6 Dec 2008 15:23:05 -0600
+Original-Received: from [192.168.1.45] (really [98.16.75.216])
+          by ispmxaamta04-gx.windstream.net with ESMTP
+          id <20081206212305.HZND10030.ispmxaamta04-gx.windstream.net@[192.168.1.45]>;
+          Sat, 6 Dec 2008 15:23:05 -0600
+User-Agent: Microsoft-Outlook-Express-Macintosh-Edition/5.02.2022
+In-Reply-To: <493ABDC6.1000307@softjar.se>
+X-Cloudmark-Analysis: v=1.0 c=1 a=sO53SElE4XIA:10 a=WQuhj6R27SEA:10 a=QlvVrlEZMc+aMtwTQJDq2w==:17 a=6MyrgPQNKueJ7GHWJSQA:9 a=GTUZXGVofFghCqbfg2kA:7 a=y8XgFbdEj8MUkhf-QIfCidK1FSAA:4 a=_KtGf5bnNxAA:10 a=ScSMxcE-fkIA:10
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4317
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4317>
+
+on 12/6/08 13:00, Johnny Billquist at bqt@softjar.se wrote:
+
+> I haven't really been following this, but maybe I should try and help.
+> 
+> What exactly is the problem, what have you done, and how do your
+> printcap look like?
+
+Thank you!
+
+The exact problem is actually quite the mystery.  I'm attempting to connect
+a vintage DEC daisy wheel printer (Diablo Hytyper II from an old DECmate I)
+to the DEC 3000 / 700 server running NetBSD 4.0
+
+First off, I've had the printer connected to a VT-102 for more than a year.
+The printer works.  The cable has also been confirmed as working -- It was
+also used to connect the terminal to ttyB0 -- also the port I'm trying to
+reassign as the line printer.
+
+The system console is connected to ttyB1. That's determined by the hardware
+/ firmware.  The hardware is fairly stable, it's been running since 2003
+under a variety of NetBSD releases without a glitch.  The system is
+connected to a household network using a Linksys wireless game adapter.  The
+network connection is also stable -- I run Lynx, the FTP client, and Telnet
+just fine.  To answer Torsten, localhost resolves OK.  The system is
+currently on the internet (for telnet only) at imac.paleoferrosaurus.com. If
+anybody wants to play with a "guest" account, the userid is Guest and the
+password is Password.
+
+What have I done?
+
+Well, I made the physical connection from the computer to the printer.
+
+Then, I tested connectivity using the following:
+
+# cu -s 9600 -l /dev/ttyB0
+Connected
+
+Characters typed on the console are transmitted to the printer.  I believe
+that this confirms that the port, cable, and printer are all functional.
+
+Now things get a little weird...
+
+#lptest 75 5 > /dev/ttyB0
+
+Does absolutely nothing.
+
+# cat Test.Substances > /dev/ttyB0
+
+Tries to print the file, it generates the "stairstep" effect that an lp
+filter should correct.  When the printer buffer gets full, everything stops.
+Subsequent output is lost.
+
+Okay, following the NetBSD guide, I start the lpd daemon:
+
+# sh /etc/rc.d/lpd start
+
+I can confirm that lpd is running:
+
+# ps ax | grep lpd
+ 307 ?     Is   0:00.02 /usr/sbin/lpd -s
+#
+
+Again, following the instructions in the NetBSD guide, I setup my printcap
+file as follows:
+
+#       $NetBSD: printcap,v 1.13 2006/10/08 15:28:49 elad Exp $
+#       from: @(#)printcap      8.1 (Berkeley) 6/9/93
+
+lp|local line printer:\
+        :sh:lp=/dev/ttyB0:br#9600:tr=\f:of=/usr/libexec/lpr/lpfilter\
+        :sd=/var/spool/output/lpd:lf=/var/log/lpd-errs:
+
+This entry is based on the "decwriter over a tty line" entry.  I understand
+that some tty flags may have to be set or cleared to allow operation without
+full modem control.  I've experimented with a number of settings without
+any success, so those entries are currently removed.
+
+The directory has been created and chmod'd as follows:
+
+# cd /var/spool/lpd
+# ls -l
+total 4
+drwxrwx---  2 daemon  daemon  512 Nov 28 09:43 lp
+#
+
+Okay, finally I used the filter lpfilter as described in the NetBSD guide:
+
+#!/bin/sh
+# Treat LF as CR+LF
+printf "\033&k2G" && cat && exit 0
+exit 2
+
+And made it into an executable script.
+
+That's where I am at the moment.  Any and all help is appreciated!
+
+-- 
+Micheal H. McCabe
+mhmccabe@alltel.net
+
+
+
+
+
+
+From woods@planix.ca  Sat Dec 6 18:30:02 2008
+Path: news.gmane.org!not-for-mail
+From: "Greg A. Woods; Planix, Inc." <woods@planix.ca>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Sat, 6 Dec 2008 18:30:02 -0500
+Lines: 119
+Approved: news@gmane.org
+Message-ID: <0BB434A0-3E1B-46FE-AC32-CD65F4BAE2CA@planix.ca>
+References: <C5605769.6C9B%mhmccabe@alltel.net>
+Reply-To: NetBSD/Alpha Discussion List <port-alpha@netbsd.org>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (Apple Message framework v929.2)
+Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha1; boundary="Apple-Mail-73--956583754"
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228606233 23508 80.91.229.12 (6 Dec 2008 23:30:33 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sat, 6 Dec 2008 23:30:33 +0000 (UTC)
+Cc: <port-alpha@netbsd.org>
+To: Micheal H. McCabe <mhmccabe@alltel.net>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Dec 07 00:31:36 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L96cZ-0001k2-Ck
+	for netbsd-port-alpha@m.gmane.org; Sun, 07 Dec 2008 00:31:35 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id E312E63B12A; Sat,  6 Dec 2008 23:30:17 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mail.wapanafa.org (mail.wapanafa.org [166.84.7.42])
+	by mail.netbsd.org (Postfix) with ESMTP id 5A87763B100
+	for <port-alpha@netbsd.org>; Sat,  6 Dec 2008 23:30:15 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.wapanafa.org (Postfix) with ESMTP id E0F7549A;
+	Sat,  6 Dec 2008 18:30:14 -0500 (EST)
+X-Virus-Scanned: amavisd-new at wapanafa.org
+Original-Received: from mail.wapanafa.org ([127.0.0.1])
+	by localhost (mail.wapanafa.org [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id OEwgezt9fEJx; Sat,  6 Dec 2008 18:30:12 -0500 (EST)
+Original-Received: from [192.168.2.207] (ethereal.weird.com [204.92.254.251])
+	by mail.wapanafa.org (Postfix) with ESMTPA id E1893476;
+	Sat,  6 Dec 2008 18:30:11 -0500 (EST)
+In-Reply-To: <C5605769.6C9B%mhmccabe@alltel.net>
+X-Pgp-Agent: GPGMail d55 (v55, Leopard)
+X-Mailer: Apple Mail (2.929.2)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4318
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4318>
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--Apple-Mail-73--956583754
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+
+First off, let me just say that the LPD code is a rather horrible  
+nightmare of mediocrity and totally missing functionality when it  
+comes to error detection, reporting, and handling.
+
+There are a bunch of flat-out bugs too, esp. with handling state with  
+drivers, IIRC.
+
+I've got a set of patches from way back that try to address some of  
+the problems.  I've only ever used my hacked version to print over  
+parallel and network ports.  (I haven't used a serial printer since  
+the SysV days on a 3b2)  I could post some working sources and see if  
+they help any if you're interested.....  Someday I should try moving  
+my changes forward to current code again to see what's still necessary.
+
+But specifically:
+
+On 6-Dec-2008, at 4:23 PM, Micheal H. McCabe wrote:
+
+> # cu -s 9600 -l /dev/ttyB0
+> Connected
+>
+> Characters typed on the console are transmitted to the printer.  I  
+> believe
+> that this confirms that the port, cable, and printer are all  
+> functional.
+
+Yup, if it prints what you type then all is well at that level -- or  
+at least almost...
+
+> Now things get a little weird...
+>
+> #lptest 75 5 > /dev/ttyB0
+>
+> Does absolutely nothing.
+
+I don't think that should even work without a wrapper setting proper  
+tty modes....
+
+Something like this might work, with the dots replaced by all the  
+necessary mode flags:
+
+	( stty .....; lptest 75 5 ) < /dev/ttyB0 > /dev/ttyB0
+
+(the trick here is that the subshell must have its stdout _and_ stdin  
+connected to the tty so that the stty command will set the necessary  
+flags and then the lptest command will use the same file descriptor to  
+write to the tty, otherwise the tty will be closed between commands  
+and the flags set by stty will revert to the defaults before the  
+lptest command reopens the tty; stdin is needed because that's what  
+stty operates on by default)
+
+> # cat Test.Substances > /dev/ttyB0
+>
+> Tries to print the file, it generates the "stairstep" effect that an  
+> lp
+> filter should correct.  When the printer buffer gets full,  
+> everything stops.
+> Subsequent output is lost.
+
+Similarly this won't necessarily work properly without setting the  
+proper tty modes on the port connected to the printer.
+
+In particular you're certainly missing XON/XOFF or some other form of  
+flow control working properly, though this could be a problem on  
+either the port's settings or the printer, or both.
+
+
+> Again, following the instructions in the NetBSD guide, I setup my  
+> printcap
+> file as follows:
+>
+> #       $NetBSD: printcap,v 1.13 2006/10/08 15:28:49 elad Exp $
+> #       from: @(#)printcap      8.1 (Berkeley) 6/9/93
+>
+> lp|local line printer:\
+>        :sh:lp=/dev/ttyB0:br#9600:tr=\f:of=/usr/libexec/lpr/lpfilter\
+>        :sd=/var/spool/output/lpd:lf=/var/log/lpd-errs:
+>
+> This entry is based on the "decwriter over a tty line" entry.  I  
+> understand
+> that some tty flags may have to be set or cleared to allow operation  
+> without
+> full modem control.  I've experimented with a number of settings  
+> without
+> any success, so those entries are currently removed.
+>
+> The directory has been created and chmod'd as follows:
+>
+> # cd /var/spool/lpd
+
+According to your printcap that should be:  /var/spool/output/lpd
+
+-- 
+					Greg A. Woods; Planix, Inc.
+					<woods@planix.ca>
+
+
+--Apple-Mail-73--956583754
+content-type: application/pgp-signature; x-mac-type=70674453;
+	name=PGP.sig
+content-description: This is a digitally signed message part
+content-disposition: inline; filename=PGP.sig
+content-transfer-encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.8 (Darwin)
+
+iD8DBQFJOwr7Zn1xt3i/9H8RAjinAJ9KngS0zeLpxt3+FQyHYdik+g09UACg4p38
+Dj2+gvz3lLbxe6j3g7LwZrg=
+=lW+X
+-----END PGP SIGNATURE-----
+
+--Apple-Mail-73--956583754--
+
+
+From mhmccabe@alltel.net  Sat Dec 6 19:02:12 2008
+Path: news.gmane.org!not-for-mail
+From: "Micheal H. McCabe" <mhmccabe@alltel.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: RE: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Sat, 6 Dec 2008 19:02:12 -0600
+Lines: 27
+Approved: news@gmane.org
+Message-ID: <20081206190212.H122H.257011.root@ispmxfep11-z01>
+References: <093C9C18B6AF3C4B8C156747F3B41FBFC907@scs02.scshome.lan>
+Reply-To: mhmccabe@alltel.net
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228611774 4488 80.91.229.12 (7 Dec 2008 01:02:54 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sun, 7 Dec 2008 01:02:54 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Dec 07 02:03:57 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L983v-0007RY-EO
+	for netbsd-port-alpha@m.gmane.org; Sun, 07 Dec 2008 02:03:55 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id CF20163B145; Sun,  7 Dec 2008 01:02:16 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from ispmxmta09-srv.windstream.net (ispmxmta09-srv.windstream.net [166.102.165.170])
+	by mail.netbsd.org (Postfix) with ESMTP id 8AE1C63B100
+	for <port-alpha@netbsd.org>; Sun,  7 Dec 2008 01:02:15 +0000 (UTC)
+Original-Received: from ispmxfep11-z01 ([10.135.32.117])
+          by ispmxmta07-srv.windstream.net with ESMTP
+          id <20081207010213.MMIR18947.ispmxmta07-srv.windstream.net@ispmxfep11-z01>
+          for <port-alpha@netbsd.org>; Sat, 6 Dec 2008 19:02:13 -0600
+In-Reply-To: <093C9C18B6AF3C4B8C156747F3B41FBFC907@scs02.scshome.lan>
+X-Priority: 3 (Normal)
+Sensitivity: Normal
+X-Originating-IP: 71.121.70.207
+X-Auth-IP: 71.121.70.207
+X-Cloudmark-Analysis: v=1.0 c=1 a=sO53SElE4XIA:10 a=WQuhj6R27SEA:10 a=mD5IMJx2biUA:10 a=te5PTPr06ogjVXkDi-gA:9 a=PqODLA_RuPyMPrXFFQAA:7 a=3jrXw2xPZUGkVkNTdpzB7ZTqO-QA:4 a=_uojVcm3fxgA:10 a=_KtGf5bnNxAA:10 a=plE8mkVoi54A:10
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4319
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4319>
+
+
+---- Steve Davidson <jeep@scshome.net> wrote:
+
+> When I do a "dmesg" I see no serial ports.  Could this be what you are
+> running into?
+
+Another aspect of this machine I don't understand.  The two "ordinary" serial ports appear in the boot dialog as zstty0 (nominally the "modem" port according to the hardware documentation) and zstty2 (nominally the "printer" port according to DEC.)
+
+There are additional serial ports with non-standard wiring that were intended for use with the DEC keyboard and mouse.  This machine has no display hardware, so I'm using the "alternate" console port (zstty2).
+
+For purposes of the ttys file, these ports are somehow redefined as ttyB0 ("modem port") and ttyB1 ("printer" port.)
+
+Both work (for terminals, at least) when referred to as ttyB0 and ttyB1.  Using zstty0 and zstty2 gets me nowhere in the ttys file.
+
+$ dmesg | grep zstty*
+zstty0 at zsc0 channel 1
+zstty2 at zsc1 channel 1 (console i/o)
+zstty0 at zsc0 channel 1
+zstty2 at zsc1 channel 1 (console i/o)
+$
+
+-- 
+Micheal H. McCabe
+mhmccabe@alltel.net
+
+
+
+
+From mhmccabe@alltel.net  Sat Dec 6 19:25:59 2008
+Path: news.gmane.org!not-for-mail
+From: "Micheal H. McCabe" <mhmccabe@alltel.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Sat, 6 Dec 2008 19:25:59 -0600
+Lines: 45
+Approved: news@gmane.org
+Message-ID: <20081206192559.QGYFQ.257286.root@ispmxfep11-z01>
+References: <0BB434A0-3E1B-46FE-AC32-CD65F4BAE2CA@planix.ca>
+Reply-To: mhmccabe@alltel.net
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228613280 8146 80.91.229.12 (7 Dec 2008 01:28:00 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sun, 7 Dec 2008 01:28:00 +0000 (UTC)
+To: NetBSD/Alpha Discussion List <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Dec 07 02:29:03 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L98SB-0004VR-3u
+	for netbsd-port-alpha@m.gmane.org; Sun, 07 Dec 2008 02:28:59 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id D731A63B13F; Sun,  7 Dec 2008 01:27:36 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from ispmxmta09-srv.windstream.net (ispmxmta09-srv.windstream.net [166.102.165.170])
+	by mail.netbsd.org (Postfix) with ESMTP id 7D94A63B100
+	for <port-alpha@netbsd.org>; Sun,  7 Dec 2008 01:27:35 +0000 (UTC)
+Original-Received: from ispmxfep11-z01 ([10.135.32.117])
+          by ispmxmta07-srv.windstream.net with ESMTP
+          id <20081207012600.MPKH18947.ispmxmta07-srv.windstream.net@ispmxfep11-z01>
+          for <port-alpha@netbsd.org>; Sat, 6 Dec 2008 19:26:00 -0600
+In-Reply-To: <0BB434A0-3E1B-46FE-AC32-CD65F4BAE2CA@planix.ca>
+X-Priority: 3 (Normal)
+Sensitivity: Normal
+X-Originating-IP: 71.121.70.207
+X-Auth-IP: 71.121.70.207
+X-Cloudmark-Analysis: v=1.0 c=1 a=sO53SElE4XIA:10 a=WQuhj6R27SEA:10 a=mD5IMJx2biUA:10 a=c4I19gRM-Q4L5ezFcA8A:9 a=DSBZWZ-ER1cewi1d5EkA:7 a=Yphk9Ut8r3RWl9qnp25u3XrRyogA:4 a=_KtGf5bnNxAA:10 a=plE8mkVoi54A:10
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4320
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4320>
+
+
+---- "Greg A. Woods; Planix wrote:
+
+> I've got a set of patches from way back that try to address some of  
+> the problems.  I've only ever used my hacked version to print over  
+> parallel and network ports.  (I haven't used a serial printer since  
+> the SysV days on a 3b2)  I could post some working sources and see if  
+> they help any if you're interested.....
+
+I'm not much of a programmer, sadly. But I'm always interested in seeing how somebody else solved a problem.  Working through the existing source for lpd isn't proving very helpful to me, but I attribute that to my own lack of understanding.
+
+> > #lptest 75 5 > /dev/ttyB0
+> >
+> > Does absolutely nothing.
+> 
+> I don't think that should even work without a wrapper setting proper  
+> tty modes....
+
+Understood, but that's what the NetBSD guide recommended.
+
+> Something like this might work, with the dots replaced by all the  
+> necessary mode flags:
+> 
+> 	( stty .....; lptest 75 5 ) < /dev/ttyB0 > /dev/ttyB0
+> 
+> (the trick here is that the subshell must have its stdout _and_ stdin  
+> connected to the tty so that the stty command will set the necessary  
+> flags and then the lptest command will use the same file descriptor to  
+> write to the tty, otherwise the tty will be closed between commands  
+> and the flags set by stty will revert to the defaults before the  
+> lptest command reopens the tty; stdin is needed because that's what  
+> stty operates on by default)
+
+Very interesting.  Thanks for the tip.
+
+> According to your printcap that should be:  /var/spool/output/lpd
+
+Fixed.  Thanks for spotting that.
+
+-- 
+Micheal H. McCabe
+mhmccabe@alltel.net
+
+
+
+
+From mhmccabe@alltel.net  Sat Dec 6 19:07:43 2008
+Path: news.gmane.org!not-for-mail
+From: "Micheal H. McCabe" <mhmccabe@alltel.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Sat, 6 Dec 2008 19:07:43 -0600
+Lines: 26
+Approved: news@gmane.org
+Message-ID: <20081206190743.G29SN.257081.root@ispmxfep11-z01>
+References: <493AFAFC.8010001@softjar.se>
+Reply-To: mhmccabe@alltel.net
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228613286 8176 80.91.229.12 (7 Dec 2008 01:28:06 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sun, 7 Dec 2008 01:28:06 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Dec 07 02:29:09 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L98SL-0004Yz-2W
+	for netbsd-port-alpha@m.gmane.org; Sun, 07 Dec 2008 02:29:09 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 484B363B16D; Sun,  7 Dec 2008 01:27:42 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from ispmxmta09-srv.windstream.net (ispmxmta09-srv.windstream.net [166.102.165.170])
+	by mail.netbsd.org (Postfix) with ESMTP id 473A163B142
+	for <port-alpha@netbsd.org>; Sun,  7 Dec 2008 01:27:36 +0000 (UTC)
+Original-Received: from ispmxfep11-z01 ([10.135.32.117])
+          by ispmxmta08-srv.windstream.net with ESMTP
+          id <20081207010744.WJLX6454.ispmxmta08-srv.windstream.net@ispmxfep11-z01>
+          for <port-alpha@netbsd.org>; Sat, 6 Dec 2008 19:07:44 -0600
+In-Reply-To: <493AFAFC.8010001@softjar.se>
+X-Priority: 3 (Normal)
+Sensitivity: Normal
+X-Originating-IP: 71.121.70.207
+X-Auth-IP: 71.121.70.207
+X-Cloudmark-Analysis: v=1.0 c=1 a=sO53SElE4XIA:10 a=WQuhj6R27SEA:10 a=mD5IMJx2biUA:10 a=N0lZoyUu4fbx-0fG3tEA:9 a=mDeZbeezha0q68pzmSO7HOp5paoA:4 a=_KtGf5bnNxAA:10 a=plE8mkVoi54A:10
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4321
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4321>
+
+
+---- Johnny Billquist <bqt@softjar.se> wrote:
+
+> In your printcap, you indicate that the spool directory should be 
+> /var/spool/output/lpd, while you appear (from you comments) to have 
+> created, and expect the spool directory to be /var/spool/lpd
+> 
+> That will make things break.
+> 
+> Start by fixing that detail, and see what happens next.
+
+Fixed.  Thanks for pointing that out!
+
+> Also, when you spool something, the file should appear in that 
+> directory, otherwise something isn't working right. 
+
+Nope. Nothing appears in that directory.  I'm working remotely from work right now.  I'll have to check everything else (like the printer itself) tomorrow when I get home.
+
+Thanks again for all your help!
+
+-- 
+Micheal H. McCabe
+mhmccabe@alltel.net
+
+
+
+
+From mouse@Rodents-Montreal.ORG  Sat Dec 6 21:41:52 2008
+Path: news.gmane.org!not-for-mail
+From: der Mouse <mouse@Rodents-Montreal.ORG>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Sat, 6 Dec 2008 21:41:52 -0500 (EST)
+Lines: 56
+Approved: news@gmane.org
+Message-ID: <200812070305.WAA09209@Sparkle.Rodents-Montreal.ORG>
+References: <20081206190212.H122H.257011.root@ispmxfep11-z01>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+X-Trace: ger.gmane.org 1228619136 21107 80.91.229.12 (7 Dec 2008 03:05:36 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sun, 7 Dec 2008 03:05:36 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Dec 07 04:06:39 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L99yg-0006St-9S
+	for netbsd-port-alpha@m.gmane.org; Sun, 07 Dec 2008 04:06:38 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id D37A263B121; Sun,  7 Dec 2008 03:05:15 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from Sparkle.Rodents-Montreal.ORG (Sparkle.Rodents-Montreal.ORG [216.46.5.7])
+	by mail.netbsd.org (Postfix) with ESMTP id 6A22D63B100
+	for <port-alpha@NetBSD.org>; Sun,  7 Dec 2008 03:05:13 +0000 (UTC)
+Original-Received: (from mouse@localhost)
+	by Sparkle.Rodents-Montreal.ORG (8.8.8/8.8.8) id WAA09209;
+	Sat, 6 Dec 2008 22:05:12 -0500 (EST)
+X-Erik-Conspiracy: There is no Conspiracy - and if there were I wouldn't be part of it anyway.
+X-Message-Flag: Microsoft: the company who gave us the botnet zombies.
+In-Reply-To: <20081206190212.H122H.257011.root@ispmxfep11-z01>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4322
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4322>
+
+> Another aspect of this machine I don't understand.  [...]
+
+> $ dmesg | grep zstty*
+> zstty0 at zsc0 channel 1
+> zstty2 at zsc1 channel 1 (console i/o)
+
+> For purposes of the ttys file, these ports are somehow redefined as
+> ttyB0 ("modem port") and ttyB1 ("printer" port.)
+
+Not quite "redefined".  That's like saying, of someone named Joseph
+with email address stupidities@example.com, that Joseph is redefined as
+stupidities for purposes of email.  It's not a redefinition; it's just
+a single entity appearing in two completely independent namespaces.
+
+> Both work (for terminals, at least) when referred to as ttyB0 and
+> ttyB1.  Using zstty0 and zstty2 gets me nowhere in the ttys file.
+
+Right.
+
+What you seem to be missing is that there is not necessarily any
+connection between the name by which a device is known to the autoconf
+machinery (the boot-time messages, such as dmesg prints) and the name
+of the entry, if any, in /dev/ for it (which is what goes in /etc/ttys
+for tty lines, and for most devices is the name by which userland knows
+the device).
+
+There _is_, of course, a connection at some level, but it is an
+indirect one, and one that does not give any reason for the names to
+match.  The device name as known to autoconf is actually used by very
+little - config(8) uses it to build the autoconf data structures and to
+link drivers up to major device numbers and that's just about it.
+(Network devices appear to use it, but this is misleading; there is
+actually nothing that requires the name of the interface in the running
+system to match anything autoconf uses, as far as I can tell.  A driver
+known to config(8) as, say, "fred* at pci?" could provide network
+interfaces named wilma0, wilma1, etc, if it felt like it.)
+
+A driver is tied to an autoconf name through the config(8)-created
+autoconf data structures.  The driver is also tied (through more
+config(8)-generated data structures - cdevsw and/or bdevsw) to a major
+device number.  Names in /dev/ are also tied to major device numbers,
+through the major portion of the major/minor device number used when
+the entry in /dev/ was created.
+
+The important path is /dev/ entry to major device number to [bc]devsw
+entry to driver.  The name printed by autoconf is completely irrelevant
+except to humans looking at boot messages and relating them to other
+things; if humans weren't looking at them, autoconf would not need to
+even _have_ names for device-tree nodes, that's how irrelevant they are
+to everything else.
+
+/~\ The ASCII				  Mouse
+\ / Ribbon Campaign
+ X  Against HTML		mouse@rodents-montreal.org
+/ \ Email!	     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+
+From mhmccabe@alltel.net  Sun Dec 7 06:20:54 2008
+Path: news.gmane.org!not-for-mail
+From: "Micheal H. McCabe" <mhmccabe@alltel.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Sun, 7 Dec 2008 6:20:54 -0500
+Lines: 16
+Approved: news@gmane.org
+Message-ID: <20081207052054.S5HQE.240532.root@ispmxfep14-z01>
+References: <493B83AE.9090008@softjar.se>
+Reply-To: mhmccabe@alltel.net
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228648876 8507 80.91.229.12 (7 Dec 2008 11:21:16 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sun, 7 Dec 2008 11:21:16 +0000 (UTC)
+To: Johnny Billquist <bqt@softjar.se>, port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Dec 07 12:22:19 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L9HiN-0002yJ-CF
+	for netbsd-port-alpha@m.gmane.org; Sun, 07 Dec 2008 12:22:19 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 6054C63B15E; Sun,  7 Dec 2008 11:21:01 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from ispmxmta07-srv.windstream.net (ispmxmta07-srv.windstream.net [166.102.165.168])
+	by mail.netbsd.org (Postfix) with ESMTP id 10EDE63B108
+	for <port-alpha@netbsd.org>; Sun,  7 Dec 2008 11:20:59 +0000 (UTC)
+Original-Received: from ispmxfep14-z01 ([10.135.32.120])
+          by ispmxmta07-srv.windstream.net with ESMTP
+          id <20081207112059.NWCB18947.ispmxmta07-srv.windstream.net@ispmxfep14-z01>;
+          Sun, 7 Dec 2008 05:20:59 -0600
+In-Reply-To: <493B83AE.9090008@softjar.se>
+X-Priority: 3 (Normal)
+Sensitivity: Normal
+X-Originating-IP: 71.121.70.207
+X-Auth-IP: 71.121.70.207
+X-Cloudmark-Analysis: v=1.0 c=1 a=sO53SElE4XIA:10 a=WQuhj6R27SEA:10 a=mD5IMJx2biUA:10 a=WLTDKD2a_zbHotszYLQA:9 a=H0QwmiytJ0s4eTgai18kycc0gacA:4 a=_KtGf5bnNxAA:10 a=rPt6xJ-oxjAA:10
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4323
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4323>
+
+---- Johnny Billquist <bqt@softjar.se> wrote:
+
+> You wouldn't happen to have the PRINTER environment variable set to 
+> anything, do you? Such as an empty value?
+
+$ echo $PRINTER
+lp
+
+Should that be set to something else?  Also, should that be set in /etc/rc.conf or in another configuration file?
+
+-- 
+Micheal H. McCabe
+mhmccabe@alltel.net
+
+
+
+
+From mcguire@neurotica.com  Sun Dec 7 14:00:40 2008
+Path: news.gmane.org!not-for-mail
+From: Dave McGuire <mcguire@neurotica.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Sun, 7 Dec 2008 14:00:40 -0500
+Lines: 26
+Approved: news@gmane.org
+Message-ID: <46A0555C-4BF6-42D3-8499-E42BD28F456E@neurotica.com>
+References: <C5605769.6C9B%mhmccabe@alltel.net>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (Apple Message framework v753.1)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228676478 21138 80.91.229.12 (7 Dec 2008 19:01:18 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sun, 7 Dec 2008 19:01:18 +0000 (UTC)
+To: NetBSD/Alpha Discussion List <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Dec 07 20:02:22 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L9OtX-0008Pi-Vm
+	for netbsd-port-alpha@m.gmane.org; Sun, 07 Dec 2008 20:02:20 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 5141C63B147; Sun,  7 Dec 2008 19:00:45 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from newmail.coconet.com (newmail.coconet.com [204.176.96.40])
+	by mail.netbsd.org (Postfix) with ESMTP id 6A43263B113
+	for <port-alpha@netbsd.org>; Sun,  7 Dec 2008 19:00:42 +0000 (UTC)
+Original-Received: from mail.neurotica.com (fl-76-2-120-33.sta.embarqhsd.net [76.2.120.33])
+	by newmail.coconet.com (Postfix) with ESMTP id 77E4919830E
+	for <port-alpha@netbsd.org>; Sun,  7 Dec 2008 14:00:41 -0500 (EST)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.neurotica.com (Postfix) with ESMTP id 09C18211A40
+	for <port-alpha@netbsd.org>; Sun,  7 Dec 2008 14:00:36 -0500 (EST)
+X-Virus-Scanned: amavisd-new at neurotica.com
+Original-Received: from mail.neurotica.com ([127.0.0.1])
+	by localhost (mail.neurotica.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id f3krG4CFdGJv for <port-alpha@netbsd.org>;
+	Sun,  7 Dec 2008 14:00:35 -0500 (EST)
+Original-Received: from [192.168.0.11] (fl-76-2-120-32.sta.embarqhsd.net [76.2.120.32])
+	(Authenticated sender: mcguire@neurotica.com)
+	by mail.neurotica.com (Postfix) with ESMTPA id E7784211A38
+	for <port-alpha@netbsd.org>; Sun,  7 Dec 2008 14:00:34 -0500 (EST)
+In-Reply-To: <C5605769.6C9B%mhmccabe@alltel.net>
+X-Mailer: Apple Mail (2.753.1)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4324
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4324>
+
+On Dec 6, 2008, at 4:23 PM, Micheal H. McCabe wrote:
+>> I haven't really been following this, but maybe I should try and  
+>> help.
+>>
+>> What exactly is the problem, what have you done, and how do your
+>> printcap look like?
+>
+> Thank you!
+>
+> The exact problem is actually quite the mystery.  I'm attempting to  
+> connect
+> a vintage DEC daisy wheel printer (Diablo Hytyper II from an old  
+> DECmate I)
+> to the DEC 3000 / 700 server running NetBSD 4.0
+
+   Mmmmm, what happened to the DECmate-I?? 8-)  (a PDP-8 in a small  
+box!)
+
+          -Dave
+
+-- 
+Dave McGuire
+Port Charlotte, FL
+
+
+
+
+From mhmccabe@alltel.net  Sun Dec 7 15:21:46 2008
+Path: news.gmane.org!not-for-mail
+From: "Micheal H. McCabe" <mhmccabe@alltel.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Sun, 7 Dec 2008 15:21:46 -0600
+Lines: 17
+Approved: news@gmane.org
+Message-ID: <20081207152146.7RPLV.246401.root@ispmxfep14-z01>
+References: <46A0555C-4BF6-42D3-8499-E42BD28F456E@neurotica.com>
+Reply-To: mhmccabe@alltel.net
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228684934 14522 80.91.229.12 (7 Dec 2008 21:22:14 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sun, 7 Dec 2008 21:22:14 +0000 (UTC)
+To: NetBSD/Alpha Discussion List <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Dec 07 22:23:18 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L9R5u-0003du-Ct
+	for netbsd-port-alpha@m.gmane.org; Sun, 07 Dec 2008 22:23:14 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 484CC63B17B; Sun,  7 Dec 2008 21:21:52 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from ispmxmta07-srv.windstream.net (ispmxmta07-srv.windstream.net [166.102.165.168])
+	by mail.netbsd.org (Postfix) with ESMTP id F341E63B127
+	for <port-alpha@netbsd.org>; Sun,  7 Dec 2008 21:21:50 +0000 (UTC)
+Original-Received: from ispmxfep14-z01 ([10.135.32.120])
+          by ispmxmta07-srv.windstream.net with ESMTP
+          id <20081207212149.QGAX18947.ispmxmta07-srv.windstream.net@ispmxfep14-z01>
+          for <port-alpha@netbsd.org>; Sun, 7 Dec 2008 15:21:49 -0600
+In-Reply-To: <46A0555C-4BF6-42D3-8499-E42BD28F456E@neurotica.com>
+X-Priority: 3 (Normal)
+Sensitivity: Normal
+X-Originating-IP: 174.130.63.64
+X-Auth-IP: 174.130.63.64
+X-Cloudmark-Analysis: v=1.0 c=1 a=sO53SElE4XIA:10 a=WQuhj6R27SEA:10 a=mD5IMJx2biUA:10 a=y3tQkM7arCcf62F5igAA:9 a=J32cLVacMWUZ3omCEsUQpgGMC3MA:4 a=YgIvcZlplNIA:10 a=_KtGf5bnNxAA:10 a=plE8mkVoi54A:10
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4325
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4325>
+
+
+---- Dave McGuire <mcguire@neurotica.com> wrote:
+
+>    Mmmmm, what happened to the DECmate-I?? 8-)  (a PDP-8 in a small  
+> box!)
+
+Alive and well.  Currently sidelined by a balky RX02.  
+
+(Now, if I can just figure out how to massage paper tape images for "downline" loading over the serial port...)
+
+One major project at a time!
+
+-- 
+Micheal H. McCabe
+mhmccabe@alltel.net
+
+
+
+From mhmccabe@alltel.net  Sun Dec 7 15:26:36 2008
+Path: news.gmane.org!not-for-mail
+From: "Micheal H. McCabe" <mhmccabe@alltel.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Sun, 7 Dec 2008 15:26:36 -0600
+Lines: 24
+Approved: news@gmane.org
+Message-ID: <20081207152636.4T9RN.246448.root@ispmxfep14-z01>
+References: <493C1341.9080909@softjar.se>
+Reply-To: mhmccabe@alltel.net
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228685223 15327 80.91.229.12 (7 Dec 2008 21:27:03 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sun, 7 Dec 2008 21:27:03 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Johnny Billquist <bqt@softjar.se>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Dec 07 22:28:06 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L9RAa-0005K8-NJ
+	for netbsd-port-alpha@m.gmane.org; Sun, 07 Dec 2008 22:28:05 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 91C2E63B184; Sun,  7 Dec 2008 21:26:41 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from ispmxmta08-srv.windstream.net (ispmxmta08-srv.windstream.net [166.102.165.169])
+	by mail.netbsd.org (Postfix) with ESMTP id 4E83363B16C
+	for <port-alpha@netbsd.org>; Sun,  7 Dec 2008 21:26:40 +0000 (UTC)
+Original-Received: from ispmxfep14-z01 ([10.135.32.120])
+          by ispmxmta08-srv.windstream.net with ESMTP
+          id <20081207212639.YRAJ6454.ispmxmta08-srv.windstream.net@ispmxfep14-z01>;
+          Sun, 7 Dec 2008 15:26:39 -0600
+In-Reply-To: <493C1341.9080909@softjar.se>
+X-Priority: 3 (Normal)
+Sensitivity: Normal
+X-Originating-IP: 174.130.63.64
+X-Auth-IP: 174.130.63.64
+X-Cloudmark-Analysis: v=1.0 c=1 a=sO53SElE4XIA:10 a=WQuhj6R27SEA:10 a=mD5IMJx2biUA:10 a=MZ8CKwbyCZnrtvZu5UwA:9 a=7AW29bY1Xz7uxpEsGCUA:7 a=KiSUx6dF3PU9FkxLfLZrnazr-lQA:4 a=_KtGf5bnNxAA:10 a=rPt6xJ-oxjAA:10
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4326
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4326>
+
+---- Johnny Billquist <bqt@softjar.se> wrote:
+
+> Well, not so much greek to me... :-)
+> 
+> /var/run/lpd.pid complaints should be easy to figure out. That's some 
+> error you want to sort out, but I don't think it's vital here. Remove 
+> file, change protection of directory, and so on...
+
+I sorta think that occurred when I tried to restart the lpd demon when the files from the first invocation were already open.
+
+
+> /usr/libexec/lpr/lpf is worse. I can't remember now, but wasn't that the 
+> input filter you specified in your printcap?
+> If not found, I doubt anything will come out.
+
+That was fixed in the same editing session where I fixed the path to the log and the spool directory.
+
+Still not sure where everything is going wrong.  No data appears in the spool directory when I issue an lpr command.  Checked the path again.  Still coming up empty.  Most disturbingly, I'm getting errors about a "daemon not running" when lpd is clearly present.  Is there another queue manager that I need to start?
+
+-- 
+Micheal H. McCabe
+mhmccabe@alltel.net
+
+
+
+From bqt@softjar.se  Mon Dec 8 01:32:52 2008
+Path: news.gmane.org!not-for-mail
+From: Johnny Billquist <bqt@softjar.se>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Configuring Serial Printer - DEC 3000 Model 700 / NetBSD V4.0
+Date: Mon, 08 Dec 2008 01:32:52 +0100
+Organization: SoftJAR AB
+Lines: 25
+Approved: news@gmane.org
+Message-ID: <493C6B34.3050400@softjar.se>
+References: <20081207152146.7RPLV.246401.root@ispmxfep14-z01>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228696402 12457 80.91.229.12 (8 Dec 2008 00:33:22 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Mon, 8 Dec 2008 00:33:22 +0000 (UTC)
+Cc: NetBSD/Alpha Discussion List <port-alpha@netbsd.org>
+To: mhmccabe@alltel.net
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Dec 08 01:34:26 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L9U4q-0006sB-0s
+	for netbsd-port-alpha@m.gmane.org; Mon, 08 Dec 2008 01:34:20 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id DDBD763B143; Mon,  8 Dec 2008 00:32:55 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from GW.SoftJAR.SE (205.225.216.81.static.spa.vf.siwnet.net [81.216.225.205])
+	by mail.netbsd.org (Postfix) with ESMTP id D2D2863B108
+	for <port-alpha@netbsd.org>; Mon,  8 Dec 2008 00:32:54 +0000 (UTC)
+Original-Received: from bqt.local (213-65-173-92-no96.tbcn.telia.com [213.65.173.92])
+	by GW.SoftJAR.SE (Postfix) with ESMTP id 567FF628A5;
+	Mon,  8 Dec 2008 01:32:52 +0100 (CET)
+User-Agent: Thunderbird 2.0.0.18 (Macintosh/20081105)
+In-Reply-To: <20081207152146.7RPLV.246401.root@ispmxfep14-z01>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4327
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4327>
+
+Micheal H. McCabe wrote:
+> ---- Dave McGuire <mcguire@neurotica.com> wrote:
+> 
+>>    Mmmmm, what happened to the DECmate-I?? 8-)  (a PDP-8 in a small  
+>> box!)
+> 
+> Alive and well.  Currently sidelined by a balky RX02.  
+> 
+> (Now, if I can just figure out how to massage paper tape images for "downline" loading over the serial port...)
+> 
+> One major project at a time!
+
+That's easy. Just pretend you have an ASR33. That's a terminal with a 
+paper tape reader/punch which worked over the same serial line as the 
+terminal.
+Now, I assume there is something more that you need to figure out, but 
+we'll take it another day. :-)
+
+I'll see if I have the time in the next day or two, to setup a serial 
+printer here to see what might be the problem (or refresh my mind).
+
+	Johnny
+
+
+
+
+From Clifford@gmail.com  Mon Dec 8 10:56:21 2008
+Path: news.gmane.org!not-for-mail
+From: "Program konferencji" <Clifford@gmail.com>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.spam.detected
+Subject: DATA > INWESTYCYJNE INTERESY w Ukrainie: 13-14 grudnia 2008 r., Lwow, Hotel  "Sputnik"
+Date: Mon, 8 Dec 2008 10:56:21 +0100
+Lines: 76
+Approved: news@gmane.org
+Message-ID: <005301c9597e$dd15b4db$1cae82af@hpsmkkwidddnls>
+Reply-To: "Program konferencji" <vika@mail.zp.ua>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-2"
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228730254 19930 80.91.229.12 (8 Dec 2008 09:57:34 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Mon, 8 Dec 2008 09:57:34 +0000 (UTC)
+To: <porszewice@greektrade.com.pl>, <port-alpha@netbsd.org>,
+	<port-ouvert@lodz.pdi.netrych.gov>, <port-ouvert@pdi.net.pl>,
+	<port-pro@o2.pl>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Dec 08 10:58:37 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L9csu-0002WL-4M
+	for netbsd-port-alpha@m.gmane.org; Mon, 08 Dec 2008 10:58:36 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id B8B9563B10F; Mon,  8 Dec 2008 09:56:39 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from smtp19.orange.fr (smtp19.orange.fr [80.12.242.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 000B463B100
+	for <port-alpha@netbsd.org>; Mon,  8 Dec 2008 09:56:37 +0000 (UTC)
+Original-Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf1901.orange.fr (SMTP Server) with ESMTP id 2D86B1C00058;
+	Mon,  8 Dec 2008 10:56:36 +0100 (CET)
+Original-Received: from ml350 (LRouen-151-71-137-173.w193-253.abo.wanadoo.fr [193.253.255.173])
+	by mwinf1901.orange.fr (SMTP Server) with SMTP id D6B321C00063;
+	Mon,  8 Dec 2008 10:56:33 +0100 (CET)
+X-ME-UUID: 20081208095633879.D6B321C00063@mwinf1901.orange.fr
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 5.50.4522.1200
+X-MimeOLE: Produced By Microsoft MimeOLE V5.50.4522.1200
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+X-Spam-Report: 12.6 points;
+ *  1.9 SUSPICIOUS_RECIPS Similar addresses in recipient list
+ *  0.0 NORMAL_HTTP_TO_IP URI: Uses a dotted-decimal IP address in URL
+ *  3.0 RAZOR2_CF_RANGE_51_100 BODY: Razor2 gives confidence level above 50%
+ *      [cf: 100]
+ * -0.4 BAYES_05 BODY: Bayesian spam probability is 1 to 5%
+ *      [score: 0.0140]
+ *  1.0 RAZOR2_CHECK Listed in Razor2 (http://razor.sf.net/)
+ *  4.0 DCC_CHECK Listed in DCC (http://rhyolite.com/anti-spam/dcc/)
+ *  3.0 RCVD_IN_BL_SPAMCOP_NET RBL: Received via a relay in bl.spamcop.net
+ *      [Blocked - see <http://www.spamcop.net/bl.shtml?193.253.255.173>]
+ *  0.1 DIGEST_MULTIPLE Message hits more than one network digest check
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4328 gmane.spam.detected:4311397
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4328>
+
+       Mi阣zynarodowe Centrum Informacyjno - Consultingowe, Kij體, Ukraina.
+                              + 38 (044) 4𠾁𢌵𢌵
+                         Kto w砤da informacj� - w砤da 秝iatem 
+                                http://seminar.pl.ua
+ 
+                              Serdecznie zapraszamy na
+               Mi阣zynarodow�  Polsko - Ukrai駍k� konferencj� na temat 
+>                   "Polska - Ukraina: sami budujemy przysz硂舵"
+                           XXX Mi阣zynarodowa  konferencja
+ 
+>                          INWESTYCYJNE INTERESY ZA GRANIC�:
+                                Twoja firma na Ukrainie
+
+                        13-14 grudnia, Lw體, Hotel  "Sputnik"
+                (zakwaterowanie od 12 grudnia do 15 grudnia 2008 roku) 
+
+===============================================================================
+� Aktualne informacje. Informacje handlowo-gospodarcze.
+� Przepisy prawne, exportowo-importowe. 
+� W co warto inwestowa� na Ukrainie? Jak naby� nieruchomo舵 na firm�?
+� Rozw骿 inwestycji w Ukrainie- tera縩iejszo舵 i perspektywy
+===============================================================================
+
+> Program konferencji skierowany jest do:
+* w砤禼icieli i dyrektor體 firm i przedstawicielstw, instytucji i organizacji
+* przedstawiciele ma硑ch, 秗ednich i du縴ch przedsi阞iorstw,
+* kadry zarz眃zaj眂ej,
+* kierownik體 dzia丑w zbytu, 
+* specjalist體 w zakresie marketingu i handlu, zainteresowanych zbytem towar體 i 
+us硊g na Ukrain�, a tak縠 za硂縠niem przedstawicielstwa, przedsi阞iorstwa, sp蟪ki, filii.
+
+Konferencja prowadzona b阣zie w j陑yki Rosyjskim, Ukrai駍kim z bezpo秗ednim t硊maczeniem na j陑yk Polski.
+
+Ukrai駍kie przepisy s� przychylne zagranicznym inwestorom. Utworzenie w tym kraju 
+w砤snego przedstawicielstwa lub filii przedsi阞iorstwa nie jest spraw� trudn�, 
+o ile oczywi禼ie zna si隊obowi眤uj眂e przepisy w Ukrainie 
+ 
+Osoba odpowiedzialna: Wiktoria Swi阠icka - Dyrektor ds.  wsp蟪pracy z zagranic� 
+- znajomo舵 j陑yka polskiego, rosyjskiego, ukrai駍kiego. 
+{Tel. + 38 (067) 506.01.10} E-mail:vika@mail.zp.ua
+
+===============================================================================
+ 
+Referenci konferencji: 
+� Specjalista z Ministerstwa Gospodarki Ukrainy; 
+� prawnicy; 
+� specjali禼i z przepis體 prawnych i gospodarczych, podatkowych na Ukrainie; 
+� przedstawicieli Banku 凨redyt Bank�
+� przedstawicieli Banku 凴aiffeisen Bank�
+� windykatorzy
+=============================================================================== 
+
+Program konferencji:         http://seminar.pl.ua
+Program konferencji:         http://203.206.204.188/
+
+Kwestionariusz zg硂szeniowy: http://seminar.pl.ua/kwestionariusz.doc
+Kwestionariusz zg硂szeniowy: http://203.206.204.188/kwestionariusz.doc
+
+Warunkiem uczestnictwa w konferencji jest przes砤nie wype硁ionego zg硂szenia. 
+Zg硂szenie powinno zawiera� nazw� firmy, adres, NIP, telefon, fax, ewentualnie e-mail, 
+nazwisko i telefon osoby odpowiedzialnej za wyjazd, imiona i nazwiska uczestnik體 i by� wys砤ne faksem 
+(automat) do organizator體 konferencji  00 38 (044) 4𠾁𢌯🯐 (Ukraina, Kij體) 
+Po wystawieniu faktury trzeba dokona� zap砤ty za udzia� w konferencji przelewem na konto podane na fakturze. 
+
+> SPOS覤 ZGSZANIA UCZESTNICTWA:
+ 
+Telefonicznie pod nr - 00 38 (067) 506.01.10   Wiktoria Swi阠icka
+                                  - znajomo舵 j陑yka polskiego, rosyjskiego, ukrai駍kiego.
+
+( faks-automat)        00 38 (044) 455.93.14
+( faks)                00 38 (044) 455.99.99
+
+ebtgrv
+
+
+
+
+From mhmccabe@alltel.net  Mon Dec 8 20:36:37 2008
+Path: news.gmane.org!not-for-mail
+From: "Micheal H. McCabe" <mhmccabe@alltel.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Done Configuring Serial Printer - DEC 3000 Model 700 / NetBSD
+	V4.0 -Printer Works
+Date: Mon, 08 Dec 2008 20:36:37 -0500
+Lines: 109
+Approved: news@gmane.org
+Message-ID: <C56335D5.6D8B%mhmccabe@alltel.net>
+References: <493C6B34.3050400@softjar.se>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228786663 19383 80.91.229.12 (9 Dec 2008 01:37:43 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Tue, 9 Dec 2008 01:37:43 +0000 (UTC)
+Cc: NetBSD/Alpha Discussion List <port-alpha@netbsd.org>
+To: Johnny Billquist <bqt@softjar.se>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Dec 09 02:38:47 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1L9rYM-0003yf-IB
+	for netbsd-port-alpha@m.gmane.org; Tue, 09 Dec 2008 02:38:23 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 8C41663B1CC; Tue,  9 Dec 2008 01:36:40 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from ispmxmta06-srv.windstream.net (ispmxmta06-srv.windstream.net [166.102.165.167])
+	by mail.netbsd.org (Postfix) with ESMTP id 1BA9663B1B3
+	for <port-alpha@netbsd.org>; Tue,  9 Dec 2008 01:36:38 +0000 (UTC)
+Original-Received: from ispmxaamta08-gx.windstream.net ([75.88.137.229])
+          by ispmxmta06-srv.windstream.net with ESMTP
+          id <20081209013637.EVYN22277.ispmxmta06-srv.windstream.net@ispmxaamta08-gx.windstream.net>
+          for <port-alpha@netbsd.org>; Mon, 8 Dec 2008 19:36:37 -0600
+Original-Received: from [192.168.1.45] (really [75.88.137.229])
+          by ispmxaamta08-gx.windstream.net with ESMTP
+          id <20081209013637.ELNZ28131.ispmxaamta08-gx.windstream.net@[192.168.1.45]>;
+          Mon, 8 Dec 2008 19:36:37 -0600
+User-Agent: Microsoft-Outlook-Express-Macintosh-Edition/5.02.2022
+In-Reply-To: <493C6B34.3050400@softjar.se>
+X-Cloudmark-Analysis: v=1.0 c=1 a=D_lRnNpHCFAA:10 a=81Pi9L5rQEUA:10 a=eks+hTTfTA12Cs1XQUfawQ==:17 a=u06BX_aGVUsXWD0x96AA:9 a=UFZ2ETsPJJ_VXCG7F3wA:7 a=dJO6a9AMr1Kre8e887QX7AMpicQA:4 a=_KtGf5bnNxAA:10 a=ScSMxcE-fkIA:10
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4329
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4329>
+
+on 12/7/08 19:32, Johnny Billquist at bqt@softjar.se wrote:
+
+
+> That's easy. Just pretend you have an ASR33. That's a terminal with a
+> paper tape reader/punch which worked over the same serial line as the
+> terminal.
+
+Well, since it's a DECmate I (in the VT-278 package), the CPU and terminal
+electronics are all on the same board.  The serial line works great when I
+set the machine up as a terminal. There's some magic involved in getting the
+"inner pdp-8" to accept the serial port as a load device.  There's also the
+format question:  RIM loader, BIN loader, etc. I figure that out eventually
+(I hope.)
+
+But, back to the topic at hand...
+
+I finally got the serial printer working.  I'm not sure exactly which change
+made the difference, but I'll summerise what I've done here.  Some other
+poor soul might be as confused as I am, someday.
+
+First, my printcap entry was too complicated for the task at hand.  The
+filter was a sticking point, even after I corrected the pathname I wasn't
+getting any output from the filter.  Solution:  remove the filter entirely.
+Since much of the formatting is actually done by LPR, I don't really
+need it for this printer.  Line ends are handled just fine with a CR
+followed by a line feed. No stair-stepping that I saw when piping raw text
+directly to /dev/ttyB0.
+
+Second, instead of turning my entries OFF in the ttys file, I had commented
+out the line entirely.  I'm not sure what effect this had on LPR, but
+everything started working after I uncommented the lines and explicitly
+turned them OFF.
+
+Third, I had edited the rc.conf file using vi during a telnet session from a
+Windows PC using Hyperterm.  Changes made to rc.conf where I explicitly set
+lpd=ON were lost when I saved the file.  I discovered this when I returned
+to the file and saw that several lines were corrupt.  Using a legitimate
+terminal to re-edit the files made everything work much better.
+
+So, here is the working set of configuration files that has my printer up
+and running.  I appreciate all the help that the folks on this list have
+provided.  Special thanks to Johnny Billquist for his knowledge of every DEC
+related.
+
+---- Begin boring recitation of system configuration files ----
+
+#    $NetBSD: rc.conf,v 1.96 2000/10/14 17:01:29 wiz Exp $
+#
+# see rc.conf(5) for more information.
+#
+# Use program=YES to enable program, NO to disable it. program_flags are
+# passed to the program on the command line.
+#
+
+# Load the defaults in from /etc/defaults/rc.conf (if it's readable).
+# These can be overridden below.
+#
+if [ -r /etc/defaults/rc.conf ]; then
+    . /etc/defaults/rc.conf
+fi
+
+# If this is not set to YES, the system will drop into single-user mode.
+#
+rc_configured=YES
+
+# Add local overrides below
+#
+dhclient=YES
+hostname="paleo.my.network"
+lpd=YES
+PRINTER=lp
+
+#    $NetBSD: printcap,v 1.13 2006/10/08 15:28:49 elad Exp $
+#    from: @(#)printcap    8.1 (Berkeley) 6/9/93
+
+lp|local line printer:\
+    :sh:lp=/dev/ttyB0:br#9600:ff=\f:pl=66:pw=80:sf=true:sh=true\
+    :sd=/var/spool/lpd:lf=/var/log/lpd-errs:
+
+#
+#    $NetBSD: ttys,v 1.10 2004/06/20 21:30:26 christos Exp $
+#
+# name    getty                type    status        comments
+
+# In normal operation, getty on 'console' pseudo-device is disabled, and is
+# enabled for the correct 'real' device (e.g. one of the serial ports).
+
+# console pseudo-device
+console    "/usr/libexec/getty std.9600"    vt100 on secure
+
+# Workstation console (framebuffer) ttys
+ttyE0    "/usr/libexec/getty std.9600"    vt100 off secure
+ttyE1    "/usr/libexec/getty std.9600"    vt100 off secure
+
+# DEC 3000 Z8530 ("scc") serial ports
+ttyB0    "/usr/libexec/getty std.9600"    vt100 off secure local
+ttyB1    "/usr/libexec/getty std.9600"    vt100 off secure local
+
+# AlphaStation NS16550 ("com") serial ports
+ttyC0    "/usr/libexec/getty std.9600"    unknown off secure
+ttyC1    "/usr/libexec/getty std.9600"    unknown off secure
+
+Thanks again for all the help!
+
+-- 
+Micheal H. McCabe
+mhmccabe@alltel.net
+
+
+
+From bqt@softjar.se  Tue Dec 9 17:36:12 2008
+Path: news.gmane.org!not-for-mail
+From: Johnny Billquist <bqt@softjar.se>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Done Configuring Serial Printer - DEC 3000 Model 700 / NetBSD
+ V4.0 -Printer Works
+Date: Tue, 09 Dec 2008 17:36:12 +0100
+Organization: SoftJAR AB
+Lines: 144
+Approved: news@gmane.org
+Message-ID: <493E9E7C.6050408@softjar.se>
+References: <C56335D5.6D8B%mhmccabe@alltel.net>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1228840640 7080 80.91.229.12 (9 Dec 2008 16:37:20 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Tue, 9 Dec 2008 16:37:20 +0000 (UTC)
+Cc: NetBSD/Alpha Discussion List <port-alpha@netbsd.org>
+To: "Micheal H. McCabe" <mhmccabe@alltel.net>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Dec 09 17:38:24 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1LA5b1-0003kg-M4
+	for netbsd-port-alpha@m.gmane.org; Tue, 09 Dec 2008 17:38:04 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 58B4C63B225; Tue,  9 Dec 2008 16:36:17 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from GW.SoftJAR.SE (205.225.216.81.static.spa.vf.siwnet.net [81.216.225.205])
+	by mail.netbsd.org (Postfix) with ESMTP id C9C3363B16B
+	for <port-alpha@netbsd.org>; Tue,  9 Dec 2008 16:36:14 +0000 (UTC)
+Original-Received: from d78.synap.se (unknown [212.112.174.86])
+	by GW.SoftJAR.SE (Postfix) with ESMTP id 80FD962856;
+	Tue,  9 Dec 2008 17:36:12 +0100 (CET)
+User-Agent: Thunderbird 2.0.0.18 (Macintosh/20081105)
+In-Reply-To: <C56335D5.6D8B%mhmccabe@alltel.net>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4330
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4330>
+
+Micheal H. McCabe wrote:
+> on 12/7/08 19:32, Johnny Billquist at bqt@softjar.se wrote:
+> 
+> 
+>> That's easy. Just pretend you have an ASR33. That's a terminal with a
+>> paper tape reader/punch which worked over the same serial line as the
+>> terminal.
+> 
+> Well, since it's a DECmate I (in the VT-278 package), the CPU and terminal
+> electronics are all on the same board.  The serial line works great when I
+> set the machine up as a terminal. There's some magic involved in getting the
+> "inner pdp-8" to accept the serial port as a load device.  There's also the
+> format question:  RIM loader, BIN loader, etc. I figure that out eventually
+> (I hope.)
+
+Several questions, really. However, if you are talking about booting 
+from paper tape, you either have to write your own boot loader, or you 
+need to hook the paper tape reader (or simulator) to the console port 
+(assuming the console port can be accessed, and that you have a boot 
+prom that supports paper tape from an ASR33.
+If you want to access the paper tape from the booted OS, then you need a 
+device driver for the ASR33, and then the usual procedure applies. Hook 
+to console port, and so on... :-)
+But if you want to talk more about this, we can do it privately.
+
+> But, back to the topic at hand...
+> 
+> I finally got the serial printer working.  I'm not sure exactly which change
+> made the difference, but I'll summerise what I've done here.  Some other
+> poor soul might be as confused as I am, someday.
+
+Glad to hear it works.
+
+> First, my printcap entry was too complicated for the task at hand.  The
+> filter was a sticking point, even after I corrected the pathname I wasn't
+> getting any output from the filter.  Solution:  remove the filter entirely.
+> Since much of the formatting is actually done by LPR, I don't really
+> need it for this printer.  Line ends are handled just fine with a CR
+> followed by a line feed. No stair-stepping that I saw when piping raw text
+> directly to /dev/ttyB0.
+
+Good. I think I told you to skip the filter anyway. Filters can be fun, 
+but they are tricky. I have one on my machines, which invoke 
+magicfilter, so that I can print just about any format, but that is 
+something you play with once the basic setup is working.
+And the basic despooler will make newlines correct anyway, as you noted.
+
+> Second, instead of turning my entries OFF in the ttys file, I had commented
+> out the line entirely.  I'm not sure what effect this had on LPR, but
+> everything started working after I uncommented the lines and explicitly
+> turned them OFF.
+
+Weird. That should be just the same deal. Did you kick init after 
+changing /etc/ttys? You know that init don't automatically reload the 
+/etc/ttys file just because you change it? You need to send a SIGHUP to 
+init for the file to be reloaded.
+
+> Third, I had edited the rc.conf file using vi during a telnet session from a
+> Windows PC using Hyperterm.  Changes made to rc.conf where I explicitly set
+> lpd=ON were lost when I saved the file.  I discovered this when I returned
+> to the file and saw that several lines were corrupt.  Using a legitimate
+> terminal to re-edit the files made everything work much better.
+
+Hmm. That was potentially bad, but if you observed the lpd daemon 
+running I'm not sure that would make a difference.
+
+But maybe this also played a part.
+Anyway, seems like you had several items that could have worked in 
+combination to make your life difficult.
+As you now have it running, I hope you agree that it's not a very tricky 
+system to play with, and it works pretty good.
+
+> So, here is the working set of configuration files that has my printer up
+> and running.  I appreciate all the help that the folks on this list have
+> provided.  Special thanks to Johnny Billquist for his knowledge of every DEC
+> related.
+
+You're welcome, even if I didn't help that much. :-)
+
+	Johnny
+
+> 
+> ---- Begin boring recitation of system configuration files ----
+> 
+> #    $NetBSD: rc.conf,v 1.96 2000/10/14 17:01:29 wiz Exp $
+> #
+> # see rc.conf(5) for more information.
+> #
+> # Use program=YES to enable program, NO to disable it. program_flags are
+> # passed to the program on the command line.
+> #
+> 
+> # Load the defaults in from /etc/defaults/rc.conf (if it's readable).
+> # These can be overridden below.
+> #
+> if [ -r /etc/defaults/rc.conf ]; then
+>     . /etc/defaults/rc.conf
+> fi
+> 
+> # If this is not set to YES, the system will drop into single-user mode.
+> #
+> rc_configured=YES
+> 
+> # Add local overrides below
+> #
+> dhclient=YES
+> hostname="paleo.my.network"
+> lpd=YES
+> PRINTER=lp
+> 
+> #    $NetBSD: printcap,v 1.13 2006/10/08 15:28:49 elad Exp $
+> #    from: @(#)printcap    8.1 (Berkeley) 6/9/93
+> 
+> lp|local line printer:\
+>     :sh:lp=/dev/ttyB0:br#9600:ff=\f:pl=66:pw=80:sf=true:sh=true\
+>     :sd=/var/spool/lpd:lf=/var/log/lpd-errs:
+> 
+> #
+> #    $NetBSD: ttys,v 1.10 2004/06/20 21:30:26 christos Exp $
+> #
+> # name    getty                type    status        comments
+> 
+> # In normal operation, getty on 'console' pseudo-device is disabled, and is
+> # enabled for the correct 'real' device (e.g. one of the serial ports).
+> 
+> # console pseudo-device
+> console    "/usr/libexec/getty std.9600"    vt100 on secure
+> 
+> # Workstation console (framebuffer) ttys
+> ttyE0    "/usr/libexec/getty std.9600"    vt100 off secure
+> ttyE1    "/usr/libexec/getty std.9600"    vt100 off secure
+> 
+> # DEC 3000 Z8530 ("scc") serial ports
+> ttyB0    "/usr/libexec/getty std.9600"    vt100 off secure local
+> ttyB1    "/usr/libexec/getty std.9600"    vt100 off secure local
+> 
+> # AlphaStation NS16550 ("com") serial ports
+> ttyC0    "/usr/libexec/getty std.9600"    unknown off secure
+> ttyC1    "/usr/libexec/getty std.9600"    unknown off secure
+> 
+> Thanks again for all the help!
+> 
+
+
+

@@ -1,0 +1,3848 @@
+From tsutsui@ceres.dti.ne.jp  Thu Mar 1 21:45:15 2007
+Path: news.gmane.org!not-for-mail
+From: Izumi Tsutsui <tsutsui@ceres.dti.ne.jp>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: unaligned access during bootup
+Date: Thu, 1 Mar 2007 21:45:15 +0900
+Lines: 31
+Approved: news@gmane.org
+Message-ID: <070301214515.M0313546@mirage.ceres.dti.ne.jp>
+References: <20070228104619.GA9147@drowsy.duskware.de>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+X-Trace: sea.gmane.org 1172753153 7593 80.91.229.12 (1 Mar 2007 12:45:53 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Thu, 1 Mar 2007 12:45:53 +0000 (UTC)
+Cc: smj@cirr.com, agrier@poofygoof.com, port-alpha@NetBSD.org,
+        tsutsui@ceres.dti.ne.jp
+To: martin@duskware.de
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Mar 01 13:45:39 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HMkfC-00025o-Fv
+	for netbsd-port-alpha@m.gmane.org; Thu, 01 Mar 2007 13:45:38 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id AE29163B1C2; Thu,  1 Mar 2007 12:45:33 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from smtp12.dti.ne.jp (smtp12.dti.ne.jp [202.216.231.187])
+	by mail.netbsd.org (Postfix) with ESMTP id 9F16463B1BF
+	for <port-alpha@NetBSD.org>; Thu,  1 Mar 2007 12:45:32 +0000 (UTC)
+Original-Received: from mirage.ceres.dti.ne.jp (PPPa281.osaka.acca.dti.ne.jp [61.44.209.28]) by smtp12.dti.ne.jp (3.11s) with ESMTP AUTH id l21CjHsV002163;Thu, 1 Mar 2007 21:45:17 +0900 (JST)
+Original-Received: from mirage.ceres.dti.ne.jp (localhost [127.0.0.1])
+	by mirage.ceres.dti.ne.jp (8.13.8/8.13.8) with ESMTP id l21CjHUv006472;
+	Thu, 1 Mar 2007 21:45:17 +0900 (JST)
+Original-Received: (from tsutsui@localhost)
+	by mirage.ceres.dti.ne.jp (8.13.8/8.13.8/Submit) id l21CjFQi006359;
+	Thu, 1 Mar 2007 21:45:15 +0900 (JST)
+In-Reply-To: <20070228104619.GA9147@drowsy.duskware.de>
+X-Mailer: mnews [version 1.22PL7] 2003-09/29(Mon)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3927
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3927>
+
+martin@duskware.de wrote:
+
+> And of course a much better patch had already been posted here - sorry
+
+No problem, but I guess ldbu is a part of BWX, right?
+
+Anyway, if no one objects I'll commit the attached patch
+after I dig out my DEC3000/300 from closet to test it.
+---
+Izumi Tsutsui
+
+
+Index: locore.s
+===================================================================
+RCS file: /cvsroot/src/sys/arch/alpha/alpha/locore.s,v
+retrieving revision 1.109
+diff -u -r1.109 locore.s
+--- locore.s	9 Feb 2007 21:55:01 -0000	1.109
++++ locore.s	1 Mar 2007 12:41:53 -0000
+@@ -696,7 +696,9 @@
+ 	ldl	t0, sched_whichqs		/* look for non-empty queue */
+ 	bne	t0, 4f
+ 2:	lda	t0, uvm
+-	ldl	t0, UVM_PAGE_IDLE_ZERO(t0)	/* should we zero some pages? */
++	ldq_u	t1, UVM_PAGE_IDLE_ZERO(t0)
++	lda	t0, UVM_PAGE_IDLE_ZERO(t0)	/* should we zero some pages? */
++	extbl	t1, t0, t0
+ 	beq	t0, 3f				/* nope. */
+ 	CALL(uvm_pageidlezero)
+ 3:	ldl	t0, sched_whichqs		/* look for non-empty queue */
+
+
+From thorpej@shagadelic.org  Thu Mar 1 09:22:33 2007
+Path: news.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@shagadelic.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: unaligned access during bootup
+Date: Thu, 1 Mar 2007 09:22:33 -0800
+Lines: 43
+Approved: news@gmane.org
+Message-ID: <EB263DAE-E96F-4AF8-B6D4-D73F8CB27B74@shagadelic.org>
+References: <070301214515.M0313546@mirage.ceres.dti.ne.jp>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (Apple Message framework v853)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1172769771 32484 80.91.229.12 (1 Mar 2007 17:22:51 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Thu, 1 Mar 2007 17:22:51 +0000 (UTC)
+Cc: martin@duskware.de,
+ smj@cirr.com,
+ agrier@poofygoof.com,
+ port-alpha@NetBSD.org
+To: Izumi Tsutsui <tsutsui@ceres.dti.ne.jp>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Mar 01 18:22:41 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HMozI-0005Oh-Ad
+	for netbsd-port-alpha@m.gmane.org; Thu, 01 Mar 2007 18:22:40 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id BC05F63B219; Thu,  1 Mar 2007 17:22:34 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from mail.shagadelic.org (isc-temp1.netbsd.org [204.152.190.30])
+	by mail.netbsd.org (Postfix) with ESMTP id 0951563B202
+	for <port-alpha@NetBSD.org>; Thu,  1 Mar 2007 17:22:34 +0000 (UTC)
+Original-Received: from [17.255.27.70] (A17-255-27-70.apple.com [17.255.27.70])
+	by mail.shagadelic.org (Postfix) with ESMTP id DD4A03CA179;
+	Thu,  1 Mar 2007 09:22:33 -0800 (PST)
+In-Reply-To: <070301214515.M0313546@mirage.ceres.dti.ne.jp>
+X-Smtp-Server: mail.shagadelic.org:thorpej
+X-Mailer: Apple Mail (2.853)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3928
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3928>
+
+
+On Mar 1, 2007, at 4:45 AM, Izumi Tsutsui wrote:
+
+> martin@duskware.de wrote:
+>
+>> And of course a much better patch had already been posted here -  
+>> sorry
+>
+> No problem, but I guess ldbu is a part of BWX, right?
+
+Yes, ldbu is a BWX thing.
+
+> Anyway, if no one objects I'll commit the attached patch
+> after I dig out my DEC3000/300 from closet to test it.
+
+Thanks!
+
+> ---
+> Izumi Tsutsui
+>
+>
+> Index: locore.s
+> ===================================================================
+> RCS file: /cvsroot/src/sys/arch/alpha/alpha/locore.s,v
+> retrieving revision 1.109
+> diff -u -r1.109 locore.s
+> --- locore.s	9 Feb 2007 21:55:01 -0000	1.109
+> +++ locore.s	1 Mar 2007 12:41:53 -0000
+> @@ -696,7 +696,9 @@
+>  	ldl	t0, sched_whichqs		/* look for non-empty queue */
+>  	bne	t0, 4f
+>  2:	lda	t0, uvm
+> -	ldl	t0, UVM_PAGE_IDLE_ZERO(t0)	/* should we zero some pages? */
+> +	ldq_u	t1, UVM_PAGE_IDLE_ZERO(t0)
+> +	lda	t0, UVM_PAGE_IDLE_ZERO(t0)	/* should we zero some pages? */
+> +	extbl	t1, t0, t0
+>  	beq	t0, 3f				/* nope. */
+>  	CALL(uvm_pageidlezero)
+>  3:	ldl	t0, sched_whichqs		/* look for non-empty queue */
+
+-- thorpej
+
+
+
+From agrier@poofygoof.com  Thu Mar 1 11:23:52 2007
+Path: news.gmane.org!not-for-mail
+From: "Aaron J. Grier" <agrier@poofygoof.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: unaligned access during bootup
+Date: Thu, 1 Mar 2007 11:23:52 -0800
+Lines: 21
+Approved: news@gmane.org
+Message-ID: <20070301192352.GC323@arwen.poofy.goof.com>
+References: <20070228104619.GA9147@drowsy.duskware.de> <070301214515.M0313546@mirage.ceres.dti.ne.jp>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: sea.gmane.org 1172777065 7780 80.91.229.12 (1 Mar 2007 19:24:25 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Thu, 1 Mar 2007 19:24:25 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Mar 01 20:24:07 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HMqsn-0005G9-Nk
+	for netbsd-port-alpha@m.gmane.org; Thu, 01 Mar 2007 20:24:06 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 7FA1A63B209; Thu,  1 Mar 2007 19:24:00 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from smtp.poofygoof.com (209-162-215-114.dq1sn.easystreet.com [209.162.215.114])
+	by mail.netbsd.org (Postfix) with ESMTP id B70D863B1E5
+	for <port-alpha@NetBSD.org>; Thu,  1 Mar 2007 19:23:59 +0000 (UTC)
+Original-Received: from arwen.poofy.goof.com (muzgash.poofy.goof.com [10.0.0.26])
+	by smtp.poofygoof.com (Postfix) with ESMTP id 837E57153
+	for <port-alpha@NetBSD.org>; Thu,  1 Mar 2007 11:23:53 -0800 (PST)
+Original-Received: by arwen.poofy.goof.com (Postfix, from userid 100)
+	id B4A4433143; Thu,  1 Mar 2007 11:23:52 -0800 (PST)
+Mail-Followup-To: "Aaron J. Grier" <agrier@poofygoof.com>,
+	port-alpha@NetBSD.org
+Content-Disposition: inline
+In-Reply-To: <070301214515.M0313546@mirage.ceres.dti.ne.jp>
+User-Agent: Mutt/1.4.2.2i
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3929
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3929>
+
+On Thu, Mar 01, 2007 at 09:45:15PM +0900, Izumi Tsutsui wrote:
+> martin@duskware.de wrote:
+> 
+> > And of course a much better patch had already been posted here - sorry
+> 
+> No problem, but I guess ldbu is a part of BWX, right?
+
+would it make sense to have conditional assembly for BWX alphas?  (I'm
+not familiar with how frequently the referenced code is called.)
+
+> Anyway, if no one objects I'll commit the attached patch
+> after I dig out my DEC3000/300 from closet to test it.
+
+I'll check on my 1000A tonight as well.
+
+Thank you.
+
+-- 
+  Aaron J. Grier | "Not your ordinary poofy goof." | agrier@poofygoof.com
+              "silly brewer, saaz are for pils!"  --  virt
+
+
+From tsutsui@ceres.dti.ne.jp  Fri Mar 2 22:39:50 2007
+Path: news.gmane.org!not-for-mail
+From: Izumi Tsutsui <tsutsui@ceres.dti.ne.jp>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: unaligned access during bootup
+Date: Fri, 2 Mar 2007 22:39:50 +0900
+Lines: 15
+Approved: news@gmane.org
+Message-ID: <070302223950.M0120193@mirage.ceres.dti.ne.jp>
+References: <EB263DAE-E96F-4AF8-B6D4-D73F8CB27B74@shagadelic.org>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+X-Trace: sea.gmane.org 1172842814 5138 80.91.229.12 (2 Mar 2007 13:40:14 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Fri, 2 Mar 2007 13:40:14 +0000 (UTC)
+Cc: port-alpha@NetBSD.org, tsutsui@ceres.dti.ne.jp
+To: thorpej@shagadelic.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Fri Mar 02 14:40:06 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HN7zR-0001R0-Ay
+	for netbsd-port-alpha@m.gmane.org; Fri, 02 Mar 2007 14:40:05 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id E244363B23E; Fri,  2 Mar 2007 13:39:56 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from smtp12.dti.ne.jp (smtp12.dti.ne.jp [202.216.231.187])
+	by mail.netbsd.org (Postfix) with ESMTP id CC41563B21A
+	for <port-alpha@NetBSD.org>; Fri,  2 Mar 2007 13:39:55 +0000 (UTC)
+Original-Received: from mirage.ceres.dti.ne.jp (PPPa281.osaka.acca.dti.ne.jp [61.44.209.28]) by smtp12.dti.ne.jp (3.11s) with ESMTP AUTH id l22DdqSZ021140;Fri, 2 Mar 2007 22:39:52 +0900 (JST)
+Original-Received: from mirage.ceres.dti.ne.jp (localhost [127.0.0.1])
+	by mirage.ceres.dti.ne.jp (8.13.8/8.13.8) with ESMTP id l22DdpIe000374;
+	Fri, 2 Mar 2007 22:39:51 +0900 (JST)
+Original-Received: (from tsutsui@localhost)
+	by mirage.ceres.dti.ne.jp (8.13.8/8.13.8/Submit) id l22DdoFb023269;
+	Fri, 2 Mar 2007 22:39:50 +0900 (JST)
+In-Reply-To: <EB263DAE-E96F-4AF8-B6D4-D73F8CB27B74@shagadelic.org>
+X-Mailer: mnews [version 1.22PL7] 2003-09/29(Mon)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3930
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3930>
+
+thorpej@shagadelic.org wrote:
+
+> > Anyway, if no one objects I'll commit the attached patch
+> > after I dig out my DEC3000/300 from closet to test it.
+> 
+> Thanks!
+
+Now I've tested the patch on 3000/300 and it works fine, but
+"sysctl -a vm.idlezero" command shows "vm.idlezero = 256"
+while it should be zero.
+
+Should we add CTLTYPE_BOOL in <sys/sysctl.h> and sys/kern/kern_sysctl.c?
+---
+Izumi Tsutsui
+
+
+From jwm@horde.net  Fri Mar 2 09:49:08 2007
+Path: news.gmane.org!not-for-mail
+From: John Morrissey <jwm@horde.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: 3.1 install faults on CS20
+Date: Fri, 2 Mar 2007 09:49:08 -0500
+Lines: 82
+Approved: news@gmane.org
+Message-ID: <20070302144908.GA14108@boost.horde.net>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: sea.gmane.org 1172846971 20503 80.91.229.12 (2 Mar 2007 14:49:31 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Fri, 2 Mar 2007 14:49:31 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Fri Mar 02 15:49:23 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HN94V-0005VN-3A
+	for netbsd-port-alpha@m.gmane.org; Fri, 02 Mar 2007 15:49:23 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id DBB3663B1B4; Fri,  2 Mar 2007 14:49:15 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from boost.horde.net (cl-1.ewr-01.us.sixxs.net [IPv6:2001:4830:1200::2])
+	by mail.netbsd.org (Postfix) with ESMTP id 9F20063B2B7
+	for <port-alpha@NetBSD.org>; Fri,  2 Mar 2007 14:49:09 +0000 (UTC)
+Original-Received: by boost.horde.net (Postfix, from userid 100)
+	id 1EB4141F7; Fri,  2 Mar 2007 09:49:09 -0500 (EST)
+Content-Disposition: inline
+X-Marks: The Spot
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3931
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3931>
+
+I'm trying to install NetBSD 3.1 on an API Networks CS20. I'm installing
+from CD, but when the installer starts exploding base.tgz, the kernel(?)
+faults, leaving me at a db> prompt.
+
+I'm not that familiar with NetBSD, so I'll assume this is the kernel
+debugger. I couldn't get a backtrace out of it, but I poked around a bit
+(output below) looking for what might be useful information.
+
+Could the cause of this be fixed in -current? Is there a way to install
+-current directly, from CD or via netboot?
+
+thanks,
+john
+
+
+     Status: Running
+    Command: progress -zf /mnt2//alpha/binary/sets/base.tgz tar --chroot -xhepf -
+
+--------------------------------------------------------------------------------
+18% |******                               | 16228 KB    3.95 MB/s    00:17 ETA
+Stopped in pid 49.1 (tar) at    0xfffffc00005bb750:     ret     zero,(ra)
+db> bt
+db> trace
+db> ps
+ PID           PPID     PGRP        UID S   FLAGS LWPS          COMMAND    WAIT 
+>49              45       45          0 2  0x4002    1              tar          
+ 46              45       45          0 2  0x4002    1             gzip   netio 
+ 45              16       45          0 2  0x4002    1         progress   netio 
+ 16               9       16          0 2  0x4002    1          sysinst         
+ 9                1        9          0 2  0x4002    1               sh    wait 
+ 8                0        0          0 2 0x20200    1         aiodoned aiodone 
+ 7                0        0          0 2 0x20200    1          ioflush  syncer 
+ 6                0        0          0 2 0x20200    1       pagedaemon pgdaemo 
+ 5                0        0          0 2 0x20200    1        atapibus0  sccomp 
+ 4                0        0          0 2 0x20200    1          atabus1   atath 
+ 3                0        0          0 2 0x20200    1          atabus0   atath 
+ 2                0        0          0 2 0x20200    1         scsibus0  sccomp 
+ 1                0        1          0 2  0x4000    1             init    wait 
+ 0               -1        0          0 2 0x20200    1          swapper schedul 
+db> show registers
+v0          0x6
+t0          0x1
+t1          0x1063
+t2          0xfffffc007fffa000
+t3          0xfffffc007fffb082
+t4          0xfffffc007fffa000
+t5          0x1063
+t6          0x1
+t7          0x5a0
+s0          0x100
+s1          0xfffffc0000b4f540
+s2          0xfffffe0000133800
+s3          0x259e81
+s4          0xfffffe001d905bf8
+s5          0xfffffc007c83a6d0
+s6          0xfffffc00005e574c
+a0          0
+a1          0xfffffd01fc0003f8
+a2          0
+a3          0x8
+a4          0x3
+a5          0x8
+t8          0x4000
+t9          0xfffffc0000417c6c
+t10         0x259e81
+t11         0x80
+ra          0xfffffc0000466618
+t12         0xfffffc00005bb74c
+at          0xfffffe001d902000
+gp          0xfffffc0000b4b7e0
+sp          0xfffffe001d905b08
+pc          0xfffffc00005bb750
+ps          0
+ai          0x80
+pv          0xfffffc00005bb74c
+0xfffffc00005bb750:     ret     zero,(ra)                                       
+
+-- 
+John Morrissey          _o            /\         ----  __o
+jwm@horde.net        _-< \_          /  \       ----  <  \,
+www.horde.net/    __(_)/_(_)________/    \_______(_) /_(_)__
+
+
+From thorpej@shagadelic.org  Fri Mar 2 08:35:19 2007
+Path: news.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@shagadelic.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: unaligned access during bootup
+Date: Fri, 2 Mar 2007 08:35:19 -0800
+Lines: 16
+Approved: news@gmane.org
+Message-ID: <B5FEB555-A142-403F-94B3-9B2F57648CC3@shagadelic.org>
+References: <070302223950.M0120193@mirage.ceres.dti.ne.jp>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (Apple Message framework v853)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1172853347 15158 80.91.229.12 (2 Mar 2007 16:35:47 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Fri, 2 Mar 2007 16:35:47 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: Izumi Tsutsui <tsutsui@ceres.dti.ne.jp>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Fri Mar 02 17:35:40 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HNAjH-0005ge-L0
+	for netbsd-port-alpha@m.gmane.org; Fri, 02 Mar 2007 17:35:35 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 432F063B142; Fri,  2 Mar 2007 16:35:21 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from mail.shagadelic.org (isc-temp1.netbsd.org [204.152.190.30])
+	by mail.netbsd.org (Postfix) with ESMTP id 9603A63B11B
+	for <port-alpha@NetBSD.org>; Fri,  2 Mar 2007 16:35:20 +0000 (UTC)
+Original-Received: from [17.255.27.70] (A17-255-27-70.apple.com [17.255.27.70])
+	by mail.shagadelic.org (Postfix) with ESMTP id 5BC9F3CA257;
+	Fri,  2 Mar 2007 08:35:20 -0800 (PST)
+In-Reply-To: <070302223950.M0120193@mirage.ceres.dti.ne.jp>
+X-Smtp-Server: mail.shagadelic.org:thorpej
+X-Mailer: Apple Mail (2.853)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3932
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3932>
+
+
+On Mar 2, 2007, at 5:39 AM, Izumi Tsutsui wrote:
+
+> Now I've tested the patch on 3000/300 and it works fine, but
+> "sysctl -a vm.idlezero" command shows "vm.idlezero = 256"
+> while it should be zero.
+>
+> Should we add CTLTYPE_BOOL in <sys/sysctl.h> and sys/kern/ 
+> kern_sysctl.c?
+
+Possibly, yes.  but we could work around the problem for now by making  
+the sysctl handler copy the value to a temporary int variable.
+
+-- thorpej
+
+
+
+From smj@cirr.com  Fri Mar 2 14:25:54 2007
+Path: news.gmane.org!not-for-mail
+From: Stephen Jones <smj@cirr.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: 3.1 install faults on CS20
+Date: Fri, 2 Mar 2007 14:25:54 -0800
+Lines: 31
+Approved: news@gmane.org
+Message-ID: <81B6C19B-D250-49EE-96CA-518B3B04958F@cirr.com>
+References: <20070302144908.GA14108@boost.horde.net>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1172874402 7203 80.91.229.12 (2 Mar 2007 22:26:42 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Fri, 2 Mar 2007 22:26:42 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: John Morrissey <jwm@horde.net>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Fri Mar 02 23:26:36 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HNGCv-00048o-G7
+	for netbsd-port-alpha@m.gmane.org; Fri, 02 Mar 2007 23:26:33 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 4B53163B2AE; Fri,  2 Mar 2007 22:26:05 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from sdf.lonestar.org (mx.freeshell.ORG [192.94.73.18])
+	by mail.netbsd.org (Postfix) with ESMTP id 300F063B11E
+	for <port-alpha@NetBSD.org>; Fri,  2 Mar 2007 22:26:04 +0000 (UTC)
+Original-Received: from [10.0.0.2] (c-24-19-33-70.hsd1.mn.comcast.net [24.19.33.70])
+	(authenticated (0 bits))
+	by sdf.lonestar.org (8.13.5.20060308/8.13.8) with ESMTP id l22MPtC0019686;
+	Fri, 2 Mar 2007 22:25:56 GMT
+In-Reply-To: <20070302144908.GA14108@boost.horde.net>
+X-Mailer: Apple Mail (2.752.2)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3933
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3933>
+
+
+On Mar 2, 2007, at 6:49 AM, John Morrissey wrote:
+
+> I'm trying to install NetBSD 3.1 on an API Networks CS20. I'm  
+> installing
+> from CD, but when the installer starts exploding base.tgz, the  
+> kernel(?)
+> faults, leaving me at a db> prompt.
+
+I assume you are using the released 3.1 ISO and not a pre-release.    
+What
+happens if you type 'cont'?  Will it go back to boot?  What boot  
+flags are
+you using?  Did you know, or at least I believe its true, you can have a
+boot flag that immediately breaks to the debugger?
+
+> I'm not that familiar with NetBSD, so I'll assume this is the kernel
+> debugger. I couldn't get a backtrace out of it, but I poked around  
+> a bit
+> (output below) looking for what might be useful information.
+
+Yes, but read above.  More than likely you just need to type 'cont'  
+or remove
+whatever flat you are booting with.
+
+Welcome to NetBSD.  I typically do my installs via netboot on the ei?  
+interfaces
+without any issues.
+
+Stephen
+
+
+From agrier@poofygoof.com  Fri Mar 2 15:59:08 2007
+Path: news.gmane.org!not-for-mail
+From: "Aaron J. Grier" <agrier@poofygoof.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: unaligned access during bootup
+Date: Fri, 2 Mar 2007 15:59:08 -0800
+Lines: 17
+Approved: news@gmane.org
+Message-ID: <20070302235907.GC1097@arwen.poofy.goof.com>
+References: <EB263DAE-E96F-4AF8-B6D4-D73F8CB27B74@shagadelic.org> <070302223950.M0120193@mirage.ceres.dti.ne.jp>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: sea.gmane.org 1172879967 23132 80.91.229.12 (2 Mar 2007 23:59:27 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Fri, 2 Mar 2007 23:59:27 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Mar 03 00:59:20 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HNHeh-0003iF-7D
+	for netbsd-port-alpha@m.gmane.org; Sat, 03 Mar 2007 00:59:19 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id EDFC663B270; Fri,  2 Mar 2007 23:59:11 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from smtp.poofygoof.com (209-162-215-114.dq1sn.easystreet.com [209.162.215.114])
+	by mail.netbsd.org (Postfix) with ESMTP id 3349663B246
+	for <port-alpha@NetBSD.org>; Fri,  2 Mar 2007 23:59:11 +0000 (UTC)
+Original-Received: from arwen.poofy.goof.com (muzgash.poofy.goof.com [10.0.0.26])
+	by smtp.poofygoof.com (Postfix) with ESMTP id 3D0B7710D
+	for <port-alpha@NetBSD.org>; Fri,  2 Mar 2007 15:59:10 -0800 (PST)
+Original-Received: by arwen.poofy.goof.com (Postfix, from userid 100)
+	id 1573633143; Fri,  2 Mar 2007 15:59:08 -0800 (PST)
+Mail-Followup-To: "Aaron J. Grier" <agrier@poofygoof.com>,
+	port-alpha@NetBSD.org
+Content-Disposition: inline
+In-Reply-To: <070302223950.M0120193@mirage.ceres.dti.ne.jp>
+User-Agent: Mutt/1.4.2.2i
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3934
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3934>
+
+On Fri, Mar 02, 2007 at 10:39:50PM +0900, Izumi Tsutsui wrote:
+> thorpej@shagadelic.org wrote:
+> > > Anyway, if no one objects I'll commit the attached patch after I
+> > > dig out my DEC3000/300 from closet to test it.
+> > 
+> > Thanks!
+> 
+> Now I've tested the patch on 3000/300 and it works fine, but
+> "sysctl -a vm.idlezero" command shows "vm.idlezero = 256"
+> while it should be zero.
+
+my 1000A is once again booting.
+
+-- 
+  Aaron J. Grier | "Not your ordinary poofy goof." | agrier@poofygoof.com
+              "silly brewer, saaz are for pils!"  --  virt
+
+
+From tsutsui@ceres.dti.ne.jp  Sat Mar 3 10:51:02 2007
+Path: news.gmane.org!not-for-mail
+From: Izumi Tsutsui <tsutsui@ceres.dti.ne.jp>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: unaligned access during bootup
+Date: Sat, 3 Mar 2007 10:51:02 +0900
+Lines: 14
+Approved: news@gmane.org
+Message-ID: <070303105102.M0326764@mirage.ceres.dti.ne.jp>
+References: <20070301192352.GC323@arwen.poofy.goof.com>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+X-Trace: sea.gmane.org 1172886678 6660 80.91.229.12 (3 Mar 2007 01:51:18 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Sat, 3 Mar 2007 01:51:18 +0000 (UTC)
+Cc: port-alpha@NetBSD.org, tsutsui@ceres.dti.ne.jp
+To: agrier@poofygoof.com
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Mar 03 02:51:12 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HNJOx-0000vv-GB
+	for netbsd-port-alpha@m.gmane.org; Sat, 03 Mar 2007 02:51:11 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 7378763B219; Sat,  3 Mar 2007 01:51:04 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from smtp12.dti.ne.jp (smtp12.dti.ne.jp [202.216.231.187])
+	by mail.netbsd.org (Postfix) with ESMTP id 6DE4263B216
+	for <port-alpha@NetBSD.org>; Sat,  3 Mar 2007 01:51:03 +0000 (UTC)
+Original-Received: from mirage.ceres.dti.ne.jp (PPPa281.osaka.acca.dti.ne.jp [61.44.209.28]) by smtp12.dti.ne.jp (3.11s) with ESMTP AUTH id l231p2sf001503;Sat, 3 Mar 2007 10:51:02 +0900 (JST)
+Original-Received: from mirage.ceres.dti.ne.jp (localhost [127.0.0.1])
+	by mirage.ceres.dti.ne.jp (8.13.8/8.13.8) with ESMTP id l231p2ep027817;
+	Sat, 3 Mar 2007 10:51:02 +0900 (JST)
+Original-Received: (from tsutsui@localhost)
+	by mirage.ceres.dti.ne.jp (8.13.8/8.13.8/Submit) id l231p2HW005405;
+	Sat, 3 Mar 2007 10:51:02 +0900 (JST)
+In-Reply-To: <20070301192352.GC323@arwen.poofy.goof.com>
+X-Mailer: mnews [version 1.22PL7] 2003-09/29(Mon)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3935
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3935>
+
+agrier@poofygoof.com wrote:
+
+> would it make sense to have conditional assembly for BWX alphas?  (I'm
+> not familiar with how frequently the referenced code is called.)
+
+It's only called when cpu is idle, so slight optimization
+won't help so much, I think.
+
+> my 1000A is once again booting.
+
+Thanks. I'll commit it soon.
+---
+Izumi Tsutsui
+
+
+From jwm@horde.net  Tue Mar 6 13:46:36 2007
+Path: news.gmane.org!not-for-mail
+From: John Morrissey <jwm@horde.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: 3.1 install faults on CS20
+Date: Tue, 6 Mar 2007 13:46:36 -0500
+Lines: 73
+Approved: news@gmane.org
+Message-ID: <20070306184636.GA9324@boost.horde.net>
+References: <20070302144908.GA14108@boost.horde.net> <81B6C19B-D250-49EE-96CA-518B3B04958F@cirr.com>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: sea.gmane.org 1173206883 11275 80.91.229.12 (6 Mar 2007 18:48:03 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Tue, 6 Mar 2007 18:48:03 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Mar 06 19:47:56 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HOehV-0004sf-HI
+	for netbsd-port-alpha@m.gmane.org; Tue, 06 Mar 2007 19:47:53 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 24A4363B318; Tue,  6 Mar 2007 18:46:57 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from boost.horde.net (cl-1.ewr-01.us.sixxs.net [IPv6:2001:4830:1200::2])
+	by mail.netbsd.org (Postfix) with ESMTP id B3DF663B122
+	for <port-alpha@NetBSD.org>; Tue,  6 Mar 2007 18:46:38 +0000 (UTC)
+Original-Received: from boost.horde.net (localhost [127.0.0.1])
+	(using TLSv1 with cipher EDH-RSA-DES-CBC3-SHA (168/168 bits))
+	(No client certificate requested)
+	by boost.horde.net (Postfix) with ESMTP id EFA2B41B2;
+	Tue,  6 Mar 2007 13:46:37 -0500 (EST)
+Original-Received: (from jwm@localhost)
+	by boost.horde.net (8.13.8+Sun/8.13.8/Submit) id l26Ika7a009373;
+	Tue, 6 Mar 2007 13:46:36 -0500 (EST)
+Content-Disposition: inline
+In-Reply-To: <81B6C19B-D250-49EE-96CA-518B3B04958F@cirr.com>
+X-Marks: The Spot
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3936
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3936>
+
+On Fri, Mar 02, 2007 at 02:25:54PM -0800, Stephen Jones wrote:
+> On Mar 2, 2007, at 6:49 AM, John Morrissey wrote:
+> > I'm trying to install NetBSD 3.1 on an API Networks CS20. I'm installing
+> > from CD, but when the installer starts exploding base.tgz, the kernel(?)
+> > faults, leaving me at a db> prompt.
+> 
+> I assume you are using the released 3.1 ISO and not a pre-release.
+
+Yup.
+
+> What happens if you type 'cont'?  Will it go back to boot?  What boot
+> flags are you using?  Did you know, or at least I believe its true, you
+> can have a boot flag that immediately breaks to the debugger?
+
+I got the install to finish by doing this, but had to continue the installer
+(with subsequent reboot) three or four times first. I also changed to the
+network as the source for packages about halfway through (instead of
+grabbing them from the CD). Some representative output:
+
+panic: ffs_valloc: dup alloc
+Stopped in pid 49.1 (tar) at    0xfffffc00005bb750:     ret     zero,(ra)
+db> cont
+syncing disks... panic: lockmgr: locking against myself
+Stopped in pid 49.1 (tar) at    0xfffffc00005bb750:     ret     zero,(ra)
+db> cont
+
+dump to dev 6,1 not possible
+rebooting...
+
+
+halted CPU 0
+
+halt code = 5
+HALT instruction executed
+PC = fffffc0000300118
+
+CPU 0 booting
+Resetting I/O buses...
+(boot dqb1.1.1.16.0 -flags 0)
+block 0 of dqb1.1.1.16.0 is a valid boot block
+reading 13 blocks from dqb1.1.1.16.0
+failed to read dqb1.1.1.16.0
+bootstrap failure
+
+Retrying, type ^C to abort... 
+[etc]
+
+At this point, I power cycled the machine and restarted the install.
+
+I'm not using anything exotic for boot flags; just 'boot dqb1.1.1.16.0' at
+the SRM(?) prompt.
+
+I suppose I'm making so much hay about this because I want to make sure the
+machine will be stable. It'll be co-located, although the facility is about
+two blocks from where I work so the occasional lockup/power cycle isn't a
+huge deal. Obviously, I'd like to avoid having that happen regularly. :-)
+
+
+A couple questions about the CS20 itself if you don't mind, Stephen - have
+you found a reasonable source of spare parts? I'm mostly interested in a
+power supply or two to keep on a shelf, since they seem fairly nonstandard.
+Also, I've heard references to remote management on these machines; in
+particularly, a Lawrence Livermore Labs presentation mentioned using
+PowerMan for remote power control. PowerMan has several methods of control,
+so I'm not sure what the actual mechanism is.
+
+thanks,
+john
+-- 
+John Morrissey          _o            /\         ----  __o
+jwm@horde.net        _-< \_          /  \       ----  <  \,
+www.horde.net/    __(_)/_(_)________/    \_______(_) /_(_)__
+
+
+From bouyer@antioche.eu.org  Tue Mar 6 23:12:27 2007
+Path: news.gmane.org!not-for-mail
+From: Manuel Bouyer <bouyer@antioche.eu.org>
+Newsgroups: gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.devel.installation,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.cats,gmane.os.netbsd.ports.i386,gmane.os.netbsd.ports.pmax,gmane.os.netbsd.ports.sgimips,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64,gmane.os.netbsd.ports.sun3,gmane.os.netbsd.ports.vax
+Subject: Re: UPDATE: various changes on INSTALL and iso generation
+Date: Tue, 6 Mar 2007 23:12:27 +0100
+Lines: 21
+Approved: news@gmane.org
+Message-ID: <20070306221227.GA7726@antioche.eu.org>
+References: <20070305164900.GB25921@chassiron.antioche.eu.org>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: sea.gmane.org 1173219176 28617 80.91.229.12 (6 Mar 2007 22:12:56 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Tue, 6 Mar 2007 22:12:56 +0000 (UTC)
+Cc: port-alpha@NetBSD.org, port-amd64@NetBSD.org, port-cats@NetBSD.org,
+        port-i386@NetBSD.org, port-pmax@NetBSD.org, port-sgimips@NetBSD.org,
+        port-sparc@NetBSD.org, port-sparc64@NetBSD.org, port-sun3@NetBSD.org,
+        port-vax@NetBSD.org
+To: tech-install@NetBSD.org
+Original-X-From: bounces-port-amd64-owner-gonpx-port-x86_64=gmane.org@NetBSD.org Tue Mar 06 23:12:49 2007
+Return-path: <bounces-port-amd64-owner-gonpx-port-x86_64=gmane.org@NetBSD.org>
+Envelope-to: gonpx-port-x86_64@gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HOhtm-0004yH-Ek
+	for gonpx-port-x86_64@gmane.org; Tue, 06 Mar 2007 23:12:46 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 91F0563B33D; Tue,  6 Mar 2007 22:12:44 +0000 (UTC)
+X-Original-To: port-amd64@NetBSD.org
+Delivered-To: port-amd64@NetBSD.org
+Original-Received: from chassiron.antioche.eu.org (chassiron.antioche.eu.org [IPv6:2001:7a8:242c:1::1])
+	by mail.netbsd.org (Postfix) with ESMTP id EE87663B307;
+	Tue,  6 Mar 2007 22:12:30 +0000 (UTC)
+Original-Received: from rochebonne.antioche.eu.org (rochebonne [IPv6:2001:7a8:242c:0:240:95ff:fe45:4702])
+	by chassiron.antioche.eu.org (8.13.8/8.12.11) with ESMTP id l26MCSIE017032;
+	Tue, 6 Mar 2007 23:12:28 +0100 (MET)
+Original-Received: (from bouyer@localhost)
+	by rochebonne.antioche.eu.org (8.13.5.20060308/8.12.8/Submit) id l26MCRsl003617;
+	Tue, 6 Mar 2007 23:12:28 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20070305164900.GB25921@chassiron.antioche.eu.org>
+User-Agent: Mutt/1.5.13 (2006-08-11)
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-2.1.2 (chassiron.antioche.eu.org [IPv6:2001:7a8:242c:1::1]); Tue, 06 Mar 2007 23:12:29 +0100 (MET)
+Original-Sender: port-amd64-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.x86-64:2174 gmane.os.netbsd.devel.installation:792 gmane.os.netbsd.ports.alpha:3937 gmane.os.netbsd.ports.cats:196 gmane.os.netbsd.ports.i386:11391 gmane.os.netbsd.ports.pmax:871 gmane.os.netbsd.ports.sgimips:1808 gmane.os.netbsd.ports.sparc:6777 gmane.os.netbsd.ports.sparc64:5128 gmane.os.netbsd.ports.sun3:338 gmane.os.netbsd.ports.vax:4602
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3937>
+
+[ relevant port lists in Cc; please reply to one port list or
+tech-install as appropriate]
+
+On Mon, Mar 05, 2007 at 05:49:00PM +0100, Manuel Bouyer wrote:
+> Hi,
+> here's an updated patch for my changes on iso generation. Changes since
+[...]
+
+so I just commited this (with some minor changes thanks to Alan Barrett's
+comments). The iso should be bootable on:
+alpha, amd64, cats, i386, pmax, sgimips, sparc, sparc64, sun3, vax.
+You can find an iso for these ports (exept cats which doesn't build at all
+right now), built using build.sh iso-image with the new infrastructure.
+It would be great if each of these could be tested at last once.
+I tested amd64, i386, alpha and sparc64 myself.
+
+-- 
+Manuel Bouyer <bouyer@antioche.eu.org>
+     NetBSD: 26 ans d'experience feront toujours la difference
+--
+
+
+From harenberg@physik.uni-wuppertal.de  Thu Mar 8 14:55:20 2007
+Path: news.gmane.org!not-for-mail
+From: Torsten Harenberg <harenberg@physik.uni-wuppertal.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Trying to boot a AlphaServer 1200
+Date: Thu, 8 Mar 2007 14:55:20 +0100
+Lines: 522
+Approved: news@gmane.org
+Message-ID: <724B7239-0B0A-4585-8731-829B21143544@physik.uni-wuppertal.de>
+References: <45DD9BA1.2070709@physik.uni-wuppertal.de> <20070223100543.6e7e4990@SirToby.dinner41.local> <45DEFD1D.40606@physik.uni-wuppertal.de> <20070223184103.6553d954@SirToby.dinner41.local>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1173362151 16616 80.91.229.12 (8 Mar 2007 13:55:51 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Thu, 8 Mar 2007 13:55:51 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Mar 08 14:55:45 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HPJ5r-0000MN-6X
+	for netbsd-port-alpha@m.gmane.org; Thu, 08 Mar 2007 14:55:43 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id C08D663B19C; Thu,  8 Mar 2007 13:55:34 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mail.physik.uni-wuppertal.de (mail.physik.uni-wuppertal.de [132.195.104.215])
+	by mail.netbsd.org (Postfix) with ESMTP id BB49463B145
+	for <port-alpha@netbsd.org>; Thu,  8 Mar 2007 13:55:31 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.physik.uni-wuppertal.de (Postfix) with ESMTP id 4751115B5BE6
+	for <port-alpha@netbsd.org>; Thu,  8 Mar 2007 14:55:30 +0100 (CET)
+Original-Received: from mail.physik.uni-wuppertal.de ([127.0.0.1])
+ by localhost (mail.physik.uni-wuppertal.de [127.0.0.1]) (amavisd-new, port 10024)
+ with ESMTP id 10460-10 for <port-alpha@netbsd.org>;
+ Thu,  8 Mar 2007 14:55:21 +0100 (CET)
+Original-Received: from [132.195.104.200] (apfel.physik.uni-wuppertal.de [132.195.104.200])
+	by mail.physik.uni-wuppertal.de (Postfix) with ESMTP id 99F0F15B5BD1
+	for <port-alpha@netbsd.org>; Thu,  8 Mar 2007 14:55:21 +0100 (CET)
+In-Reply-To: <20070223184103.6553d954@SirToby.dinner41.local>
+X-Mailer: Apple Mail (2.752.2)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3938
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3938>
+
+Dear all,
+
+coming back to my problem booting an old AlphaServer 1200, I set up a  
+netboot environment now and tried a -current kernel (src from today)  
+with a lot of DEBUG* options on.
+
+Here's what I get with this:
+
+P00>>>b -proto bootp ewa0
+(boot ewa0.0.0.3.0 -flags A)
+
+Trying BOOTP boot.
+
+Broadcasting BOOTP Request...
+Received BOOTP Packet File Name is: /boot
+local inet address: 192.168.2.3
+remote inet address: 192.168.2.100
+TFTP Read File Name: /boot
+netmask = 255.255.255.0
+Server is on same subnet as client.
+..
+bootstrap code read in
+Building FRU table
+base = 200000, image_start = 0, image_bytes = e6f0
+initializing HWRPB at 2000
+initializing page table at 1f2000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 3.0_STABLE Network Bootstrap, Revision 1.9
+(root@wpdu2.physik.uni-wuppertal.de, Sat May  6 05:46:44 CEST 2006)
+
+VMS PAL rev: 0x4000200010115
+OSF PAL rev: 0x4000200020117
+Switch to OSF PAL code succeeded.
+
+Boot flags: A
+boot: ethernet address: 00:00:f8:10:cb:2c
+net_open: client addr: 192.168.2.3
+net_open: subnet mask: 255.255.255.0
+net_open: net gateway: 192.168.2.100
+net_open: server addr: 192.168.2.100
+net_open: server path: /export
+net_open: file name: /boot
+boot: client addr: 192.168.2.3
+boot: client name: wpos18
+boot: subnet mask: 255.255.255.0
+boot: net gateway: 192.168.2.100
+boot: server addr: 192.168.2.100
+boot: server path: /export
+9077824Mar  8 15:03:11 wpdu2 /netbsd: com0: 38 silo overflows, 0 ibuf  
+floods
++376720 [444792+290411]=0x9b8238
+
+Entering netbsd at 0xfffffc0000301310...
+io: freeing from 0x0 to 0xffff
+io: freeing from 0x10000 to 0x1ffffff
+extent `mcpcia_bus_io' (0x0 - 0xffffffff), flags = 0x1
+      0x2000000 - 0xfffffffe
+dmem: freeing from 0x0 to 0x7fffffff
+extent `mcpcia_bus_dmem' (0x0 - 0xffffffffffffffff), flags = 0x1
+      0x80000000 - 0xfffffffffffffffe
+smem: freeing from 0x0 to 0xffffff
+smem: freeing from 0x1000000 to 0x7ffffff
+extent `mcpcia_bus_smem' (0x0 - 0xffffffffffffffff), flags = 0x1
+      0x8000000 - 0xfffffffffffffffe
+io: allocating 0x3f8 to 0x3ff
+                              Loaded initial symtab at  
+0xfffffc0000c043d0, strta6
+Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,  
+2005,
+     2006, 2007
+     The NetBSD Foundation, Inc.  All rights reserved.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+     The Regents of the University of California.  All rights reserved.
+
+NetBSD 4.99.13 (GENERIC-$Revision: 1.311 $) #1: Thu Mar  8 14:55:22  
+CET 2007
+         root@wpdu2.physik.uni-wuppertal.de:/usr/current/alphaobj/sys/ 
+arch/alpha8
+DIGITAL Ultimate Workstation 533au2, 531MHz, s/n AY84554866
+8192 byte page size, 2 processors.
+total memory = 512 MB
+(2064 KB reserved for PROM, 509 MB used by NetBSD)
+avail memory = 492 MB
+mainbus0 (root)
+cpu0 at mainbus0: ID 0 (primary), 21164A-2
+cpu0: VAX FP support, IEEE FP support, Primary Eligible
+cpu0: Architecture extensions: 1<BWX>
+cpu1 at mainbus0: ID 1, 21164A-2
+cpu1: VAX FP support, IEEE FP support
+cpu1: processor off-line; multiprocessor support not present in kernel
+mcbus0 at mainbus0: 4MB BCache
+mcmem0 at mcbus0 mid 1: Memory
+mcpcia0 at mcbus0 mid 5: PCI Bridge
+io: freeing from 0x0 to 0xffff
+io: freeing from 0x10000 to 0x1ffffff
+extent `mcpcia_bus_io' (0x0 - 0xffffffff), flags = 0x1
+      0x2000000 - 0xfffffffe
+dmem: freeing from 0x0 to 0x7fffffff
+extent `mcpcia_bus_dmem' (0x0 - 0xffffffffffffffff), flags = 0x1
+      0x80000000 - 0xfffffffffffffffe
+smem: freeing from 0x0 to 0xffffff
+smem: freeing from 0x1000000 to 0x7ffffff
+extent `mcpcia_bus_smem' (0x0 - 0xffffffffffffffff), flags = 0x1
+      0x8000000 - 0xfffffffffffffffe
+mcpcia0: Horse Revision 3, Left Handed Saddle Revision 0, CAP Revision 2
+pci0 at mcpcia0 bus 0
+pci0: i/o space, memory space enabled, rd/line, rd/mult, wr/inv ok
+siop0 at pci0 dev 1 function 0: PCI configuration registers:
+   Common header:
+     0x00: 0x00011000 0x02000147 0x01000002 0x0000ff00
+
+     Vendor Name: Symbios Logic (0x1000)
+     Device Name: 53c810 (0x0001)
+     Command register: 0x0147
+       I/O space accesses: on
+       Memory space accesses: on
+       Bus mastering: on
+       Special cycles: off
+       MWI transactions: off
+       Palette snooping: off
+       Parity error checking: on
+       Address/data stepping: off
+       System error (SERR): on
+       Fast back-to-back transactions: off
+       Interrupt disable: off
+     Status register: 0x0200
+       Capability List support: off
+       66 MHz capable: off
+       User Definable Features (UDF) support: off
+       Fast back-to-back capable: off
+       Data parity error detected: off
+       DEVSEL timing: medium (0x1)
+       Slave signaled Target Abort: off
+       Master received Target Abort: off
+       Master received Master Abort: off
+       Asserted System Error (SERR): off
+       Parity error detected: off
+     Class Name: mass storage (0x01)
+     Subclass Name: SCSI (0x00)
+     Interface: 0x00
+     Revision ID: 0x02
+     BIST: 0x00
+     Header Type: 0x00 (0x00)
+     Latency Timer: 0xff
+     Cache Line Size: 0x00
+
+   Type 0 ("normal" device) header:
+     0x10: 0x01fffd01 0x07fdde00 0x00000000 0x00000000
+     0x20: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x30: 0x00000000 0x00000000 0x00000000 0x00000104
+
+     Base address register at 0x10
+       type: 32-bit i/o
+       base: 0x01fffd00, size: 0x00000100
+     Base address register at 0x14
+       type: 32-bit nonprefetchable memory
+       base: 0x07fdde00, size: 0x00000100
+     Base address register at 0x18
+       not implemented(?)
+     Base address register at 0x1c
+       not implemented(?)
+     Base address register at 0x20
+       not implemented(?)
+     Base address register at 0x24
+       not implemented(?)
+     Cardbus CIS Pointer: 0x00000000
+     Subsystem vendor ID: 0x0000
+     Subsystem ID: 0x0000
+     Expansion ROM Base Address: 0x00000000
+     Reserved @ 0x34: 0x00000000
+     Reserved @ 0x38: 0x00000000
+     Maximum Latency: 0x00
+     Minimum Grant: 0x00
+     Interrupt pin: 0x01 (pin A)
+     Interrupt line: 0x04
+
+   Device-dependent header:
+     0x40: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x50: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x60: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x70: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x80: 0x000000c0 0x1f000000 0x00050000 0x020f0080
+     0x90: 0xffffffff 0xffffff00 0x2031f000 0xc0001d04
+     0xa0: 0x00000000 0x00000000 0x00000000 0x00000000
+     0xb0: 0xfffffe38 0x2000007f 0x01000000 0x00fffe38
+     0xc0: 0x00000000 0x0f000000 0x00000000 0x00000007
+     0xd0: 0xffff0000 0xffff0000 0xffff0000 0x96010769
+     0xe0: 0xffffffff 0xffffffff 0xffffffff 0xffffffff
+     0xf0: 0xffffffff 0xffffffff 0xffffffff 0xffffffff
+
+     Don't know how to pretty-print device-dependent header.
+
+Symbios Logic 53c810 (SCSI mass storage, revision 0x02) at ? dev 1  
+function 0 ()
+mem: allocating 0x7fdde00 to 0x7fddeff
+mem: need dense, need sparse
+io: allocating 0x1fffd00 to 0x1fffdff
+siop0: interrupting at kn300 irq 36
+scsibus0 at siop0: 8 targets, 8 luns per target
+isp0 at pci0 dev 2 function 0: PCI configuration registers:
+   Common header:
+     0x00: 0x10201077 0x02000147 0x01000005 0x0000f810
+
+     Vendor Name: QLogic (0x1077)
+     Device Name: ISP1020 (0x1020)
+     Command register: 0x0147
+       I/O space accesses: on
+       Memory space accesses: on
+       Bus mastering: on
+       Special cycles: off
+       MWI transactions: off
+       Palette snooping: off
+       Parity error checking: on
+       Address/data stepping: off
+       System error (SERR): on
+       Fast back-to-back transactions: off
+       Interrupt disable: off
+     Status register: 0x0200
+       Capability List support: off
+       66 MHz capable: off
+       User Definable Features (UDF) support: off
+       Fast back-to-back capable: off
+       Data parity error detected: off
+       DEVSEL timing: medium (0x1)
+       Slave signaled Target Abort: off
+       Master received Target Abort: off
+       Master received Master Abort: off
+       Asserted System Error (SERR): off
+       Parity error detected: off
+     Class Name: mass storage (0x01)
+     Subclass Name: SCSI (0x00)
+     Interface: 0x00
+     Revision ID: 0x05
+     BIST: 0x00
+     Header Type: 0x00 (0x00)
+     Latency Timer: 0xf8
+     Cache Line Size: 0x10
+
+   Type 0 ("normal" device) header:
+     0x10: 0x01fffe01 0x07fde000 0x00000000 0x00000000
+     0x20: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x30: 0x07fe0000 0x00000000 0x00000000 0x00000108
+
+     Base address register at 0x10
+       type: 32-bit i/o
+       base: 0x01fffe00, size: 0x00000100
+     Base address register at 0x14
+       type: 32-bit nonprefetchable memory
+       base: 0x07fde000, size: 0x00001000
+     Base address register at 0x18
+       not implemented(?)
+     Base address register at 0x1c
+       not implemented(?)
+     Base address register at 0x20
+       not implemented(?)
+     Base address register at 0x24
+       not implemented(?)
+     Cardbus CIS Pointer: 0x00000000
+     Subsystem vendor ID: 0x0000
+     Subsystem ID: 0x0000
+     Expansion ROM Base Address: 0x07fe0000
+     Reserved @ 0x34: 0x00000000
+     Reserved @ 0x38: 0x00000000
+     Maximum Latency: 0x00
+     Minimum Grant: 0x00
+     Interrupt pin: 0x01 (pin A)
+     Interrupt line: 0x08
+
+   Device-dependent header:
+     0x40: 0x00000007 0x00000000 0x00000000 0x00000000
+     0x50: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x60: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x70: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x80: 0x10201077 0x02000147 0x01000005 0x0000f810
+     0x90: 0x01fffe01 0x07fde000 0x00000000 0x00000000
+     0xa0: 0x00000000 0x00000000 0x00000000 0x00000000
+     0xb0: 0x07fe0000 0x00000000 0x00000000 0x00000108
+     0xc0: 0x00000007 0x00000000 0x00000000 0x00000000
+     0xd0: 0x00000000 0x00000000 0x00000000 0x00000000
+     0xe0: 0x00000000 0x00000000 0x00000000 0x00000000
+     0xf0: 0x00000000 0x00000000 0x00000000 0x00000000
+
+     Don't know how to pretty-print device-dependent header.
+
+QLogic ISP1020 (SCSI mass storage, revision 0x05) at ? dev 2 function  
+0 (intrswf
+mem: allocating 0x7fde000 to 0x7fdefff
+mem: need dense, need sparse
+: QLogic 1020 Fast Wide SCSI HBA
+isp0: interrupting at kn300 irq 40
+scsibus1 at isp0: 16 targets, 8 luns per target
+esiop0 at pci0 dev 4 function 0: PCI configuration registers:
+   Common header:
+     0x00: 0x000c1000 0x02000147 0x01000001 0x0000ff10
+
+     Vendor Name: Symbios Logic (0x1000)
+     Device Name: 53c895 (0x000c)
+     Command register: 0x0147
+       I/O space accesses: on
+       Memory space accesses: on
+       Bus mastering: on
+       Special cycles: off
+       MWI transactions: off
+       Palette snooping: off
+       Parity error checking: on
+       Address/data stepping: off
+       System error (SERR): on
+       Fast back-to-back transactions: off
+       Interrupt disable: off
+     Status register: 0x0200
+       Capability List support: off
+       66 MHz capable: off
+       User Definable Features (UDF) support: off
+       Fast back-to-back capable: off
+       Data parity error detected: off
+       DEVSEL timing: medium (0x1)
+       Slave signaled Target Abort: off
+       Master received Target Abort: off
+       Master received Master Abort: off
+       Asserted System Error (SERR): off
+       Parity error detected: off
+     Class Name: mass storage (0x01)
+     Subclass Name: SCSI (0x00)
+     Interface: 0x00
+     Revision ID: 0x01
+     BIST: 0x00
+     Header Type: 0x00 (0x00)
+     Latency Timer: 0xff
+     Cache Line Size: 0x10
+
+   Type 0 ("normal" device) header:
+     0x10: 0x01ffff01 0x07fddf00 0x07fdf000 0x00000000
+     0x20: 0x00000000 0x00000000 0x00000000 0x110013e9
+     0x30: 0x07ff0000 0x00000000 0x00000000 0x401e0110
+
+     Base address register at 0x10
+       type: 32-bit i/o
+       base: 0x01ffff00, size: 0x00000100
+     Base address register at 0x14
+       type: 32-bit nonprefetchable memory
+       base: 0x07fddf00, size: 0x00000100
+     Base address register at 0x18
+       type: 32-bit nonprefetchable memory
+       base: 0x07fdf000, size: 0x00001000
+     Base address register at 0x1c
+       not implemented(?)
+     Base address register at 0x20
+       not implemented(?)
+     Base address register at 0x24
+       not implemented(?)
+     Cardbus CIS Pointer: 0x00000000
+     Subsystem vendor ID: 0x13e9
+     Subsystem ID: 0x1100
+     Expansion ROM Base Address: 0x07ff0000
+     Reserved @ 0x34: 0x00000000
+     Reserved @ 0x38: 0x00000000
+     Maximum Latency: 0x40
+     Minimum Grant: 0x1e
+     Interrupt pin: 0x01 (pin A)
+     Interrupt line: 0x10
+
+   Device-dependent header:
+     0x40: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x50: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x60: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x70: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x80: 0x000000c0 0x0b000000 0x00000000 0x02080080
+     0x90: 0x0012c590 0xffffff00 0x1031f000 0x07fdf6d0
+     0xa0: 0x00000000 0x00000000 0x00000000 0x00000000
+     0xb0: 0x00000000 0x20000080 0x01000000 0x00000000
+     0xc0: 0x00000000 0x0fd00000 0x00000000 0x00000007
+     0xd0: 0x00c00000 0x00c00000 0x00c00000 0x96010469
+     0xe0: 0x00000000 0x07fdf750 0x0000ff00 0x80254000
+     0xf0: 0x8310c2d0 0x00000001 0x6b414480 0xef7b77bf
+
+     Don't know how to pretty-print device-dependent header.
+
+Symbios Logic 53c895 (SCSI mass storage, revision 0x01) at ? dev 4  
+function 0 ()
+mem: allocating 0x7fddf00 to 0x7fddfff
+mem: need dense, need sparse
+io: allocating 0x1ffff00 to 0x1ffffff
+mem: allocating 0x7fdf000 to 0x7fdffff
+mem: need dense, need sparse
+esiop0: using on-board RAM
+esiop0: interrupting at kn300 irq 48
+esiop0: alloc new tag DSA table at PHY addr 0x80254000
+scsibus2 at esiop0: 16 targets, 8 luns per target
+mcpcia1 at mcbus0 mid 4: PCI Bridge
+mcpcia1: Horse Revision 3, Left Handed Saddle Revision 0, CAP Revision 2
+io: allocating 0x20 to 0x21
+io: allocating 0xa0 to 0xa1
+io: allocating 0x4d0 to 0x4d1
+pci1 at mcpcia1 bus 0
+pci1: i/o space, memory space enabled, rd/line, rd/mult, wr/inv ok
+pceb0 at pci1 dev 1 function 0: PCI configuration registers:
+   Common header:
+     0x00: 0x04828086 0x02000007 0x00000015 0x0000f800
+
+     Vendor Name: Intel (0x8086)
+     Device Name: 82375EB/SB PCI-EISA Bridge (0x0482)
+     Command register: 0x0007
+       I/O space accesses: on
+       Memory space accesses: on
+       Bus mastering: on
+       Special cycles: off
+       MWI transactions: off
+       Palette snooping: off
+       Parity error checking: off
+       Address/data stepping: off
+       System error (SERR): off
+       Fast back-to-back transactions: off
+       Interrupt disable: off
+     Status register: 0x0200
+       Capability List support: off
+       66 MHz capable: off
+       User Definable Features (UDF) support: off
+       Fast back-to-back capable: off
+       Data parity error detected: off
+       DEVSEL timing: medium (0x1)
+       Slave signaled Target Abort: off
+       Master received Target Abort: off
+       Master received Master Abort: off
+       Asserted System Error (SERR): off
+       Parity error detected: off
+     Class Name: prehistoric (0x00)
+     Subclass Name: miscellaneous (0x00)
+     Interface: 0x00
+     Revision ID: 0x15
+     BIST: 0x00
+     Header Type: 0x00 (0x00)
+     Latency Timer: 0xf8
+     Cache Line Size: 0x00
+
+   Type 0 ("normal" device) header:
+     0x10: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x20: 0x00000000 0x00000000 0x00000000 0x00000000
+     0x30: 0x00000000 0x00000000 0x00000000 0x00000000
+
+     Base address register at 0x10
+       not implemented(?)
+     Base address register at 0x14
+       not implemented(?)
+     Base address register at 0x18
+       not implemented(?)
+     Base address register at 0x1c
+       not implemented(?)
+     Base address register at 0x20
+       not implemented(?)
+     Base address register at 0x24
+       not implemented(?)
+     Cardbus CIS Pointer: 0x00000000
+     Subsystem vendor ID: 0x0000
+     Subsystem ID: 0x0000
+     Expansion ROM Base Address: 0x00000000
+     Reserved @ 0x34: 0x00000000
+     Reserved @ 0x38: 0x00000000
+     Maximum Latency: 0x00
+     Minimum Grant: 0x00
+     Interrupt pin: 0x00 (none)
+     Interrupt line: 0x00
+
+   Device-dependent header:
+     0x40: 0x00f09d60 0x000f1000 0x00000001 0x00000056
+     0x50: 0x00000000 0x00000000 0x00000020 0x00000001
+     0x60: 0xffff0000 0x0000ffff 0x0000ffff 0x0000ffff
+     0x70: 0x0000fffc 0x0000fffc 0x0000fffc 0x0000fffc
+     0x80: 0x00000079 0x00000000 0x00000000 0x00000000
+     0x90: 0x00000000 0x00000000 0x00000000 0x00000000
+     0xa0: 0x00000000 0x00000000 0x00000000 0x00000000
+     0xb0: 0x00000000 0x00000000 0x00000000 0x00000000
+     0xc0: 0x00000000 0x00000000 0x00000000 0x00000000
+     0xd0: 0x00000000 0x00000000 0x00000000 0x00000000
+     0xe0: 0x00000000 0x00000000 0x00000000 0x00000000
+     0xf0: 0x00000000 0x00000000 0x00000000 0x00000000
+
+     Don't know how to pretty-print device-dependent header.
+
+Intel 82375EB/SB PCI-EISA Bridge (miscellaneous prehistoric, revision  
+0x15) at )
+io: allocating 0x3c0 to 0x3cf
+io: allocating 0x3d0 to 0x3df
+mem: allocating 0xa0000 to 0xbffff
+mem: need dense, need sparse
+io: freeing handle 0x7ffffe7cc0003c0 for 0x10
+io: freeing 0x3c0 to 0x3cf
+io: freeing handle 0x7ffffe7cc0003d0 for 0x10
+io: freeing 0x3d0 to 0x3df
+mem: freeing handle 0x7ffffe7c00a0000 for 0x20000
+mem: it's at 0xa0000 (dense, sparse)
+mem: allocating 0x7f000000 to 0x7fffffff
+mem: need dense, want sparse
+mem: failed to get sparse (35)
+
+Anybody has a hint what the driver is trying to do?
+
+Maybe this posting here is related:
+
+http://mail-index.netbsd.org/port-alpha/2005/01/17/0001.html
+
+But I haven't seen a reply with the details of the descriped patch.  
+Maybe Michael is still reading this list... :-)
+
+Thanks,
+
+    Torsten
+
+
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+<>                                                              <>
+<> Torsten Harenberg         harenberg@physik.uni-wuppertal.de  <>
+<> Bergische Universitaet                                       <>
+<> FB C - Physik             Tel.: +49 (0)202 439-3521          <>
+<> Gaussstr. 20              Fax : +49 (0)202 439-2811          <>
+<> 42097 Wuppertal                                              <>
+<>                                                              <>
+<><><><><><><>< Of course it runs NetBSD http://www.netbsd.org ><>
+
+
+
+From mark@itbox.co.za  Tue Mar 13 21:50:10 2007
+Path: news.gmane.org!not-for-mail
+From: Mark Ter Morshuizen <mark@itbox.co.za>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: DEC3000M600 crashing to debug console
+Date: Tue, 13 Mar 2007 21:50:10 +0200
+Organization: IT Box Computer Services
+Lines: 132
+Approved: news@gmane.org
+Message-ID: <200703132150.10623.mark@itbox.co.za>
+References: <200702091440.24156.mark@itbox.co.za> <20070210012118.GA1043@beta.martani.repy.czf>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="ansi_x3.4-1968"
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1173817038 2636 80.91.229.12 (13 Mar 2007 20:17:18 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Tue, 13 Mar 2007 20:17:18 +0000 (UTC)
+To: Pavel Cahyna <pavel@netbsd.org>,
+ port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Mar 13 21:17:08 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HRDQh-0000YG-SI
+	for netbsd-port-alpha@m.gmane.org; Tue, 13 Mar 2007 21:17:08 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id D4C6A63B147; Tue, 13 Mar 2007 20:17:01 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from alpha.itbox.co.za (alpha.itbox.co.za [196.1.59.12])
+	by mail.netbsd.org (Postfix) with ESMTP id DF12463B11C;
+	Tue, 13 Mar 2007 20:16:47 +0000 (UTC)
+Original-Received: from termites.itbox.co.za ([196.1.59.21])
+	by alpha.itbox.co.za with esmtps (TLSv1:AES256-SHA:256)
+	(Exim 4.54)
+	id 1HRDQ8-0000pV-BJ; Tue, 13 Mar 2007 22:16:39 +0200
+Original-Received: from mark.itbox.co.za ([192.168.0.1])
+	by termites.itbox.co.za with esmtp (Exim 4.63)
+	(envelope-from <mark@itbox.co.za>)
+	id 1HRD0d-0002AM-Ml; Tue, 13 Mar 2007 21:50:11 +0200
+User-Agent: KMail/1.9.4
+In-Reply-To: <20070210012118.GA1043@beta.martani.repy.czf>
+Content-Disposition: inline
+X-Spam-Score: -1.4
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3939
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3939>
+
+Hi Pavel,
+
+On Saturday 10 February 2007 03:21, Pavel Cahyna wrote:
+> On Fri, Feb 09, 2007 at 02:40:24PM +0200, Mark Ter Morshuizen wrote:
+> > Hi,
+> >
+> > My DEC3000 M600 running NetBSD 3.0 has crashed 3 times in the last week.
+> > When this happens I can still access it via the debug (db>) interface on
+> > the mmj port.
+> > Can anyone point me in the direction of some documentation which might
+> > help me diagnose this?
+>
+> what is the panic message displayed on the serial port before the db>
+> prompt?
+
+Thanks for the response.
+
+Here's a selection:
+
+8<---------------------------------------------------------------------------------------------------
+
+mountroot: trying ffs...
+root file system type: ffs
+readclock: 7/2/28/16/29/45=>1172680185 (1172679826)
+init: copying out path `/sbin/init' 11
+setclock: 7/2/28/16/30/0
+Warning: received system correctable error.
+
+CPU 0: fatal kernel trap:
+
+CPU 0    trap entry = 0x4 (unaligned access fault)
+CPU 0    a0         = 0xfffffc000343959a
+CPU 0    a1         = 0x28
+CPU 0    a2         = 0x10
+CPU 0    pc         = 0xfffffc00003290ac
+CPU 0    ra         = 0xfffffc0000322df8
+CPU 0    pv         = 0xfffffc0000328f70
+CPU 0    curlwp    = 0x0
+
+panic: trap
+syncing disks...
+CPU 0: fatal kernel trap:
+
+CPU 0    trap entry = 0x4 (unaligned access fault)
+CPU 0    a0         = 0xfffffc000be82892
+CPU 0    a1         = 0x28
+CPU 0    a2         = 0x10
+CPU 0    pc         = 0xfffffc00003290ac
+CPU 0    ra         = 0xfffffc0000322df8
+
+8<---------------------------------------------------------------------------------------------------
+
+mountroot: trying ffs...
+root file system type: ffs
+readclock: 7/3/6/10/46/12=>1173177972 (1173138322)
+init: copying out path `/sbin/init' 11
+setclock: 7/3/6/10/49/42
+setclock: 7/3/6/11/26/28
+
+CPU 0: fatal kernel trap:
+
+CPU 0    trap entry = 0x4 (unaligned access fault)
+CPU 0    a0         = 0xfffffc0001f998b2
+CPU 0    a1         = 0x28
+CPU 0    a2         = 0x10
+CPU 0    pc         = 0xfffffc00003290ac
+CPU 0    ra         = 0xfffffc0000322df8
+CPU 0    pv         = 0xfffffc0000328f70
+CPU 0    curlwp    = 0x0
+
+panic: trap
+syncing disks...
+CPU 0: fatal kernel trap:
+
+CPU 0    trap entry = 0x4 (unaligned access fault)
+CPU 0    a0         = 0xfffffc0001f721ba
+CPU 0    a1         = 0x28
+CPU 0    a2         = 0x10
+CPU 0    pc         = 0xfffffc00003290ac
+CPU 0    ra         = 0xfffffc0000322df8
+CPU 0    pv         = 0xfffffc0000328f70
+CPU 0    curlwp    = 0x0
+
+8<---------------------------------------------------------------------------------------------------
+
+mountroot: trying ffs...
+root file system type: ffs
+readclock: 7/3/9/6/30/2=>1173421802 (1173391243)
+init: copying out path `/sbin/init' 11
+setclock: 7/3/9/6/33/34
+Warning: received processor correctable error.
+
+CPU 0: fatal kernel trap:
+
+CPU 0    trap entry = 0x4 (unaligned access fault)
+CPU 0    a0         = 0xfffffc000ab4b1d2
+CPU 0    a1         = 0x28
+CPU 0    a2         = 0x10
+CPU 0    pc         = 0xfffffc00003290ac
+CPU 0    ra         = 0xfffffc0000322df8
+CPU 0    pv         = 0xfffffc0000328f70
+CPU 0    curlwp    = 0x0
+
+panic: trap
+db>
+
+> also, please generate the backtrace by a "bt" command.
+
+db> bt
+cpu_Debugger() at netbsd:cpu_Debugger+0x4
+panic() at netbsd:panic+0x1f8
+trap() at netbsd:trap+0x120
+XentUna() at netbsd:XentUna+0x20
+--- unaligned access fault (from ipl 1) ---
+tcp_sack_option() at netbsd:tcp_sack_option+0x13c
+tcp_dooptions() at netbsd:tcp_dooptions+0x278
+tcp_input() at netbsd:tcp_input+0xa20
+ip_input() at netbsd:ip_input+0xb34
+ipintr() at netbsd:ipintr+0xa0
+netintr() at netbsd:netintr+0xb8
+softintr_dispatch() at netbsd:softintr_dispatch+0x160
+exception_return() at netbsd:exception_return+0x7c
+--- root of call graph ---
+
+Sorry this took so long. I've been away on business.
+
+Cheers,
+-- 
+Mark Ter Morshuizen
+www.itbox.co.za
+2U Rackmount Casings: http://www.rackmount.co.za
+
+
+From pavel@NetBSD.org  Tue Mar 13 20:27:03 2007
+Path: news.gmane.org!not-for-mail
+From: Pavel Cahyna <pavel@NetBSD.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: DEC3000M600 crashing to debug console
+Date: Tue, 13 Mar 2007 20:27:03 +0000
+Lines: 21
+Approved: news@gmane.org
+Message-ID: <20070313202703.GB12028@NetBSD.org>
+References: <200702091440.24156.mark@itbox.co.za> <20070210012118.GA1043@beta.martani.repy.czf> <200703132150.10623.mark@itbox.co.za>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: sea.gmane.org 1173817637 4835 80.91.229.12 (13 Mar 2007 20:27:17 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Tue, 13 Mar 2007 20:27:17 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Mark Ter Morshuizen <mark@itbox.co.za>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Mar 13 21:27:11 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HRDaP-0005zG-HB
+	for netbsd-port-alpha@m.gmane.org; Tue, 13 Mar 2007 21:27:09 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 6C7A563B1C7; Tue, 13 Mar 2007 20:27:04 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: by mail.netbsd.org (Postfix, from userid 1372)
+	id 52AC163B179; Tue, 13 Mar 2007 20:27:03 +0000 (UTC)
+Content-Disposition: inline
+In-Reply-To: <200703132150.10623.mark@itbox.co.za>
+User-Agent: Mutt/1.4.2.2i
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3940
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3940>
+
+On Tue, Mar 13, 2007 at 09:50:10PM +0200, Mark Ter Morshuizen wrote:
+> db> bt
+> cpu_Debugger() at netbsd:cpu_Debugger+0x4
+> panic() at netbsd:panic+0x1f8
+> trap() at netbsd:trap+0x120
+> XentUna() at netbsd:XentUna+0x20
+> --- unaligned access fault (from ipl 1) ---
+> tcp_sack_option() at netbsd:tcp_sack_option+0x13c
+> tcp_dooptions() at netbsd:tcp_dooptions+0x278
+> tcp_input() at netbsd:tcp_input+0xa20
+> ip_input() at netbsd:ip_input+0xb34
+> ipintr() at netbsd:ipintr+0xa0
+> netintr() at netbsd:netintr+0xb8
+> softintr_dispatch() at netbsd:softintr_dispatch+0x160
+> exception_return() at netbsd:exception_return+0x7c
+> --- root of call graph ---
+
+This has been fixed, iirc. I suggest you to update the kernel.
+
+Pavel
+
+
+From chriswareham@chriswareham.demon.co.uk  Tue Mar 13 23:26:35 2007
+Path: news.gmane.org!not-for-mail
+From: Chris Wareham <chriswareham@chriswareham.demon.co.uk>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: PWS500au hangs if more than 1Gb of RAM is installed.
+Date: Tue, 13 Mar 2007 23:26:35 +0000
+Lines: 16
+Approved: news@gmane.org
+Message-ID: <45F7332B.2050508@chriswareham.demon.co.uk>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1173828414 11104 80.91.229.12 (13 Mar 2007 23:26:54 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Tue, 13 Mar 2007 23:26:54 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Mar 14 00:26:47 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HRGOE-0002RH-Dm
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Mar 2007 00:26:46 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 49A5963B148; Tue, 13 Mar 2007 23:26:38 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from anchor-post-30.mail.demon.net (anchor-post-30.mail.demon.net [194.217.242.88])
+	by mail.netbsd.org (Postfix) with ESMTP id 7C1D163B1F3
+	for <port-alpha@NetBSD.org>; Tue, 13 Mar 2007 23:26:37 +0000 (UTC)
+Original-Received: from chriswareham.demon.co.uk ([80.176.91.102] helo=[192.168.2.2])
+	by anchor-post-30.mail.demon.net with esmtp (Exim 4.42)
+	id 1HRGO4-000Orz-0k
+	for port-alpha@NetBSD.org; Tue, 13 Mar 2007 23:26:36 +0000
+User-Agent: Thunderbird 1.5.0.10 (Macintosh/20070221)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3941
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3941>
+
+I've just acquired a PWS500au and have set about installing NetBSD on it
+to replace the Debian Linux that was already there. My first difficulty
+was that the disks could not be found until I removed some of the
+memory. Digging through previous posts I found that this is an old
+problem:
+
+http://mail-index.netbsd.org/port-alpha/2002/05/20/0004.html
+http://mail-index.netbsd.org/port-alpha/2002/06/25/0004.html
+
+If this isn't a regression, should it not be put mentioned in the FAQ
+until it's fixed?
+
+Regards,
+
+Chris
+
+
+From chriswareham@chriswareham.demon.co.uk  Tue Mar 13 23:29:45 2007
+Path: news.gmane.org!not-for-mail
+From: Chris Wareham <chriswareham@chriswareham.demon.co.uk>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Running XFree86 on a PWS500au
+Date: Tue, 13 Mar 2007 23:29:45 +0000
+Lines: 12
+Approved: news@gmane.org
+Message-ID: <45F733E9.1040903@chriswareham.demon.co.uk>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1173828955 12570 80.91.229.12 (13 Mar 2007 23:35:55 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Tue, 13 Mar 2007 23:35:55 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Mar 14 00:35:48 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HRGWy-00071W-1q
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Mar 2007 00:35:48 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 84FEB63B1ED; Tue, 13 Mar 2007 23:35:40 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from anchor-fallback-94.mail.demon.net (anchor-fallback-94.mail.demon.net [194.217.242.94])
+	by mail.netbsd.org (Postfix) with ESMTP id B9A4F63B184
+	for <port-alpha@NetBSD.org>; Tue, 13 Mar 2007 23:35:39 +0000 (UTC)
+Original-Received: from anchor-post-30.mail.demon.net ([194.217.242.88]:3614 "EHLO
+	anchor-post-30.mail.demon.net") by anchor-fallback-94.mail.demon.net
+	with ESMTP id S602281AbXCMXfa (ORCPT <rfc822;port-alpha@NetBSD.org>);
+	Tue, 13 Mar 2007 23:35:30 +0000
+Original-Received: from chriswareham.demon.co.uk ([80.176.91.102] helo=[192.168.2.2])
+	by anchor-post-30.mail.demon.net with esmtp (Exim 4.42)
+	id 1HRGR7-000PCH-3C
+	for port-alpha@NetBSD.org; Tue, 13 Mar 2007 23:29:46 +0000
+User-Agent: Thunderbird 1.5.0.10 (Macintosh/20070221)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3942
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3942>
+
+I've found the following webpage which includes patched versions of
+XFree86 for various Alpha workstations:
+
+http://www.caseydoodle.com/index1.html
+
+Is anyone running the patched version of XFree86 4.4.0 from this page on
+NetBSD 3.1?
+
+Regards,
+
+Chris
+
+
+From tnn+nbsd@nygren.pp.se  Wed Mar 14 01:10:19 2007
+Path: news.gmane.org!not-for-mail
+From: Tobias Nygren <tnn+nbsd@nygren.pp.se>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Running XFree86 on a PWS500au
+Date: Wed, 14 Mar 2007 01:10:19 +0100
+Lines: 216
+Approved: news@gmane.org
+Message-ID: <45F73D6B.9040308@nygren.pp.se>
+References: <45F733E9.1040903@chriswareham.demon.co.uk>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------060704050807080506050807"
+X-Trace: sea.gmane.org 1173831059 18506 80.91.229.12 (14 Mar 2007 00:10:59 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Wed, 14 Mar 2007 00:10:59 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Chris Wareham <chriswareham@chriswareham.demon.co.uk>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Mar 14 01:10:52 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HRH4p-0007yb-FK
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Mar 2007 01:10:48 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 4945363B11C; Wed, 14 Mar 2007 00:10:40 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from kamineko.nygren.pp.se (kamineko.nygren.pp.se [IPv6:2002:d976:d875:1::1])
+	by mail.netbsd.org (Postfix) with ESMTP id 2F40463B1E7
+	for <port-alpha@netbsd.org>; Wed, 14 Mar 2007 00:10:31 +0000 (UTC)
+Original-Received: from chiyo.nygren.pp.se (chiyo.nygren.pp.se [IPv6:2002:5508:38f:1::1])
+	by kamineko.nygren.pp.se (Postfix) with ESMTP id A8B8264;
+	Wed, 14 Mar 2007 01:10:26 +0100 (CET)
+Original-Received: by chiyo.nygren.pp.se (Postfix, from userid 2003)
+	id 023C71A456; Wed, 14 Mar 2007 01:10:19 +0100 (CET)
+Original-Received: from [IPv6:2002:5508:38f:2:250:56ff:fe00:35] (virt01.int.nygren.pp.se [IPv6:2002:5508:38f:2:250:56ff:fe00:35])
+	by chiyo.nygren.pp.se (Postfix) with ESMTP id 7070F1A452;
+	Wed, 14 Mar 2007 01:10:19 +0100 (CET)
+User-Agent: Thunderbird 1.5.0.10 (X11/20070303)
+In-Reply-To: <45F733E9.1040903@chriswareham.demon.co.uk>
+X-Fingerprint: DD4E 8788 BF66 98D8 9886  EEA8 F73F E3FC 37F1 B50E
+X-Gpg-Key-Id: 0x37F1B50E
+X-Hidden-Message: lbh unir jnl gbb zhpu fcner gvzr
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3943
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3943>
+
+This is a multi-part message in MIME format.
+--------------060704050807080506050807
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Chris Wareham wrote:
+> I've found the following webpage which includes patched versions of
+> XFree86 for various Alpha workstations:
+>
+> http://www.caseydoodle.com/index1.html
+>
+> Is anyone running the patched version of XFree86 4.4.0 from this page on
+> NetBSD 3.1?
+>
+> Regards,
+>
+> Chris
+
+If you grab the 4.5.0 tarballs from xfree86.org they should build cleanly.
+XFree86 4.6.0 can be built with some minor changes to alpha_video.c,
+see attached diff.
+
+-T
+
+
+--------------060704050807080506050807
+Content-Type: text/plain;
+ name="alpha_video.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="alpha_video.diff"
+
+--- alpha_video.c-xf-4_6_0	2007-03-14 01:08:19.000000000 +0100
++++ alpha_video.c	2006-12-21 01:59:21.000000000 +0100
+@@ -1,4 +1,4 @@
+-/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bsd/alpha_video.c,v 1.9 2005/10/14 15:17:00 tsi Exp $ */
++/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bsd/alpha_video.c,v 1.10 2006/01/09 15:00:19 dawes Exp $ */
+ /*
+  * Copyright 1992 by Rich Murphey <Rich@Rice.edu>
+  * Copyright 1993 by David Wexelblat <dwex@goblin.org>
+@@ -447,42 +447,43 @@
+ 
+ 
+ #define vuip    volatile unsigned int *
++#define vvp     volatile void *
+ 
+ static unsigned long msb_set = 0;
+ static pointer memSBase = 0;
+ static pointer memBase = 0;
+ 
+-extern int readDense8(pointer Base, register unsigned long Offset);
+-extern int readDense16(pointer Base, register unsigned long Offset);
+-extern int readDense32(pointer Base, register unsigned long Offset);
++extern int readDense8(vvp Base, register unsigned long Offset);
++extern int readDense16(vvp Base, register unsigned long Offset);
++extern int readDense32(vvp Base, register unsigned long Offset);
+ extern void
+-writeDenseNB8(int Value, pointer Base, register unsigned long Offset);
++writeDenseNB8(int Value, vvp Base, register unsigned long Offset);
+ extern void
+-writeDenseNB16(int Value, pointer Base, register unsigned long Offset);
++writeDenseNB16(int Value, vvp Base, register unsigned long Offset);
+ extern void
+-writeDenseNB32(int Value, pointer Base, register unsigned long Offset);
++writeDenseNB32(int Value, vvp Base, register unsigned long Offset);
+ extern void
+-writeDense8(int Value, pointer Base, register unsigned long Offset);
++writeDense8(int Value, vvp Base, register unsigned long Offset);
+ extern void
+-writeDense16(int Value, pointer Base, register unsigned long Offset);
++writeDense16(int Value, vvp Base, register unsigned long Offset);
+ extern void
+-writeDense32(int Value, pointer Base, register unsigned long Offset);
++writeDense32(int Value, vvp Base, register unsigned long Offset);
+ 
+-static int readSparse8(pointer Base, register unsigned long Offset);
+-static int readSparse16(pointer Base, register unsigned long Offset);
+-static int readSparse32(pointer Base, register unsigned long Offset);
++static int readSparse8(vvp Base, register unsigned long Offset);
++static int readSparse16(vvp Base, register unsigned long Offset);
++static int readSparse32(vvp Base, register unsigned long Offset);
+ static void
+-writeSparseNB8(int Value, pointer Base, register unsigned long Offset);
++writeSparseNB8(int Value, vvp Base, register unsigned long Offset);
+ static void
+-writeSparseNB16(int Value, pointer Base, register unsigned long Offset);
++writeSparseNB16(int Value, vvp Base, register unsigned long Offset);
+ static void
+-writeSparseNB32(int Value, pointer Base, register unsigned long Offset);
++writeSparseNB32(int Value, vvp Base, register unsigned long Offset);
+ static void
+-writeSparse8(int Value, pointer Base, register unsigned long Offset);
++writeSparse8(int Value, vvp Base, register unsigned long Offset);
+ static void
+-writeSparse16(int Value, pointer Base, register unsigned long Offset);
++writeSparse16(int Value, vvp Base, register unsigned long Offset);
+ static void
+-writeSparse32(int Value, pointer Base, register unsigned long Offset);
++writeSparse32(int Value, vvp Base, register unsigned long Offset);
+ 
+ #ifdef __FreeBSD__
+ extern int sysarch(int, void *);
+@@ -553,7 +554,7 @@
+ }
+ 
+ static int
+-readSparse8(pointer Base, register unsigned long Offset)
++readSparse8(vvp Base, register unsigned long Offset)
+ {
+     register unsigned long result, shift;
+     register unsigned long msb;
+@@ -576,7 +577,7 @@
+ }
+ 
+ static int
+-readSparse16(pointer Base, register unsigned long Offset)
++readSparse16(vvp Base, register unsigned long Offset)
+ {
+     register unsigned long result, shift;
+     register unsigned long msb;
+@@ -600,14 +601,14 @@
+ }
+ 
+ static int
+-readSparse32(pointer Base, register unsigned long Offset)
++readSparse32(vvp Base, register unsigned long Offset)
+ {
+     mem_barrier();
+     return *(vuip)((unsigned long)Base+(Offset));
+ }
+ 
+ static void
+-writeSparse8(int Value, pointer Base, register unsigned long Offset)
++writeSparse8(int Value, vvp Base, register unsigned long Offset)
+ {
+     register unsigned long msb;
+     register unsigned int b = Value & 0xffU;
+@@ -628,7 +629,7 @@
+ }
+ 
+ static void
+-writeSparse16(int Value, pointer Base, register unsigned long Offset)
++writeSparse16(int Value, vvp Base, register unsigned long Offset)
+ {
+     register unsigned long msb;
+     register unsigned int w = Value & 0xffffU;
+@@ -651,7 +652,7 @@
+ }
+ 
+ static void
+-writeSparse32(int Value, pointer Base, register unsigned long Offset)
++writeSparse32(int Value, vvp Base, register unsigned long Offset)
+ {
+     write_mem_barrier();
+     *(vuip)((unsigned long)Base + (Offset)) = Value;
+@@ -659,7 +660,7 @@
+ }
+ 
+ static void
+-writeSparseNB8(int Value, pointer Base, register unsigned long Offset)
++writeSparseNB8(int Value, vvp Base, register unsigned long Offset)
+ {
+     register unsigned long msb;
+     register unsigned int b = Value & 0xffU;
+@@ -679,7 +680,7 @@
+ }
+ 
+ static void
+-writeSparseNB16(int Value, pointer Base, register unsigned long Offset)
++writeSparseNB16(int Value, vvp Base, register unsigned long Offset)
+ {
+     register unsigned long msb;
+     register unsigned int w = Value & 0xffffU;
+@@ -700,28 +701,27 @@
+ }
+ 
+ static void
+-writeSparseNB32(int Value, pointer Base, register unsigned long Offset)
++writeSparseNB32(int Value, vvp Base, register unsigned long Offset)
+ {
+     *(vuip)((unsigned long)Base + (Offset)) = Value;
+     return;
+ }
+ 
+-void (*xf86WriteMmio8)(int Value, pointer Base, unsigned long Offset) 
++void (*xf86WriteMmio8)(int Value, vvp Base, unsigned long Offset) 
+      = writeDense8;
+-void (*xf86WriteMmio16)(int Value, pointer Base, unsigned long Offset)
++void (*xf86WriteMmio16)(int Value, vvp Base, unsigned long Offset)
+      = writeDense16;
+-void (*xf86WriteMmio32)(int Value, pointer Base, unsigned long Offset)
++void (*xf86WriteMmio32)(int Value, vvp Base, unsigned long Offset)
+      = writeDense32;
+-void (*xf86WriteMmioNB8)(int Value, pointer Base, unsigned long Offset) 
++void (*xf86WriteMmioNB8)(int Value, vvp Base, unsigned long Offset) 
+      = writeDenseNB8;
+-void (*xf86WriteMmioNB16)(int Value, pointer Base, unsigned long Offset)
++void (*xf86WriteMmioNB16)(int Value, vvp Base, unsigned long Offset)
+      = writeDenseNB16;
+-void (*xf86WriteMmioNB32)(int Value, pointer Base, unsigned long Offset)
++void (*xf86WriteMmioNB32)(int Value, vvp Base, unsigned long Offset)
+      = writeDenseNB32;
+-int  (*xf86ReadMmio8)(pointer Base, unsigned long Offset) 
++int  (*xf86ReadMmio8)(vvp Base, unsigned long Offset) 
+      = readDense8;
+-int  (*xf86ReadMmio16)(pointer Base, unsigned long Offset)
++int  (*xf86ReadMmio16)(vvp Base, unsigned long Offset)
+      = readDense16;
+-int  (*xf86ReadMmio32)(pointer Base, unsigned long Offset)
++int  (*xf86ReadMmio32)(vvp Base, unsigned long Offset)
+      = readDense32;
+-
+
+--------------060704050807080506050807--
+
+
+
+From christos@astron.com  Tue Mar 13 23:46:09 2007
+Path: news.gmane.org!not-for-mail
+From: christos@astron.com (Christos Zoulas)
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: PWS500au hangs if more than 1Gb of RAM is installed.
+Date: Tue, 13 Mar 2007 23:46:09 +0000 (UTC)
+Lines: 20
+Approved: news@gmane.org
+Message-ID: <et7d41$e0r$1@sea.gmane.org>
+References: <45F7332B.2050508@chriswareham.demon.co.uk>
+NNTP-Posting-Host: lo.gmane.org
+X-Trace: sea.gmane.org 1173831480 19673 80.91.229.12 (14 Mar 2007 00:18:00 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Wed, 14 Mar 2007 00:18:00 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Mar 14 01:17:54 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HRHBh-0003M2-1b
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Mar 2007 01:17:53 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 59E5D63B1E1; Wed, 14 Mar 2007 00:17:44 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from ciao.gmane.org (main.gmane.org [80.91.229.2])
+	by mail.netbsd.org (Postfix) with ESMTP id 51E0D63B1D9
+	for <port-alpha@netbsd.org>; Wed, 14 Mar 2007 00:17:42 +0000 (UTC)
+Original-Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1HRGpl-0004Qs-RM
+	for port-alpha@netbsd.org; Wed, 14 Mar 2007 00:55:14 +0100
+Original-Received: from rebar.astron.com ([38.117.134.202])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <port-alpha@netbsd.org>; Wed, 14 Mar 2007 00:55:13 +0100
+Original-Received: from christos by rebar.astron.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <port-alpha@netbsd.org>; Wed, 14 Mar 2007 00:55:13 +0100
+X-Injected-Via-Gmane: http://gmane.org/
+Original-Lines: 18
+Original-X-Complaints-To: usenet@sea.gmane.org
+X-Gmane-NNTP-Posting-Host: rebar.astron.com
+X-Newsreader: trn 4.0-test76 (Apr 2, 2001)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3944
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3944>
+
+In article <45F7332B.2050508@chriswareham.demon.co.uk>,
+Chris Wareham  <chriswareham@chriswareham.demon.co.uk> wrote:
+>I've just acquired a PWS500au and have set about installing NetBSD on it
+>to replace the Debian Linux that was already there. My first difficulty
+>was that the disks could not be found until I removed some of the
+>memory. Digging through previous posts I found that this is an old
+>problem:
+>
+>http://mail-index.netbsd.org/port-alpha/2002/05/20/0004.html
+>http://mail-index.netbsd.org/port-alpha/2002/06/25/0004.html
+>
+>If this isn't a regression, should it not be put mentioned in the FAQ
+>until it's fixed?
+>
+
+Yes, it should, but is there a PR for it?
+
+christos
+
+
+
+From mhitch@lightning.msu.montana.edu  Tue Mar 13 19:44:59 2007
+Path: news.gmane.org!not-for-mail
+From: "Michael L. Hitch" <mhitch@lightning.msu.montana.edu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: PWS500au hangs if more than 1Gb of RAM is installed.
+Date: Tue, 13 Mar 2007 19:44:59 -0600 (MDT)
+Lines: 21
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.0703131940340.7709@lightning.msu.montana.edu>
+References: <45F7332B.2050508@chriswareham.demon.co.uk>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: sea.gmane.org 1173836726 32554 80.91.229.12 (14 Mar 2007 01:45:26 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Wed, 14 Mar 2007 01:45:26 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: Chris Wareham <chriswareham@chriswareham.demon.co.uk>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Mar 14 02:45:18 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HRIYD-0004pt-5v
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Mar 2007 02:45:13 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id DF36D63B203; Wed, 14 Mar 2007 01:45:05 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from lightning.msu.montana.edu (lightning.msu.montana.edu [153.90.171.2])
+	by mail.netbsd.org (Postfix) with ESMTP id E948B63B1FF
+	for <port-alpha@NetBSD.org>; Wed, 14 Mar 2007 01:45:04 +0000 (UTC)
+Original-Received: from lightning.msu.montana.edu (localhost [127.0.0.1])
+	by lightning.msu.montana.edu (Postfix) with ESMTP id 83C99104DB;
+	Tue, 13 Mar 2007 19:45:01 -0600 (MDT)
+Original-Received: by lightning.msu.montana.edu (Postfix, from userid 271)
+	id C3E42104CA; Tue, 13 Mar 2007 19:45:00 -0600 (MDT)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by lightning.msu.montana.edu (Postfix) with ESMTP id 974AA5864;
+	Tue, 13 Mar 2007 19:45:00 -0600 (MDT)
+In-Reply-To: <45F7332B.2050508@chriswareham.demon.co.uk>
+X-Virus-Scanned: ClamAV using ClamSMTP
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3945
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3945>
+
+On Tue, 13 Mar 2007, Chris Wareham wrote:
+
+> memory. Digging through previous posts I found that this is an old
+> problem:
+>
+> http://mail-index.netbsd.org/port-alpha/2002/05/20/0004.html
+> http://mail-index.netbsd.org/port-alpha/2002/06/25/0004.html
+>
+> If this isn't a regression, should it not be put mentioned in the FAQ
+> until it's fixed?
+
+   I should have just committed a fix for this.  The PWS500au I just
+acquired with 1.5GB of memory now works with the SCSI disks, as well as an 
+IDE drive I tried.  It survived a full build of NetBSD.
+
+--
+Michael L. Hitch			mhitch@montana.edu
+Computer Consultant
+Information Technology Center
+Montana State University	Bozeman, MT	USA
+
+
+From chriswareham@chriswareham.demon.co.uk  Tue Mar 13 23:57:03 2007
+Path: news.gmane.org!not-for-mail
+From: Chris Wareham <chriswareham@chriswareham.demon.co.uk>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Running XFree86 on a PWS500au
+Date: Tue, 13 Mar 2007 23:57:03 +0000
+Lines: 25
+Approved: news@gmane.org
+Message-ID: <45F73A4F.8010507@chriswareham.demon.co.uk>
+References: <45F733E9.1040903@chriswareham.demon.co.uk>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1173845166 18545 80.91.229.12 (14 Mar 2007 04:06:06 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Wed, 14 Mar 2007 04:06:06 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Mar 14 05:05:59 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HRKkM-0007RH-Q0
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Mar 2007 05:05:55 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id E9B7263B1D8; Wed, 14 Mar 2007 04:05:45 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from anchor-fallback-94.mail.demon.net (anchor-fallback-94.mail.demon.net [194.217.242.94])
+	by mail.netbsd.org (Postfix) with ESMTP id D762163B1C2
+	for <port-alpha@NetBSD.org>; Wed, 14 Mar 2007 04:05:39 +0000 (UTC)
+Original-Received: from anchor-post-30.mail.demon.net ([194.217.242.88]:2329 "EHLO
+	anchor-post-30.mail.demon.net") by anchor-fallback-94.mail.demon.net
+	with ESMTP id S554448AbXCMX5F (ORCPT <rfc822;port-alpha@NetBSD.org>);
+	Tue, 13 Mar 2007 23:57:05 +0000
+Original-Received: from chriswareham.demon.co.uk ([80.176.91.102] helo=[192.168.2.2])
+	by anchor-post-30.mail.demon.net with esmtp (Exim 4.42)
+	id 1HRGrX-0002Vy-2i
+	for port-alpha@NetBSD.org; Tue, 13 Mar 2007 23:57:03 +0000
+User-Agent: Thunderbird 1.5.0.10 (Macintosh/20070221)
+In-Reply-To: <45F733E9.1040903@chriswareham.demon.co.uk>
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3946
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3946>
+
+Chris Wareham said on 13/3/07 23:29:
+> I've found the following webpage which includes patched versions of
+> XFree86 for various Alpha workstations:
+> 
+> http://www.caseydoodle.com/index1.html
+> 
+> Is anyone running the patched version of XFree86 4.4.0 from this page on
+> NetBSD 3.1?
+> 
+> Regards,
+> 
+> Chris
+> 
+
+Seems I didn't look hard enough at the list archives as I've now come
+across the mass of postings about XFree86 on Alpha from early last year.
+I can't really find any consensus on whether the best approach is to use
+recent sources from the XFree86 project itself, the patched versions
+from Mel Kravitz or to simply do a native build of xsrc from NetBSD 3.1.
+Any advice would be greatly appreciated!
+
+Regards,
+
+Chris
+
+
+From chriswareham@chriswareham.demon.co.uk  Thu Mar 15 22:43:29 2007
+Path: news.gmane.org!not-for-mail
+From: Chris Wareham <chriswareham@chriswareham.demon.co.uk>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: PWS500au hangs if more than 1Gb of RAM is installed.
+Date: Thu, 15 Mar 2007 22:43:29 +0000
+Lines: 28
+Approved: news@gmane.org
+Message-ID: <45F9CC11.4040201@chriswareham.demon.co.uk>
+References: <45F7332B.2050508@chriswareham.demon.co.uk> <Pine.NEB.4.64.0703131940340.7709@lightning.msu.montana.edu>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1173998631 26217 80.91.229.12 (15 Mar 2007 22:43:51 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Thu, 15 Mar 2007 22:43:51 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: "Michael L. Hitch" <mhitch@lightning.msu.montana.edu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Mar 15 23:43:45 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HRyff-00011v-1C
+	for netbsd-port-alpha@m.gmane.org; Thu, 15 Mar 2007 23:43:44 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 1629063B285; Thu, 15 Mar 2007 22:43:35 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from anchor-post-36.mail.demon.net (anchor-post-36.mail.demon.net [194.217.242.86])
+	by mail.netbsd.org (Postfix) with ESMTP id 2AC8063B116
+	for <port-alpha@NetBSD.org>; Thu, 15 Mar 2007 22:43:34 +0000 (UTC)
+Original-Received: from chriswareham.demon.co.uk ([80.176.91.102] helo=[192.168.2.2])
+	by anchor-post-36.mail.demon.net with esmtp (Exim 4.42)
+	id 1HRyfS-00012e-LB; Thu, 15 Mar 2007 22:43:30 +0000
+User-Agent: Thunderbird 1.5.0.10 (Macintosh/20070221)
+In-Reply-To: <Pine.NEB.4.64.0703131940340.7709@lightning.msu.montana.edu>
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3947
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3947>
+
+Michael L. Hitch said on 14/3/07 01:44:
+> On Tue, 13 Mar 2007, Chris Wareham wrote:
+> 
+>> memory. Digging through previous posts I found that this is an old
+>> problem:
+>>
+>> http://mail-index.netbsd.org/port-alpha/2002/05/20/0004.html
+>> http://mail-index.netbsd.org/port-alpha/2002/06/25/0004.html
+>>
+>> If this isn't a regression, should it not be put mentioned in the FAQ
+>> until it's fixed?
+> 
+>   I should have just committed a fix for this.  The PWS500au I just
+> acquired with 1.5GB of memory now works with the SCSI disks, as well as 
+> an IDE drive I tried.  It survived a full build of NetBSD.
+> 
+
+Hi Michael,
+
+Many thanks for the fix. I built a 3.1 kernel with it applied, and my
+machine now sees both hard drives when 1.5Gb of RAM is installed. I
+pushed the machine pretty hard with a bunch of parallel kernel builds
+until top showed over 1Gb of RAM in use and saw no signs of trouble.
+
+Regards,
+
+Chris
+
+
+From ahs@hogrelius.nu  Fri Mar 16 16:44:52 2007
+Path: news.gmane.org!not-for-mail
+From: Anders Hogrelius <ahs@hogrelius.nu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: PWS500au hangs if more than 1Gb of RAM is installed.
+Date: Fri, 16 Mar 2007 16:44:52 +0100 (CET)
+Lines: 62
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.0703161641090.1379@hogrelius.nu>
+References: <45F7332B.2050508@chriswareham.demon.co.uk>
+ <Pine.NEB.4.64.0703131940340.7709@lightning.msu.montana.edu>
+ <45F9CC11.4040201@chriswareham.demon.co.uk>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: sea.gmane.org 1174059927 8987 80.91.229.12 (16 Mar 2007 15:45:27 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Fri, 16 Mar 2007 15:45:27 +0000 (UTC)
+Cc: "Michael L. Hitch" <mhitch@lightning.msu.montana.edu>, 
+    port-alpha@NetBSD.org
+To: Chris Wareham <chriswareham@chriswareham.demon.co.uk>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Fri Mar 16 16:45:11 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HSEc8-0008Ha-Vu
+	for netbsd-port-alpha@m.gmane.org; Fri, 16 Mar 2007 16:45:09 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id CB2A863B282; Fri, 16 Mar 2007 15:45:02 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from maul.mdfnet.se (maul.mdfnet.se [193.11.113.3])
+	by mail.netbsd.org (Postfix) with ESMTP id B188963B276
+	for <port-alpha@NetBSD.org>; Fri, 16 Mar 2007 15:45:01 +0000 (UTC)
+Original-Received: from faramir.mdfnet.se (faramir.mdfnet.se [193.11.113.4])
+	by maul.mdfnet.se (Postfix) with ESMTP id 4EB3539801C;
+	Fri, 16 Mar 2007 16:44:57 +0100 (CET)
+Original-Received: from hogrelius.nu (unknown [193.11.112.144])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by faramir.mdfnet.se (Postfix) with ESMTP id 9B90811414;
+	Fri, 16 Mar 2007 16:44:56 +0100 (CET)
+Original-Received: from ahs (helo=localhost)
+	by hogrelius.nu with local-esmtp (Exim 4.63)
+	(envelope-from <ahs@hogrelius.nu>)
+	id 1HSEbs-0000Sq-Uo; Fri, 16 Mar 2007 16:44:55 +0100
+In-Reply-To: <45F9CC11.4040201@chriswareham.demon.co.uk>
+X-Spam_score: -2.6
+X-Spam_score_int: -25
+X-Spam_bar: --
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3948
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3948>
+
+
+I wonder if this fix might solve some of the problems I've had on my 264DP
+which has 4Gb RAM. With a 3.1 SMP kernel it refused to see the drive 
+connected to the IDE adapter... Where and how do I get and apply the fix?
+
+I've had some weird hangs with the uniprocessor kernel as well... They 
+might also be solved with this patch.
+
+Cheers,
+Anders
+
+On Thu, 15 Mar 2007, Chris Wareham wrote:
+
+> Date: Thu, 15 Mar 2007 22:43:29 +0000
+> From: Chris Wareham <chriswareham@chriswareham.demon.co.uk>
+> To: Michael L. Hitch <mhitch@lightning.msu.montana.edu>
+> Cc: port-alpha@NetBSD.org
+> Subject: Re: PWS500au hangs if more than 1Gb of RAM is installed.
+> 
+> Michael L. Hitch said on 14/3/07 01:44:
+>> On Tue, 13 Mar 2007, Chris Wareham wrote:
+>> 
+>>> memory. Digging through previous posts I found that this is an old
+>>> problem:
+>>> 
+>>> http://mail-index.netbsd.org/port-alpha/2002/05/20/0004.html
+>>> http://mail-index.netbsd.org/port-alpha/2002/06/25/0004.html
+>>> 
+>>> If this isn't a regression, should it not be put mentioned in the FAQ
+>>> until it's fixed?
+>>
+>>   I should have just committed a fix for this.  The PWS500au I just
+>> acquired with 1.5GB of memory now works with the SCSI disks, as well as an 
+>> IDE drive I tried.  It survived a full build of NetBSD.
+>> 
+>
+> Hi Michael,
+>
+> Many thanks for the fix. I built a 3.1 kernel with it applied, and my
+> machine now sees both hard drives when 1.5Gb of RAM is installed. I
+> pushed the machine pretty hard with a bunch of parallel kernel builds
+> until top showed over 1Gb of RAM in use and saw no signs of trouble.
+>
+> Regards,
+>
+> Chris
+>
+
+--
+This mail was sent on Fri 03/16/07 at 8:41AM PDT
+
+
+Vulcans believe peace should not depend on force.
+ 		-- Amanda, "Journey to Babel", stardate 3842.3
+
+*************************************************************************
+*                        Cell :   +46(0)70 677-0210
+* Anders Hogrelius, MSc  Phone:   +1(714)408-7868
+* Tessingatan 12         E-mail:  anders@hogrelius.nu
+* SE-72216 Vasteras      Web:     http://www.hogrelius.nu/~ahs/
+* SWEDEN                 SkypeID: ahogrelius
+
+
+From mhitch@lightning.msu.montana.edu  Fri Mar 16 10:47:07 2007
+Path: news.gmane.org!not-for-mail
+From: "Michael L. Hitch" <mhitch@lightning.msu.montana.edu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: PWS500au hangs if more than 1Gb of RAM is installed.
+Date: Fri, 16 Mar 2007 10:47:07 -0600 (MDT)
+Lines: 27
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.0703161028130.96@lightning.msu.montana.edu>
+References: <45F7332B.2050508@chriswareham.demon.co.uk>
+ <Pine.NEB.4.64.0703131940340.7709@lightning.msu.montana.edu>
+ <45F9CC11.4040201@chriswareham.demon.co.uk> <Pine.NEB.4.64.0703161641090.1379@hogrelius.nu>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: sea.gmane.org 1174063651 23602 80.91.229.12 (16 Mar 2007 16:47:31 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Fri, 16 Mar 2007 16:47:31 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: Anders Hogrelius <ahs@hogrelius.nu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Fri Mar 16 17:47:24 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HSFaN-0004R2-Jy
+	for netbsd-port-alpha@m.gmane.org; Fri, 16 Mar 2007 17:47:23 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 561FC63B237; Fri, 16 Mar 2007 16:47:15 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from lightning.msu.montana.edu (lightning.msu.montana.edu [153.90.171.2])
+	by mail.netbsd.org (Postfix) with ESMTP id 4B5C563B176
+	for <port-alpha@NetBSD.org>; Fri, 16 Mar 2007 16:47:14 +0000 (UTC)
+Original-Received: from lightning.msu.montana.edu (localhost [127.0.0.1])
+	by lightning.msu.montana.edu (Postfix) with ESMTP id C59EE104D5;
+	Fri, 16 Mar 2007 10:47:11 -0600 (MDT)
+Original-Received: by lightning.msu.montana.edu (Postfix, from userid 271)
+	id 4D8F3104D0; Fri, 16 Mar 2007 10:47:08 -0600 (MDT)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by lightning.msu.montana.edu (Postfix) with ESMTP id D590A587B;
+	Fri, 16 Mar 2007 10:47:08 -0600 (MDT)
+In-Reply-To: <Pine.NEB.4.64.0703161641090.1379@hogrelius.nu>
+X-Virus-Scanned: ClamAV using ClamSMTP
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3949
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3949>
+
+On Fri, 16 Mar 2007, Anders Hogrelius wrote:
+
+> I wonder if this fix might solve some of the problems I've had on my 264DP
+> which has 4Gb RAM. With a 3.1 SMP kernel it refused to see the drive 
+> connected to the IDE adapter... Where and how do I get and apply the fix?
+>
+> I've had some weird hangs with the uniprocessor kernel as well... They might 
+> also be solved with this patch.
+
+   I don't know why you think this change would help your system.  The 
+change is only for machines using the cia, such as the AlphaServer 1000A 
+(noritake), Personal Workstation (miata), EB164, and which ever model was 
+kn20aa.  The 264DP would probably be a EV6-Tsunami based system.  I've run
+NetBSD on an ES40, which is EV6-Tsunami based) with 8GB of memory and 4
+cpus long enough to run a full NetBSD build.  It seemed fairly stable at 
+the time (well over 1 year ago), after I disabled the USB interface and 
+after fixing a bug in the mlx driver that caused problems when the ES40 
+needed to use sgmaps for DMA.  I don't remember at the moment what version 
+of NetBSD I was running at the time.  [That machine has been running a 
+production OpenVMS system since then.]
+
+--
+Michael L. Hitch			mhitch@montana.edu
+Computer Consultant
+Information Technology Center
+Montana State University	Bozeman, MT	USA
+
+
+From ahs@hogrelius.nu  Fri Mar 16 21:34:00 2007
+Path: news.gmane.org!not-for-mail
+From: Anders Hogrelius <ahs@hogrelius.nu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: PWS500au hangs if more than 1Gb of RAM is installed.
+Date: Fri, 16 Mar 2007 21:34:00 +0100 (CET)
+Lines: 71
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.0703162125050.11431@hogrelius.nu>
+References: <45F7332B.2050508@chriswareham.demon.co.uk>
+ <Pine.NEB.4.64.0703131940340.7709@lightning.msu.montana.edu>
+ <45F9CC11.4040201@chriswareham.demon.co.uk> <Pine.NEB.4.64.0703161641090.1379@hogrelius.nu>
+ <Pine.NEB.4.64.0703161028130.96@lightning.msu.montana.edu>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: sea.gmane.org 1174077267 7876 80.91.229.12 (16 Mar 2007 20:34:27 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Fri, 16 Mar 2007 20:34:27 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: "Michael L. Hitch" <mhitch@lightning.msu.montana.edu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Fri Mar 16 21:34:17 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HSJ7w-0001se-0f
+	for netbsd-port-alpha@m.gmane.org; Fri, 16 Mar 2007 21:34:16 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 0F2E063B25E; Fri, 16 Mar 2007 20:34:09 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from maul.mdfnet.se (maul.mdfnet.se [193.11.113.3])
+	by mail.netbsd.org (Postfix) with ESMTP id CAB1463B1D7
+	for <port-alpha@NetBSD.org>; Fri, 16 Mar 2007 20:34:07 +0000 (UTC)
+Original-Received: from faramir.mdfnet.se (faramir.mdfnet.se [193.11.113.4])
+	by maul.mdfnet.se (Postfix) with ESMTP id 58617398015;
+	Fri, 16 Mar 2007 21:34:04 +0100 (CET)
+Original-Received: from hogrelius.nu (unknown [193.11.112.144])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by faramir.mdfnet.se (Postfix) with ESMTP id EFF461144B;
+	Fri, 16 Mar 2007 21:34:03 +0100 (CET)
+Original-Received: from ahs (helo=localhost)
+	by hogrelius.nu with local-esmtp (Exim 4.63)
+	(envelope-from <ahs@hogrelius.nu>)
+	id 1HSJ7g-0001qe-1I; Fri, 16 Mar 2007 21:34:02 +0100
+In-Reply-To: <Pine.NEB.4.64.0703161028130.96@lightning.msu.montana.edu>
+X-Spam_score: -2.6
+X-Spam_score_int: -25
+X-Spam_bar: --
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3950
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3950>
+
+
+No, it was just a potshot. I didn't follow the whole thread so I didn't 
+know it was CIA related. I've tried pretty much everything on my 264DP, 
+but it is impossible to get it stable enough for production use with SMP 
+kernels and it is just barely stable enough with a uniprocesssor kernel.
+It feels like a waste of resources having that extra CPU sitting there 
+doing nothing.
+
+I'm getting to the point where I'm looking for a Tru64 SMP license to use 
+instead of NetBSD as there seems to be to many bugs lurking within the SMP 
+code of the NBSD kernel at the moment. They seem to be hard to find as 
+some of them have been there quite long. Random hangs and panics seem to 
+be normal and unfortunately it seems to be the same with the SMP code of 
+FreeBSD as well...
+
+Cheers,
+Anders
+
+On Fri, 16 Mar 2007, Michael L. Hitch wrote:
+
+> Date: Fri, 16 Mar 2007 10:47:07 -0600 (MDT)
+> From: Michael L. Hitch <mhitch@lightning.msu.montana.edu>
+> To: Anders Hogrelius <ahs@hogrelius.nu>
+> Cc: port-alpha@NetBSD.org
+> Subject: Re: PWS500au hangs if more than 1Gb of RAM is installed.
+> 
+> On Fri, 16 Mar 2007, Anders Hogrelius wrote:
+>
+>> I wonder if this fix might solve some of the problems I've had on my 264DP
+>> which has 4Gb RAM. With a 3.1 SMP kernel it refused to see the drive 
+>> connected to the IDE adapter... Where and how do I get and apply the fix?
+>> 
+>> I've had some weird hangs with the uniprocessor kernel as well... They 
+>> might also be solved with this patch.
+>
+>  I don't know why you think this change would help your system.  The change 
+> is only for machines using the cia, such as the AlphaServer 1000A (noritake), 
+> Personal Workstation (miata), EB164, and which ever model was kn20aa.  The 
+> 264DP would probably be a EV6-Tsunami based system.  I've run
+> NetBSD on an ES40, which is EV6-Tsunami based) with 8GB of memory and 4
+> cpus long enough to run a full NetBSD build.  It seemed fairly stable at the 
+> time (well over 1 year ago), after I disabled the USB interface and after 
+> fixing a bug in the mlx driver that caused problems when the ES40 needed to 
+> use sgmaps for DMA.  I don't remember at the moment what version of NetBSD I 
+> was running at the time.  [That machine has been running a production OpenVMS 
+> system since then.]
+>
+> --
+> Michael L. Hitch			mhitch@montana.edu
+> Computer Consultant
+> Information Technology Center
+> Montana State University	Bozeman, MT	USA
+>
+
+--
+This mail was sent on Fri 03/16/07 at 1:25PM PDT
+
+
+You speak of courage.  Obviously you do not know the difference between
+courage and foolhardiness.  Always it is the brave ones who die, the
+soldiers.
+ 		-- Kor, the Klingon Commander, "Errand of Mercy",
+ 		   stardate 3201.7
+
+*************************************************************************
+*                        Cell :   +46(0)70 677-0210
+* Anders Hogrelius, MSc  Phone:   +1(714)408-7868
+* Tessingatan 12         E-mail:  anders@hogrelius.nu
+* SE-72216 Vasteras      Web:     http://www.hogrelius.nu/~ahs/
+* SWEDEN                 SkypeID: ahogrelius
+
+
+From woods@planix.com  Fri Mar 16 22:23:09 2007
+Path: news.gmane.org!not-for-mail
+From: "Greg A. Woods" <woods@planix.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: NetBSD/alpha MP stability and other bugs
+Date: Fri, 16 Mar 2007 22:23:09 -0400
+Lines: 73
+Approved: news@gmane.org
+Message-ID: <m1HSOZf-001dGdC@most.weird.com>
+References: <45F7332B.2050508@chriswareham.demon.co.uk>
+	<Pine.NEB.4.64.0703131940340.7709@lightning.msu.montana.edu>
+	<45F9CC11.4040201@chriswareham.demon.co.uk>
+	<Pine.NEB.4.64.0703161641090.1379@hogrelius.nu>
+	<Pine.NEB.4.64.0703161028130.96@lightning.msu.montana.edu>
+	<Pine.NEB.4.64.0703162125050.11431@hogrelius.nu>
+Reply-To: NetBSD/Alpha Discussion List <port-alpha@NetBSD.org>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (generated by SEMI 1.14.6 - "Maruoka")
+Content-Type: multipart/signed;
+ boundary="pgp-sign-Multipart_Fri_Mar_16_22:22:51_2007-1"; micalg=pgp-sha1;
+ protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1174098226 32403 80.91.229.12 (17 Mar 2007 02:23:46 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Sat, 17 Mar 2007 02:23:46 +0000 (UTC)
+Cc: NetBSD/Alpha Discussion List <port-alpha@NetBSD.org>
+To: Anders Hogrelius <ahs@hogrelius.nu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Mar 17 03:23:43 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HSOa6-0006Fm-Mm
+	for netbsd-port-alpha@m.gmane.org; Sat, 17 Mar 2007 03:23:43 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id F3B6B63B2F9; Sat, 17 Mar 2007 02:23:34 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from most.weird.com (mail.weird.com [204.92.254.2])
+	by mail.netbsd.org (Postfix) with ESMTP id A9FE963B16D
+	for <port-alpha@NetBSD.org>; Sat, 17 Mar 2007 02:23:32 +0000 (UTC)
+Original-Received: from always.weird.com
+	([204.92.254.7] port=64644)
+	by most.weird.com([204.92.254.2] port=25)
+	via TCP with esmtp (4360 bytes)
+	(sender: <woods@always.weird.com>)
+	(ident <woods> using rfc1413)
+	id <m1HSOZf-001dGdC@most.weird.com>
+	for <port-alpha@NetBSD.org>;
+	Fri, 16 Mar 2007 22:23:15 -0400 (EDT)
+	(Smail-3.2.0.122-Pre 2005-Nov-17 #1 built 2007-Jan-29)
+In-Reply-To: <Pine.NEB.4.64.0703162125050.11431@hogrelius.nu>
+User-Agent: Wanderlust/2.14.0 (Africa) SEMI/1.14.6 (Maruoka) FLIM/1.14.7
+ (=?ISO-8859-4?Q?Sanj=F2?=) APEL/10.6 Emacs/21.4 (i386--netbsdelf) MULE/5.0
+ (SAKAKI)
+X-Face: ;j3Eth2XV8h1Yfu<eXd9JL+"t;iT8?{X]Fjm`Qb]>*uL{<:dQ$#E[DB0gemGZJ"J#4fH*][
+ lz;@-iwMv_u\6uIEKR0KY"=MzoQH#CrqBN`nG_5B@rrM8,f~Gr&h5a\=<t0loVf0$}bP=]i3OMh"n_
+ _@m4/,~2`V=(-9LyW.)'`@E_fE^<4y7)BIe`A''/j-Y#gDNZERh%CCij'q-NA4F<|yjznEhd7=l^xH
+ 2.qD3o0IanGHERTW+z$G
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3951
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3951>
+
+--pgp-sign-Multipart_Fri_Mar_16_22:22:51_2007-1
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
+
+At Fri, 16 Mar 2007 21:34:00 +0100 (CET),
+Anders Hogrelius wrote:
+>=20
+>=20
+> I'm getting to the point where I'm looking for a Tru64 SMP license to use=
+=20
+> instead of NetBSD as there seems to be to many bugs lurking within the SM=
+P=20
+> code of the NBSD kernel at the moment. They seem to be hard to find as=20
+> some of them have been there quite long. Random hangs and panics seem to =
+
+> be normal
+
+I've been running various incarnations of the netbsd-1-6 branch on
+several MP AlphaServers without too much trouble (albiet with most of
+Michael's PMAP and locking patches), including on a 3-CPU 4100 w/2GB, a
+2-CPU 264DP w/1GB, and a 4-CPU ES40 w/16GB.  Indeed there are some
+occasional crashes due to MP locking bugs, but they're usually rare
+enough to only be annoying.
+
+I haven't tried 3.x, and at this point I won't -- I'll just jump to 4.x
+and follow the netbsd-4 builds.  I've been running MP 4.x kernels on a
+couple of i386 Xeon boxes without any problems, doing lots of builds
+with source on NFS and with local disk and/or RAID controllers for the
+build directories, running things like Firefox, emacs, etc.
+
+> and unfortunately it seems to be the same with the SMP code of=20
+> FreeBSD as well...
+
+Last I looked FreeBSD wouldn't even support more than 2GB of RAM on Alpha.
+
+> > On Fri, 16 Mar 2007, Anders Hogrelius wrote:
+> >
+> >> I wonder if this fix might solve some of the problems I've had on my 2=
+64DP
+> >> which has 4Gb RAM. With a 3.1 SMP kernel it refused to see the drive=20
+> >> connected to the IDE adapter... Where and how do I get and apply the f=
+ix?
+
+As for that, well my advice is to stay well and far away from the IDE
+devices on Tsunami architecture machines such as the 264DP and ES series
+if at all possible.
+
+There were bad interactions between the IDE driver and the rest of the
+system on the ES40 and we gave up and installed a SCSI CD-ROM instead,
+though so far I haven't had major problems with the IDE CD-ROM on my
+264DP, at least not under 1.6.x.  It only has 1GB of RAM though.
+
+--=20
+						Greg A. Woods
+
+H:+1 416 218-0098 W:+1 416 489-5852 x122 VE3TCP RoboHack <woods@robohack.ca>
+Planix, Inc. <woods@planix.com>       Secrets of the Weird <woods@weird.com>
+
+--pgp-sign-Multipart_Fri_Mar_16_22:22:51_2007-1
+Content-Type: application/pgp-signature
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: PGPfreeware 5.0i for non-commercial use
+MessageID: aacNXmdXZXePxRZbtF8amftu0UvA7u9G
+
+iQA/AwUBRftQ/WZ9cbd4v/R/EQIWZACfZ+RWUv2cLpAVaoIEXmpiGgdFd2wAn3FK
+/K+MDHuVtBZLMIx1CvMi7adf
+=7U39
+-----END PGP SIGNATURE-----
+
+--pgp-sign-Multipart_Fri_Mar_16_22:22:51_2007-1--
+
+
+From chriswareham@chriswareham.demon.co.uk  Sat Mar 17 15:14:48 2007
+Path: news.gmane.org!not-for-mail
+From: Chris Wareham <chriswareham@chriswareham.demon.co.uk>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Running XFree86 on a PWS500au
+Date: Sat, 17 Mar 2007 15:14:48 +0000
+Lines: 33
+Approved: news@gmane.org
+Message-ID: <45FC05E8.2070006@chriswareham.demon.co.uk>
+References: <45F733E9.1040903@chriswareham.demon.co.uk> <45F73D6B.9040308@nygren.pp.se>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1174151400 27933 80.91.229.12 (17 Mar 2007 17:10:00 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Sat, 17 Mar 2007 17:10:00 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Tobias Nygren <tnn+nbsd@nygren.pp.se>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Mar 17 18:09:52 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HScPd-0007Ak-VP
+	for netbsd-port-alpha@m.gmane.org; Sat, 17 Mar 2007 18:09:50 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 46DF663B231; Sat, 17 Mar 2007 17:09:41 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from anchor-fallback-94.mail.demon.net (anchor-fallback-94.mail.demon.net [194.217.242.94])
+	by mail.netbsd.org (Postfix) with ESMTP id 65ABC63B224
+	for <port-alpha@netbsd.org>; Sat, 17 Mar 2007 17:09:40 +0000 (UTC)
+Original-Received: from anchor-post-31.mail.demon.net ([194.217.242.89]:4649 "EHLO
+	anchor-post-31.mail.demon.net") by anchor-fallback-94.mail.demon.net
+	with ESMTP id S610327AbXCQPOv (ORCPT <rfc822;port-alpha@netbsd.org>);
+	Sat, 17 Mar 2007 15:14:51 +0000
+Original-Received: from chriswareham.demon.co.uk ([80.176.91.102] helo=[192.168.2.2])
+	by anchor-post-31.mail.demon.net with esmtp (Exim 4.42)
+	id 1HSacL-0007HF-4U; Sat, 17 Mar 2007 15:14:49 +0000
+User-Agent: Thunderbird 1.5.0.10 (Macintosh/20070221)
+In-Reply-To: <45F73D6B.9040308@nygren.pp.se>
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3952
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3952>
+
+Tobias Nygren said on 14/3/07 00:10:
+> Chris Wareham wrote:
+>> I've found the following webpage which includes patched versions of
+>> XFree86 for various Alpha workstations:
+>>
+>> http://www.caseydoodle.com/index1.html
+>>
+>> Is anyone running the patched version of XFree86 4.4.0 from this page on
+>> NetBSD 3.1?
+>>
+>> Regards,
+>>
+>> Chris
+> 
+> If you grab the 4.5.0 tarballs from xfree86.org they should build cleanly.
+> XFree86 4.6.0 can be built with some minor changes to alpha_video.c,
+> see attached diff.
+> 
+> -T
+> 
+
+I built and installed XFree86 4.5.0, but if I run X -configure, xf86cfg
+or just startx I get dumped back to the SRM console. I'm recompiling the
+kernel with ddb and diagnostics enabled to see if I can drop into the
+debugger instead. I suspect it's down to the graphics card though - it's
+some high end thing (well, high end when the machine was new) that I
+might just replace with an ordinary S3 based card.
+
+Regards,
+
+Chris
+
+
+
+From tnn+nbsd@nygren.pp.se  Sun Mar 18 21:45:19 2007
+Path: news.gmane.org!not-for-mail
+From: Tobias Nygren <tnn+nbsd@nygren.pp.se>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Running XFree86 on a PWS500au
+Date: Sun, 18 Mar 2007 21:45:19 +0100
+Lines: 48
+Approved: news@gmane.org
+Message-ID: <45FDA4DF.8010405@nygren.pp.se>
+References: <45F733E9.1040903@chriswareham.demon.co.uk> <45F73D6B.9040308@nygren.pp.se> <45FC05E8.2070006@chriswareham.demon.co.uk>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1174250753 1485 80.91.229.12 (18 Mar 2007 20:45:53 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Sun, 18 Mar 2007 20:45:53 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Chris Wareham <chriswareham@chriswareham.demon.co.uk>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Mar 18 21:45:43 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HT2G6-0004Zs-DC
+	for netbsd-port-alpha@m.gmane.org; Sun, 18 Mar 2007 21:45:42 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id A5C8563B147; Sun, 18 Mar 2007 20:45:34 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from kamineko.nygren.pp.se (kamineko.nygren.pp.se [IPv6:2002:d976:d875:1::1])
+	by mail.netbsd.org (Postfix) with ESMTP id 6799B63B128
+	for <port-alpha@netbsd.org>; Sun, 18 Mar 2007 20:45:31 +0000 (UTC)
+Original-Received: from chiyo.nygren.pp.se (chiyo.nygren.pp.se [IPv6:2002:5508:38f:1::1])
+	by kamineko.nygren.pp.se (Postfix) with ESMTP id DF1B96B;
+	Sun, 18 Mar 2007 21:45:26 +0100 (CET)
+Original-Received: by chiyo.nygren.pp.se (Postfix, from userid 2003)
+	id EFE1A1A471; Sun, 18 Mar 2007 21:45:19 +0100 (CET)
+Original-Received: from [IPv6:2002:5508:38f:2:250:56ff:fe00:35] (virt01.int.nygren.pp.se [IPv6:2002:5508:38f:2:250:56ff:fe00:35])
+	by chiyo.nygren.pp.se (Postfix) with ESMTP id 62D321A452;
+	Sun, 18 Mar 2007 21:45:19 +0100 (CET)
+User-Agent: Thunderbird 1.5.0.10 (X11/20070303)
+In-Reply-To: <45FC05E8.2070006@chriswareham.demon.co.uk>
+X-Fingerprint: DD4E 8788 BF66 98D8 9886  EEA8 F73F E3FC 37F1 B50E
+X-Gpg-Key-Id: 0x37F1B50E
+X-Hidden-Message: lbh unir jnl gbb zhpu fcner gvzr
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3953
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3953>
+
+Chris Wareham wrote:
+> Tobias Nygren said on 14/3/07 00:10:
+>> Chris Wareham wrote:
+>>> I've found the following webpage which includes patched versions of
+>>> XFree86 for various Alpha workstations:
+>>>
+>>> http://www.caseydoodle.com/index1.html
+>>>
+>>> Is anyone running the patched version of XFree86 4.4.0 from this 
+>>> page on
+>>> NetBSD 3.1?
+>>>
+>>> Regards,
+>>>
+>>> Chris
+>>
+>> If you grab the 4.5.0 tarballs from xfree86.org they should build 
+>> cleanly.
+>> XFree86 4.6.0 can be built with some minor changes to alpha_video.c,
+>> see attached diff.
+>>
+>> -T
+>>
+>
+> I built and installed XFree86 4.5.0, but if I run X -configure, xf86cfg
+> or just startx I get dumped back to the SRM console. I'm recompiling the
+> kernel with ddb and diagnostics enabled to see if I can drop into the
+> debugger instead. I suspect it's down to the graphics card though - it's
+> some high end thing (well, high end when the machine was new) that I
+> might just replace with an ordinary S3 based card.
+>
+> Regards,
+>
+> Chris
+>
+
+
+The autoconfiguration doesn't work. You need an XF86Config generated
+on a PC. Then change the PCI bus location accordingly and add
+Option "NoInt10" "true".
+(The x86 bios emulator is what causes the machine checks)
+
+Moderns cards shouldn't be a problem, I've used a radeon 9250.
+The SRM must have initialized the card though.
+
+-T
+
+
+
+From kumar.padiyath@psi.ch  Mon Mar 19 16:00:38 2007
+Path: news.gmane.org!not-for-mail
+From: "Padiyath Sreekumaran" <kumar.padiyath@psi.ch>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: strace sw on DS10
+Date: Mon, 19 Mar 2007 16:00:38 +0100
+Lines: 50
+Approved: news@gmane.org
+Message-ID: <7CEC17D947D6FE43AD74F247161105E4E0BDC9@MAILBOX0B.psi.ch>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+X-Trace: sea.gmane.org 1174320187 6981 80.91.229.12 (19 Mar 2007 16:03:07 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Mon, 19 Mar 2007 16:03:07 +0000 (UTC)
+To: <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Mar 19 17:02:54 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HTKJw-0004LK-EZ
+	for netbsd-port-alpha@m.gmane.org; Mon, 19 Mar 2007 17:02:52 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 00FA163B122; Mon, 19 Mar 2007 16:02:49 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from MAILSEND02.psi.ch (mailsend02.psi.ch [129.129.191.54])
+	by mail.netbsd.org (Postfix) with ESMTP id C532163B11B
+	for <port-alpha@netbsd.org>; Mon, 19 Mar 2007 16:02:47 +0000 (UTC)
+Original-Received: from MAILBOX0B.psi.ch ([129.129.190.194]) by MAILSEND02.psi.ch with Microsoft SMTPSVC(6.0.3790.1830);
+	 Mon, 19 Mar 2007 16:00:39 +0100
+X-MimeOLE: Produced By Microsoft Exchange V6.5
+Content-class: urn:content-classes:message
+X-MS-Has-Attach: 
+X-MS-TNEF-Correlator: 
+Thread-Topic: strace sw on DS10
+Thread-Index: AcdqN1tX4NdxDJWaQ4mTTf8gj7VlEg==
+X-OriginalArrivalTime: 19 Mar 2007 15:00:39.0293 (UTC) FILETIME=[5B6C7AD0:01C76A37]
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3954
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3954>
+
+
+Hello,
+I have installed NetBSD SW on a Alpha DS10.( NetBSD 3.1 (GENERIC))
+ Iam getting errors during the compilation of 'strace' utility
+from pkgsrc/sysutils directory:
+
+The error message:
+
+
+/usr/bin/make  all-am
+if cc -DHAVE_CONFIG_H -I. -I. -I. -Inetbsd/alpha -I./netbsd/alpha
+-Inetbsd -I./netbsd    -Wall -O2 -mieee -MT strace.o -MD -MP -MF
+ ".deps/strace.Tpo" -c -o strace.o strace.c;  then mv -f
+".deps/strace.Tpo" ".deps/strace.Po"; else rm -f ".deps/strace.Tpo";
+exit
+ 1; fi
+strace.c: In function `resume':
+strace.c:1187: error: `PTRACE_SYSCALL' undeclared (first use in this
+function)
+strace.c:1187: error: (Each undeclared identifier is reported only once
+strace.c:1187: error: for each function it appears in.)
+strace.c: In function `trace':
+strace.c:2247: error: `PTRACE_SYSCALL' undeclared (first use in this
+function)
+
+[wrapper.sh] note: The real command line, after the pkgsrc wrapper, was:
+/usr/pkgsrc/sysutils/strace/work/.gcc/bin/gcc -DHAVE_CONFIG_H -I.
+-Inetbsd/alpha -I./netbsd/alpha -Inetbsd -I./netbsd -Wall -O2 -m
+ieee -MT strace.o -MD -MP -MF .deps/strace.Tpo -c -o strace.o strace.c
+-I/usr/pkgsrc/sysutils/strace/work/.buildlink/include -L/us
+r/pkgsrc/sysutils/strace/work/.buildlink/lib
+*** Error code 1
+
+
+Has anyone compiled this program on Alpha DS10? I will be very thankful
+if
+someone can help? Please send the mail to my E-Mail address also.
+
+Thanks in advance,
+  Kumar=20
+ ------------------------------------------------------------------
+Padiyath Sreekumar       |   Tel: +41.56.310.3643
+Paul Scherrer Institut   |   email: kumar.padiyath@psi.ch
+AIT                      |   Office: WHGA/U132=20
+WHGA/U132                |   Fax: +41.56.310.3649
+CH-5232 Villigen PSI     |=20
+Switzerland              |
+-----------------------------------------------------------------
+
+
+
+From christos@astron.com  Tue Mar 20 00:07:11 2007
+Path: news.gmane.org!not-for-mail
+From: christos@astron.com (Christos Zoulas)
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: strace sw on DS10
+Date: Tue, 20 Mar 2007 00:07:11 +0000 (UTC)
+Lines: 51
+Approved: news@gmane.org
+Message-ID: <etn8jf$32h$1@sea.gmane.org>
+References: <7CEC17D947D6FE43AD74F247161105E4E0BDC9@MAILBOX0B.psi.ch>
+NNTP-Posting-Host: lo.gmane.org
+X-Trace: sea.gmane.org 1174349435 5535 80.91.229.12 (20 Mar 2007 00:10:35 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Tue, 20 Mar 2007 00:10:35 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Mar 20 01:10:15 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HTRva-00058P-QS
+	for netbsd-port-alpha@m.gmane.org; Tue, 20 Mar 2007 01:10:15 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id A64F963B11A; Tue, 20 Mar 2007 00:10:07 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from ciao.gmane.org (main.gmane.org [80.91.229.2])
+	by mail.netbsd.org (Postfix) with ESMTP id 5570563B1B8
+	for <port-alpha@netbsd.org>; Tue, 20 Mar 2007 00:10:06 +0000 (UTC)
+Original-Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1HTRvN-0007qe-Sd
+	for port-alpha@netbsd.org; Tue, 20 Mar 2007 01:10:01 +0100
+Original-Received: from rebar.astron.com ([38.117.134.202])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <port-alpha@netbsd.org>; Tue, 20 Mar 2007 01:10:01 +0100
+Original-Received: from christos by rebar.astron.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <port-alpha@netbsd.org>; Tue, 20 Mar 2007 01:10:01 +0100
+X-Injected-Via-Gmane: http://gmane.org/
+Original-Lines: 49
+Original-X-Complaints-To: usenet@sea.gmane.org
+X-Gmane-NNTP-Posting-Host: rebar.astron.com
+X-Newsreader: trn 4.0-test76 (Apr 2, 2001)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3955
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3955>
+
+In article <7CEC17D947D6FE43AD74F247161105E4E0BDC9@MAILBOX0B.psi.ch>,
+Padiyath Sreekumaran <kumar.padiyath@psi.ch> wrote:
+>
+>Hello,
+>I have installed NetBSD SW on a Alpha DS10.( NetBSD 3.1 (GENERIC))
+> Iam getting errors during the compilation of 'strace' utility
+>from pkgsrc/sysutils directory:
+>
+>The error message:
+>
+>
+>/usr/bin/make  all-am
+>if cc -DHAVE_CONFIG_H -I. -I. -I. -Inetbsd/alpha -I./netbsd/alpha
+>-Inetbsd -I./netbsd    -Wall -O2 -mieee -MT strace.o -MD -MP -MF
+> ".deps/strace.Tpo" -c -o strace.o strace.c;  then mv -f
+>".deps/strace.Tpo" ".deps/strace.Po"; else rm -f ".deps/strace.Tpo";
+>exit
+> 1; fi
+>strace.c: In function `resume':
+>strace.c:1187: error: `PTRACE_SYSCALL' undeclared (first use in this
+>function)
+>strace.c:1187: error: (Each undeclared identifier is reported only once
+>strace.c:1187: error: for each function it appears in.)
+>strace.c: In function `trace':
+>strace.c:2247: error: `PTRACE_SYSCALL' undeclared (first use in this
+>function)
+>
+>[wrapper.sh] note: The real command line, after the pkgsrc wrapper, was:
+>/usr/pkgsrc/sysutils/strace/work/.gcc/bin/gcc -DHAVE_CONFIG_H -I.
+>-Inetbsd/alpha -I./netbsd/alpha -Inetbsd -I./netbsd -Wall -O2 -m
+>ieee -MT strace.o -MD -MP -MF .deps/strace.Tpo -c -o strace.o strace.c
+>-I/usr/pkgsrc/sysutils/strace/work/.buildlink/include -L/us
+>r/pkgsrc/sysutils/strace/work/.buildlink/lib
+>*** Error code 1
+>
+>
+>Has anyone compiled this program on Alpha DS10? I will be very thankful
+>if
+>someone can help? Please send the mail to my E-Mail address also.
+>
+>Thanks in advance,
+>  Kumar 
+
+No, I just ported this for i386 and a long time ago. It should be fairly
+easy to port it to different platforms and make it autogenerate its files
+instead of depending on pre-built ones. I sent my patch to the author but
+he never replied, so I stopped working on it.
+
+christos
+
+
+
+From jakllsch@kollasch.net  Wed Mar 21 16:44:07 2007
+Path: news.gmane.org!not-for-mail
+From: "Jonathan A. Kollasch" <jakllsch@kollasch.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: strace sw on DS10
+Date: Wed, 21 Mar 2007 16:44:07 -0500
+Lines: 33
+Approved: news@gmane.org
+Message-ID: <20070321214406.GD20915@kirkkit.kollasch.net>
+References: <7CEC17D947D6FE43AD74F247161105E4E0BDC9@MAILBOX0B.psi.ch>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="mvpLiMfbWzRoNl4x"
+X-Trace: sea.gmane.org 1174513474 4791 80.91.229.12 (21 Mar 2007 21:44:34 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Wed, 21 Mar 2007 21:44:34 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Padiyath Sreekumaran <kumar.padiyath@psi.ch>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Mar 21 22:44:21 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HU8bS-0001FZ-SI
+	for netbsd-port-alpha@m.gmane.org; Wed, 21 Mar 2007 22:44:19 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 606F163B30E; Wed, 21 Mar 2007 21:44:10 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mail.kollasch.net (mail.kollasch.net [IPv6:2002:a867:36dd:1::19])
+	by mail.netbsd.org (Postfix) with ESMTP id 36F3463B322
+	for <port-alpha@netbsd.org>; Wed, 21 Mar 2007 21:44:09 +0000 (UTC)
+Original-Received: from kirkkit.kollasch.net (kirkkit.kollasch.net [IPv6:2002:a867:36dd:1:2b0:d0ff:fec8:589c])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	(Authenticated sender: jakllsch@KOLLASCH.NET)
+	by mail.kollasch.net (Postfix) with ESMTP id 99DE731D05;
+	Wed, 21 Mar 2007 21:44:07 +0000 (UTC)
+Content-Disposition: inline
+In-Reply-To: <7CEC17D947D6FE43AD74F247161105E4E0BDC9@MAILBOX0B.psi.ch>
+User-Agent: Mutt/1.5.13 (2006-08-11)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3956
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3956>
+
+
+--mvpLiMfbWzRoNl4x
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, Mar 19, 2007 at 04:00:38PM +0100, Padiyath Sreekumaran wrote:
+>=20
+> Hello,
+> I have installed NetBSD SW on a Alpha DS10.( NetBSD 3.1 (GENERIC))
+>  Iam getting errors during the compilation of 'strace' utility
+> from pkgsrc/sysutils directory:
+>=20
+
+
+Is ktrace(1) what you are looking for?
+
+	Jonathan Kollasch
+
+--mvpLiMfbWzRoNl4x
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (NetBSD)
+
+iD8DBQFGAacmOjx1ye3hmokRAoYJAJ4pvAxf5ozKUTbyZBowpQfGA5CguACglmpA
+fFBgp6K3D8QEwTZy2UDEOvE=
+=vl85
+-----END PGP SIGNATURE-----
+
+--mvpLiMfbWzRoNl4x--
+
+
+From smj@cirr.com  Wed Mar 21 18:27:25 2007
+Path: news.gmane.org!not-for-mail
+From: Stephen Jones <smj@cirr.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: {wtb} Digital StorageWorks SBB or arrays
+Date: Wed, 21 Mar 2007 18:27:25 -0700
+Lines: 8
+Approved: news@gmane.org
+Message-ID: <A444FA1C-0B50-43EF-A5EC-22634A2C679D@cirr.com>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1174526872 645 80.91.229.12 (22 Mar 2007 01:27:52 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Thu, 22 Mar 2007 01:27:52 +0000 (UTC)
+To: NetBSD/Alpha Discussion List <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Mar 22 02:27:41 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HUC5d-0005QC-1A
+	for netbsd-port-alpha@m.gmane.org; Thu, 22 Mar 2007 02:27:41 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id B005E63B262; Thu, 22 Mar 2007 01:27:33 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from sdf.lonestar.org (mx.freeshell.ORG [192.94.73.18])
+	by mail.netbsd.org (Postfix) with ESMTP id 81D1763B2BC
+	for <port-alpha@netbsd.org>; Thu, 22 Mar 2007 01:27:32 +0000 (UTC)
+Original-Received: from [10.0.0.3] (c-24-19-33-70.hsd1.wa.comcast.net [24.19.33.70])
+	(authenticated (0 bits))
+	by sdf.lonestar.org (8.13.5.20060308/8.13.8) with ESMTP id l2M1ROUQ000513
+	for <port-alpha@netbsd.org>; Thu, 22 Mar 2007 01:27:25 GMT
+X-Mailer: Apple Mail (2.752.2)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3957
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3957>
+
+Looking for the dark blue digital/compaq disk arrays and/or canisters  
+(SBB/Storage Building Blocks)
+particularly for the SCA 80pin SCSI drives for the SDF public access  
+UNIX system.  They can be
+purchased at a reasonable price, or if you're so inclined donated to  
+us.  Thank you
+
+
+
+From mark@itbox.co.za  Thu Mar 22 17:15:58 2007
+Path: news.gmane.org!not-for-mail
+From: Mark Ter Morshuizen <mark@itbox.co.za>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Problem configuring kernel
+Date: Thu, 22 Mar 2007 17:15:58 +0200
+Organization: IT Box Computer Services
+Lines: 22
+Approved: news@gmane.org
+Message-ID: <200703221715.58274.mark@itbox.co.za>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1174576728 31624 80.91.229.12 (22 Mar 2007 15:18:48 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Thu, 22 Mar 2007 15:18:48 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Mar 22 16:18:37 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HUP3l-0005bq-BT
+	for netbsd-port-alpha@m.gmane.org; Thu, 22 Mar 2007 16:18:37 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 53AF763B2DE; Thu, 22 Mar 2007 15:18:30 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from alpha.itbox.co.za (alpha.itbox.co.za [196.1.59.12])
+	by mail.netbsd.org (Postfix) with ESMTP id D2CD663B2D7
+	for <port-alpha@netbsd.org>; Thu, 22 Mar 2007 15:18:26 +0000 (UTC)
+Original-Received: from termites.itbox.co.za ([196.1.59.21])
+	by alpha.itbox.co.za with esmtps (TLSv1:AES256-SHA:256)
+	(Exim 4.54)
+	id 1HUP3U-0000vx-LN
+	for port-alpha@netbsd.org; Thu, 22 Mar 2007 17:18:23 +0200
+Original-Received: from mark.itbox.co.za ([192.168.0.1])
+	by termites.itbox.co.za with esmtp (Exim 4.63)
+	(envelope-from <mark@itbox.co.za>)
+	id 1HUP1D-0007eq-Lg
+	for port-alpha@netbsd.org; Thu, 22 Mar 2007 17:15:59 +0200
+User-Agent: KMail/1.9.4
+Content-Disposition: inline
+X-Spam-Score: -1.4
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3958
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3958>
+
+Hi,
+
+I get the following when I try to configure my kernel:
+
+alpha:/usr/src/sys/arch/alpha/conf# config -v DEC3000
+../../../../conf/files:5: syntax error
+../../../../net/files.pf:18: syntax error
+../../../../net/files.pf:19: syntax error
+../../../../net/files.pf:20: syntax error
+../../../../conf/files:168: syntax error
+../../../../ipkdb/files.ipkdb:5: syntax error
+../../../../miscfs/procfs/files.procfs:3: syntax error
+*** Stop.
+
+This happens with any configuration e.g. config GENERIC does the same thing.
+What script is generating the syntax error? How do I fix it?
+
+Thanks,
+-- 
+Mark Ter Morshuizen
+2U Rackmount Casings: http://www.rackmount.co.za
+
+
+From harenberg@physik.uni-wuppertal.de  Thu Mar 22 20:45:11 2007
+Path: news.gmane.org!not-for-mail
+From: Torsten Harenberg <harenberg@physik.uni-wuppertal.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Problem configuring kernel
+Date: Thu, 22 Mar 2007 20:45:11 +0100
+Lines: 51
+Approved: news@gmane.org
+Message-ID: <D92AB0E2-752A-41AD-976D-7CE469E3967C@physik.uni-wuppertal.de>
+References: <200703221715.58274.mark@itbox.co.za>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1174592759 12196 80.91.229.12 (22 Mar 2007 19:45:59 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Thu, 22 Mar 2007 19:45:59 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Mark Ter Morshuizen <mark@itbox.co.za>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Mar 22 20:45:52 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HUTEN-0005WI-Kt
+	for netbsd-port-alpha@m.gmane.org; Thu, 22 Mar 2007 20:45:52 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id B1D7063B2F4; Thu, 22 Mar 2007 19:45:21 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mail.physik.uni-wuppertal.de (mail.physik.uni-wuppertal.de [132.195.104.215])
+	by mail.netbsd.org (Postfix) with ESMTP id 6802163B2F3
+	for <port-alpha@netbsd.org>; Thu, 22 Mar 2007 19:45:20 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.physik.uni-wuppertal.de (Postfix) with ESMTP id 520371673A0D;
+	Thu, 22 Mar 2007 20:45:19 +0100 (CET)
+Original-Received: from mail.physik.uni-wuppertal.de ([127.0.0.1])
+ by localhost (mail.physik.uni-wuppertal.de [127.0.0.1]) (amavisd-new, port 10024)
+ with ESMTP id 27280-04; Thu, 22 Mar 2007 20:45:12 +0100 (CET)
+Original-Received: from [192.168.2.101] (p508518cd.dip0.t-ipconnect.de [80.133.24.205])
+	by mail.physik.uni-wuppertal.de (Postfix) with ESMTP id 8FD041673A02;
+	Thu, 22 Mar 2007 20:45:12 +0100 (CET)
+In-Reply-To: <200703221715.58274.mark@itbox.co.za>
+X-Mailer: Apple Mail (2.752.2)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3959
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3959>
+
+Hi Mark,
+
+Am 22.03.2007 um 16:15 schrieb Mark Ter Morshuizen:
+
+> I get the following when I try to configure my kernel:
+>
+> alpha:/usr/src/sys/arch/alpha/conf# config -v DEC3000
+> ../../../../conf/files:5: syntax error
+> ../../../../net/files.pf:18: syntax error
+> ../../../../net/files.pf:19: syntax error
+> ../../../../net/files.pf:20: syntax error
+> ../../../../conf/files:168: syntax error
+> ../../../../ipkdb/files.ipkdb:5: syntax error
+> ../../../../miscfs/procfs/files.procfs:3: syntax error
+> *** Stop.
+>
+> This happens with any configuration e.g. config GENERIC does the  
+> same thing.
+> What script is generating the syntax error? How do I fix it?
+
+What sources (-current?, netbsd-3 branch) are you using? With a  
+netbsd-3 source tree, I cannot confirm it:
+
+# config -v GENERIC
+Build directory is ../compile/GENERIC
+Don't forget to run "make depend"
+# pwd
+/usr/src/sys/arch/alpha/conf
+
+Maybe delete /usr/src and use a fresh "co" from cvs.
+
+By the way, I usually use the build.sh script meanwhile to compile  
+everything. It's so convenient.
+
+Hope this helps,
+
+   Torsten
+
+--
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+<>                                                              <>
+<> Torsten Harenberg         harenberg@physik.uni-wuppertal.de  <>
+<> Bergische Universitaet                                       <>
+<> FB C - Physik             Tel.: +49 (0)202 439-3521          <>
+<> Gaussstr. 20              Fax : +49 (0)202 439-2811          <>
+<> 42097 Wuppertal                                              <>
+<>                                                              <>
+<><><><><><><>< Of course it runs NetBSD http://www.netbsd.org ><>
+
+
+
+
+From pavel@netbsd.org  Sun Mar 25 00:09:40 2007
+Path: news.gmane.org!not-for-mail
+From: Pavel Cahyna <pavel@netbsd.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Problem configuring kernel
+Date: Sun, 25 Mar 2007 00:09:40 +0100
+Lines: 27
+Approved: news@gmane.org
+Message-ID: <20070324230940.GA395@beta.martani.repy.czf>
+References: <200703221715.58274.mark@itbox.co.za>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: sea.gmane.org 1174777821 12110 80.91.229.12 (24 Mar 2007 23:10:21 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Sat, 24 Mar 2007 23:10:21 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Mar 25 00:10:14 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HVFNG-0001uS-FW
+	for netbsd-port-alpha@m.gmane.org; Sun, 25 Mar 2007 00:10:14 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 5FE3063B266; Sat, 24 Mar 2007 23:10:02 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from 217-11-244-196.eurosignal.cz (unknown [IPv6:2002:d90b:f4c4::1])
+	by mail.netbsd.org (Postfix) with ESMTP id CCFFD63B250
+	for <port-alpha@netbsd.org>; Sat, 24 Mar 2007 23:09:57 +0000 (UTC)
+Original-Received: from beta.martani.repy.czf (beta.martani.repy.czf [10.21.83.52])
+	by 217-11-244-196.eurosignal.cz (8.12.11.20060308/8.12.11) with ESMTP id l2ON8GVc005426
+	for <port-alpha@netbsd.org>; Sun, 25 Mar 2007 00:08:16 +0100 (CET)
+Original-Received: from beta.martani.repy.czf (localhost [IPv6:::1])
+	by beta.martani.repy.czf (8.13.8/8.13.3) with ESMTP id l2ON9eIr001933
+	for <port-alpha@netbsd.org>; Sun, 25 Mar 2007 00:09:54 +0100 (CET)
+Original-Received: (from pavel@localhost)
+	by beta.martani.repy.czf (8.13.8/8.13.3) id l2ON9eeS001187
+	for port-alpha@netbsd.org; Sun, 25 Mar 2007 00:09:40 +0100 (CET)
+Mail-Followup-To: Pavel Cahyna <pavel@netbsd.org>, port-alpha@netbsd.org
+Content-Disposition: inline
+In-Reply-To: <200703221715.58274.mark@itbox.co.za>
+User-Agent: mutt-ng/devel-r529 (NetBSD)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3960
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3960>
+
+On Thu, Mar 22, 2007 at 05:15:58PM +0200, Mark Ter Morshuizen wrote:
+> Hi,
+> 
+> I get the following when I try to configure my kernel:
+> 
+> alpha:/usr/src/sys/arch/alpha/conf# config -v DEC3000
+> ../../../../conf/files:5: syntax error
+> ../../../../net/files.pf:18: syntax error
+> ../../../../net/files.pf:19: syntax error
+> ../../../../net/files.pf:20: syntax error
+> ../../../../conf/files:168: syntax error
+> ../../../../ipkdb/files.ipkdb:5: syntax error
+> ../../../../miscfs/procfs/files.procfs:3: syntax error
+> *** Stop.
+> 
+> This happens with any configuration e.g. config GENERIC does the same thing.
+> What script is generating the syntax error? How do I fix it?
+
+You are using config from a 3.something release with -current or netbsd-4
+kernel sources. This is not supported, you have to use either sources from
+one of the netbsd-3* branches, or, if you insist on using -current or
+netbsd-4 kernel sources, you should use the cross-compilation tools.
+
+See the links referenced at http://www.netbsd.org/Documentation/kernel/#how_to_build_a_kernel
+
+Pavel
+
+
+From mark@itbox.co.za  Sun Mar 25 09:27:40 2007
+Path: news.gmane.org!not-for-mail
+From: Mark Ter Morshuizen <mark@itbox.co.za>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Problem configuring kernel
+Date: Sun, 25 Mar 2007 09:27:40 +0200
+Organization: IT Box Computer Services
+Lines: 18
+Approved: news@gmane.org
+Message-ID: <200703250927.40940.mark@itbox.co.za>
+References: <200703221715.58274.mark@itbox.co.za> <20070324230940.GA395@beta.martani.repy.czf>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="ansi_x3.4-1968"
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1174807837 26573 80.91.229.12 (25 Mar 2007 07:30:37 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Sun, 25 Mar 2007 07:30:37 +0000 (UTC)
+To: Pavel Cahyna <pavel@netbsd.org>,
+ port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Mar 25 09:30:26 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HVNBJ-0007a3-LH
+	for netbsd-port-alpha@m.gmane.org; Sun, 25 Mar 2007 09:30:25 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 72AB763B136; Sun, 25 Mar 2007 07:30:16 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from alpha.itbox.co.za (alpha.itbox.co.za [196.1.59.12])
+	by mail.netbsd.org (Postfix) with ESMTP id 99C2463B11B;
+	Sun, 25 Mar 2007 07:30:09 +0000 (UTC)
+Original-Received: from termites.itbox.co.za ([196.1.59.21])
+	by alpha.itbox.co.za with esmtps (TLSv1:AES256-SHA:256)
+	(Exim 4.54)
+	id 1HVNAy-00030m-0h; Sun, 25 Mar 2007 09:30:06 +0200
+Original-Received: from mark.itbox.co.za ([192.168.0.1])
+	by termites.itbox.co.za with esmtp (Exim 4.63)
+	(envelope-from <mark@itbox.co.za>)
+	id 1HVN8g-0003Yb-AW; Sun, 25 Mar 2007 09:27:42 +0200
+User-Agent: KMail/1.9.4
+In-Reply-To: <20070324230940.GA395@beta.martani.repy.czf>
+Content-Disposition: inline
+X-Spam-Score: -1.4
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3961
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3961>
+
+On Sunday 25 March 2007 01:09, Pavel Cahyna wrote:
+> You are using config from a 3.something release with -current or netbsd-4
+> kernel sources. This is not supported, you have to use either sources from
+> one of the netbsd-3* branches, or, if you insist on using -current or
+> netbsd-4 kernel sources, you should use the cross-compilation tools.
+
+Hi Pavel,
+
+Thanks for the reply. I'm using this now:
+NetBSD 3.0.2_PATCH (ALPHA-$Revision: 1.202.2.3 $)
+
+Hopefully this will be stable now.
+
+Cheers,
+-- 
+Mark Ter Morshuizen
+2U Rackmount Casings: http://www.rackmount.co.za
+
+
+From ahs@hogrelius.nu  Tue Mar 27 22:48:08 2007
+Path: news.gmane.org!not-for-mail
+From: Anders Hogrelius <ahs@hogrelius.nu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: OT: Broken Tru64 Boot CD
+Date: Tue, 27 Mar 2007 22:48:08 +0200 (CEST)
+Lines: 27
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.0703272244001.11439@hogrelius.nu>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: sea.gmane.org 1175028548 25058 80.91.229.12 (27 Mar 2007 20:49:08 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Tue, 27 Mar 2007 20:49:08 +0000 (UTC)
+To: Port Alpha Mailinglist <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Mar 27 22:49:00 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HWIbD-0007Kw-8U
+	for netbsd-port-alpha@m.gmane.org; Tue, 27 Mar 2007 22:48:59 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 08E0D63B30A; Tue, 27 Mar 2007 20:48:52 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from maul.mdfnet.se (maul.mdfnet.se [193.11.113.3])
+	by mail.netbsd.org (Postfix) with ESMTP id 177ED63B303
+	for <port-alpha@netbsd.org>; Tue, 27 Mar 2007 20:48:50 +0000 (UTC)
+Original-Received: from faramir.mdfnet.se (faramir.mdfnet.se [193.11.113.4])
+	by maul.mdfnet.se (Postfix) with ESMTP id CDAE1398015
+	for <port-alpha@netbsd.org>; Tue, 27 Mar 2007 22:48:48 +0200 (CEST)
+Original-Received: from hogrelius.nu (unknown [193.11.112.144])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by faramir.mdfnet.se (Postfix) with ESMTP id 7BBE01145A
+	for <port-alpha@netbsd.org>; Tue, 27 Mar 2007 22:48:48 +0200 (CEST)
+Original-Received: from ahs (helo=localhost)
+	by hogrelius.nu with local-esmtp (Exim 4.63)
+	(envelope-from <ahs@hogrelius.nu>)
+	id 1HWIaO-0003KG-VY
+	for port-alpha@netbsd.org; Tue, 27 Mar 2007 22:48:43 +0200
+X-Spam_score: -2.6
+X-Spam_score_int: -25
+X-Spam_bar: --
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3962
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3962>
+
+
+Sorry for the off topic message. It turns out my Tru64 boot CD is busted. 
+Is there anyone out there with a Tru64 5.1A or 5.1B CD kit who can make a 
+iso of the first install CD?
+
+Contact me off-list and I'll make my ftp server available for upload of 
+the iso.
+
+Cheers,
+Anders
+
+--
+This mail was sent on Tue 03/27/07 at 1:44PM PDT
+
+
+I thought my people would grow tired of killing.  But you were right,
+they see it is easier than trading.  And it has its pleasures.  I feel
+it myself.  Like the hunt, but with richer rewards.
+ 		-- Apella, "A Private Little War", stardate 4211.8
+
+*************************************************************************
+*                        Cell :   +46(0)70 677-0210
+* Anders Hogrelius, MSc  Phone:   +1(714)408-7868
+* Tessingatan 12         E-mail:  anders@hogrelius.nu
+* SE-72216 Vasteras      Web:     http://www.hogrelius.nu/~ahs/
+* SWEDEN                 SkypeID: ahogrelius
+
+
+From ahs@hogrelius.nu  Thu Mar 29 00:41:34 2007
+Path: news.gmane.org!not-for-mail
+From: Anders Hogrelius <ahs@hogrelius.nu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: OT: Broken Tru64 Boot CD
+Date: Thu, 29 Mar 2007 00:41:34 +0200 (CEST)
+Lines: 57
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.0703290040110.13343@hogrelius.nu>
+References: <Pine.NEB.4.64.0703272244001.11439@hogrelius.nu>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: sea.gmane.org 1175121776 27090 80.91.229.12 (28 Mar 2007 22:42:56 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Wed, 28 Mar 2007 22:42:56 +0000 (UTC)
+To: Port Alpha Mailinglist <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Mar 29 00:42:49 2007
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1HWgqv-0001gL-3d
+	for netbsd-port-alpha@m.gmane.org; Thu, 29 Mar 2007 00:42:49 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 0BE9863B2F3; Wed, 28 Mar 2007 22:42:37 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from maul.mdfnet.se (maul.mdfnet.se [193.11.113.3])
+	by mail.netbsd.org (Postfix) with ESMTP id E9BBC63B2EF
+	for <port-alpha@netbsd.org>; Wed, 28 Mar 2007 22:42:35 +0000 (UTC)
+Original-Received: from faramir.mdfnet.se (faramir.mdfnet.se [193.11.113.4])
+	by maul.mdfnet.se (Postfix) with ESMTP id 0991A398029
+	for <port-alpha@netbsd.org>; Thu, 29 Mar 2007 00:42:33 +0200 (CEST)
+Original-Received: from hogrelius.nu (unknown [193.11.112.144])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by faramir.mdfnet.se (Postfix) with ESMTP id A7C20114EF
+	for <port-alpha@netbsd.org>; Thu, 29 Mar 2007 00:42:33 +0200 (CEST)
+Original-Received: from ahs (helo=localhost)
+	by hogrelius.nu with local-esmtp (Exim 4.63)
+	(envelope-from <ahs@hogrelius.nu>)
+	id 1HWgpj-0002va-3F
+	for port-alpha@netbsd.org; Thu, 29 Mar 2007 00:42:31 +0200
+In-Reply-To: <Pine.NEB.4.64.0703272244001.11439@hogrelius.nu>
+X-Spam_score: -2.6
+X-Spam_score_int: -25
+X-Spam_bar: --
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3963
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3963>
+
+
+I just want to thank everyone for the help. Everything's sorted out and 
+I've received the ISO I needed.
+
+Cheers,
+Anders
+
+
+On Tue, 27 Mar 2007, Anders Hogrelius wrote:
+
+> Date: Tue, 27 Mar 2007 22:48:08 +0200 (CEST)
+> From: Anders Hogrelius <ahs@hogrelius.nu>
+> To: Port Alpha Mailinglist <port-alpha@netbsd.org>
+> Subject: OT: Broken Tru64 Boot CD
+> 
+>
+> Sorry for the off topic message. It turns out my Tru64 boot CD is busted. Is 
+> there anyone out there with a Tru64 5.1A or 5.1B CD kit who can make a iso of 
+> the first install CD?
+>
+> Contact me off-list and I'll make my ftp server available for upload of the 
+> iso.
+>
+> Cheers,
+> Anders
+>
+> --
+> This mail was sent on Tue 03/27/07 at 1:44PM PDT
+>
+>
+> I thought my people would grow tired of killing.  But you were right,
+> they see it is easier than trading.  And it has its pleasures.  I feel
+> it myself.  Like the hunt, but with richer rewards.
+> 		-- Apella, "A Private Little War", stardate 4211.8
+>
+> *************************************************************************
+> *                        Cell :   +46(0)70 677-0210
+> * Anders Hogrelius, MSc  Phone:   +1(714)408-7868
+> * Tessingatan 12         E-mail:  anders@hogrelius.nu
+> * SE-72216 Vasteras      Web:     http://www.hogrelius.nu/~ahs/
+> * SWEDEN                 SkypeID: ahogrelius
+>
+
+--
+This mail was sent on Wed 03/28/07 at 3:40PM PDT
+
+
+There is a multi-legged creature crawling on your shoulder.
+ 		-- Spock, "A Taste of Armageddon", stardate 3193.9
+
+*************************************************************************
+*                        Cell :   +46(0)70 677-0210
+* Anders Hogrelius, MSc  Phone:   +1(714)408-7868
+* Tessingatan 12         E-mail:  anders@hogrelius.nu
+* SE-72216 Vasteras      Web:     http://www.hogrelius.nu/~ahs/
+* SWEDEN                 SkypeID: ahogrelius
+
+

@@ -1,0 +1,473 @@
+From jdc@coris.org.uk  Mon Nov 4 16:18:14 2013
+Path: news.gmane.org!not-for-mail
+From: Julian Coleman <jdc@coris.org.uk>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: DS20L environmental monitoring
+Date: Mon, 4 Nov 2013 16:18:14 +0000
+Lines: 417
+Approved: news@gmane.org
+Message-ID: <20131104161814.GC14030@sirion.coris.org.uk>
+References: <20131015202709.GB1187@sirion.coris.org.uk>
+NNTP-Posting-Host: plane.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="2oS5YaxWCcQjTEyO"
+X-Trace: ger.gmane.org 1383581937 29968 80.91.229.3 (4 Nov 2013 16:18:57 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Mon, 4 Nov 2013 16:18:57 +0000 (UTC)
+To: NetBSD port-alpha mailing list <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Nov 04 17:19:03 2013
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([149.20.53.66])
+	by plane.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1VdMrl-0007zW-9b
+	for netbsd-port-alpha@m.gmane.org; Mon, 04 Nov 2013 17:19:01 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 1313614A200; Mon,  4 Nov 2013 16:18:55 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id E1AE314A1FD
+	for <port-alpha@netbsd.org>; Mon,  4 Nov 2013 16:18:29 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id ifbDNRHdLoNL for <port-alpha@netbsd.org>;
+	Mon,  4 Nov 2013 16:18:28 +0000 (UTC)
+Original-Received: from orthanc.coris.org.uk (orthanc.coris.org.uk [IPv6:2001:8b0:76:1::4])
+	by mail.netbsd.org (Postfix) with ESMTP id CEF5114A1F7
+	for <port-alpha@netbsd.org>; Mon,  4 Nov 2013 16:18:27 +0000 (UTC)
+Original-Received: by orthanc.coris.org.uk (Postfix, from userid 98)
+	id F331B98C3C; Mon,  4 Nov 2013 16:18:25 +0000 (GMT)
+Original-Received: from sirion.coris.org.uk (sirion.coris.org.uk [IPv6:2001:8b0:76:1:a00:20ff:fef7:8e80])
+	by orthanc.coris.org.uk (Postfix) with ESMTP id 48F9198C32;
+	Mon,  4 Nov 2013 16:18:15 +0000 (GMT)
+Original-Received: by sirion.coris.org.uk (Postfix, from userid 100)
+	id D2DBD24C8E; Mon,  4 Nov 2013 16:18:14 +0000 (GMT)
+Content-Disposition: inline
+In-Reply-To: <20131015202709.GB1187@sirion.coris.org.uk>
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4835
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4835>
+
+
+--2oS5YaxWCcQjTEyO
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi,
+
+> So, I need to work out where the other voltage and fan sensors are (Riser
+> and PSU), how to read the memory chips,
+
+Thanks to pointers from jak@ and mhitch@ to the Tsunami/Typhoon 21272
+Chipset Hardware Reference Manual, in particular that there is an i2c
+controller there [*], I now have (dmesg):
+
+  seeprom0 at iic0 addr 0x51: AT24Cxx or compatible EEPROM: size 256
+  lmenv0 at iic0 addr 0x2c: ADM9240 rev 2
+  lmenv1 at iic0 addr 0x2d: ADM9240 rev 2
+  lmenv2 at iic0 addr 0x2e: ADM9240 rev 2
+  lmenv3 at iic0 addr 0x2f: ADM9240 rev 2
+    ...
+  tsciic0 at tsc0
+  iic1 at tsciic0: I2C bus
+  spdmem0 at iic1 addr 0x50
+    ...
+  spdmem1 at iic1 addr 0x51
+    ...
+  spdmem2 at iic1 addr 0x52
+    ...
+  spdmem3 at iic1 addr 0x53
+    ...
+  lmenv4 at iic1 addr 0x2e: ADM9240 rev 2
+  lmenv5 at iic1 addr 0x2f: ADM9240 rev 2
+
+(My DS20L has 4 RAM chips, so spdmem4-7 don't attach.)
+
+Patches attached.
+
+Thanks,
+
+J
+
+[*} see the Memory Presence Detect Register information in chapter 10.
+
+-- 
+   NetBSD: simple; works; documented    /        Sailing at Newbiggin
+        http://www.netbsd.org/        /   http://www.newbigginsailingclub.org/
+
+--2oS5YaxWCcQjTEyO
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="tsc_iic.diff"
+
+--- sys/arch/alpha/conf/files.alpha.dist	2012-11-23 15:49:36.000000000 +0000
++++ sys/arch/alpha/conf/files.alpha	2013-11-04 11:50:36.000000000 +0000
+@@ -275,6 +275,10 @@
+ file	arch/alpha/pci/tsp_bus_io.c	tsp
+ file	arch/alpha/pci/tsp_bus_mem.c	tsp
+ 
++device	tsciic: i2cbus, i2c_bitbang
++attach	tsciic at tsc
++file	arch/alpha/pci/tsc_i2c.c	tsciic
++
+ device	ttwoga { hose = -1 }
+ attach	ttwoga at mainbus
+ # identical to pcibus
+--- sys/arch/alpha/conf/GENERIC.dist	2013-10-15 20:27:48.000000000 +0100
++++ sys/arch/alpha/conf/GENERIC	2013-11-04 16:07:34.000000000 +0000
+@@ -225,6 +225,8 @@
+ #EV6 Tsunami Core Logic
+ 
+ tsc*	at	mainbus0
++tsciic* 	at	tsc?
++iic* 	at	tsciic?
+ 
+ # DECpc AXP150 (Jensen) internal bus support
+ jensenio* at	mainbus0
+@@ -542,11 +544,20 @@
+ alipm* 	at pci? dev ? function ?
+ iic* 	at alipm?
+ 
+-# AlphaServer DS20L enviromental monitoring
++# AlphaServer DS20L i2c devices
+ #lmenv* 	at iic? addr 0x2c
+ #lmenv* 	at iic? addr 0x2d
+ #lmenv* 	at iic? addr 0x2e
+ #lmenv* 	at iic? addr 0x2f
++#spdmem* 	at iic? addr 0x50
++#spdmem* 	at iic? addr 0x51
++#spdmem* 	at iic? addr 0x52
++#spdmem* 	at iic? addr 0x53
++#spdmem* 	at iic? addr 0x54
++#spdmem* 	at iic? addr 0x55
++#spdmem* 	at iic? addr 0x56
++#spdmem* 	at iic? addr 0x57
++#seeprom* 	at iic0 addr 0x51 flags 0x2
+ 
+ # PCMCIA USB controllers
+ slhci*	at pcmcia? function ?			# ScanLogic SL811HS
+--- sys/arch/alpha/pci/tsc.c.dist	2013-10-06 09:51:26.000000000 +0100
++++ sys/arch/alpha/pci/tsc.c	2013-11-04 13:39:21.000000000 +0000
+@@ -80,6 +80,16 @@
+ static int tsp_bus_get_window(int, int,
+ 	struct alpha_bus_space_translation *);
+ 
++static int tsciicprint(void *, const char *pnp);
++
++static int tsciicmatch(device_t, cfdata_t, void *);
++static void tsciicattach(device_t, device_t, void *);
++
++CFATTACH_DECL_NEW(tsciic, sizeof(struct tsciic_softc), tsciicmatch,
++    tsciicattach, NULL, NULL);
++
++extern struct cfdriver tsciic_cd;
++
+ /* There can be only one */
+ static int tscfound;
+ 
+@@ -107,6 +117,7 @@
+ 	int nbus;
+ 	uint64_t csc, aar;
+ 	struct tsp_attach_args tsp;
++	struct tsciic_attach_args tsciic;
+ 	struct mainbus_attach_args *ma = aux;
+ 	int titan = cputype == ST_DEC_TITAN;
+ 
+@@ -146,6 +157,11 @@
+ 			config_found(self, &tsp, tscprint);
+ 		}
+ 	}
++
++	memset(&tsciic, 0, sizeof tsciic);
++	tsciic.tsciic_name = "tsciic";
++
++	config_found(self, &tsciic, tsciicprint);
+ }
+ 
+ static int
+@@ -158,6 +174,18 @@
+ 	return UNCONF;
+ }
+ 
++static int
++tsciicprint(void *aux, const char *p)
++{
++	struct tsciic_attach_args *tsciic = aux;
++
++	if (p)
++		aprint_normal("%s at %s\n", tsciic->tsciic_name, p);
++	else
++		aprint_normal("\n");
++	return UNCONF;
++}
++
+ #define tsp() { Generate ctags(1) key. }
+ 
+ static int
+@@ -277,6 +305,28 @@
+ 	return 0;
+ }
+ 
++#define tsciic() { Generate ctags(1) key. }
++
++static int
++tsciicmatch(device_t parent, cfdata_t match, void *aux)
++{
++	struct tsciic_attach_args *t = aux;
++
++	switch (cputype) {
++	case ST_DEC_6600:
++	case ST_DEC_TITAN:
++		return strcmp(t->tsciic_name, tsciic_cd.cd_name) == 0;
++	default:
++		return 0;
++	}
++}
++
++static void
++tsciicattach(device_t parent, device_t self, void *aux)
++{
++	tsciic_init(self);
++}
++
+ void
+ tsc_print_dir(unsigned int indent, unsigned long dir)
+ {
+--- sys/arch/alpha/pci/tsvar.h.dist	2013-10-06 09:51:26.000000000 +0100
++++ sys/arch/alpha/pci/tsvar.h	2013-11-04 11:28:37.000000000 +0000
+@@ -33,6 +33,7 @@
+ 
+ #include <dev/isa/isavar.h>
+ #include <dev/pci/pcivar.h>
++#include <dev/i2c/i2cvar.h>
+ #include <alpha/pci/pci_sgmap_pte64.h>
+ 
+ #define	_FSTORE	(EXTENT_FIXED_STORAGE_SIZE(8) / sizeof(long))
+@@ -68,6 +69,16 @@
+ 	int	tsp_slot;
+ };
+ 
++struct tsciic_softc {
++	device_t	sc_dev;
++	struct		i2c_controller sc_i2c;
++	kmutex_t	sc_buslock;
++};
++
++struct tsciic_attach_args {
++	const char *tsciic_name;
++};
++
+ extern int tsp_console_hose;
+ 
+ struct	tsp_config *tsp_init(int, int);
+@@ -79,6 +90,8 @@
+ 
+ void	tsp_bus_mem_init2(bus_space_tag_t, void *);
+ 
++void	tsciic_init(device_t);
++
+ void	tsp_print_error(unsigned int, unsigned long);
+ void	tsc_print_misc(unsigned int, unsigned long);
+ void	tsc_print_dir(unsigned int, unsigned long);
+--- sys/arch/alpha/pci/tsreg.h.dist	2013-10-06 09:51:26.000000000 +0100
++++ sys/arch/alpha/pci/tsreg.h	2013-10-30 23:17:18.000000000 +0000
+@@ -95,6 +95,11 @@
+ 
+ #define TS_C_MPD	0x101##a000##00c0UL
+ 
++#	define	MPD_DR	0x08	/* RO: Data receive */
++#	define	MPD_CKR	0x04	/* RO: Clock receive */
++#	define	MPD_DS	0x02	/* WO: Data send - Must be a 1 to receive */
++#	define	MPD_CKS	0x01	/* WO: Clock send */
++
+ #define TS_C_AAR0	0x101##a000##0100UL
+ #define TS_C_AAR1	0x101##a000##0140UL
+ #define TS_C_AAR2	0x101##a000##0180UL
+--- sys/arch/alpha/pci/tsc_i2c.c.dist	2013-11-04 15:18:05.000000000 +0000
++++ sys/arch/alpha/pci/tsc_i2c.c	2013-11-04 11:33:19.000000000 +0000
+@@ -0,0 +1,177 @@
++/*	$NetBSD$	*/
++
++/*
++ * Copyright (c) 2013 The NetBSD Foundation, Inc.
++ * All rights reserved.
++ *
++ * This code is derived from software contributed to The NetBSD Foundation
++ * by Julian Coleman.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
++ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
++ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include <sys/cdefs.h>
++
++__KERNEL_RCSID(0, "$NetBSD$");
++
++#include <sys/param.h>
++#include <sys/systm.h>
++#include <sys/device.h>
++
++#include <alpha/pci/tsreg.h>
++#include <alpha/pci/tsvar.h>
++
++#include <dev/i2c/i2cvar.h>
++#include <dev/i2c/i2c_bitbang.h>
++#include <dev/i2c/ddcvar.h>
++
++/* I2C glue */
++static int tsc_i2c_acquire_bus(void *, int);
++static void tsc_i2c_release_bus(void *, int);
++static int tsc_i2c_send_start(void *, int);
++static int tsc_i2c_send_stop(void *, int);
++static int tsc_i2c_initiate_xfer(void *, i2c_addr_t, int);
++static int tsc_i2c_read_byte(void *, uint8_t *, int);
++static int tsc_i2c_write_byte(void *, uint8_t, int);
++
++/* I2C bitbang glue */
++static void tsc_i2cbb_set_bits(void *, uint32_t);
++static void tsc_i2cbb_set_dir(void *, uint32_t);
++static uint32_t tsc_i2cbb_read(void *);
++
++#define MPD_BIT_SDA 0x01
++#define MPD_BIT_SCL 0x02
++static const struct i2c_bitbang_ops tsc_i2cbb_ops = {
++	tsc_i2cbb_set_bits,
++	tsc_i2cbb_set_dir,
++	tsc_i2cbb_read,
++	{
++		MPD_BIT_SDA,
++		MPD_BIT_SCL,
++		0,
++		0
++	}
++};
++
++void
++tsciic_init(device_t self) {
++	struct tsciic_softc *sc = device_private(self);
++	struct i2cbus_attach_args iba;
++
++	mutex_init(&sc->sc_buslock, MUTEX_DEFAULT, IPL_NONE);
++
++	sc->sc_i2c.ic_cookie = sc;
++	sc->sc_i2c.ic_acquire_bus = tsc_i2c_acquire_bus;
++	sc->sc_i2c.ic_release_bus = tsc_i2c_release_bus;
++	sc->sc_i2c.ic_send_start = tsc_i2c_send_start;
++	sc->sc_i2c.ic_send_stop = tsc_i2c_send_stop;
++	sc->sc_i2c.ic_initiate_xfer = tsc_i2c_initiate_xfer;
++	sc->sc_i2c.ic_read_byte = tsc_i2c_read_byte;
++	sc->sc_i2c.ic_write_byte = tsc_i2c_write_byte;
++	sc->sc_i2c.ic_exec = NULL;
++
++	memset(&iba, 0, sizeof(iba));
++	iba.iba_tag = &sc->sc_i2c;
++
++	config_found_ia(self, "i2cbus", &iba, iicbus_print);
++
++}
++
++/* I2C bitbanging */
++static void
++tsc_i2cbb_set_bits(void *cookie, uint32_t bits)
++{
++	uint64_t val;
++
++	val = (bits & MPD_BIT_SDA ? MPD_DS : 0) |
++	    (bits & MPD_BIT_SCL ? MPD_CKS : 0);
++	alpha_mb();
++	STQP(TS_C_MPD) = val;
++	alpha_mb();
++}
++
++static void
++tsc_i2cbb_set_dir(void *cookie, uint32_t dir)
++{
++	/* Nothing to do */
++}
++
++static uint32_t
++tsc_i2cbb_read(void *cookie)
++{
++	uint64_t val;
++	uint32_t bits;
++
++	val = LDQP(TS_C_MPD);
++	bits = (val & MPD_DR ? MPD_BIT_SDA : 0) |
++	    (val & MPD_CKR ? MPD_BIT_SCL : 0);
++	return bits;
++}
++
++/* higher level I2C stuff */
++static int
++tsc_i2c_acquire_bus(void *cookie, int flags)
++{
++	struct tsciic_softc *sc = cookie;
++
++	mutex_enter(&sc->sc_buslock);
++	return 0;
++}
++
++static void
++tsc_i2c_release_bus(void *cookie, int flags)
++{
++	struct tsciic_softc *sc = cookie;
++
++	mutex_exit(&sc->sc_buslock);
++}
++
++static int
++tsc_i2c_send_start(void *cookie, int flags)
++{
++	return (i2c_bitbang_send_start(cookie, flags, &tsc_i2cbb_ops));
++}
++
++static int
++tsc_i2c_send_stop(void *cookie, int flags)
++{
++	return (i2c_bitbang_send_stop(cookie, flags, &tsc_i2cbb_ops));
++}
++
++static int
++tsc_i2c_initiate_xfer(void *cookie, i2c_addr_t addr, int flags)
++{
++	return (i2c_bitbang_initiate_xfer(cookie, addr, flags, 
++	    &tsc_i2cbb_ops));
++}
++
++static int
++tsc_i2c_read_byte(void *cookie, uint8_t *valp, int flags)
++{
++	return (i2c_bitbang_read_byte(cookie, valp, flags, &tsc_i2cbb_ops));
++}
++
++static int
++tsc_i2c_write_byte(void *cookie, uint8_t val, int flags)
++{
++	return (i2c_bitbang_write_byte(cookie, val, flags, &tsc_i2cbb_ops));
++}
+
+--2oS5YaxWCcQjTEyO--
+
+

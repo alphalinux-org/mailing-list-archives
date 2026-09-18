@@ -1,0 +1,1307 @@
+From friend at vortex4.net  Thu Mar 27 06:02:47 2003
+From: friend at vortex4.net (Dave)
+Date: Thu Mar 27 06:02:49 2003
+Subject: -march=pca56 blows up nethack34
+Message-ID: <20030327060244.I46996@vortex4.net>
+
+
+Hey all,
+
+I'm not sure if there's a more appropriate forum to report this problem,
+and any relevent feedback on that front would be appropriate.
+
+I recently installed 5.0-RELEASE on a PC164SX Alpha system, dutifully
+set my CPUTYPE to pca56 in /etc/make.conf, built & installed world
+without problems, and started adding important ports to the system,
+most notably nethack34-nox11.
+
+I found after building it (with no reported problems), that it wouldn't
+run--  after the class/race/alignment selection (or lackthereof if you
+let it select for you), the game would bomb out with "illegal instruction".
+
+I solved the problem by pkg_delete'ing the port, commenting out the
+CPUTYPE var from /etc/make.conf, and rebuilding it.  Now it works with 
+no problems.
+
+So I'm wondering a couple of things.  First, has anyone seen anything
+like this before with other ports on 5.x for alpha?  Is it "safe" to
+specify my CPUTYPE?
+
+Second, who would benefit the most from this bug report?  The alpha
+list?  the current list?  the port maintainer?
+
+Feedback is appreciated.
+
+Thanks!
+
+-- 
+Dave Cotton
+friend@vortex4.net
+From lefebvrebertrand at yahoo.fr  Fri Mar 28 01:39:39 2003
+From: lefebvrebertrand at yahoo.fr (=?iso-8859-1?q?Bertrand=20LEFEBVRE?=)
+Date: Fri Mar 28 10:12:52 2003
+Subject: Unable to create .....
+Message-ID: <20030328093938.28771.qmail@web20502.mail.yahoo.com>
+
+
+I got an alpha 2100 digital and when I install freebsd, the partitionning is ok but it refuses to create the swap partition with the error: unable to create node in /dev for da0b ... 
+
+I found nothing in the FAQS 
+
+Help please.
+
+
+
+---------------------------------
+Do You Yahoo!? -- Une adresse @yahoo.fr gratuite et en fran?ais !
+Testez le nouveau Yahoo! Mail
+From gallatin at cs.duke.edu  Sat Mar 29 10:27:50 2003
+From: gallatin at cs.duke.edu (Andrew Gallatin)
+Date: Sat Mar 29 10:27:51 2003
+Subject: Fix for osf1 emulation in 5.0
+Message-ID: <16005.58780.487088.88619@grasshopper.cs.duke.edu>
+
+
+Hi,
+
+Some people have been having problems like the following with OSF/1
+emulation on 5.0-RELEASE and 5.0-current:
+
+ exception system: exiting due to multiple internal errors:
+         out of memory trying to allocate exception system resources
+         handler returned invalid disposition
+
+It turns out that this is caused by a subtle difference in SMP and UP
+kernels.  Only SMP kernels are affected by this problem. 
+
+If you have a single CPU system, the easist fix is to remove the line
+'options SMP' from your kernel config file, rebuild your kernel,
+install it, and reboot.
+
+If you have an SMP system, please apply the appended patch, rebuild
+your kernel, install it, and reboot.
+
+Another option would be to upgrade to 5.0-current, where this problem
+has just been fixed (by the application of the patch below).
+
+Cheers,
+
+Drew
+
+
+Index: alpha/include/param.h
+===================================================================
+RCS file: /home/ncvs/src/sys/alpha/include/param.h,v
+retrieving revision 1.29
+diff -u -r1.29 param.h
+--- alpha/include/param.h	17 Sep 2002 01:48:54 -0000	1.29
++++ alpha/include/param.h	21 Mar 2003 20:15:47 -0000
+@@ -91,8 +91,9 @@
+ #include <machine/alpha_cpu.h>
+ #include <machine/cpu.h>
+ 
++#define MAXSMPCPU	8
+ #ifdef SMP
+-#define MAXCPU		32
++#define MAXCPU		MAXSMPCPU
+ #else
+ #define MAXCPU		1
+ #endif
+Index: alpha/include/pmap.h
+===================================================================
+RCS file: /home/ncvs/src/sys/alpha/include/pmap.h,v
+retrieving revision 1.21
+diff -u -r1.21 pmap.h
+--- alpha/include/pmap.h	16 Mar 2003 04:16:02 -0000	1.21
++++ alpha/include/pmap.h	21 Mar 2003 20:15:05 -0000
+@@ -177,7 +177,7 @@
+ 	struct {
+ 		u_int32_t	asn:ASN_BITS;	/* address space number */
+ 		u_int32_t	gen:ASNGEN_BITS; /* generation number */
+-	}			pm_asn[MAXCPU];
++	}			pm_asn[MAXSMPCPU];
+ 	struct pmap_statistics	pm_stats;	/* pmap statistics */
+ 	struct	vm_page		*pm_ptphint;	/* pmap ptp hint */
+ 	LIST_ENTRY(pmap)	pm_list;	/* list of all pmaps. */
+
+From obrien at freebsd.org  Sat Mar 29 13:18:53 2003
+From: obrien at freebsd.org (David O'Brien)
+Date: Sat Mar 29 14:38:11 2003
+Subject: HEADS UP: Don't upgrade your Alphas!
+In-Reply-To: <20030325092026.X54897-100000@vespa.dmz.orem.verio.net>
+References: <16000.24970.493746.357815@grasshopper.cs.duke.edu>
+	<20030325092026.X54897-100000@vespa.dmz.orem.verio.net>
+Message-ID: <20030329211839.GE37614@dragon.nuxi.com>
+
+On Tue, Mar 25, 2003 at 09:23:36AM -0700, Fred Clift wrote:
+> > David O'Brien writes:
+> >  > On Mon, Mar 24, 2003 at 01:37:50PM -0500, Andrew Gallatin wrote:
+> >  > > So, I think that making it the default is probably the best.  As long
+> >  > > as somebody can turn it off with -mnoieee or something.
+> >  >
+> >  > Unfortnately, that is hard to do (turning it off). :-(
+> >  > Do I commit my patches if it means one cannot turn it off?
+> 
+> 
+> So how are you achieving this?  Are you changing makefiles in the
+> buildsystem?
+
+No, by hacking the compiler code.
+ 
+> How about tweaking the compiler so that the default semantics are reversed
+> and then change the flag -mieeee (or whatever it was -- can't remember) to
+> just be -noieee as suggested?
+>
+> By just changing the compiler, we dont have to touch the rest of the
+> system, and people can still get the desired behavior fairly easily...
+
+Uh... show me your FSF GCC committable patches please.  You're boarder
+line insulting me here, so do not offer anymore suggestions w/o some code
+to back it up.
+ 
+> I dont know what changes we make already but I understand that there is
+> some customization to the compiler that is imported into the system.  So,
+> what is one more change?
+
+A PITA to maintain and something that might not at all port to some
+future version of GCC like 3.3 or 3.4.
+From chrisr at beosppc.org  Sun Mar 30 09:31:54 2003
+From: chrisr at beosppc.org (Chris Rupnik)
+Date: Sun Mar 30 09:31:55 2003
+Subject: Does anyone use a FDDI card on 5.0?
+Message-ID: <003901c2f6e2$3f1c0d40$0a04a8c0@PLANETEORANGE.CA>
+
+ Hi,
+  I submitted a bug report in early Feb regarding the fact that a 5.0 kernel
+ with a FDDI card produces a machine check. I cannot believe I am the only
+ one to use such a card?
+
+ http://www.freebsd.org/cgi/query-pr.cgi?pr=alpha/47952
+
+  Or am I?
+
+ Thanks
+
+ Christopher
+
+
+From wkb at freebie.xs4all.nl  Sun Mar 30 09:42:18 2003
+From: wkb at freebie.xs4all.nl (Wilko Bulte)
+Date: Sun Mar 30 09:42:20 2003
+Subject: Does anyone use a FDDI card on 5.0?
+In-Reply-To: <003901c2f6e2$3f1c0d40$0a04a8c0@PLANETEORANGE.CA>
+References: <003901c2f6e2$3f1c0d40$0a04a8c0@PLANETEORANGE.CA>
+Message-ID: <20030330174212.GA1302@freebie.xs4all.nl>
+
+On Sun, Mar 30, 2003 at 12:31:43PM -0500, Chris Rupnik wrote:
+>  Hi,
+>   I submitted a bug report in early Feb regarding the fact that a 5.0 kernel
+>  with a FDDI card produces a machine check. I cannot believe I am the only
+>  one to use such a card?
+> 
+>  http://www.freebsd.org/cgi/query-pr.cgi?pr=alpha/47952
+> 
+>   Or am I?
+
+Maybe ;-)
+
+I have 2 DEFPAs here but they are sitting in the parts store room.
+
+-- 
+|   / o / /_  _   		wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte				
+From lehmann at ans-netz.de  Sun Mar 30 09:57:50 2003
+From: lehmann at ans-netz.de (Oliver Lehmann)
+Date: Sun Mar 30 09:57:52 2003
+Subject: Does anyone use a FDDI card on 5.0?
+In-Reply-To: <003901c2f6e2$3f1c0d40$0a04a8c0@PLANETEORANGE.CA>
+References: <003901c2f6e2$3f1c0d40$0a04a8c0@PLANETEORANGE.CA>
+Message-ID: <20030330195725.4678d99f.lehmann@ans-netz.de>
+
+Chris Rupnik wrote:
+
+>  I cannot believe I am the only
+>  one to use such a card?
+
+Hm.. I have a FDDI Card - but the card is sitting in my x86-router (And is
+waiting for the receiver [FDDI EISA Card @HP 9000/735])
+
+fpa0: <Digital DEFPA PCI FDDI Controller> port 0x6100-0x617f mem
+0xe0000000-0xe000ffff,0xe0010000-0xe001007f irq 11 at device 18.0 on pci0
+fpa0: DEC DEFPA PCI FDDI SAS Controller
+fpa0: FDDI address 00:a0:24:61:dd:36, FW=2.46, HW=1, SMT V7.2
+fpa0: FDDI Port = S (PMD = ANSI Multi-Mode)
+fpa0: driver is using old-style compatibility shims
+
+If i can find some time, i can plug the card out and in my alpha (which
+runs 5.0-REL-p6 - my Router is still on 4). Maybe tomorrow.
+
+
+  Greetings, Oliver
+
+-- 
+ Oliver Lehmann
+        @home: lehmann@ans-netz.de
+      @office: oliver.lehmann@mgi.de
+         @www: http://www.pofo.de/  |  http://wishlist.ans-netz.de/
+From wkb at freebie.xs4all.nl  Sun Mar 30 10:00:58 2003
+From: wkb at freebie.xs4all.nl (Wilko Bulte)
+Date: Sun Mar 30 10:00:59 2003
+Subject: Does anyone use a FDDI card on 5.0?
+In-Reply-To: <20030330195725.4678d99f.lehmann@ans-netz.de>
+References: <003901c2f6e2$3f1c0d40$0a04a8c0@PLANETEORANGE.CA>
+	<20030330195725.4678d99f.lehmann@ans-netz.de>
+Message-ID: <20030330180053.GA1421@freebie.xs4all.nl>
+
+On Sun, Mar 30, 2003 at 07:57:25PM +0200, Oliver Lehmann wrote:
+> Chris Rupnik wrote:
+> 
+> >  I cannot believe I am the only
+> >  one to use such a card?
+> 
+> Hm.. I have a FDDI Card - but the card is sitting in my x86-router (And is
+> waiting for the receiver [FDDI EISA Card @HP 9000/735])
+> 
+> fpa0: <Digital DEFPA PCI FDDI Controller> port 0x6100-0x617f mem
+> 0xe0000000-0xe000ffff,0xe0010000-0xe001007f irq 11 at device 18.0 on pci0
+> fpa0: DEC DEFPA PCI FDDI SAS Controller
+> fpa0: FDDI address 00:a0:24:61:dd:36, FW=2.46, HW=1, SMT V7.2
+> fpa0: FDDI Port = S (PMD = ANSI Multi-Mode)
+> fpa0: driver is using old-style compatibility shims
+> 
+
+IIRC it works on x86 but not on alpha
+
+-- 
+|   / o / /_  _   		wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte				
+From lehmann at ans-netz.de  Sun Mar 30 10:11:32 2003
+From: lehmann at ans-netz.de (Oliver Lehmann)
+Date: Sun Mar 30 10:11:34 2003
+Subject: Does anyone use a FDDI card on 5.0?
+In-Reply-To: <20030330180053.GA1421@freebie.xs4all.nl>
+References: <003901c2f6e2$3f1c0d40$0a04a8c0@PLANETEORANGE.CA>
+	<20030330195725.4678d99f.lehmann@ans-netz.de>
+	<20030330180053.GA1421@freebie.xs4all.nl>
+Message-ID: <20030330201123.1186e026.lehmann@ans-netz.de>
+
+Wilko Bulte wrote:
+
+
+> > fpa0: <Digital DEFPA PCI FDDI Controller> port 0x6100-0x617f mem
+>
+> IIRC it works on x86 but not on alpha
+
+I didn't say anything else ;) Thats why I will plug the card in my alpha
+if i find some time. Just to see if the panic occurs.
+
+-- 
+ Oliver Lehmann
+        @home: lehmann@ans-netz.de
+      @office: oliver.lehmann@mgi.de
+         @www: http://www.pofo.de/  |  http://wishlist.ans-netz.de/
+From opalpha at terraflux.com  Sun Mar 30 10:40:37 2003
+From: opalpha at terraflux.com (oliver)
+Date: Sun Mar 30 10:40:38 2003
+Subject: <no subject>
+Message-ID: <BAAC7A20.113C%opalpha@terraflux.com>
+
+
+
+From opalpha at terraflux.com  Sun Mar 30 11:08:08 2003
+From: opalpha at terraflux.com (oliver)
+Date: Sun Mar 30 11:08:09 2003
+Subject: Ipfw unaligned access fault
+Message-ID: <BAAC808C.1144%opalpha@terraflux.com>
+
+Hi there,
+
+I hope this is the correct newsgroup for this problem:
+
+We have:
+
+FreeBSD metroflux.net 5.0-RELEASE-p7 FreeBSD 5.0-RELEASE-p7 #0: Sat Mar 29
+22:53:49 PST 2003     opi@metroflux.net:/usr/src/sys/alpha/compile/CARMEN
+alpha
+
+running on a DEC Alpha 1200 (Tincup). After a recent cvsup, the machine
+seems to reboot every 5-6 hours or so.
+
+I included sections from /var/log/messages of two separate occasions:
+<snip>
+Mar 27 02:00:04 metroflux ntpdate[1009]: step time server 204.123.2.72
+offset 3.291332 sec
+Mar 27 03:04:31 metroflux syslogd: kernel boot file is /boot/kernel/kernel
+Mar 27 03:04:31 metroflux kernel:
+Mar 27 03:04:31 metroflux kernel: fatal kernel trap:
+Mar 27 03:04:31 metroflux kernel:
+Mar 27 03:04:31 metroflux kernel: trap entry     = 0x4 (unaligned access
+fault)
+Mar 27 03:04:31 metroflux kernel: cpuid          = 0
+Mar 27 03:04:31 metroflux kernel: faulting va    = 0xfffffc000d1d3b34
+Mar 27 03:04:31 metroflux kernel: opcode         = 0x2d
+Mar 27 03:04:31 metroflux kernel: register       = 0x9
+Mar 27 03:04:31 metroflux kernel: pc             = 0xfffffc00004a3640
+Mar 27 03:04:31 metroflux kernel: ra             = 0xfffffc00004a3614
+Mar 27 03:04:31 metroflux kernel: sp             = 0xfffffe0014021b70
+Mar 27 03:04:31 metroflux kernel: usp            = 0x11fffba0
+Mar 27 03:04:31 metroflux kernel: curthread      = 0xfffffc0027e9b930
+Mar 27 03:04:31 metroflux kernel: pid = 1310, comm = ipfw
+Mar 27 03:04:31 metroflux kernel:
+Mar 27 03:04:31 metroflux kernel: panic: trap
+Mar 27 03:04:31 metroflux kernel: cpuid = 0;
+Mar 27 03:04:31 metroflux kernel: boot() called on cpu#0
+Mar 27 03:04:31 metroflux kernel:
+Mar 27 03:04:31 metroflux kernel: syncing disks, buffers remaining... panic:
+bdwrite: buffer is not busy
+Mar 27 03:04:31 metroflux kernel: cpuid = 0;
+Mar 27 03:04:31 metroflux kernel: boot() called on cpu#0
+Mar 27 03:04:31 metroflux kernel: Uptime: 3h59m45s
+Mar 27 03:04:31 metroflux kernel: Automatic reboot in 15 seconds - press a
+key on the console to abort
+<snip>
+Mar 30 03:03:51 metroflux syslogd: kernel boot file is /boot/kernel/kernel
+Mar 30 03:03:51 metroflux kernel:
+Mar 30 03:03:51 metroflux kernel: fatal kernel trap:
+Mar 30 03:03:51 metroflux kernel:
+Mar 30 03:03:51 metroflux kernel: trap entry     = 0x4 (unaligned access
+fault)
+Mar 30 03:03:51 metroflux kernel: cpuid          = 0
+Mar 30 03:03:51 metroflux kernel: faulting va    = 0xfffffc0000c30b34
+Mar 30 03:03:51 metroflux kernel: opcode         = 0x2d
+Mar 30 03:03:51 metroflux kernel: register       = 0x9
+Mar 30 03:03:51 metroflux kernel: pc             = 0xfffffc00004a9d00
+Mar 30 03:03:51 metroflux kernel: ra             = 0xfffffc00004a9cd4
+Mar 30 03:03:51 metroflux kernel: sp             = 0xfffffe0014001b60
+Mar 30 03:03:51 metroflux kernel: usp            = 0x11fffba0
+Mar 30 03:03:51 metroflux kernel: curthread      = 0xfffffc00265baf80
+Mar 30 03:03:51 metroflux kernel: pid = 1213, comm = ipfw
+Mar 30 03:03:51 metroflux kernel:
+Mar 30 03:03:51 metroflux kernel: panic: trap
+Mar 30 03:03:51 metroflux kernel: cpuid = 0;
+Mar 30 03:03:51 metroflux kernel: boot() called on cpu#0
+Mar 30 03:03:51 metroflux kernel:
+Mar 30 03:03:51 metroflux kernel: syncing disks, buffers remaining... panic:
+bremfree: bp 0xfffffe000a827610 not locked
+Mar 30 03:03:51 metroflux kernel: cpuid = 0;
+Mar 30 03:03:51 metroflux kernel: boot() called on cpu#0
+Mar 30 03:03:51 metroflux kernel: Uptime: 3h36m39s
+Mar 30 03:03:51 metroflux kernel: Automatic reboot in 15 seconds - press a
+key on the console to abort
+<snip>
+
+Just to be sure I deleted all src, resupped, then recompiled world and
+kernel (with sanity). Unfortunately, no change in behavior.
+
+Also by running ipfw show, I receive the following output (and so on until
+all rules are listed):
+
+108 10:50am # ipfw show
+00100        268      29682 allow ip from any to any via lo0
+00200          0          0 deny ip from any to 127.0.0.0/8
+pid 1611 (ipfw): unaligned access: va=0x1200ac0b4 pc=0x120001780
+ra=0x120001764 op=ldq
+pid 1611 (ipfw): unaligned access: va=0x1200ac0bc pc=0x120001784
+ra=0x120001764 op=ldq
+00300          0          0 deny ip from 127.0.0.0/8 to any
+00400          0          0 deny ip from any to 10.0.0.0/8 via fxp0
+pid 1611 (ipfw): unaligned access: va=0x1200ac154 pc=0x120001780
+ra=0x120001764 op=ldq
+pid 1611 (ipfw): unaligned access: va=0x1200ac15c pc=0x120001784
+ra=0x120001764 op=ldq
+00500          0          0 deny ip from any to 172.16.0.0/12 via fxp0
+00600          0          0 deny ip from any to 192.168.0.0/16 via fxp0
+pid 1611 (ipfw): unaligned access: va=0x1200ac20c pc=0x120001780
+ra=0x120001764 op=ldq
+pid 1611 (ipfw): unaligned access: va=0x1200ac214 pc=0x120001784
+ra=0x120001764 op=ldq
+<snip>
+
+Of course, I would like to resolve this without removing the firewall
+options from the kernel (assuming this will fix it), hoping someone on this
+list can shed light on this problem.
+
+Thanks,
+Oliver
+
+From peter at wemm.org  Sun Mar 30 11:46:32 2003
+From: peter at wemm.org (Peter Wemm)
+Date: Sun Mar 30 11:46:40 2003
+Subject: ATA broken on alpha?
+Message-ID: <20030330194630.D67EC2A89E@canning.wemm.org>
+
+beast.freebsd.org is panicing at bootup with this:
+
+Copyright (c) 1992-2003 The FreeBSD Project.
+Copyright (c) 1979, 1980, 1983, 1986, 1988, 1989, 1991, 1992, 1993, 1994
+        The Regents of the University of California. All rights reserved.
+FreeBSD 5.0-CURRENT #81: Sun Mar 30 07:48:29 PST 2003
+    root@beast.freebsd.org:/usr/src/sys/alpha/compile/BEAST
+Preloaded elf kernel "/boot/kernel/kernel" at 0xfffffc0000714000.
+ST6600
+AlphaPC 264DP 833 MHz, 833MHz
+8192 byte page size, 2 processors.
+CPU: EV6 (21264) major=8 minor=0 extensions=0x1307<BWX,FIX,CIX,MVI,PRECISE>
+OSF PAL rev: 0x200370002013e
+real memory  = 2144706560 (2045 MB)
+avail memory = 2081095680 (1984 MB)
+FreeBSD/SMP: Multiprocessor System Detected: 2 CPUs
+Allocating major#253 to "net"
+Allocating major#252 to "g_ctl"
+Allocating major#251 to "pci"
+tsunami0: <21271 Core Logic chipset>
+pcib0: <21271 PCI host bus adapter> on tsunami0
+pci0: <PCI bus> on pcib0
+isab0: <PCI-ISA bridge> at device 5.0 on pci0
+isa0: <ISA bus> on isab0
+atapci0: <Cypress 82C693 ATA controller> port 0x1300-0x130f,0x3f4-0x3f7,0x1f0-0x1f7 irq 238 at device 5.1 on pci0
+
+fatal kernel trap:
+
+    trap entry     = 0x2 (memory management fault)
+    cpuid          = 0
+    faulting va    = 0x0
+    type           = access violation
+    cause          = load instructon
+    pc             = 0xfffffc000037b0fc
+    ra             = 0xfffffc000037b0d0
+    sp             = 0xfffffc000071ba50
+    usp            = 0x0
+    curthread      = 0xfffffc000063d3f8
+        pid = 0, comm = swapper
+
+Stopped at      ata_pcisub_probe+0x11c: ldl     t0,0(t0) <0x0>  <t0=0x0>
+db> trace
+ata_pcisub_probe() at ata_pcisub_probe+0x11c
+device_probe_child() at device_probe_child+0x114
+device_probe_and_attach() at device_probe_and_attach+0x58
+bus_generic_attach() at bus_generic_attach+0x28
+ata_pci_attach() at ata_pci_attach+0x600
+device_probe_and_attach() at device_probe_and_attach+0xc4
+bus_generic_attach() at bus_generic_attach+0x28
+pci_attach() at pci_attach+0xe0
+device_probe_and_attach() at device_probe_and_attach+0xc4
+bus_generic_attach() at bus_generic_attach+0x28
+device_probe_and_attach() at device_probe_and_attach+0xc4
+bus_generic_attach() at bus_generic_attach+0x28
+tsunami_attach() at tsunami_attach+0x98
+device_probe_and_attach() at device_probe_and_attach+0xc4
+root_bus_configure() at root_bus_configure+0x38
+configure() at configure+0x40
+mi_startup() at mi_startup+0x144
+locorestart() at locorestart+0x64
+--- root of call graph ---
+
+Do you need more details or is that enough of a clue?
+
+Cheers,
+-Peter
+--
+Peter Wemm - peter@wemm.org; peter@FreeBSD.org; peter@yahoo-inc.com
+"All of this is for nothing if we don't go to the stars" - JMS/B5
+
+From sos at spider.deepcore.dk  Sun Mar 30 11:56:53 2003
+From: sos at spider.deepcore.dk (Soeren Schmidt)
+Date: Sun Mar 30 11:56:58 2003
+Subject: ATA broken on alpha?
+In-Reply-To: <20030330194630.D67EC2A89E@canning.wemm.org>
+Message-ID: <200303301956.h2UJulHN032136@spider.deepcore.dk>
+
+It seems Peter Wemm wrote:
+
+> Do you need more details or is that enough of a clue?
+
+I can see what the problem is, I'll have to look to find the reason...
+
+
+-S?ren
+From gallatin at cs.duke.edu  Sun Mar 30 14:02:15 2003
+From: gallatin at cs.duke.edu (Andrew Gallatin)
+Date: Sun Mar 30 14:02:17 2003
+Subject: Ipfw unaligned access fault
+In-Reply-To: <BAAC808C.1144%opalpha@terraflux.com>
+References: <BAAC808C.1144%opalpha@terraflux.com>
+Message-ID: <16007.26976.112185.428882@grasshopper.cs.duke.edu>
+
+
+oliver writes:
+ > Hi there,
+ > 
+ > I hope this is the correct newsgroup for this problem:
+ > Mar 27 03:04:31 metroflux kernel: pc             = 0xfffffc00004a3640
+ > Mar 27 03:04:31 metroflux kernel: ra             = 0xfffffc00004a3614
+
+Can you run gdb on the kernel.debug which corresponds to
+/boot/kernel/kernel, and do:
+
+(gdb) l* 0xfffffc00004a3640
+(gdb) l* 0xfffffc00004a3614
+
+A stack trace would also be quite useful, but would require you
+to rebuild your kernel with 'options DDB'
+
+Drew
+From paul at infoeng.flinders.edu.au  Sun Mar 30 23:21:56 2003
+From: paul at infoeng.flinders.edu.au (Paul Gardner-Stephen)
+Date: Sun Mar 30 23:21:58 2003
+Subject: OSF binary emulation problem
+Message-ID: <200303310721.h2V7Lpl00120@mail1.infoeng.flinders.edu.au>
+
+Hi,
+
+I am having problems running OSF 4.0 binaries under FreeBSD 5.0-RELEASE on an 
+alpha personal workstation 500au:
+
+~ {16:49} [70] :uname -a
+FreeBSD cluebat 5.0-RELEASE-p6 FreeBSD 5.0-RELEASE-p6 #0: Mon Mar 24 18:11:18
+ GMT 2003     root@cluebat:/usr/src/sys/alpha/compile/CLUEBAT  alpha
+
+If I run almost anything I get:
+
+~ {16:47} [65] :~/trace
+exception system: exiting due to internal error: out of memory trying to allocate exception system resources
+Abort (core dumped)
+
+I am led to believe that this might be related to a problem with limits.  I 
+however, using 'unlimit' has been in vain to date, eg:
+
+~ {16:47} [67] :limits
+Resource limits (current):
+  cputime          infinity secs
+  filesize         infinity kb
+  datasize          1048576 kb
+  stacksize           32768 kb
+  coredumpsize-cur        0 kb
+  memoryuse        infinity kb
+  memorylocked     infinity kb
+  maxprocesses         5547
+  openfiles           11095
+  sbsize           infinity bytes
+  vmemoryuse       infinity kb
+~ {16:49} [68] :unlimit
+~ {16:49} [69] :~/trace
+exception system: exiting due to internal error: out of memory trying to allocate exception system resources
+Abort
+
+Any suggestions would be greatly appreciated.
+
+Paul.
+
+From sos at spider.deepcore.dk  Mon Mar 31 02:22:05 2003
+From: sos at spider.deepcore.dk (Soeren Schmidt)
+Date: Mon Mar 31 02:22:07 2003
+Subject: ATA broken on alpha?
+In-Reply-To: <200303301956.h2UJulHN032136@spider.deepcore.dk>
+Message-ID: <200303311021.h2VALxZ6000706@spider.deepcore.dk>
+
+It seems Soeren Schmidt wrote:
+> It seems Peter Wemm wrote:
+> 
+> > Do you need more details or is that enough of a clue?
+> 
+> I can see what the problem is, I'll have to look to find the reason...
+
+Hmm, must be someting cypress related, could I have the lineno's in
+ATA that it fails on please ? It doesn't fit anything in my kernel :)
+
+-S?ren
+From gallatin at cs.duke.edu  Mon Mar 31 05:25:21 2003
+From: gallatin at cs.duke.edu (Andrew Gallatin)
+Date: Mon Mar 31 05:25:23 2003
+Subject: OSF binary emulation problem
+In-Reply-To: <200303310721.h2V7Lpl00120@mail1.infoeng.flinders.edu.au>
+References: <200303310721.h2V7Lpl00120@mail1.infoeng.flinders.edu.au>
+Message-ID: <16008.16824.753151.308099@grasshopper.cs.duke.edu>
+
+
+Paul Gardner-Stephen writes:
+ > Hi,
+ > 
+ > I am having problems running OSF 4.0 binaries under FreeBSD 5.0-RELEASE on an 
+ > alpha personal workstation 500au:
+
+Its a bug in 5.0 that only bites SMP kernels (GENERIC is SMP on
+alpha).  This was just fixed Sat. in -currrent.  See the freebsd-alpha
+archives for the patch.  Or rebuild a kernel without 'options SMP', or
+upgrade to -current.
+
+Cheers,
+
+Drew
+From lehmann at ans-netz.de  Mon Mar 31 08:18:50 2003
+From: lehmann at ans-netz.de (Oliver Lehmann)
+Date: Mon Mar 31 08:18:51 2003
+Subject: Does anyone use a FDDI card on 5.0?
+In-Reply-To: <003901c2f6e2$3f1c0d40$0a04a8c0@PLANETEORANGE.CA>
+References: <003901c2f6e2$3f1c0d40$0a04a8c0@PLANETEORANGE.CA>
+Message-ID: <20030331181836.0c9b67d0.lehmann@ans-netz.de>
+
+Same here:
+
+*** keyboard not plugged in...
+
+halted CPU 0
+
+halt code = 5
+HALT instruction executed
+PC = fffffc000051fee0
+*** no timer interrupts on CPU 0 ***
+
+CPU 0 booting
+
+Resetting I/O buses...
+*** keyboard not plugged in...
+(boot dka0.0.0.5.0)
+block 0 of dka0.0.0.5.0 is a valid boot block
+reading 15 blocks from dka0.0.0.5.0
+bootstrap code read in
+base = 200000, image_start = 0, image_bytes = 1e00
+initializing HWRPB at 2000
+initializing page table at 2ffec000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code                                                 
+                                                                          
+         Loading /boot/loader
+Console: SRM firmware console
+VMS PAL rev: 0x1000200010115
+OSF PAL rev: 0x1000200020117
+Switch to OSF PAL code succeeded.
+
+FreeBSD/alpha SRM disk boot, Revision 1.2
+(olivleh1@dill.salatschuessel.net, Sun Mar 23 19:14:47 CET 2003)
+Memory: 786432 k
+Loading /boot/defaults/loader.conf 
+/boot/kernel/kernel data=0x2c7630+0x53140 syms=[0x8+0x474c0+0x8+0x36fdf]
+
+Hit [Enter] to boot immediately, or any other key for command prompt.
+Booting [/boot/kernel/kernel]...               
+Entering /boot/kernel/kernel at 0xfffffc0000330de0...
+Copyright (c) 1992-2003 The FreeBSD Project.
+Copyright (c) 1979, 1980, 1983, 1986, 1988, 1989, 1991, 1992, 1993, 1994
+        The Regents of the University of California. All rights reserved.
+FreeBSD 5.0-RELEASE-p6 #1: Mon Mar 31 16:17:19 CEST 2003
+    olivleh1@dill.salatschuessel.net:/usr/obj/usr/src/sys/DILL
+Preloaded elf kernel "/boot/kernel/kernel" at 0xfffffc000069c000.
+EB164
+Digital AlphaPC 164LX 599 MHz, 598MHz
+8192 byte page size, 1 processor.
+CPU: EV56 (21164A) major=7 minor=2 extensions=0x1<BWX>
+OSF PAL rev: 0x1000200020117
+real memory  = 803119104 (765 MB)
+avail memory = 775102464 (739 MB)
+Initializing GEOMetry subsystem
+cia0: <2117x Core Logic chipset>
+cia0: Pyxis, pass 1
+cia0: extended capabilities: 1<BWEN>
+pcib0: <2117x PCI host bus adapter> on cia0
+pci0: <PCI bus> on pcib0
+sym0: <895> port 0x10000-0x100ff mem
+0x82040000-0x82040fff,0x82041000-0x820410ff irq 2 at device 5.0 on pci0
+sym0: Tekram NVRAM, ID 7, Fast-40, SE, parity checking
+sym0: interrupting at CIA irq 2
+xl0: <3Com 3c905C-TX Fast Etherlink XL> port 0x10100-0x1017f mem
+0x82041100-0x8204117f irq 0 at device 6.0 on pci0
+xl0: interrupting at CIA irq 0
+xl0: Ethernet address: 00:01:02:b4:75:9e
+miibus0: <MII bus> on xl0
+xlphy0: <3c905C 10/100 internal PHY> on miibus0
+xlphy0:  10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, auto
+isab0: <PCI-ISA bridge> at device 8.0 on pci0
+isa0: <ISA bus> on isab0
+fpa0: <Digital DEFPA PCI FDDI Controller> port 0x10180-0x101ff mem
+0x82030000-0x8203ffff,0x82041180-0x820411ff irq 3 at device 9.0 on pci0
+
+unexpected machine check:
+
+    mces    = 0x1
+    vector  = 0x660
+    param   = 0xfffffc0000006068
+    pc      = 0xfffffc00005186c4
+    ra      = 0xfffffc000038ff2c
+    curproc = 0xfffffc00005d6bc8
+        pid = 0, comm = swapper
+
+panic: machine check
+Uptime: 1s
+Automatic reboot in 15 seconds - press a key on the console to abort
+Rebooting...
+
+
+-- 
+ Oliver Lehmann
+        @home: lehmann@ans-netz.de
+      @office: oliver.lehmann@mgi.de
+         @www: http://www.pofo.de/  |  http://wishlist.ans-netz.de/
+From gallatin at cs.duke.edu  Mon Mar 31 08:35:56 2003
+From: gallatin at cs.duke.edu (Andrew Gallatin)
+Date: Mon Mar 31 08:36:17 2003
+Subject: Does anyone use a FDDI card on 5.0?
+In-Reply-To: <20030331181836.0c9b67d0.lehmann@ans-netz.de>
+References: <003901c2f6e2$3f1c0d40$0a04a8c0@PLANETEORANGE.CA>
+	<20030331181836.0c9b67d0.lehmann@ans-netz.de>
+Message-ID: <16008.28257.658768.820352@grasshopper.cs.duke.edu>
+
+
+Oliver Lehmann writes:
+
+
+ >     pc      = 0xfffffc00005186c4
+ >     ra      = 0xfffffc000038ff2c
+
+If you can map the pc and ra to source code using gdb, we might be
+able to debug this..
+
+gdb kernel.debug
+(gdb) l *0xfffffc00005186c4
+(gdb) l *0xfffffc000038ff2c
+
+Drew
+From fclift at verio.net  Mon Mar 31 10:05:59 2003
+From: fclift at verio.net (Fred Clift)
+Date: Mon Mar 31 10:06:01 2003
+Subject: HEADS UP: Don't upgrade your Alphas!
+In-Reply-To: <20030329211839.GE37614@dragon.nuxi.com>
+Message-ID: <20030331110729.P76254-100000@vespa.dmz.orem.verio.net>
+
+On Sat, 29 Mar 2003, David O'Brien wrote:
+
+> Uh... show me your FSF GCC committable patches please.  You're boarder
+> line insulting me here, so do not offer anymore suggestions w/o some code
+> to back it up.
+
+No offense intended - I understand that sometimes things are more
+complicated than they appear.  I've been 'busy' all weekend, but perhaps I
+will take a peek at the code since now you've got me interested :).
+
+
+
+Fred
+
+--
+Fred Clift - fclift@verio.net -- Remember: If brute
+force doesn't work, you're just not using enough.
+
+From lehmann at ans-netz.de  Mon Mar 31 11:30:15 2003
+From: lehmann at ans-netz.de (Oliver Lehmann)
+Date: Mon Mar 31 11:30:17 2003
+Subject: Does anyone use a FDDI card on 5.0?
+In-Reply-To: <16008.28257.658768.820352@grasshopper.cs.duke.edu>
+References: <003901c2f6e2$3f1c0d40$0a04a8c0@PLANETEORANGE.CA>
+	<20030331181836.0c9b67d0.lehmann@ans-netz.de>
+	<16008.28257.658768.820352@grasshopper.cs.duke.edu>
+Message-ID: <20030331213003.4e67d88f.lehmann@ans-netz.de>
+
+Hiho,
+
+here we go:
+
+*** keyboard not plugged in...
+ff.fe.fd.fc.fb.fa.f9.f8.f7.f6.f5.f3.f2.f1.f0.
+ef.ee.ed.probing hose 0, PCI
+probing PCI-to-ISA bridge, bus 1
+bus 0, slot 5 -- pka -- NCR 53C895
+bus 0, slot 9 -- fwa -- DEC PCI FDDI
+bus 0, slot 11 -- dqa -- CMD PCI0646 IDE
+bus 0, slot 11 -- dqb -- CMD PCI0646 IDE
+ec.f4.eb.ea.e9.e8.e7.
+
+Digital AlphaPC 164LX 599 MHz Console V5.8-1, Jun 21 2000 11:28:32
+
+CPU 0 booting
+
+(boot dka0.0.0.5.0)
+block 0 of dka0.0.0.5.0 is a valid boot block
+reading 15 blocks from dka0.0.0.5.0
+bootstrap code read in
+base = 200000, image_start = 0, image_bytes = 1e00
+initializing HWRPB at 2000
+initializing page table at 1ffee000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code                                                                                                                                      Loading /boot/loader
+*** no timer interrupts on CPU 0 ***
+Console: SRM firmware console
+VMS PAL rev: 0x1000200010115
+OSF PAL rev: 0x1000200020117
+Switch to OSF PAL code succeeded.
+
+FreeBSD/alpha SRM disk boot, Revision 1.2
+(olivleh1@dill.salatschuessel.net, Sun Mar 23 19:14:47 CET 2003)
+Memory: 262144 k
+Loading /boot/defaults/loader.conf 
+/boot/kernel/kernel data=0x2ebbe0+0x56af0 syms=[0x8+0x48c00+0x8+0x38573]
+
+Hit [Enter] to boot immediately, or any other key for command prompt.
+Booting [/boot/kernel/kernel] in 6 seconds... 
+
+Type '?' for a list of commands, 'help' for more detailed help.
+OK boot -v
+Entering /boot/kernel/kernel at 0xfffffc0000336520...
+sio1: gdb debugging port
+Copyright (c) 1992-2003 The FreeBSD Project.
+Copyright (c) 1979, 1980, 1983, 1986, 1988, 1989, 1991, 1992, 1993, 1994
+        The Regents of the University of California. All rights reserved.
+FreeBSD 5.0-RELEASE-p6 #3: Mon Mar 31 20:02:01 CEST 2003
+    olivleh1@dill.salatschuessel.net:/usr/obj/usr/src/sys/DILL
+Preloaded elf kernel "/boot/kernel/kernel" at 0xfffffc00006c6000.
+EB164
+Digital AlphaPC 164LX 599 MHz, 598MHz
+8192 byte page size, 1 processor.
+CPU: EV56 (21164A) major=7 minor=2 extensions=0x1<BWX>
+OSF PAL rev: 0x1000200020117
+real memory  = 266256384 (253 MB)
+Physical memory chunk(s):
+0x006e8000 - 0x0ffe3fff, 261079040 bytes (31870 pages)
+avail memory = 252870656 (241 MB)
+Initializing GEOMetry subsystem
+random: <entropy source>
+null: <null device, zero device>
+mem: <memory & I/O>
+cia0: <2117x Core Logic chipset>
+cia0: Pyxis, pass 1
+cia0: extended capabilities: 1<BWEN>
+pcib0: <2117x PCI host bus adapter> on cia0
+pci0: <PCI bus> on pcib0
+pci0: physical bus=0
+        map[10]: type 4, range 32, base 00010000, size  8, enabled
+        map[14]: type 1, range 32, base 82041000, size  8, enabled
+        map[18]: type 1, range 32, base 82040000, size 12, enabled
+found-> vendor=0x1000, dev=0x000c, revid=0x01
+        bus=0, slot=5, func=0
+        class=01-00-00, hdrtype=0x00, mfdev=0
+        cmdreg=0x0007, statreg=0x0200, cachelnsz=0 (dwords)
+        lattimer=0x00 (0 ns), mingnt=0x1e (7500 ns), maxlat=0x40 (16000 ns)
+        intpin=a, irq=2
+        map[10]: type 4, range 32, base 00010100, size  7, enabled
+        map[14]: type 1, range 32, base 82041100, size  7, enabled
+found-> vendor=0x10b7, dev=0x9200, revid=0x74
+        bus=0, slot=6, func=0
+        class=02-00-00, hdrtype=0x00, mfdev=0
+        cmdreg=0x0007, statreg=0x0210, cachelnsz=0 (dwords)
+        lattimer=0x00 (0 ns), mingnt=0x0a (2500 ns), maxlat=0x0a (2500 ns)
+        intpin=a, irq=0
+        powerspec 2  supports D0 D1 D2 D3  current D0
+found-> vendor=0x8086, dev=0x0484, revid=0x43
+        bus=0, slot=8, func=0
+        class=00-00-00, hdrtype=0x00, mfdev=0
+        cmdreg=0x0007, statreg=0x0200, cachelnsz=0 (dwords)
+        lattimer=0x00 (0 ns), mingnt=0x00 (0 ns), maxlat=0x00 (0 ns)
+        map[10]: type 1, range 32, base 82041180, size  7, enabled
+        map[14]: type 4, range 32, base 00010180, size  7, enabled
+        map[18]: type 1, range 32, base 82030000, size 16, enabled
+found-> vendor=0x1011, dev=0x000f, revid=0x00
+        bus=0, slot=9, func=0
+        class=02-02-00, hdrtype=0x00, mfdev=0
+        cmdreg=0x0007, statreg=0x0280, cachelnsz=0 (dwords)
+        lattimer=0x00 (0 ns), mingnt=0x00 (0 ns), maxlat=0x00 (0 ns)
+        intpin=a, irq=3
+        map[20]: type 4, range 32, base 00010210, size  4, enabled
+found-> vendor=0x1095, dev=0x0646, revid=0x01
+        bus=0, slot=11, func=0
+        class=01-01-80, hdrtype=0x00, mfdev=0
+        cmdreg=0x0005, statreg=0x0280, cachelnsz=0 (dwords)
+        lattimer=0x00 (0 ns), mingnt=0x02 (500 ns), maxlat=0x04 (1000 ns)
+        intpin=a, irq=5
+sym0: <895> port 0x10000-0x100ff mem 0x82040000-0x82040fff,0x82041000-0x820410ff irq 2 at device 5.0 on pci0
+sym0: Delay (GEN=11): 240 msec, 37034 KHz
+sym0: Delay (GEN=11): 231 msec, 38477 KHz
+sym0: Delay (GEN=11): 230 msec, 38644 KHz
+sym0: chip clock is 38477KHz
+sym0: clock multiplier assumed
+sym0: Tekram NVRAM, ID 7, Fast-40, SE, parity checking
+sym0: open drain IRQ line driver, using on-chip SRAM
+sym0: using LOAD/STORE-based firmware.
+sym0: initial SCNTL3/DMODE/DCNTL/CTEST3/4/5 = (hex) 00/00/00/00/00/00
+sym0: final   SCNTL3/DMODE/DCNTL/CTEST3/4/5 = (hex) 07/4e/80/01/08/24
+sym0: Delay (GEN=11): 289 msec, 30755 KHz
+sym0: Delay (GEN=11): 286 msec, 31078 KHz
+sym0: Delay (GEN=11): 285 msec, 31187 KHz
+sym0: interrupting at CIA irq 2
+sym0: enabling clock multiplier
+sym0: Downloading SCSI SCRIPTS.
+xl0: <3Com 3c905C-TX Fast Etherlink XL> port 0x10100-0x1017f mem 0x82041100-0x8204117f irq 0 at device 6.0 on pci0
+xl0: interrupting at CIA irq 0
+xl0: Ethernet address: 00:01:02:b4:75:9e
+xl0: media options word: a
+xl0: found MII/AUTO
+miibus0: <MII bus> on xl0
+xlphy0: <3c905C 10/100 internal PHY> on miibus0
+xlphy0:  10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, auto
+xl0: bpf attached
+PCI-ISA bridge with incorrect subclass 0x0
+PCI-ISA bridge with incorrect subclass 0x0
+isab0: <PCI-ISA bridge> at device 8.0 on pci0
+isa0: <ISA bus> on isab0
+fpa0: <Digital DEFPA PCI FDDI Controller> port 0x10180-0x101ff mem 0x82030000-0x8203ffff,0x82041180-0x820411ff irq 3 at device 9.0 on pci0
+
+unexpected machine check:
+
+    mces    = 0x1
+    vector  = 0x660
+    param   = 0xfffffc0000006068
+    pc      = 0xfffffc0000530d84
+    ra      = 0xfffffc000039b51c
+    curproc = 0xfffffc00005fdaf8
+        pid = 0, comm = swapper
+
+Stopped at      DELAY+0x30:     rpcc    t0      <t0=0x1>
+db> show reg
+v0           0x20411ac
+t0               0x257  intr_n+0x216
+t1                   0
+t2                0xfb  intr_n+0xba
+t3                   0
+t4          0x3b627560
+t5          0x3b627552
+t6          0x100000000
+t7          0xfffffc00006ce000
+s0                   0
+s1                 0x3
+s2          0xfffffc000075fab8
+s3          0xfffffc000075f000
+s4          0xfffffc000075f000
+s5                   0
+s6          0xffffffff82041180
+a0               0x3e8  intr_n+0x3a7
+a1           0x20411ac
+a2                 0x1
+a3                 0x1
+a4                 0x1
+a5          0xfffffc00006cd940
+t8          0xfffffc00005ed170  cycles_per_usec
+t9          0xfffffc0000522028  uma_dbg_alloc+0x68
+t10                  0
+t11             0x2000  intr_n+0x1fbf
+ra          0xfffffc000039b51c  pdq_stop+0x52c
+t12         0xfffffc0000530d30  DELAY
+at          0x20001ff8
+gp          0xfffffc00005eebe0  db_lhistory+0x460
+sp          0xfffffc00006cdac0
+pc          0xfffffc0000530d84  DELAY+0x54
+ps                 0x6
+ai              0x2000  intr_n+0x1fbf
+pv          0xfffffc0000530d30  DELAY
+DELAY+0x54:     cmpule  t2,t0,t0        <t2=0xfb,t0=0x257>
+db> ps
+  pid   proc     addr    uid  ppid  pgrp  flag   stat  wmesg    wchan  cmd
+   20 fffffc000f81bb00 fffffe000a424000    0     0     0 0000204 new [IWAIT] intr: xl0
+   19 fffffc000f87c000 fffffe000b7e6000    0     0     0 0000204 new [IWAIT] intr: sym0
+   18 fffffc000f87c300 fffffe000b7e8000    0     0     0 0000204 new [IWAIT] swi5: task queue
+   17 fffffc000f87c600 fffffe000b7ea000    0     0     0 0000204 new [IWAIT] swi3: cambio
+   16 fffffc000f7cc000 fffffe000a2de000    0     0     0 0000204 new [IWAIT] swi2: camnet
+   15 fffffc000f7cc300 fffffe000a3a0000    0     0     0 0000204 new [RUNQ] random
+ffc000f7ccc00 fffffe000a3a6000    0     0     0 0000204 new [RUNQ] g_event
+   14 fffffc000f7ccf00 fffffe000a3a8000    0     0     0 0000204 new [IWAIT] swi1: net
+   13 fffffc000f7cd200 fffffe000a3aa000    0     0     0 0000204 new [IWAIT] swi4: vm
+   12 fffffc000f7cd500 fffffe000a3ac000    0     0     0 000020c new [IWAIT] swi6: clock
+   11 fffffc000f7cd800 fffffe000a3ae000    0     0     0 000020c norm[Can run] idle
+    1 fffffc000f7cdb00 fffffe000a3b0000    0     0     0 0000200 newpanic: unknown thread state
+panic
+ Stopped at Debugger+0x34:  zapnot  v0,#0xf,v0      <v0=0x7>
+db> continue
+Uptime: 1s
+panic: Assertion mtx_unowned(m) failed at /usr/src/sys/kern/kern_mutex.c:956
+panic
+Stopped at      Debugger+0x34:  zapnot  v0,#0xf,v0      <v0=0x7>
+db> call boot(0)
+Uptime: 1s
+panic: _sx_xlock (shutdown_final): xlock already held @ /usr/src/sys/kern/kern_shutdown.c:367
+panic
+Stopped at      Debugger+0x34:  zapnot  v0,#0xf,v0      <v0=0x7>
+db> call cpu_reset()
+
+
+but why i got no crash-dump?
+After the shutdown, i removed the fddi card, and booted again:
+
+[...]
+Checking for core dump...
+savecore: no dumps found
+[...]
+
+hrm... what did i wrong in db?
+
+
+
+root@dill /root> gdb -k /boot/kernel/kernel.debug
+GNU gdb 5.2.1 (FreeBSD)
+Copyright 2002 Free Software Foundation, Inc.
+GDB is free software, covered by the GNU General Public License, and you are
+welcome to change it and/or distribute copies of it under certain conditions.
+Type "show copying" to see the conditions.
+There is absolutely no warranty for GDB.  Type "show warranty" for details.
+This GDB was configured as "alpha-undermydesk-freebsd"...
+(kgdb) l *0xfffffc0000530d84
+0xfffffc0000530d84 is in DELAY (/usr/src/sys/alpha/alpha/machdep.c:1123).
+1118                     * last checked. Add the current cycle count to the
+1119                     * running total. If it's over cycles_per_usec, increment
+1120                     * the usec counter.
+1121                     */
+1122                    cycles += curcycle;
+1123                    while (cycles > cycles_per_usec) {
+1124                            usec++;
+1125                            cycles -= cycles_per_usec;
+1126                    }
+1127                    pcc0 = pcc1;
+(kgdb) l *0xfffffc000039b51c
+0xfffffc000039b51c is in pdq_stop (/usr/src/sys/dev/pdq/pdq.c:1327).
+1322            for (cnt = 0; cnt < 1000; cnt++) {
+1323                PDQ_OS_CONSUMER_POSTSYNC(pdq);
+1324                pdq_process_command_responses(pdq);
+1325                if (pdq->pdq_command_info.ci_response_producer == pdq->pdq_command_info.ci_response_completion)
+1326                    break;
+1327                PDQ_OS_USEC_DELAY(1000);
+1328            }
+1329            state = PDQ_PSTS_ADAPTER_STATE(PDQ_CSR_READ(csrs, csr_port_status));
+1330        }
+1331    
+(kgdb) 
+
+
+   Greetings, Oliver
+
+PS: yes, i disabled the 74-chars warp for this mail...Andrew Gallatin wrote:
+
+
+
+-- 
+ Oliver Lehmann
+        @home: lehmann@ans-netz.de
+      @office: oliver.lehmann@mgi.de
+         @www: http://www.pofo.de/  |  http://wishlist.ans-netz.de/
+From gallatin at cs.duke.edu  Mon Mar 31 12:01:56 2003
+From: gallatin at cs.duke.edu (Andrew Gallatin)
+Date: Mon Mar 31 12:01:57 2003
+Subject: Does anyone use a FDDI card on 5.0?
+In-Reply-To: <20030331213003.4e67d88f.lehmann@ans-netz.de>
+References: <003901c2f6e2$3f1c0d40$0a04a8c0@PLANETEORANGE.CA>
+	<20030331181836.0c9b67d0.lehmann@ans-netz.de>
+	<16008.28257.658768.820352@grasshopper.cs.duke.edu>
+	<20030331213003.4e67d88f.lehmann@ans-netz.de>
+Message-ID: <16008.40619.177277.973890@grasshopper.cs.duke.edu>
+
+
+Oliver Lehmann writes:
+
+
+ > 
+ > but why i got no crash-dump?
+
+crashdumps are hit or miss in -current.  Besides, you've not finished
+booting yet, so the dump device might not have gotten set.
+
+
+ > (kgdb) l *0xfffffc000039b51c
+ > 0xfffffc000039b51c is in pdq_stop (/usr/src/sys/dev/pdq/pdq.c:1327).
+ > 1322            for (cnt = 0; cnt < 1000; cnt++) {
+ > 1323                PDQ_OS_CONSUMER_POSTSYNC(pdq);
+ > 1324                pdq_process_command_responses(pdq);
+ > 1325                if (pdq->pdq_command_info.ci_response_producer == pdq->pdq_command_info.ci_response_completion)
+ > 1326                    break;
+ > 1327                PDQ_OS_USEC_DELAY(1000);
+ > 1328            }
+ > 1329            state = PDQ_PSTS_ADAPTER_STATE(PDQ_CSR_READ(csrs, csr_port_status));
+ > 1330        }
+ > 1331    
+ > (kgdb) 
+
+Probably something in pdq_process_command_responses().
+Maybe its accessing PCI mem directly w/going through busspace
+accessors. 
+
+Either that, or the device initiated a bad dma...
+
+Can you try the following patch & see if it helps?
+
+Drew
+
+
+Index: if_fpa.c
+===================================================================
+RCS file: /home/ncvs/src/sys/dev/pdq/if_fpa.c,v
+retrieving revision 1.17
+diff -u -r1.17 if_fpa.c
+--- if_fpa.c	2 Jun 2002 20:05:45 -0000	1.17
++++ if_fpa.c	31 Mar 2003 20:00:17 -0000
+@@ -144,7 +144,7 @@
+     sc->mem_rid = PCI_CBMA;
+     sc->mem_type = SYS_RES_MEMORY;
+     sc->mem = bus_alloc_resource(dev, sc->mem_type, &sc->mem_rid,
+-				 0, ~0, 1, RF_ACTIVE);
++				 0, ~0, 1, RF_ACTIVE | PCI_RF_DENSE);
+     if (!sc->mem) {
+ 	device_printf(dev, "Unable to allocate I/O space resource.\n");
+ 	error = ENXIO;
+From paul at infoeng.flinders.edu.au  Mon Mar 31 18:56:11 2003
+From: paul at infoeng.flinders.edu.au (Paul Gardner-Stephen)
+Date: Mon Mar 31 18:56:14 2003
+Subject: OSF binary emulation problem 
+In-Reply-To: Your message of "Mon, 31 Mar 2003 08:25:12 EST."
+             <16008.16824.753151.308099@grasshopper.cs.duke.edu> 
+Message-ID: <200304010256.h312u3l16467@mail1.infoeng.flinders.edu.au>
+
+> > I am having problems running OSF 4.0 binaries under FreeBSD 5.0-RELEASE on
+> > an alpha personal workstation 500au:
+> 
+> Its a bug in 5.0 that only bites SMP kernels (GENERIC is SMP on
+> alpha).  This was just fixed Sat. in -currrent.  See the freebsd-alpha
+> archives for the patch.  Or rebuild a kernel without 'options SMP', or
+> upgrade to -current.
+
+Thanks, I'll start by compiling without SMP and let you know how I go.
+
+Paul.
+
+From paul at infoeng.flinders.edu.au  Mon Mar 31 20:22:44 2003
+From: paul at infoeng.flinders.edu.au (Paul Gardner-Stephen)
+Date: Mon Mar 31 20:22:48 2003
+Subject: OSF binary emulation problem 
+In-Reply-To: Your message of "Mon, 31 Mar 2003 08:25:12 EST."
+             <16008.16824.753151.308099@grasshopper.cs.duke.edu> 
+Message-ID: <200304010422.h314Mal19098@mail1.infoeng.flinders.edu.au>
+
+Hi Andres,
+
+> Its a bug in 5.0 that only bites SMP kernels (GENERIC is SMP on
+> alpha).  This was just fixed Sat. in -currrent.  See the freebsd-alpha
+> archives for the patch.  Or rebuild a kernel without 'options SMP', or
+> upgrade to -current.
+
+All is working now.  Thanks for the tip.
+
+matlab 5 is now running fine, including GUI.
+Now to get mathematica running...
+
+Paul.
+
+From lehmann at ans-netz.de  Mon Mar 31 21:18:59 2003
+From: lehmann at ans-netz.de (Oliver Lehmann)
+Date: Mon Mar 31 21:19:02 2003
+Subject: Does anyone use a FDDI card on 5.0?
+In-Reply-To: <16008.40619.177277.973890@grasshopper.cs.duke.edu>
+References: <003901c2f6e2$3f1c0d40$0a04a8c0@PLANETEORANGE.CA>
+	<20030331181836.0c9b67d0.lehmann@ans-netz.de>
+	<16008.28257.658768.820352@grasshopper.cs.duke.edu>
+	<20030331213003.4e67d88f.lehmann@ans-netz.de>
+	<16008.40619.177277.973890@grasshopper.cs.duke.edu>
+Message-ID: <20030331233509.21ba9cce.lehmann@ans-netz.de>
+
+Andrew Gallatin wrote:
+
+> Probably something in pdq_process_command_responses().
+> Maybe its accessing PCI mem directly w/going through busspace
+> accessors. 
+> 
+> Either that, or the device initiated a bad dma...
+> 
+> Can you try the following patch & see if it helps?
+> 
+> Drew
+> 
+> 
+> Index: if_fpa.c
+> ===================================================================
+> RCS file: /home/ncvs/src/sys/dev/pdq/if_fpa.c,v
+> retrieving revision 1.17
+> diff -u -r1.17 if_fpa.c
+> --- if_fpa.c	2 Jun 2002 20:05:45 -0000	1.17
+> +++ if_fpa.c	31 Mar 2003 20:00:17 -0000
+> @@ -144,7 +144,7 @@
+>      sc->mem_rid = PCI_CBMA;
+>      sc->mem_type = SYS_RES_MEMORY;
+>      sc->mem = bus_alloc_resource(dev, sc->mem_type, &sc->mem_rid,
+> -				 0, ~0, 1, RF_ACTIVE);
+> +				 0, ~0, 1, RF_ACTIVE | PCI_RF_DENSE);
+>      if (!sc->mem) {
+>  	device_printf(dev, "Unable to allocate I/O space resource.\n");
+>  	error = ENXIO;
+> 
+> 
+
+Still the same problem:
+
+fpa0: <Digital DEFPA PCI FDDI Controller> port 0x10180-0x101ff mem
+0x82030000-0x8203ffff,0x82041180-0x820411ff irq 3 at device 9.0 on pci0
+
+unexpected machine check:
+
+    mces    = 0x1
+    vector  = 0x660
+    param   = 0xfffffc0000006068
+    pc      = 0xfffffc0000530d80
+    ra      = 0xfffffc000039b51c
+    curproc = 0xfffffc00005fdaf8
+        pid = 0, comm = swapper
+
+Stopped at      DELAY+0x50:     ldq 
+
+
+
+-- 
+ Oliver Lehmann
+        @home: lehmann@ans-netz.de
+      @office: oliver.lehmann@mgi.de
+         @www: http://www.pofo.de/  |  http://wishlist.ans-netz.de/
+From lehmann at ans-netz.de  Mon Mar 31 21:22:45 2003
+From: lehmann at ans-netz.de (Oliver Lehmann)
+Date: Mon Mar 31 21:22:47 2003
+Subject: Fw: Re: Does anyone use a FDDI card on 5.0?
+Message-ID: <20030401072236.37350d34.lehmann@ans-netz.de>
+
+Andrew Gallatin wrote:
+
+> Probably something in pdq_process_command_responses().
+> Maybe its accessing PCI mem directly w/going through busspace
+> accessors. 
+> 
+> Either that, or the device initiated a bad dma...
+> 
+> Can you try the following patch & see if it helps?
+> 
+> Drew
+> 
+> 
+> Index: if_fpa.c
+> ===================================================================
+> RCS file: /home/ncvs/src/sys/dev/pdq/if_fpa.c,v
+> retrieving revision 1.17
+> diff -u -r1.17 if_fpa.c
+> --- if_fpa.c	2 Jun 2002 20:05:45 -0000	1.17
+> +++ if_fpa.c	31 Mar 2003 20:00:17 -0000
+> @@ -144,7 +144,7 @@
+>      sc->mem_rid = PCI_CBMA;
+>      sc->mem_type = SYS_RES_MEMORY;
+>      sc->mem = bus_alloc_resource(dev, sc->mem_type, &sc->mem_rid,
+> -				 0, ~0, 1, RF_ACTIVE);
+> +				 0, ~0, 1, RF_ACTIVE | PCI_RF_DENSE);
+>      if (!sc->mem) {
+>  	device_printf(dev, "Unable to allocate I/O space resource.\n");
+>  	error = ENXIO;
+> 
+> 
+
+Still the same problem:
+
+fpa0: <Digital DEFPA PCI FDDI Controller> port 0x10180-0x101ff mem
+0x82030000-0x8203ffff,0x82041180-0x820411ff irq 3 at device 9.0 on pci0
+
+unexpected machine check:
+
+    mces    = 0x1
+    vector  = 0x660
+    param   = 0xfffffc0000006068
+    pc      = 0xfffffc0000530d80
+    ra      = 0xfffffc000039b51c
+    curproc = 0xfffffc00005fdaf8
+        pid = 0, comm = swapper
+
+Stopped at      DELAY+0x50:     ldq 
+
+
+
+-- 
+ Oliver Lehmann
+        @home: lehmann@ans-netz.de
+      @office: oliver.lehmann@mgi.de
+         @www: http://www.pofo.de/  |  http://wishlist.ans-netz.de/

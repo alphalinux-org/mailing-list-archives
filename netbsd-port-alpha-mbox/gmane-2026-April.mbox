@@ -1,0 +1,3876 @@
+From dc@genunix.com  Fri Apr 17 10:00:35 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Dennis Clarke <dc@genunix.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: The problems in src/sys/dev/ic/isp.c
+Date: Fri, 17 Apr 2026 10:00:35 -0400
+Approved: news@gmane.org
+Message-ID: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="------------4ZWYCKPw0str6UE5qh5FzB6z"
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="28091"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla Thunderbird
+Cc: Jason Thorpe <thorpej@me.com>, John Klos <john@klos.com>
+To: "port-alpha@netbsd.org" <port-alpha@NetBSD.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Fri Apr 17 16:15:04 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wDjyI-00075O-Ry
+	for netbsd-port-alpha@m.gmane-mx.org; Fri, 17 Apr 2026 16:15:03 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 5496685638; Fri, 17 Apr 2026 14:14:57 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id AA5B284CC2
+	for <port-alpha@NetBSD.org>; Fri, 17 Apr 2026 14:14:50 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=genunix.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id rZsC0aYlKsgN for <port-alpha@netbsd.org>;
+	Fri, 17 Apr 2026 14:14:49 +0000 (UTC)
+X-Greylist: delayed 817 seconds by postgrey-1.37 at homeworld.NetBSD.org; Fri, 17 Apr 2026 14:14:49 UTC
+Original-Received: from mail.oetec.com (mail.oetec.com [108.160.241.186])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 5970E85638
+	for <port-alpha@NetBSD.org>; Fri, 17 Apr 2026 14:14:49 +0000 (UTC)
+Original-Received: from [172.16.35.3] (pool-99-253-118-250.cpe.net.cable.rogers.com [99.253.118.250])
+	(authenticated bits=0)
+	by mail.oetec.com (8.17.1/8.17.1) with ESMTPSA id 63HE0ZGB017559
+	(version=TLSv1.3 cipher=TLS_AES_128_GCM_SHA256 bits=128 verify=NOT);
+	Fri, 17 Apr 2026 10:00:42 -0400 (EDT)
+	(envelope-from dc@genunix.com)
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple; d=genunix.com;
+	s=default; t=1776434442;
+	bh=lwHp1NhgU0NH/9nLjiEv3La5uANjSHLwE8mpOlINNAs=;
+	h=Date:To:Cc:From:Subject;
+	b=KflnL8z8z2no9ZPzkLW7xGj+zzHCGMQhiecXGHMBU+cVKKY3o2RS8XDOAc5qXjGjd
+	 tN6oKlvymONXW0NalS0XPVh/rOHE+tkMUvchmnEdZPdpSGfesfO9pvxhgzvqVbTtD7
+	 N9ahfxACt1Agc1nuiyzyXD+qmfZCUshtn83qUDVADYZ4Gf7BXmvDuyEyU0rnxKHXZH
+	 mdauLK3TH8FM/DehD8IGiqNC5MRx892F/SEmohwsfV1ntpKvHE5xg+/NsAS8kGF+RR
+	 RWdgA7e0FHG3owd10TKaj9MniLPuVy1Dm9XjE/3Q3DapbqfUkEQsRE69t/nXKVpqlp
+	 nxqQ3lsKix9PA==
+Content-Language: en-CA
+Autocrypt: addr=dc@genunix.com; keydata=
+ xjMEZpuckhYJKwYBBAHaRw8BAQdAHZtmqkx1WtHIbgvlSIPjF5r5inw6XbdeLQbHbUC2V2jN
+ IURlbm5pcyBNLiBDbGFya2UgPGRjQGdlbnVuaXguY29tPsKTBBMWCgA7FiEEGmDUSc9bgPYJ
+ I9pZZGGjzzCOmvsFAmabnJICGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQZGGj
+ zzCOmvtUCAEA+OqwUmT4BN1YOwTz16UtOuZxHnQYtF9ZYsnp0j15GCAA/2NVJVhI/hju4/Dn
+ hg9cgT9kf1m/nJtchdz4kaUGI/kGzjgEZpuckhIKKwYBBAGXVQEFAQEHQP4D1FVCX/f3kHUV
+ oOu+y5Z8JAGBq0hNY35fHcEVyMJ8AwEIB8J4BBgWCgAgFiEEGmDUSc9bgPYJI9pZZGGjzzCO
+ mvsFAmabnJICGwwACgkQZGGjzzCOmvubcQEAmOhOtYELmUZ5U1+cHDgFD6bi078EREcLsqRU
+ NDwBW90BAORCOd8leIVrRf+Orx7HeTXY3XOzFi7VjJ4ukkxd6hkN
+X-oetec-MailScanner-Information: Please contact the ISP for more information
+X-oetec-MailScanner-ID: 63HE0ZGB017559
+X-oetec-MailScanner: Found to be clean
+X-oetec-MailScanner-From: dc@genunix.com
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5616
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5616>
+
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--------------4ZWYCKPw0str6UE5qh5FzB6z
+Content-Type: multipart/mixed; boundary="------------Xkmd1RxjC07rpJP2LXjKzuB1";
+ protected-headers="v1"
+From: Dennis Clarke <dc@genunix.com>
+To: "port-alpha@netbsd.org" <port-alpha@NetBSD.org>
+Cc: Jason Thorpe <thorpej@me.com>, John Klos <john@klos.com>
+Message-ID: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+Subject: The problems in src/sys/dev/ic/isp.c
+
+--------------Xkmd1RxjC07rpJP2LXjKzuB1
+Content-Type: multipart/mixed; boundary="------------RqCRFKCRJzqapjuli9C3UywG"
+
+--------------RqCRFKCRJzqapjuli9C3UywG
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: base64
+
+DQpIZWxsbyBhZ2Fpbi4NCg0KSSBjb21wbGV0ZWx5IG1pc3NlZCB0aGlzIG1lc3NhZ2UgZnJv
+bSAyNXRoIE1hcmNoIDoNCg0KICAgICBodHRwczovL21haWwtaW5kZXgubmV0YnNkLm9yZy9w
+b3J0LWFscGhhLzIwMjYvMDMvMjYvbXNnMDAxNDU5Lmh0bWwNCg0KV2hpY2ggbWVhbnMgSSBs
+ZWZ0IHRoZSBtYWNoaW5lIHJ1bm5pbmcgT3BlbkJTRCA3LjggYW5kIHRyaWVkIHRvIGdldCBh
+DQpHQ0MgYm9vdHN0cmFwIGdvaW5nLiBUaGF0IGhhcyBiZWVuIGEgcmVhbCBuaWdodG1hcmUg
+bGV0IG1lIHRlbGwgeW91Lg0KTm8gb25lIHNlZW1zIHRvIGtub3cgaG93IHRvIG1ha2UgdGhh
+dCBoYXBwZW4gYW5kIEkgYW0gc3RpbGwgZGlnZ2luZy4NCg0KSSB3b3VsZCBob3BlIHRoYXQg
+dGhlIHdvcmxkIG9mIE5ldEJTRCB3b3VsZCBiZSBmYXIgbW9yZSByZWFzb25hYmxlICppZioN
+Cml0IHdvdWxkIG9ubHkgcnVuIHN0YWJsZSB3aXRoIHRoZSBzcmMvc3lzL2Rldi9pYy9pc3Au
+YyBzaXR1YXRpb25bMV0uDQoNCiBGcm9tIHRoZSBtZXNzYWdlIHBvc3RlZCAyNSBNYXIgMjAy
+NiAxOTowNToxNCAtMDcwMCBieSBKYXNvbiBUaG9ycGUgd2UNCnNlZSB0aGF0IHRoZXJlIGlz
+IGEgInNjYXZlbmdlZCIgSVNQMTAyMEEgYm9hcmQgb3V0IG9mIGEgQWxwaGFTdGF0aW9uIDIw
+MA0KdW5pdC4NCg0KVG8gYWxsb3cgZm9yIE5ldEJTRCBleHBlcmltZW50cyBJIG5vdyBoYXZl
+IGlzb2xhdGVkIHRoZSBPcGVuQlNEIHRvIGENCnNpbmdsZSBleHRlcm5hbCBTdW4gTWljcm9z
+eXN0ZW1zIGRpc2sgcGFjayA6DQoNCiAgICAgaHR0cHM6Ly93d3cuZ2VudW5peC5jb20vZGNs
+YXJrZS9hbHBoYS9leHRlcm5hbF9TQ1NJX2Rpc2tfcGFja19tLnBuZw0KDQpUaGlzIGlzIG5v
+dCBpZGVhbCBidXQgaXQgd29ya3MuIEhvd2V2ZXIgaXQgYmVhdHMgdGhlIEJsdWVTQ1NJIGhh
+Y2thcnkNCmFsbCBkYXkgbG9uZyBhbmQgYWxsIG5pZ2h0LiBUaGUgb3RoZXIgU3VuIFNDU0kg
+c3RvcmFnZSBhcnJheSBpcyBzdGFuZGluZw0KYnkgZG9pbmcgbm90aGluZyBtdWNoLiBJdCB3
+aWxsIGJlIHVzZWQgZm9yIE5ldEJTRCBleHBlcmltZW50cy4gSW4gdGhpcw0Kd2F5IEkgaGF2
+ZSBpc29sYXRlZCB0aGUgT3BlbkJTRCBhd2F5IGZyb20gdGhlIE5ldEJTRCBzdG9yYWdlIHF1
+aXRlIHdlbGwuDQpUaGUgb25seSBtaW5vciBpbmNvbnZlbmllbmNlIGlzIHRoYXQgSSBuZWVk
+IHRvIHNodXRkb3duIHRvIHRoZSBmaXJtd2FyZQ0KYW5kIHRoZW4gc3dhcCBTQ1NJIGNhYmxl
+cy4gVGhhdCBpcyBtaW5vci4gSSB0cmFjayBteSB1cGRhdGVzIGF0IDoNCg0KICAgICBodHRw
+czovL3d3dy5nZW51bml4LmNvbS9kY2xhcmtlL2FscGhhLw0KDQpOb3RoaW5nIHRoZXJlIGFi
+b3V0IFRydTY0IFVOSVgodG0pIHNpbXBseSBiZWNhdXNlIEkgY291bGQgbm90IGJlYXINCmFu
+b3RoZXIgbW9tZW50IG9mIGl0Lg0KDQoNCi0tIA0KRGVubmlzIENsYXJrZQ0KUklTQy1WL1NQ
+QVJDL1BQQy9BUk0vQ0lTQw0KVU5JWCBhbmQgTGludXggc3Bva2VuDQoNClsxXSBMZWVMb28g
+RGFsbGFzICJNdWx0aS1QYXNzIiBidWRkYWJvb20gbGluZSA1MDUzIHN5cy9kZXYvaWMvaXNw
+L2lzcC5jDQogICAgIGh0dHBzOi8vbWFpbC1pbmRleC5uZXRic2Qub3JnL3BvcnQtYWxwaGEv
+MjAyNi8wMy8xMC9tc2cwMDE0NDYuaHRtbA0KDQoNCg==
+--------------RqCRFKCRJzqapjuli9C3UywG
+Content-Type: application/pgp-keys; name="OpenPGP_0x6461A3CF308E9AFB.asc"
+Content-Disposition: attachment; filename="OpenPGP_0x6461A3CF308E9AFB.asc"
+Content-Description: OpenPGP public key
+Content-Transfer-Encoding: quoted-printable
+
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+xjMEZpuckhYJKwYBBAHaRw8BAQdAHZtmqkx1WtHIbgvlSIPjF5r5inw6XbdeLQbH
+bUC2V2jNIURlbm5pcyBNLiBDbGFya2UgPGRjQGdlbnVuaXguY29tPsKTBBMWCgA7
+FiEEGmDUSc9bgPYJI9pZZGGjzzCOmvsFAmabnJICGwMFCwkIBwICIgIGFQoJCAsC
+BBYCAwECHgcCF4AACgkQZGGjzzCOmvtUCAEA+OqwUmT4BN1YOwTz16UtOuZxHnQY
+tF9ZYsnp0j15GCAA/2NVJVhI/hju4/Dnhg9cgT9kf1m/nJtchdz4kaUGI/kGzjgE
+ZpuckhIKKwYBBAGXVQEFAQEHQP4D1FVCX/f3kHUVoOu+y5Z8JAGBq0hNY35fHcEV
+yMJ8AwEIB8J4BBgWCgAgFiEEGmDUSc9bgPYJI9pZZGGjzzCOmvsFAmabnJICGwwA
+CgkQZGGjzzCOmvubcQEAmOhOtYELmUZ5U1+cHDgFD6bi078EREcLsqRUNDwBW90B
+AORCOd8leIVrRf+Orx7HeTXY3XOzFi7VjJ4ukkxd6hkN
+=3DdoFY
+-----END PGP PUBLIC KEY BLOCK-----
+
+--------------RqCRFKCRJzqapjuli9C3UywG--
+
+--------------Xkmd1RxjC07rpJP2LXjKzuB1--
+
+--------------4ZWYCKPw0str6UE5qh5FzB6z
+Content-Type: application/pgp-signature; name="OpenPGP_signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="OpenPGP_signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+wnsEABYIACMWIQQaYNRJz1uA9gkj2llkYaPPMI6a+wUCaeI9AwUDAAAAAAAKCRBkYaPPMI6a+3TH
+AP9YK7Wm3q0bPRq/Yz1zi/3g+Qb7dPeRLiCX4lynaRshHgEAyG6MloZepCLxHTkmXaVFXQjToozM
+47iTnGBxsDoVyg8=
+=Vhhq
+-----END PGP SIGNATURE-----
+
+--------------4ZWYCKPw0str6UE5qh5FzB6z--
+
+
+From dc@genunix.com  Mon Apr 20 15:59:58 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Dennis Clarke <dc@genunix.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: The problems in src/sys/dev/ic/isp.c
+Date: Mon, 20 Apr 2026 15:59:58 -0400
+Approved: news@gmane.org
+Message-ID: <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="3608"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla Thunderbird
+Cc: Jason Thorpe <thorpej@me.com>, John Klos <john@klos.com>
+To: "port-alpha@netbsd.org" <port-alpha@NetBSD.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Mon Apr 20 22:00:45 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wEunU-0000i8-Tz
+	for netbsd-port-alpha@m.gmane-mx.org; Mon, 20 Apr 2026 22:00:45 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 9258084EE9; Mon, 20 Apr 2026 20:00:40 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 91A1884E65
+	for <port-alpha@NetBSD.org>; Mon, 20 Apr 2026 20:00:37 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=genunix.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id A5QF2La6pi2G for <port-alpha@netbsd.org>;
+	Mon, 20 Apr 2026 20:00:37 +0000 (UTC)
+Original-Received: from mail.oetec.com (mail.oetec.com [108.160.241.186])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 5CC3E84CC8
+	for <port-alpha@NetBSD.org>; Mon, 20 Apr 2026 20:00:35 +0000 (UTC)
+Original-Received: from [172.16.35.3] (pool-99-253-118-250.cpe.net.cable.rogers.com [99.253.118.250])
+	(authenticated bits=0)
+	by mail.oetec.com (8.17.1/8.17.1) with ESMTPSA id 63KJxwah018886
+	(version=TLSv1.3 cipher=TLS_AES_128_GCM_SHA256 bits=128 verify=NOT);
+	Mon, 20 Apr 2026 16:00:05 -0400 (EDT)
+	(envelope-from dc@genunix.com)
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple; d=genunix.com;
+	s=default; t=1776715206;
+	bh=JbLI0MIwGuxUV3vdIOjoPqVKFbRx4yJVwMlz1XsyO6k=;
+	h=Date:Subject:From:To:Cc:References:In-Reply-To;
+	b=ozERvTTiHJBwWOpHvCV6FhI408V6fpRtLKPtKX962oZ5LqonO8VqyHuW2bUyjSAH9
+	 G7NnYBFrHXaRffGgmqyP9bfSYyPWT5uHZlcY8KBbQR+3CjLFeL7f2M4Zp8qcI6odsw
+	 Sy9fvPRddtcDpuOvtMnLZfxCJuOmTpYisSD46R4V9PWXodvaQnSlEtc5YJfgJanXy3
+	 ACrpjie+YslD6L9H/7Kzzt+/0SYun69W5Ps7SKzqBzLj5OomHhhMGpwoPeud/srdMk
+	 eGkMKnmUBn3ylJii2PSSPwUY7Dbkq5FSWEq/QRNMnt9kKKJRhRaw9cWHo95PpATyIS
+	 BHBvi6xO76V9Q==
+Content-Language: en-CA
+Autocrypt: addr=dc@genunix.com; keydata=
+ xjMEZpuckhYJKwYBBAHaRw8BAQdAHZtmqkx1WtHIbgvlSIPjF5r5inw6XbdeLQbHbUC2V2jN
+ IURlbm5pcyBNLiBDbGFya2UgPGRjQGdlbnVuaXguY29tPsKTBBMWCgA7FiEEGmDUSc9bgPYJ
+ I9pZZGGjzzCOmvsFAmabnJICGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQZGGj
+ zzCOmvtUCAEA+OqwUmT4BN1YOwTz16UtOuZxHnQYtF9ZYsnp0j15GCAA/2NVJVhI/hju4/Dn
+ hg9cgT9kf1m/nJtchdz4kaUGI/kGzjgEZpuckhIKKwYBBAGXVQEFAQEHQP4D1FVCX/f3kHUV
+ oOu+y5Z8JAGBq0hNY35fHcEVyMJ8AwEIB8J4BBgWCgAgFiEEGmDUSc9bgPYJI9pZZGGjzzCO
+ mvsFAmabnJICGwwACgkQZGGjzzCOmvubcQEAmOhOtYELmUZ5U1+cHDgFD6bi078EREcLsqRU
+ NDwBW90BAORCOd8leIVrRf+Orx7HeTXY3XOzFi7VjJ4ukkxd6hkN
+In-Reply-To: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+X-oetec-MailScanner-Information: Please contact the ISP for more information
+X-oetec-MailScanner-ID: 63KJxwah018886
+X-oetec-MailScanner: Found to be clean
+X-oetec-MailScanner-From: dc@genunix.com
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5617
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5617>
+
+On 4/17/26 10:00, Dennis Clarke wrote:
+> 
+> Hello again.
+> 
+> I completely missed this message from 25th March :
+> 
+>      https://mail-index.netbsd.org/port-alpha/2026/03/26/msg001459.html
+> 
+
+     What is the deal here ?
+
+     The SCSI driver is borked and never to be looked at ?
+
+         [  ]  borked forever
+         [  ]  borked today
+         [  ]  cool thing to try to fix
+         [  ]  no one cares
+
+     Please select one or two of the above :)
+
+-- 
+Dennis Clarke
+RISC-V/SPARC/PPC/ARM/CISC
+UNIX and Linux spoken
+
+
+From thorpej@me.com  Mon Apr 20 22:09:33 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: The problems in src/sys/dev/ic/isp.c
+Date: Mon, 20 Apr 2026 22:09:33 +0100
+Approved: news@gmane.org
+Message-ID: <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+ <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com>
+Mime-Version: 1.0 (Mac OS X Mail 16.0 \(3826.500.181.1.5\))
+Content-Type: text/plain;
+	charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="7723"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: "port-alpha@netbsd.org" <port-alpha@NetBSD.org>,
+ John Klos <john@klos.com>
+To: Dennis Clarke <dc@genunix.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Mon Apr 20 23:09:56 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wEvsS-0001qC-2J
+	for netbsd-port-alpha@m.gmane-mx.org; Mon, 20 Apr 2026 23:09:56 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 390D584EEF; Mon, 20 Apr 2026 21:09:51 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 7C31284D8C
+	for <port-alpha@netbsd.org>; Mon, 20 Apr 2026 21:09:48 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id H9JyJCRj75wy for <port-alpha@netbsd.org>;
+	Mon, 20 Apr 2026 21:09:48 +0000 (UTC)
+Original-Received: from outbound.mr.icloud.com (p-west2-cluster4-host12-snip4-1.eps.apple.com [57.103.69.142])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id B32FC84D63
+	for <port-alpha@netbsd.org>; Mon, 20 Apr 2026 21:09:47 +0000 (UTC)
+Original-Received: from outbound.mr.icloud.com (unknown [127.0.0.2])
+	by p00-icloudmta-asmtp-us-west-2a-100-percent-8 (Postfix) with ESMTPS id ED8E11800155;
+	Mon, 20 Apr 2026 21:09:46 +0000 (UTC)
+Dkim-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=1a1hai; t=1776719387; x=1779311387; bh=DxhVYw0tacnm+oyQhoZwZhDggEjmLT20ba4TikWi9EI=; h=Content-Type:Mime-Version:Subject:From:Date:Message-Id:To:x-icloud-hme; b=j7dHk0+RiCxA47G4wsIiANdYjxzSiNr7IfpUB9eelC4+t9Max6OPiJGSlZ9qzO3jF9NdnlMPig2D9ZxnYjPUoEeP4KiIx18glkeIRkspVtMG4rPS9uSEdMqpgfpGy6vzmPiI+MkJIjWi2qhxT1bLE+D0aKgamhr8+p41LOmVNv35HySGHJdkjlRlsplKn9RyOxfYuL+G7YyVmfVNkQ1jJqxNxqidNetfRHdv/I9SamgTa/PLZ0Cwe2bOyGS0j7r7wSfNZCLRHjosy8EVuwlOEXGmW73jfU1jkiQ0fBub4mOc5D6IG69/dZ3KFyVQGOfdZkHxZAVtDUDtOh3gNgftJQ==
+Original-Received: from smtpclient.apple (unknown [17.57.152.38])
+	by p00-icloudmta-asmtp-us-west-2a-100-percent-8 (Postfix) with ESMTPSA id 038F6180014A;
+	Mon, 20 Apr 2026 21:09:45 +0000 (UTC)
+In-Reply-To: <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com>
+X-Mailer: Apple Mail (2.3826.500.181.1.5)
+X-Authority-Info-Out: v=2.4 cv=daqNHHXe c=1 sm=1 tr=0 ts=69e6961b
+ cx=c_apl:c_pps:t_out a=9OgfyREA4BUYbbCgc0Y0oA==:117
+ a=9OgfyREA4BUYbbCgc0Y0oA==:17 a=IkcTkHD0fZMA:10 a=A5OVakUREuEA:10
+ a=x7bEGLp0ZPQA:10 a=hNn9FkxD5tsA:10 a=VkNPw1HP01LnGYTKEx00:22
+ a=_ctWjzdLAAAA:8 a=3rB-XccgAAAA:8 a=vw06_zUnK9fumCA03KAA:9 a=QEXdDO2ut3YA:10
+ a=WoGCsytTnHKj16XvecxK:22 a=cuCC5UOfN2TUuuJiuoJa:22
+X-Proofpoint-Spam-Details-Enc: AW1haW4tMjYwNDIwMDIwNyBTYWx0ZWRfX1dAcJOdFA/NO
+ 3hIrLcvY1CY5DdfcXH+QPkArwNFJ7GpOdq+mBfh7Ix/pYy1emO5UrvCr++WVDsEf0leweemxWbw
+ 0Sdzyb8XQMISs8qn2o4tSwlAocKhUU3PdQDkYkeTIrvONkq7Icnt9eBgoBXhiW7ucA/n9y8U1vC
+ 5LAyqzGBFjIgNDc4jz/n5GGnK2AUnc59E2NnoSOVVwOy2fEe43iXH7YMXp4M/uhXxqQcXXXa4kT
+ 34UcZdRAZ3xAc7/LtPmZSGGJzUzxsYrAkySx2ERvSJ4KQqF+qQSGIbgssXo9A6GvRip4Da8daqn
+ phhGQq5KoEhQFN2bxaCuwBdhzKKbYsBG7J4Q3m4plkqeA9OED2+BIrQAs9/x5w=
+X-Proofpoint-ORIG-GUID: nqYxBD258pqqlAZGlwXXAn4taJCeXyK6
+X-Proofpoint-GUID: nqYxBD258pqqlAZGlwXXAn4taJCeXyK6
+X-Proofpoint-Virus-Version: vendor=baseguard
+ engine=ICAP:2.0.293,Aquarius:18.0.1143,Hydra:6.1.51,FMLib:17.12.100.49
+ definitions=2026-04-20_04,2026-04-20_02,2025-10-01_01
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 bulkscore=0
+ spamscore=0 clxscore=1011 phishscore=0 lowpriorityscore=0 mlxlogscore=327
+ adultscore=0 malwarescore=0 mlxscore=0 suspectscore=0 classifier=spam
+ authscore=0 adjust=0 reason=mlx scancount=1 engine=8.22.0-2601150000
+ definitions=main-2604200207
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5618
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5618>
+
+
+
+> On Apr 20, 2026, at 8:59=E2=80=AFPM, Dennis Clarke <dc@genunix.com> =
+wrote:
+>=20
+> On 4/17/26 10:00, Dennis Clarke wrote:
+>> Hello again.
+>> I completely missed this message from 25th March :
+>>     =
+https://mail-index.netbsd.org/port-alpha/2026/03/26/msg001459.html
+>=20
+>    What is the deal here ?
+
+What do you mean what=E2=80=99s the deal here?  I=E2=80=99ve had a fix =
+available and am waiting for someone to test it.
+
+-- thorpej
+
+
+
+From dc@genunix.com  Mon Apr 20 18:23:09 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Dennis Clarke <dc@genunix.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: The problems in src/sys/dev/ic/isp.c
+Date: Mon, 20 Apr 2026 18:23:09 -0400
+Approved: news@gmane.org
+Message-ID: <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+ <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com>
+ <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="30290"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla Thunderbird
+Cc: "port-alpha@netbsd.org" <port-alpha@NetBSD.org>, John Klos <john@klos.com>
+To: Jason Thorpe <thorpej@me.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Tue Apr 21 00:23:58 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wEx25-0007fL-LV
+	for netbsd-port-alpha@m.gmane-mx.org; Tue, 21 Apr 2026 00:23:58 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 824A684E65; Mon, 20 Apr 2026 22:23:50 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id EADF484D8C
+	for <port-alpha@NetBSD.org>; Mon, 20 Apr 2026 22:23:46 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=genunix.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id mCB6wMcFSKOo for <port-alpha@netbsd.org>;
+	Mon, 20 Apr 2026 22:23:46 +0000 (UTC)
+Original-Received: from mail.oetec.com (mail.oetec.com [108.160.241.186])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id CE33B84D22
+	for <port-alpha@NetBSD.org>; Mon, 20 Apr 2026 22:23:45 +0000 (UTC)
+Original-Received: from [172.16.35.3] (pool-99-253-118-250.cpe.net.cable.rogers.com [99.253.118.250])
+	(authenticated bits=0)
+	by mail.oetec.com (8.17.1/8.17.1) with ESMTPSA id 63KMN9JG023087
+	(version=TLSv1.3 cipher=TLS_AES_128_GCM_SHA256 bits=128 verify=NOT);
+	Mon, 20 Apr 2026 18:23:16 -0400 (EDT)
+	(envelope-from dc@genunix.com)
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple; d=genunix.com;
+	s=default; t=1776723797;
+	bh=6uSPvQpnvRFaXjFLm7mEEslc4kRFZGy6QbqS1+ncVFc=;
+	h=Date:Subject:To:Cc:References:From:In-Reply-To;
+	b=X50Ics4GPiK8W4i8Hv4Q7F4pfK+BlsXpo6/PaSbZa6hjFEzHx/+QjnySNg6Xy3GnW
+	 qFLvRCPr2V05RvNgF+vhyXnlkwAUKAV3BAXknDPRwKOW2Ri+q+WhI29Dnf01uFoWRz
+	 O9CUOoO3vj3jMADTNzFj6pqpllTLt0+9rUDHr9+FGweR0DPEjXcTj5V6vnAEELPtHU
+	 KBDKrv4SmoRXVQ9vuQXiD1y324FyqhQ28vIeeJuV1zFz+OkUik02bpmz+56+1wty4o
+	 ver6DBhkmxi4mH7LiQuZUN6NXGVNXwXqBSSBuZNsp4ogbHGxqpcgHcjhTYXgRiwPOb
+	 F2wS0oW8maF7g==
+Content-Language: en-CA
+Autocrypt: addr=dc@genunix.com; keydata=
+ xjMEZpuckhYJKwYBBAHaRw8BAQdAHZtmqkx1WtHIbgvlSIPjF5r5inw6XbdeLQbHbUC2V2jN
+ IURlbm5pcyBNLiBDbGFya2UgPGRjQGdlbnVuaXguY29tPsKTBBMWCgA7FiEEGmDUSc9bgPYJ
+ I9pZZGGjzzCOmvsFAmabnJICGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQZGGj
+ zzCOmvtUCAEA+OqwUmT4BN1YOwTz16UtOuZxHnQYtF9ZYsnp0j15GCAA/2NVJVhI/hju4/Dn
+ hg9cgT9kf1m/nJtchdz4kaUGI/kGzjgEZpuckhIKKwYBBAGXVQEFAQEHQP4D1FVCX/f3kHUV
+ oOu+y5Z8JAGBq0hNY35fHcEVyMJ8AwEIB8J4BBgWCgAgFiEEGmDUSc9bgPYJI9pZZGGjzzCO
+ mvsFAmabnJICGwwACgkQZGGjzzCOmvubcQEAmOhOtYELmUZ5U1+cHDgFD6bi078EREcLsqRU
+ NDwBW90BAORCOd8leIVrRf+Orx7HeTXY3XOzFi7VjJ4ukkxd6hkN
+In-Reply-To: <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com>
+X-oetec-MailScanner-Information: Please contact the ISP for more information
+X-oetec-MailScanner-ID: 63KMN9JG023087
+X-oetec-MailScanner: Found to be clean
+X-oetec-MailScanner-From: dc@genunix.com
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5619
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5619>
+
+On 4/20/26 17:09, Jason Thorpe wrote:
+> 
+> 
+>> On Apr 20, 2026, at 8:59 PM, Dennis Clarke <dc@genunix.com> wrote:
+>>
+>> On 4/17/26 10:00, Dennis Clarke wrote:
+>>> Hello again.
+>>> I completely missed this message from 25th March :
+>>>      https://mail-index.netbsd.org/port-alpha/2026/03/26/msg001459.html
+>>
+>>     What is the deal here ?
+> 
+> What do you mean what’s the deal here?  I’ve had a fix available and am waiting for someone to test it.
+> 
+> -- thorpej
+> 
+> 
+
+As Paul Newman was told : What we have here is a failure to communicate.
+
+However that is not the way I want it!
+
+A fix ... really? Where? How?  Is there a way to implement that and cook
+up a release candidate type CDROM image or any other magic? I am so very
+much interested and happy to jump on this. Today. Tonight. Tomorrow.
+
+Whatever it takes :)
+
+
+-- 
+Dennis Clarke
+RISC-V/SPARC/PPC/ARM/CISC
+UNIX and Linux spoken
+
+
+From thorpej@me.com  Tue Apr 21 10:57:49 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: The problems in src/sys/dev/ic/isp.c
+Date: Tue, 21 Apr 2026 10:57:49 +0100
+Approved: news@gmane.org
+Message-ID: <FD3F4CD9-A625-4633-B784-4FA116A04F8D@me.com>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+ <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com>
+ <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com>
+ <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com>
+ <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com>
+Mime-Version: 1.0 (Mac OS X Mail 16.0 \(3826.500.181.1.5\))
+Content-Type: text/plain;
+	charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="29015"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: Dennis Clarke <dc@genunix.com>,
+ "port-alpha@netbsd.org" <port-alpha@NetBSD.org>,
+ John Klos <john@klos.com>
+To: Istvan Gyenes <igyenes@gmail.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Tue Apr 21 11:58:14 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wF7ry-0007O7-A5
+	for netbsd-port-alpha@m.gmane-mx.org; Tue, 21 Apr 2026 11:58:14 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 26B68855BA; Tue, 21 Apr 2026 09:58:09 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 60ADB855B3
+	for <port-alpha@netbsd.org>; Tue, 21 Apr 2026 09:58:06 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id JG5bjY6XLBlY for <port-alpha@netbsd.org>;
+	Tue, 21 Apr 2026 09:58:05 +0000 (UTC)
+Original-Received: from outbound.pv.icloud.com (pv-2001c-snip4-6.eps.apple.com [57.103.64.109])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 761ED84CC9
+	for <port-alpha@netbsd.org>; Tue, 21 Apr 2026 09:58:05 +0000 (UTC)
+Original-Received: from outbound.pv.icloud.com (unknown [127.0.0.2])
+	by p00-icloudmta-asmtp-us-west-1a-60-percent-11 (Postfix) with ESMTPS id 21A671800278;
+	Tue, 21 Apr 2026 09:58:03 +0000 (UTC)
+X-ICL-Out-Info: HUtFAUMHWwJACUgBTUQeDx5WFlZNRAJCTQhABkMGXwFeCk8dXAFLVxQEDFsCRRtXGnkVVkNUBF9QXxwOGV8EQABcEnMAUkVRH1RYQQ4KXxIYXBRcUFgeRhJWDV0JGRtEXlAbXwJCDxwTVhUTHUMZDysISgRDB0UCXgslEwlTVl8VFxtcABcGWxQERHUpBC0GM31BHiwBWQddDU4AXhopBUgNVQcrdloDRnhIBysPL3IdXFZQAlpVEgRACFZQXgheH0wc
+Dkim-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=1a1hai; t=1776765484; x=1779357484; bh=JiE3wOJp7KloeglOblaKu5v0y+cOu7GNfaw/xp0qeSY=; h=Content-Type:Mime-Version:Subject:From:Date:Message-Id:To:x-icloud-hme; b=CMvYYduTTPf0ZkEbVPPnk1qe2Mv1ph+e3Nb1Q8W0wa955EV45UbJ96VSUnFEwryD1BsJzwqi8AON6IRNUv6esOCPbPkKjb/8+cihR43MIEWxkvszneaK0B0ZcYf32o0skowJo3zRn9BnmyoxebIXUqH7hncFzJaWtwiSrsDbwu1zHhqwejj6h89it94Jvf+QNg37C1iuI6cMmIAtEVDfekP1mAblCgpMcpvRiPesuc013hL6/rbcA8H6l0XfAfIC2k1O67DeGaG3f++pcqcckb5/pk8BYh4hlyEgZsowUa6x3lkTb5lhvNkhOdH5OFVAeDi6gWyYfkuaQugnQ4/cpw==
+Original-Received: from smtpclient.apple (unknown [17.56.9.36])
+	by p00-icloudmta-asmtp-us-west-1a-60-percent-11 (Postfix) with ESMTPSA id B787B1800872;
+	Tue, 21 Apr 2026 09:58:01 +0000 (UTC)
+In-Reply-To: <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com>
+X-Mailer: Apple Mail (2.3826.500.181.1.5)
+X-Authority-Info-Out: v=2.4 cv=NPbYOk6g c=1 sm=1 tr=0 ts=69e74a2b
+ cx=c_apl:c_pps:t_out a=azHRBMxVc17uSn+fyuI/eg==:117
+ a=azHRBMxVc17uSn+fyuI/eg==:17 a=IkcTkHD0fZMA:10 a=A5OVakUREuEA:10
+ a=x7bEGLp0ZPQA:10 a=hNn9FkxD5tsA:10 a=VkNPw1HP01LnGYTKEx00:22
+ a=_ctWjzdLAAAA:8 a=pGLkceISAAAA:8 a=9vR3Qz6y-nPzVv_vTFEA:9 a=QEXdDO2ut3YA:10
+ a=WoGCsytTnHKj16XvecxK:22
+X-Proofpoint-GUID: V6gHjxINsrkZYfdeqn8EDjirHa179sBU
+X-Proofpoint-ORIG-GUID: V6gHjxINsrkZYfdeqn8EDjirHa179sBU
+X-Proofpoint-Spam-Details-Enc: AW1haW4tMjYwNDIxMDA5NyBTYWx0ZWRfX/gDMn8h4ttNX
+ ADj88Q9owXUpTR5ttcKnYxQULIertSCbTu0f/iYrCImALVROcg7WlYmxdFaMnPSp63d5xz58Oo4
+ vq4zLBRgas5sI3V/KUG/eJ9X7j89aSg4G4WdV/KLvvrvbVcwf4VxqKSNr5LTlMJSBW4xdbU7Ch8
+ p54X/0SS4S6nw8YJE3ZFEnAXsi16uUFwnPMjgvfLv8QdmtWk1ZJxhnehO97bGE1wY0Wqva0H/nE
+ +eVuxy/k8g2/50nwztQ5L963a03mxes5256OIF7EQOiXeMJaHS9CemDaTwA0yb92TCXLc1NE8ia
+ 1D9AwaM0y8qPTlcNm08TdSKpR/rylZ4KSyeJ5om9Mwj+TgkeG2jEAb4R89d0ns=
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5620
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5620>
+
+
+
+> On Apr 21, 2026, at 8:45=E2=80=AFAM, Istvan Gyenes <igyenes@gmail.com> =
+wrote:
+>=20
+> You can always make a bootable iso-image on your own as you can =
+cross-compile and cross-build alpha target on a x64 host.
+> See: https://www.netbsd.org/docs/guide/en/chap-build.html
+>=20
+> I have done many times (maybe on a linux host) when Jason worked on =
+the Jensen=E2=80=99s boot problems, so if you make a netbsd source =
+available and have a recent laptop/desktop you can have a fresh iso =
+image in your hands in hours.
+
+I=E2=80=99ll be able to build him one in a day or two.  I just happen to =
+be at Heathrow at the moment, and not able to reach the machine I use =
+for builds.
+
+-- thorpej
+
+
+
+From dc@genunix.com  Tue Apr 21 18:41:26 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Dennis Clarke <dc@genunix.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: The problems in src/sys/dev/ic/isp.c
+Date: Tue, 21 Apr 2026 18:41:26 -0400
+Approved: news@gmane.org
+Message-ID: <2091930f-1367-46aa-a80a-a68d2f9f796f@genunix.com>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+ <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com>
+ <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com>
+ <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com>
+ <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="25451"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla Thunderbird
+Cc: "port-alpha@netbsd.org" <port-alpha@NetBSD.org>, John Klos <john@klos.com>
+To: Istvan Gyenes <igyenes@gmail.com>, Jason Thorpe <thorpej@me.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Wed Apr 22 00:42:09 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wFJnE-0006Rr-Tm
+	for netbsd-port-alpha@m.gmane-mx.org; Wed, 22 Apr 2026 00:42:09 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 21916856CA; Tue, 21 Apr 2026 22:42:04 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 617BA84D62
+	for <port-alpha@NetBSD.org>; Tue, 21 Apr 2026 22:42:01 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=genunix.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id XoAC8OVr8VxT for <port-alpha@netbsd.org>;
+	Tue, 21 Apr 2026 22:42:00 +0000 (UTC)
+Original-Received: from mail.oetec.com (mail.oetec.com [108.160.241.186])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 43DCF84CC9
+	for <port-alpha@NetBSD.org>; Tue, 21 Apr 2026 22:41:59 +0000 (UTC)
+Original-Received: from [172.16.35.3] (pool-99-253-118-250.cpe.net.cable.rogers.com [99.253.118.250])
+	(authenticated bits=0)
+	by mail.oetec.com (8.17.1/8.17.1) with ESMTPSA id 63LMfQIS058366
+	(version=TLSv1.3 cipher=TLS_AES_128_GCM_SHA256 bits=128 verify=NOT);
+	Tue, 21 Apr 2026 18:41:33 -0400 (EDT)
+	(envelope-from dc@genunix.com)
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple; d=genunix.com;
+	s=default; t=1776811294;
+	bh=IbCpmJe0/YqYowa1lZzrJV3RMKzuor95GhcC0E3AIUY=;
+	h=Date:Subject:To:Cc:References:From:In-Reply-To;
+	b=W1AhLYw/bsnvGjkOZq9ve1fbB5qGZFBK7h1CBZUibmDCHnOjnusGsQUPlMA73iOTX
+	 6Tv4FCyeyyQNpR4KM4EORpPoHal95e/RqWA8NrHM9lwrEqtOGw6dumK67Ry+C72Mcu
+	 OBaImZvmlHpXVWm6FbiMZH8rxPtsiKF7BWbCocPztb85kJP+nNhdPheAEV1v06zZlu
+	 3idCd1m8vBXWoiQCUNm8+X1boaVCuUdkbUKslZ9xQKF4mM6DyNzDTykLjgobtmLHBt
+	 bRaWcT8UiCIbvrE1Ipoa4JgdIALUeugocAfRTRKqQAQ8VH+TlIw3yzRcOLnif9gTyj
+	 +i9mbjR+xYHvA==
+Content-Language: en-CA
+Autocrypt: addr=dc@genunix.com; keydata=
+ xjMEZpuckhYJKwYBBAHaRw8BAQdAHZtmqkx1WtHIbgvlSIPjF5r5inw6XbdeLQbHbUC2V2jN
+ IURlbm5pcyBNLiBDbGFya2UgPGRjQGdlbnVuaXguY29tPsKTBBMWCgA7FiEEGmDUSc9bgPYJ
+ I9pZZGGjzzCOmvsFAmabnJICGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQZGGj
+ zzCOmvtUCAEA+OqwUmT4BN1YOwTz16UtOuZxHnQYtF9ZYsnp0j15GCAA/2NVJVhI/hju4/Dn
+ hg9cgT9kf1m/nJtchdz4kaUGI/kGzjgEZpuckhIKKwYBBAGXVQEFAQEHQP4D1FVCX/f3kHUV
+ oOu+y5Z8JAGBq0hNY35fHcEVyMJ8AwEIB8J4BBgWCgAgFiEEGmDUSc9bgPYJI9pZZGGjzzCO
+ mvsFAmabnJICGwwACgkQZGGjzzCOmvubcQEAmOhOtYELmUZ5U1+cHDgFD6bi078EREcLsqRU
+ NDwBW90BAORCOd8leIVrRf+Orx7HeTXY3XOzFi7VjJ4ukkxd6hkN
+In-Reply-To: <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com>
+X-oetec-MailScanner-Information: Please contact the ISP for more information
+X-oetec-MailScanner-ID: 63LMfQIS058366
+X-oetec-MailScanner: Found to be clean
+X-oetec-MailScanner-From: dc@genunix.com
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5621
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5621>
+
+On 4/21/26 03:45, Istvan Gyenes wrote:
+> You can always make a bootable iso-image on your own as you can cross-compile and cross-build alpha target on a x64 host.
+> See: https://www.netbsd.org/docs/guide/en/chap-build.html
+> 
+> I have done many times (maybe on a linux host) when Jason worked on the Jensen’s boot problems, so if you make a netbsd source available and have a recent laptop/desktop you can have a fresh iso image in your hands in hours.
+> 
+
+Certainly worth a try.
+
+If I can follow the documentation then it may even work.
+
+
+
+-- 
+Dennis Clarke
+RISC-V/SPARC/PPC/ARM/CISC
+UNIX and Linux spoken
+
+
+From dc@genunix.com  Tue Apr 21 18:42:43 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Dennis Clarke <dc@genunix.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: The problems in src/sys/dev/ic/isp.c
+Date: Tue, 21 Apr 2026 18:42:43 -0400
+Approved: news@gmane.org
+Message-ID: <be97099f-65bf-4dcb-ac61-4d2b31dc74fd@genunix.com>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+ <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com>
+ <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com>
+ <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com>
+ <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com>
+ <FD3F4CD9-A625-4633-B784-4FA116A04F8D@me.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="28186"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla Thunderbird
+Cc: "port-alpha@netbsd.org" <port-alpha@NetBSD.org>, John Klos <john@klos.com>
+To: Jason Thorpe <thorpej@me.com>, Istvan Gyenes <igyenes@gmail.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Wed Apr 22 00:43:13 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wFJoH-0007F2-4L
+	for netbsd-port-alpha@m.gmane-mx.org; Wed, 22 Apr 2026 00:43:13 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 0ECBF856D3; Tue, 21 Apr 2026 22:43:10 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id D4952856CE
+	for <port-alpha@NetBSD.org>; Tue, 21 Apr 2026 22:43:06 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=genunix.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id bx-hcGTU9KfW for <port-alpha@netbsd.org>;
+	Tue, 21 Apr 2026 22:43:06 +0000 (UTC)
+Original-Received: from mail.oetec.com (mail.oetec.com [108.160.241.186])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id AFF9684CC9
+	for <port-alpha@NetBSD.org>; Tue, 21 Apr 2026 22:43:05 +0000 (UTC)
+Original-Received: from [172.16.35.3] (pool-99-253-118-250.cpe.net.cable.rogers.com [99.253.118.250])
+	(authenticated bits=0)
+	by mail.oetec.com (8.17.1/8.17.1) with ESMTPSA id 63LMghhA058430
+	(version=TLSv1.3 cipher=TLS_AES_128_GCM_SHA256 bits=128 verify=NOT);
+	Tue, 21 Apr 2026 18:42:43 -0400 (EDT)
+	(envelope-from dc@genunix.com)
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple; d=genunix.com;
+	s=default; t=1776811363;
+	bh=Z0PJn5CHAH9bs7MSXuZXkgAsJoUz/OPl2WG2qgZeCwU=;
+	h=Date:Subject:To:Cc:References:From:In-Reply-To;
+	b=cMUjkG9EBU8QhERqBpk+Q3QuEwMdjohAgPU/M7+ldnmO16Tz2BG/+l8TZTt0YqOdW
+	 optSNDZiy81CbrAEcoUXUBx5QQH5MtpmlekOt96nT38a7plDr2MR1TEbYrgceMbBol
+	 lYCyMg2iXGXxFtnsx45il0jAfh3NZK9nBEKCYW8tTwLTraYq+1+iyD7RkLGx8nv5Ps
+	 rDRanwlr9irfAH7jA5q7uTqG/NYXogHfLA5Mbf+8Zh0MMAmIiAdgXX+opI1sdd12+0
+	 UezSV6vEnGqS0BmPqFqP18qp4utXgrCwPL5MsmOToiKgOa3/wbN8YUSiS0gG6hSyja
+	 tq9cuvZCAQtUQ==
+Content-Language: en-CA
+Autocrypt: addr=dc@genunix.com; keydata=
+ xjMEZpuckhYJKwYBBAHaRw8BAQdAHZtmqkx1WtHIbgvlSIPjF5r5inw6XbdeLQbHbUC2V2jN
+ IURlbm5pcyBNLiBDbGFya2UgPGRjQGdlbnVuaXguY29tPsKTBBMWCgA7FiEEGmDUSc9bgPYJ
+ I9pZZGGjzzCOmvsFAmabnJICGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQZGGj
+ zzCOmvtUCAEA+OqwUmT4BN1YOwTz16UtOuZxHnQYtF9ZYsnp0j15GCAA/2NVJVhI/hju4/Dn
+ hg9cgT9kf1m/nJtchdz4kaUGI/kGzjgEZpuckhIKKwYBBAGXVQEFAQEHQP4D1FVCX/f3kHUV
+ oOu+y5Z8JAGBq0hNY35fHcEVyMJ8AwEIB8J4BBgWCgAgFiEEGmDUSc9bgPYJI9pZZGGjzzCO
+ mvsFAmabnJICGwwACgkQZGGjzzCOmvubcQEAmOhOtYELmUZ5U1+cHDgFD6bi078EREcLsqRU
+ NDwBW90BAORCOd8leIVrRf+Orx7HeTXY3XOzFi7VjJ4ukkxd6hkN
+In-Reply-To: <FD3F4CD9-A625-4633-B784-4FA116A04F8D@me.com>
+X-oetec-MailScanner-Information: Please contact the ISP for more information
+X-oetec-MailScanner-ID: 63LMghhA058430
+X-oetec-MailScanner: Found to be clean
+X-oetec-MailScanner-From: dc@genunix.com
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5622
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5622>
+
+On 4/21/26 05:57, Jason Thorpe wrote:
+> 
+> 
+>> On Apr 21, 2026, at 8:45 AM, Istvan Gyenes <igyenes@gmail.com> wrote:
+>>
+>> You can always make a bootable iso-image on your own as you can cross-compile and cross-build alpha target on a x64 host.
+>> See: https://www.netbsd.org/docs/guide/en/chap-build.html
+>>
+>> I have done many times (maybe on a linux host) when Jason worked on the Jensen’s boot problems, so if you make a netbsd source available and have a recent laptop/desktop you can have a fresh iso image in your hands in hours.
+> 
+> I’ll be able to build him one in a day or two.  I just happen to be at Heathrow at the moment, and not able to reach the machine I use for builds.
+> 
+
+No rush. This has gone on for months now. I will make a backup tape
+of the current OpenBSD situation and then prepare some disks in a SCSI
+array for the NetBSD experiments.
+
+
+
+
+-- 
+Dennis Clarke
+RISC-V/SPARC/PPC/ARM/CISC
+UNIX and Linux spoken
+
+
+From igyenes@gmail.com  Tue Apr 21 07:45:32 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Istvan Gyenes <igyenes@gmail.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: The problems in src/sys/dev/ic/isp.c
+Date: Tue, 21 Apr 2026 07:45:32 +0000
+Approved: news@gmane.org
+Message-ID: <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+ <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com>
+ <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com>
+ <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com>
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="_000_PA6PR01MB10543E7FE6B257091306D1931A92C2PA6PR01MB10543eu_"
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="22320"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: "port-alpha@netbsd.org" <port-alpha@NetBSD.org>, John Klos <john@klos.com>
+To: Dennis Clarke <dc@genunix.com>, Jason Thorpe <thorpej@me.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Wed Apr 22 08:10:10 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wFQmm-0005cG-5N
+	for netbsd-port-alpha@m.gmane-mx.org; Wed, 22 Apr 2026 08:10:08 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id AA85384DDE; Wed, 22 Apr 2026 06:10:03 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: by mail.netbsd.org (Postfix, from userid 1347)
+	id 216D9855B9; Wed, 22 Apr 2026 05:02:18 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 867B3855DE
+	for <port-alpha@netbsd.org>; Tue, 21 Apr 2026 07:45:37 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=gmail.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id ZkxFAAVMqixU for <port-alpha@netbsd.org>;
+	Tue, 21 Apr 2026 07:45:36 +0000 (UTC)
+Original-Received: from mail-yw1-x112f.google.com (mail-yw1-x112f.google.com [IPv6:2607:f8b0:4864:20::112f])
+	(using TLSv1.3 with cipher TLS_AES_128_GCM_SHA256 (128/128 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 2ADF284D1C
+	for <port-alpha@netbsd.org>; Tue, 21 Apr 2026 07:45:36 +0000 (UTC)
+Original-Received: by mail-yw1-x112f.google.com with SMTP id 00721157ae682-793fdbb8d3aso39380667b3.3
+        for <port-alpha@netbsd.org>; Tue, 21 Apr 2026 00:45:36 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20251104; t=1776757535; x=1777362335; darn=netbsd.org;
+        h=mime-version:content-language:accept-language:in-reply-to
+         :references:message-id:date:thread-index:thread-topic:subject:cc:to
+         :from:from:to:cc:subject:date:message-id:reply-to;
+        bh=c4GZTAOeDEvUrWZn0S0us+F3yLNxfOD9hwyAUXAPc2Q=;
+        b=g/Bo8K3FfNBfW1zhBaWq6lPwfgx67qUQMw2cxx/E0BhJwdANXhsY4yyTw3ixVBW0JR
+         ZrZqgPqVTU9FbrUzYOkwgrupsLdUPKI/awBbljDX6/as6+bHZXCUM5bAqi6m8Mbcg6cJ
+         +uZoNroOg1MauWzG+gdlPDQ0jZ0gnvQ8bN39PcRWGToQ+1ehix3kfG4HugRk6xA9ugG/
+         bdXKMHsB+4yf7ZUAaaQWUPMevngkdQBJQW2pfJbv9Wkp1IXIlx0N9ciRYztmiKRTstMJ
+         GiL2F9AwhgP2+yxz32QEadjK1+ohZ+EJKIxyKs6wUI2uo9B9PBE0jeoWEVY2yl4kNJcW
+         qo6g==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20251104; t=1776757535; x=1777362335;
+        h=mime-version:content-language:accept-language:in-reply-to
+         :references:message-id:date:thread-index:thread-topic:subject:cc:to
+         :from:x-gm-gg:x-gm-message-state:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=c4GZTAOeDEvUrWZn0S0us+F3yLNxfOD9hwyAUXAPc2Q=;
+        b=Xmj8v4ASrJLccLbVAtz1R5hrdDUz/C9BSqKooQUuzm81nNbmyW6T+vCwiaj60CsZLY
+         W3SalMFFUiwT11IW1lGb0rzEe7DDFQ//RKsk2eSIYL0Ro8YB5vXW8VNNjUCksIApAF1p
+         xqPPqfru4bbLJIsIePHfv+/aecrZpx4b6DYCfjmpVaZVXWUfhdb4MogzjYHdTgy34OgT
+         ikT/wmLJ7x29TIrpyyFphBv4jknt/VMQbXWPwCn3baAVme8H02qj0rjPIV9yZdn1zxSn
+         6I+JSMbiLCh7SfCo0/XN6wNzIAdQOivKREE2MX0O+0x7GHReTgJWGkTk9jdkSC7JA32G
+         D4UQ==
+X-Gm-Message-State: AOJu0Yz0V90W1WFMXV/Ku+4nKkORslEktMO2xpJ3O7sB0az+ppHRZj5u
+	io7kkV2DCn1uNNtT6F7rieIKhxgtbhxbIRd+8r4UA6Z/iefeyur1nOln
+X-Gm-Gg: AeBDiesuLhQittXPz07Psp0oTpiHozQLsgOKI/2q8FNrv0CYXQyyFrxNwPlbFwvOM7A
+	lpMwnm76kIMdvOP/DE7WQJnxgSeTIsFuYuFclDXcc7MHv4ocZCXE/appisOkt2ofnL83aX/9+56
+	KwV5EMai9IDkAN/kdqaWLtl1cmx2vgEkyQz0Zq44QAzlPZ7BVKxjXPE9XMXZTDTrJgLQPtWsGVD
+	eiHmgZ/qhrbRf340ppN8Y+rl0pITgvfOeYg9pjjbJRiuAH0vQsQaoH162GC1gYOXjLSgL2PBRKb
+	m4Yv5aRVzkicsU2hfLeVpJ/NZc3quUhsBbVHstVZl+C2TnoXmzSLoL6dEfiscKJVlhtKd97ZJDn
+	gXKgB3IGKvc4H8tgJPX98KoFret1t9k2v2PZRS50XbXeXfJtnFE+ht/4S+dYi5c6zObpKvNw+Dq
+	OYKefeu5KB13b7rsHr9wZCZBQhSyRGfanBZxxJZdn197IoHPqf3hQosU16GBla1hnLJDy5srrBO
+	Y6CpDqiupaib+oM/iIZ0NlBBdrxoCc=
+X-Received: by 2002:a05:690c:6e81:b0:79a:b1e1:49cd with SMTP id 00721157ae682-7b9ecfb8c68mr164269607b3.33.1776757534821;
+        Tue, 21 Apr 2026 00:45:34 -0700 (PDT)
+Original-Received: from PA6PR01MB10543.eurprd01.prod.exchangelabs.com ([2603:1026:c0a:1c10::5])
+        by smtp.gmail.com with ESMTPSA id 00721157ae682-7baf4a43229sm17556057b3.48.2026.04.21.00.45.33
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 21 Apr 2026 00:45:34 -0700 (PDT)
+Thread-Topic: The problems in src/sys/dev/ic/isp.c
+Thread-Index: AWNhZjQ1hl2VrJcwvZrzWgVmEvQoq2ZjNjQwQ0RFNDdmNjM0YuphCsgM
+X-MS-Exchange-MessageSentRepresentingType: 1
+In-Reply-To: <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com>
+Accept-Language: en-US
+Content-Language: en-US
+X-MS-Exchange-Organization-SCL: -1
+X-MS-Exchange-Organization-RecordReviewCfmType: 0
+x-ms-reactions: allow
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5623
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5623>
+
+--_000_PA6PR01MB10543E7FE6B257091306D1931A92C2PA6PR01MB10543eu_
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+
+WW91IGNhbiBhbHdheXMgbWFrZSBhIGJvb3RhYmxlIGlzby1pbWFnZSBvbiB5b3VyIG93biBhcyB5
+b3UgY2FuIGNyb3NzLWNvbXBpbGUgYW5kIGNyb3NzLWJ1aWxkIGFscGhhIHRhcmdldCBvbiBhIHg2
+NCBob3N0Lg0KU2VlOiBodHRwczovL3d3dy5uZXRic2Qub3JnL2RvY3MvZ3VpZGUvZW4vY2hhcC1i
+dWlsZC5odG1sDQoNCkkgaGF2ZSBkb25lIG1hbnkgdGltZXMgKG1heWJlIG9uIGEgbGludXggaG9z
+dCkgd2hlbiBKYXNvbiB3b3JrZWQgb24gdGhlIEplbnNlbuKAmXMgYm9vdCBwcm9ibGVtcywgc28g
+aWYgeW91IG1ha2UgYSBuZXRic2Qgc291cmNlIGF2YWlsYWJsZSBhbmQgaGF2ZSBhIHJlY2VudCBs
+YXB0b3AvZGVza3RvcCB5b3UgY2FuIGhhdmUgYSBmcmVzaCBpc28gaW1hZ2UgaW4geW91ciBoYW5k
+cyBpbiBob3Vycy4NCg0KQnIsDQoNCi0tDQppc3R2YW4NCkZyb206IHBvcnQtYWxwaGEtb3duZXJA
+TmV0QlNELm9yZyA8cG9ydC1hbHBoYS1vd25lckBOZXRCU0Qub3JnPiBvbiBiZWhhbGYgb2YgRGVu
+bmlzIENsYXJrZSA8ZGNAZ2VudW5peC5jb20+DQpEYXRlOiBUdWVzZGF5LCAyMDI2LiBBcHJpbCAy
+MS4gYXQgMDoyMw0KVG86IEphc29uIFRob3JwZSA8dGhvcnBlakBtZS5jb20+DQpDYzogcG9ydC1h
+bHBoYUBuZXRic2Qub3JnIDxwb3J0LWFscGhhQE5ldEJTRC5vcmc+LCBKb2huIEtsb3MgPGpvaG5A
+a2xvcy5jb20+DQpTdWJqZWN0OiBSZTogVGhlIHByb2JsZW1zIGluIHNyYy9zeXMvZGV2L2ljL2lz
+cC5jDQoNCk9uIDQvMjAvMjYgMTc6MDksIEphc29uIFRob3JwZSB3cm90ZToNCj4NCj4NCj4+IE9u
+IEFwciAyMCwgMjAyNiwgYXQgODo1OeKAr1BNLCBEZW5uaXMgQ2xhcmtlIDxkY0BnZW51bml4LmNv
+bT4gd3JvdGU6DQo+Pg0KPj4gT24gNC8xNy8yNiAxMDowMCwgRGVubmlzIENsYXJrZSB3cm90ZToN
+Cj4+PiBIZWxsbyBhZ2Fpbi4NCj4+PiBJIGNvbXBsZXRlbHkgbWlzc2VkIHRoaXMgbWVzc2FnZSBm
+cm9tIDI1dGggTWFyY2ggOg0KPj4+ICAgICAgaHR0cHM6Ly9tYWlsLWluZGV4Lm5ldGJzZC5vcmcv
+cG9ydC1hbHBoYS8yMDI2LzAzLzI2L21zZzAwMTQ1OS5odG1sDQo+Pg0KPj4gICAgIFdoYXQgaXMg
+dGhlIGRlYWwgaGVyZSA/DQo+DQo+IFdoYXQgZG8geW91IG1lYW4gd2hhdOKAmXMgdGhlIGRlYWwg
+aGVyZT8gIEnigJl2ZSBoYWQgYSBmaXggYXZhaWxhYmxlIGFuZCBhbSB3YWl0aW5nIGZvciBzb21l
+b25lIHRvIHRlc3QgaXQuDQo+DQo+IC0tIHRob3JwZWoNCj4NCj4NCg0KQXMgUGF1bCBOZXdtYW4g
+d2FzIHRvbGQgOiBXaGF0IHdlIGhhdmUgaGVyZSBpcyBhIGZhaWx1cmUgdG8gY29tbXVuaWNhdGUu
+DQoNCkhvd2V2ZXIgdGhhdCBpcyBub3QgdGhlIHdheSBJIHdhbnQgaXQhDQoNCkEgZml4IC4uLiBy
+ZWFsbHk/IFdoZXJlPyBIb3c/ICBJcyB0aGVyZSBhIHdheSB0byBpbXBsZW1lbnQgdGhhdCBhbmQg
+Y29vaw0KdXAgYSByZWxlYXNlIGNhbmRpZGF0ZSB0eXBlIENEUk9NIGltYWdlIG9yIGFueSBvdGhl
+ciBtYWdpYz8gSSBhbSBzbyB2ZXJ5DQptdWNoIGludGVyZXN0ZWQgYW5kIGhhcHB5IHRvIGp1bXAg
+b24gdGhpcy4gVG9kYXkuIFRvbmlnaHQuIFRvbW9ycm93Lg0KDQpXaGF0ZXZlciBpdCB0YWtlcyA6
+KQ0KDQoNCi0tDQpEZW5uaXMgQ2xhcmtlDQpSSVNDLVYvU1BBUkMvUFBDL0FSTS9DSVNDDQpVTklY
+IGFuZCBMaW51eCBzcG9rZW4NCg==
+
+--_000_PA6PR01MB10543E7FE6B257091306D1931A92C2PA6PR01MB10543eu_
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: base64
+
+PGh0bWw+DQo8aGVhZD4NCjxtZXRhIGh0dHAtZXF1aXY9IkNvbnRlbnQtVHlwZSIgY29udGVudD0i
+dGV4dC9odG1sOyBjaGFyc2V0PXV0Zi04Ij4NCjwvaGVhZD4NCjxib2R5Pg0KPGRpdiBzdHlsZT0i
+ZGlyZWN0aW9uOiBsdHI7IGZvbnQtZmFtaWx5OiBBcHRvcywgQXJpYWwsIEhlbHZldGljYSwgc2Fu
+cy1zZXJpZjsgZm9udC1zaXplOiAxMnB0OyBjb2xvcjogcmdiKDAsIDAsIDApOyI+DQpZb3UgY2Fu
+IGFsd2F5cyBtYWtlIGEgYm9vdGFibGUgaXNvLWltYWdlIG9uIHlvdXIgb3duIGFzIHlvdSBjYW4g
+Y3Jvc3MtY29tcGlsZSBhbmQgY3Jvc3MtYnVpbGQgYWxwaGEgdGFyZ2V0IG9uIGEgeDY0IGhvc3Qu
+PC9kaXY+DQo8ZGl2IHN0eWxlPSJkaXJlY3Rpb246IGx0cjsgZm9udC1mYW1pbHk6IEFwdG9zLCBB
+cmlhbCwgSGVsdmV0aWNhLCBzYW5zLXNlcmlmOyBmb250LXNpemU6IDEycHQ7IGNvbG9yOiByZ2Io
+MCwgMCwgMCk7Ij4NClNlZTogPGEgaHJlZj0iaHR0cHM6Ly93d3cubmV0YnNkLm9yZy9kb2NzL2d1
+aWRlL2VuL2NoYXAtYnVpbGQuaHRtbCIgZGF0YS1vdXRsb29rLWlkPSIxYzdhOGE5NS1mYTllLTRk
+NjktYjIwYy02NThjNjZmNDkyMzMiPg0KaHR0cHM6Ly93d3cubmV0YnNkLm9yZy9kb2NzL2d1aWRl
+L2VuL2NoYXAtYnVpbGQuaHRtbDwvYT48L2Rpdj4NCjxkaXYgc3R5bGU9ImRpcmVjdGlvbjogbHRy
+OyBmb250LWZhbWlseTogQXB0b3MsIEFyaWFsLCBIZWx2ZXRpY2EsIHNhbnMtc2VyaWY7IGZvbnQt
+c2l6ZTogMTJwdDsiPg0KPGJyPg0KPC9kaXY+DQo8ZGl2IHN0eWxlPSJkaXJlY3Rpb246IGx0cjsg
+Zm9udC1mYW1pbHk6IEFwdG9zLCBBcmlhbCwgSGVsdmV0aWNhLCBzYW5zLXNlcmlmOyBmb250LXNp
+emU6IDEycHQ7IGNvbG9yOiByZ2IoMCwgMCwgMCk7Ij4NCkkgaGF2ZSBkb25lIG1hbnkgdGltZXMg
+KG1heWJlIG9uIGEgbGludXggaG9zdCkgd2hlbiBKYXNvbiB3b3JrZWQgb24gdGhlIEplbnNlbuKA
+mXMgYm9vdCBwcm9ibGVtcywgc28gaWYgeW91IG1ha2UgYSBuZXRic2Qgc291cmNlIGF2YWlsYWJs
+ZSBhbmQgaGF2ZSBhIHJlY2VudCBsYXB0b3AvZGVza3RvcCB5b3UgY2FuIGhhdmUgYSBmcmVzaCBp
+c28gaW1hZ2UgaW4geW91ciBoYW5kcyBpbiBob3Vycy48L2Rpdj4NCjxkaXYgc3R5bGU9ImRpcmVj
+dGlvbjogbHRyOyBmb250LWZhbWlseTogQXB0b3MsIEFyaWFsLCBIZWx2ZXRpY2EsIHNhbnMtc2Vy
+aWY7IGZvbnQtc2l6ZTogMTJwdDsgY29sb3I6IHJnYigwLCAwLCAwKTsiPg0KPGJyPg0KPC9kaXY+
+DQo8ZGl2IHN0eWxlPSJkaXJlY3Rpb246IGx0cjsgZm9udC1mYW1pbHk6IEFwdG9zLCBBcmlhbCwg
+SGVsdmV0aWNhLCBzYW5zLXNlcmlmOyBmb250LXNpemU6IDEycHQ7IGNvbG9yOiByZ2IoMCwgMCwg
+MCk7Ij4NCkJyLDwvZGl2Pg0KPGRpdiBzdHlsZT0iZGlyZWN0aW9uOiBsdHI7IGZvbnQtZmFtaWx5
+OiBBcHRvcywgQXJpYWwsIEhlbHZldGljYSwgc2Fucy1zZXJpZjsgZm9udC1zaXplOiAxMnB0OyBj
+b2xvcjogcmdiKDAsIDAsIDApOyI+DQo8YnI+DQo8L2Rpdj4NCjxkaXYgc3R5bGU9ImRpcmVjdGlv
+bjogbHRyOyBmb250LWZhbWlseTogQXB0b3MsIEFyaWFsLCBIZWx2ZXRpY2EsIHNhbnMtc2VyaWY7
+IGZvbnQtc2l6ZTogMTJwdDsgY29sb3I6IHJnYigwLCAwLCAwKTsiPg0KLS0mbmJzcDs8L2Rpdj4N
+CjxkaXYgc3R5bGU9ImRpcmVjdGlvbjogbHRyOyBmb250LWZhbWlseTogQXB0b3MsIEFyaWFsLCBI
+ZWx2ZXRpY2EsIHNhbnMtc2VyaWY7IGZvbnQtc2l6ZTogMTJwdDsgY29sb3I6IHJnYigwLCAwLCAw
+KTsiPg0KaXN0dmFuPC9kaXY+DQo8ZGl2IGlkPSJtcy1vdXRsb29rLW1vYmlsZS1zaWduYXR1cmUi
+PjwvZGl2Pg0KPGRpdiBpZD0ibWFpbC1lZGl0b3ItcmVmZXJlbmNlLW1lc3NhZ2UtY29udGFpbmVy
+Ij4NCjxkaXYgY2xhc3M9Im1zLW91dGxvb2stbW9iaWxlLXJlZmVyZW5jZS1tZXNzYWdlIHNraXBQ
+cm9vZmluZyI+DQo8bWV0YSBuYW1lPSJHZW5lcmF0b3IiIGNvbnRlbnQ9Ik1pY3Jvc29mdCBFeGNo
+YW5nZSBTZXJ2ZXIiPg0KPC9kaXY+DQo8ZGl2IGNsYXNzPSJtcy1vdXRsb29rLW1vYmlsZS1yZWZl
+cmVuY2UtbWVzc2FnZSBza2lwUHJvb2ZpbmciIHN0eWxlPSJ0ZXh0LWFsaWduOiBsZWZ0OyBwYWRk
+aW5nOiAzcHQgMGluIDBpbjsgYm9yZGVyLXdpZHRoOiAxcHQgbWVkaXVtIG1lZGl1bTsgYm9yZGVy
+LXN0eWxlOiBzb2xpZCBub25lIG5vbmU7IGJvcmRlci1jb2xvcjogcmdiKDE4MSwgMTk2LCAyMjMp
+IGN1cnJlbnRjb2xvciBjdXJyZW50Y29sb3I7IGZvbnQtZmFtaWx5OiBBcHRvczsgZm9udC1zaXpl
+OiAxMnB0OyBjb2xvcjogYmxhY2s7Ij4NCjxiPkZyb206IDwvYj5wb3J0LWFscGhhLW93bmVyQE5l
+dEJTRC5vcmcgJmx0O3BvcnQtYWxwaGEtb3duZXJATmV0QlNELm9yZyZndDsgb24gYmVoYWxmIG9m
+IERlbm5pcyBDbGFya2UgJmx0O2RjQGdlbnVuaXguY29tJmd0Ozxicj4NCjxiPkRhdGU6IDwvYj5U
+dWVzZGF5LCAyMDI2LiBBcHJpbCAyMS4gYXQgMDoyMzxicj4NCjxiPlRvOiA8L2I+SmFzb24gVGhv
+cnBlICZsdDt0aG9ycGVqQG1lLmNvbSZndDs8YnI+DQo8Yj5DYzogPC9iPnBvcnQtYWxwaGFAbmV0
+YnNkLm9yZyAmbHQ7cG9ydC1hbHBoYUBOZXRCU0Qub3JnJmd0OywgSm9obiBLbG9zICZsdDtqb2hu
+QGtsb3MuY29tJmd0Ozxicj4NCjxiPlN1YmplY3Q6IDwvYj5SZTogVGhlIHByb2JsZW1zIGluIHNy
+Yy9zeXMvZGV2L2ljL2lzcC5jPGJyPg0KPGJyPg0KPC9kaXY+DQo8ZGl2IGNsYXNzPSJQbGFpblRl
+eHQiIHN0eWxlPSJmb250LXNpemU6IDExcHQ7Ij5PbiA0LzIwLzI2IDE3OjA5LCBKYXNvbiBUaG9y
+cGUgd3JvdGU6PGJyPg0KJmd0Ozxicj4NCiZndDs8YnI+DQomZ3Q7Jmd0OyBPbiBBcHIgMjAsIDIw
+MjYsIGF0IDg6NTnigK9QTSwgRGVubmlzIENsYXJrZSAmbHQ7ZGNAZ2VudW5peC5jb20mZ3Q7IHdy
+b3RlOjxicj4NCiZndDsmZ3Q7PGJyPg0KJmd0OyZndDsgT24gNC8xNy8yNiAxMDowMCwgRGVubmlz
+IENsYXJrZSB3cm90ZTo8YnI+DQomZ3Q7Jmd0OyZndDsgSGVsbG8gYWdhaW4uPGJyPg0KJmd0OyZn
+dDsmZ3Q7IEkgY29tcGxldGVseSBtaXNzZWQgdGhpcyBtZXNzYWdlIGZyb20gMjV0aCBNYXJjaCA6
+PGJyPg0KJmd0OyZndDsmZ3Q7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7IDxhIGhyZWY9
+Imh0dHBzOi8vbWFpbC1pbmRleC5uZXRic2Qub3JnL3BvcnQtYWxwaGEvMjAyNi8wMy8yNi9tc2cw
+MDE0NTkuaHRtbCIgZGF0YS1vdXRsb29rLWlkPSJkMTgxZTczYS03NGUyLTQ5YTItOTk5Yi0xM2Fj
+YjUxZjk0NzUiPg0KaHR0cHM6Ly9tYWlsLWluZGV4Lm5ldGJzZC5vcmcvcG9ydC1hbHBoYS8yMDI2
+LzAzLzI2L21zZzAwMTQ1OS5odG1sPC9hPjxicj4NCiZndDsmZ3Q7PGJyPg0KJmd0OyZndDsmbmJz
+cDsmbmJzcDsmbmJzcDsmbmJzcDsgV2hhdCBpcyB0aGUgZGVhbCBoZXJlID88YnI+DQomZ3Q7PGJy
+Pg0KJmd0OyBXaGF0IGRvIHlvdSBtZWFuIHdoYXTigJlzIHRoZSBkZWFsIGhlcmU/Jm5ic3A7IEni
+gJl2ZSBoYWQgYSBmaXggYXZhaWxhYmxlIGFuZCBhbSB3YWl0aW5nIGZvciBzb21lb25lIHRvIHRl
+c3QgaXQuPGJyPg0KJmd0Ozxicj4NCiZndDsgLS0gdGhvcnBlajxicj4NCiZndDs8YnI+DQomZ3Q7
+PGJyPg0KPGJyPg0KQXMgUGF1bCBOZXdtYW4gd2FzIHRvbGQgOiBXaGF0IHdlIGhhdmUgaGVyZSBp
+cyBhIGZhaWx1cmUgdG8gY29tbXVuaWNhdGUuPGJyPg0KPGJyPg0KSG93ZXZlciB0aGF0IGlzIG5v
+dCB0aGUgd2F5IEkgd2FudCBpdCE8YnI+DQo8YnI+DQpBIGZpeCAuLi4gcmVhbGx5PyBXaGVyZT8g
+SG93PyZuYnNwOyBJcyB0aGVyZSBhIHdheSB0byBpbXBsZW1lbnQgdGhhdCBhbmQgY29vazxicj4N
+CnVwIGEgcmVsZWFzZSBjYW5kaWRhdGUgdHlwZSBDRFJPTSBpbWFnZSBvciBhbnkgb3RoZXIgbWFn
+aWM/IEkgYW0gc28gdmVyeTxicj4NCm11Y2ggaW50ZXJlc3RlZCBhbmQgaGFwcHkgdG8ganVtcCBv
+biB0aGlzLiBUb2RheS4gVG9uaWdodC4gVG9tb3Jyb3cuPGJyPg0KPGJyPg0KV2hhdGV2ZXIgaXQg
+dGFrZXMgOik8YnI+DQo8YnI+DQo8YnI+DQotLTxicj4NCkRlbm5pcyBDbGFya2U8YnI+DQpSSVND
+LVYvU1BBUkMvUFBDL0FSTS9DSVNDPGJyPg0KVU5JWCBhbmQgTGludXggc3Bva2VuPGJyPg0KPC9k
+aXY+DQo8L2Rpdj4NCjwvYm9keT4NCjwvaHRtbD4NCg==
+
+--_000_PA6PR01MB10543E7FE6B257091306D1931A92C2PA6PR01MB10543eu_--
+
+
+From thorpej@me.com  Fri Apr 24 08:45:20 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: The problems in src/sys/dev/ic/isp.c
+Date: Fri, 24 Apr 2026 08:45:20 -0700
+Approved: news@gmane.org
+Message-ID: <5265338A-36C2-4567-B1EE-CC577E66E808@me.com>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+ <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com>
+ <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com>
+ <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com>
+ <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com>
+ <FD3F4CD9-A625-4633-B784-4FA116A04F8D@me.com>
+ <be97099f-65bf-4dcb-ac61-4d2b31dc74fd@genunix.com>
+Mime-Version: 1.0 (Mac OS X Mail 16.0 \(3826.500.181.1.5\))
+Content-Type: text/plain;
+	charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="31016"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: Istvan Gyenes <igyenes@gmail.com>,
+ "port-alpha@netbsd.org" <port-alpha@NetBSD.org>,
+ John Klos <john@klos.com>
+To: Dennis Clarke <dc@genunix.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Fri Apr 24 17:45:43 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wGIis-0007v9-Jv
+	for netbsd-port-alpha@m.gmane-mx.org; Fri, 24 Apr 2026 17:45:42 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id B031185771; Fri, 24 Apr 2026 15:45:38 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 3193185761
+	for <port-alpha@netbsd.org>; Fri, 24 Apr 2026 15:45:36 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id rxzgVqdHO8HH for <port-alpha@netbsd.org>;
+	Fri, 24 Apr 2026 15:45:35 +0000 (UTC)
+Original-Received: from outbound.pv.icloud.com (pv-2002b-snip4-8.eps.apple.com [57.103.64.189])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 5A9068576A
+	for <port-alpha@netbsd.org>; Fri, 24 Apr 2026 15:45:35 +0000 (UTC)
+Original-Received: from outbound.pv.icloud.com (unknown [127.0.0.2])
+	by p00-icloudmta-asmtp-us-west-1a-100-percent-7 (Postfix) with ESMTPS id 452A7180021F;
+	Fri, 24 Apr 2026 15:45:32 +0000 (UTC)
+X-ICL-Out-Info: HUtFAUMHWwJACUgATUQeDx5WFlZNRAJCTQBAHVkCRQBECFYAWxcOVk1NEFwfRw5YMFQdHQ5YBhIWXUVHBVgZQhVTOF4IGQhdHRkKUFADS1oVVRcOAkIfUB9MFldDRx0cGVoUXBhTRVEfVFhDGUVWaUELTx1dGVscQmRYVwkKBldeWhdeTVoCVk0FTQFbAlgBSHhVAFt0WR9EDE4EQHVadzUUO3BYAFx3Rg89C10PK18VFxtcAAlLRglJHQ4EVAddBV0=
+Dkim-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=1a1hai; t=1777045535; x=1779637535; bh=95nO8EFYLrxFIAZkROKLE8AWyHo6VjwgE+dGJjrHKTg=; h=Content-Type:Mime-Version:Subject:From:Date:Message-Id:To:x-icloud-hme; b=snhyw7JJ0ZIuKKPlwlM0yFaKAUyuhcwG9EfqxEUswWeU42yJ3bMMagGbe6o8D/lfyCwPIiLfe/9umIvAUeX9Qau/E5Ur/XRp6eeJWHk/y8ibwJT1IrCTJ4+KBi8Hx6GSPtH58qbd8wLSHo5qo9MyIaF0fCsRIvqPDbI7Qkx9gSqotg9PweRdcNhAwC6Ry/kwWFM16hOZSsXfFA4GML63531C4d0vpc0dN4my7y2hFGfTibx1MimVjMI44a7zw5GGG7ryocNXHaJTRghPSdjULmRqINeTTUUa2LU1FJevPn0310pW97W2PpcBDprEclOUi+VIhy3MYYnEsEW8XKD9Fg==
+Original-Received: from smtpclient.apple (unknown [17.56.9.36])
+	by p00-icloudmta-asmtp-us-west-1a-100-percent-7 (Postfix) with ESMTPSA id 673B41800127;
+	Fri, 24 Apr 2026 15:45:31 +0000 (UTC)
+In-Reply-To: <be97099f-65bf-4dcb-ac61-4d2b31dc74fd@genunix.com>
+X-Mailer: Apple Mail (2.3826.500.181.1.5)
+X-Proofpoint-GUID: OltenIe5XA_iYuWLw_FRtoXFOn-APBWj
+X-Proofpoint-Spam-Details-Enc: AW1haW4tMjYwNDI0MDE1MyBTYWx0ZWRfX5F+r5ivgu23z
+ q2t2sNrM6Jsk2+XUCJobToyS/YtdP8JPRPcbVE4Dj1ipCvEnw/cJ7u+J0MyU5u4Hggpg4LDXczh
+ /7IZ5Bh+c1AIypJSuo1yBk/YPhXkGffJEdhKZhwWCMsxZ9hKd0YuE6X0BVUyXd00goDMYsLr6JU
+ T99nuE+M/vktT56ikOIblbVaXTZXIo//D2HcriusY+2ZUnI7gFRWZ4ej8G1I2QwGpX4/D9R/Fgv
+ /qPh4ab2gknB1jlkflWM/h5qLNLQUtSJgFcR7pUoV47+g45B2hJk4GWNQKfTm70nek+BeE1xbL/
+ jxLQXxu/4V1AcFwNKHio6lW/uXqvgf3gEtSIQfISr7sAns77maPzsGHUlwe9ok=
+X-Authority-Info-Out: v=2.4 cv=d5L4CBjE c=1 sm=1 tr=0 ts=69eb901c
+ cx=c_apl:c_pps:t_out a=azHRBMxVc17uSn+fyuI/eg==:117
+ a=azHRBMxVc17uSn+fyuI/eg==:17 a=IkcTkHD0fZMA:10 a=A5OVakUREuEA:10
+ a=x7bEGLp0ZPQA:10 a=hNn9FkxD5tsA:10 a=VkNPw1HP01LnGYTKEx00:22
+ a=_ctWjzdLAAAA:8 a=3rB-XccgAAAA:8 a=B9vr3S4dQUP5btxD3-YA:9 a=QEXdDO2ut3YA:10
+ a=WoGCsytTnHKj16XvecxK:22 a=cuCC5UOfN2TUuuJiuoJa:22
+X-Proofpoint-ORIG-GUID: OltenIe5XA_iYuWLw_FRtoXFOn-APBWj
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5624
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5624>
+
+
+> On Apr 21, 2026, at 3:42=E2=80=AFPM, Dennis Clarke <dc@genunix.com> =
+wrote:
+>=20
+> No rush. This has gone on for months now. I will make a backup tape
+> of the current OpenBSD situation and then prepare some disks in a SCSI
+> array for the NetBSD experiments.
+
+    =
+https://www.netbsd.org/~thorpej/alpha-isp-test/NetBSD-11.99.5-alpha.iso.gz=
+
+
+-- thorpej
+
+
+
+From dc@genunix.com  Fri Apr 24 23:13:29 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Dennis Clarke <dc@genunix.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: The problems in src/sys/dev/ic/isp.c
+Date: Fri, 24 Apr 2026 23:13:29 -0400
+Approved: news@gmane.org
+Message-ID: <c1be15cc-96f9-4dd1-a4ab-f6446d2098c3@genunix.com>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+ <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com>
+ <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com>
+ <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com>
+ <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com>
+ <FD3F4CD9-A625-4633-B784-4FA116A04F8D@me.com>
+ <be97099f-65bf-4dcb-ac61-4d2b31dc74fd@genunix.com>
+ <5265338A-36C2-4567-B1EE-CC577E66E808@me.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="40949"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla Thunderbird
+Cc: Istvan Gyenes <igyenes@gmail.com>,
+        "port-alpha@netbsd.org" <port-alpha@NetBSD.org>,
+        John Klos <john@klos.com>
+To: Jason Thorpe <thorpej@me.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Sat Apr 25 05:14:16 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wGTTD-000ASa-Hu
+	for netbsd-port-alpha@m.gmane-mx.org; Sat, 25 Apr 2026 05:14:16 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 6FAA285747; Sat, 25 Apr 2026 03:14:11 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id C0ACD85743
+	for <port-alpha@NetBSD.org>; Sat, 25 Apr 2026 03:14:07 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=fail (2048-bit key) reason="fail (message has been altered)"
+	header.d=genunix.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id iHk9WrhOQVW9 for <port-alpha@netbsd.org>;
+	Sat, 25 Apr 2026 03:14:07 +0000 (UTC)
+Original-Received: from mail.oetec.com (mail.oetec.com [108.160.241.186])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 8A6CB84D93
+	for <port-alpha@NetBSD.org>; Sat, 25 Apr 2026 03:14:06 +0000 (UTC)
+Original-Received: from [172.16.35.3] (pool-99-253-118-250.cpe.net.cable.rogers.com [99.253.118.250])
+	(authenticated bits=0)
+	by mail.oetec.com (8.17.1/8.17.1) with ESMTPSA id 63P3DTHY065837
+	(version=TLSv1.3 cipher=TLS_AES_128_GCM_SHA256 bits=128 verify=NOT);
+	Fri, 24 Apr 2026 23:13:35 -0400 (EDT)
+	(envelope-from dc@genunix.com)
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple; d=genunix.com;
+	s=default; t=1777086816;
+	bh=0V7Uoajtz2lGyz3dxVqtWhMlEwnuFkRKjybsQQ0g/zw=;
+	h=Date:Subject:To:Cc:References:From:In-Reply-To;
+	b=ykut8JzN0qPC3edaOJRZDfWtT35AstPqPU5yZiTl6tTuAP5AoToQ87kjcZxkxkWSd
+	 1LTzVftGpUHCj8NasaESna0pxS2vZ4w3KXDihvDUgEOSVmhm8lnFSzoGULrgc+V3Ai
+	 t6tp90ACV9sT438pvV4AuGIQYbhNM43PCi0+1E26U81m8hTS8dKdwgKXSldq45oYzt
+	 FdLmpL+g31KbG++WnM3zN9l87P2FArKIG/rpnwDaU+s/87PAYidfUW0KMfPu/jxbHm
+	 2MdLe/ZlYqDwMu4m4CEoZ6OjY3N6t8SAb3XT1mtzxE/EvyQ0Lhy5r6VKrglSuFynUl
+	 u9gOicVB82/yA==
+Content-Language: en-CA
+Autocrypt: addr=dc@genunix.com; keydata=
+ xjMEZpuckhYJKwYBBAHaRw8BAQdAHZtmqkx1WtHIbgvlSIPjF5r5inw6XbdeLQbHbUC2V2jN
+ IURlbm5pcyBNLiBDbGFya2UgPGRjQGdlbnVuaXguY29tPsKTBBMWCgA7FiEEGmDUSc9bgPYJ
+ I9pZZGGjzzCOmvsFAmabnJICGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQZGGj
+ zzCOmvtUCAEA+OqwUmT4BN1YOwTz16UtOuZxHnQYtF9ZYsnp0j15GCAA/2NVJVhI/hju4/Dn
+ hg9cgT9kf1m/nJtchdz4kaUGI/kGzjgEZpuckhIKKwYBBAGXVQEFAQEHQP4D1FVCX/f3kHUV
+ oOu+y5Z8JAGBq0hNY35fHcEVyMJ8AwEIB8J4BBgWCgAgFiEEGmDUSc9bgPYJI9pZZGGjzzCO
+ mvsFAmabnJICGwwACgkQZGGjzzCOmvubcQEAmOhOtYELmUZ5U1+cHDgFD6bi078EREcLsqRU
+ NDwBW90BAORCOd8leIVrRf+Orx7HeTXY3XOzFi7VjJ4ukkxd6hkN
+In-Reply-To: <5265338A-36C2-4567-B1EE-CC577E66E808@me.com>
+X-oetec-MailScanner-Information: Please contact the ISP for more information
+X-oetec-MailScanner-ID: 63P3DTHY065837
+X-oetec-MailScanner: Found to be clean
+X-oetec-MailScanner-From: dc@genunix.com
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5625
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5625>
+
+On 4/24/26 11:45, Jason Thorpe wrote:
+> 
+>> On Apr 21, 2026, at 3:42 PM, Dennis Clarke <dc@genunix.com> wrote:
+>>
+>> No rush. This has gone on for months now. I will make a backup tape
+>> of the current OpenBSD situation and then prepare some disks in a SCSI
+>> array for the NetBSD experiments.
+> 
+>      https://www.netbsd.org/~thorpej/alpha-isp-test/NetBSD-11.99.5-alpha.iso.gz
+> 
+
+Thank you !
+
+However sadly I shut down the machine and left it cold for a day as I
+moved around the external SCSI array. Now it seems dead. The keyboard
+blinks some lights at power on and then nothing. Nothing on the monitor
+and nothing from the serial console. The tape drive makes some noises.
+
+So this may have all been a waste of about $3000 to build a DEC Alpha.
+
+https://www.genunix.com/dclarke/alpha/DEC_AlphaStation_600_guts_m.png
+
+I have no indication anywhere that there is even firmware working.
+
+     :(
+
+
+-- 
+Dennis Clarke
+RISC-V/SPARC/PPC/ARM/CISC
+UNIX and Linux spoken
+
+
+From iwama@t3.rim.or.jp  Sat Apr 25 07:02:38 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: <iwama@t3.rim.or.jp>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: RE: The problems in src/sys/dev/ic/isp.c
+Date: Sat, 25 Apr 2026 07:02:38 +0900
+Approved: news@gmane.org
+Message-ID: <000001dcd436$128b16e0$37a144a0$@t3.rim.or.jp>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com> <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com> <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com> <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com> <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com> <FD3F4CD9-A625-4633-B784-4FA116A04F8D@me.com> <be97099f-65bf-4dcb-ac61-4d2b31dc74fd@genunix.com> <5265338A-36C2-4567-B1EE-CC577E66E808@me.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="11920"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: "'Istvan Gyenes'" <igyenes@gmail.com>,
+	<port-alpha@NetBSD.org>,
+	"'John Klos'" <john@klos.com>
+To: "'Jason Thorpe'" <thorpej@me.com>,
+	"'Dennis Clarke'" <dc@genunix.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Sun Apr 26 08:06:33 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wGsdU-0002rj-OI
+	for netbsd-port-alpha@m.gmane-mx.org; Sun, 26 Apr 2026 08:06:33 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id B84DC8559A; Sun, 26 Apr 2026 06:06:27 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: by mail.netbsd.org (Postfix, from userid 1347)
+	id 033BB85569; Sun, 26 Apr 2026 06:06:27 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id CEC468564F
+	for <port-alpha@NetBSD.org>; Fri, 24 Apr 2026 22:10:08 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (1024-bit key) header.d=t3.rim.or.jp
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id g2JJxjIQZlz0 for <port-alpha@netbsd.org>;
+	Fri, 24 Apr 2026 22:10:05 +0000 (UTC)
+X-Greylist: delayed 441 seconds by postgrey-1.37 at homeworld.NetBSD.org; Fri, 24 Apr 2026 22:10:05 UTC
+Original-Received: from mail01.SiriusCloud.jp (mail101.SiriusCloud.jp [219.118.72.101])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 1911B84D17
+	for <port-alpha@NetBSD.org>; Fri, 24 Apr 2026 22:10:05 +0000 (UTC)
+Original-Received: from P6T (p2747002-ipoe.ipoe.ocn.ne.jp [114.163.184.1])
+	(Authenticated sender: iwama@t3.rim.or.jp)
+	by access01.SiriusCloud.jp (Postfix) with ESMTPA id 4g2Rlh0gVBz3614N3;
+	Sat, 25 Apr 2026 07:02:39 +0900 (JST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=t3.rim.or.jp;
+	s=sci17047; t=1777068162;
+	bh=6R+OZvHlHr074IeBjslwWv+Z74Js+W8tjQ/Vke6hwZQ=;
+	h=From:To:Cc:References:In-Reply-To:Subject:Date;
+	b=N9rqZ7zMNCyKoluxCZ8deBuNC5h0w6awuw7Xc02rmY8+O+yI1M9Nz2GWLs8vDwcjw
+	 tqsTF+7+2L6Yib+G3bgztLudWbH/RJuzlMLmLs+MAZxN1MbS/xgpaMA5E8TcQX+REc
+	 obfA9k4bc/KSZyD/wTqXD9TAimgypFsv0jeZSeeM=
+In-Reply-To: <5265338A-36C2-4567-B1EE-CC577E66E808@me.com>
+X-Mailer: Microsoft Outlook 16.0
+Thread-Index: AQJYgN0irJVdhjCXmr3zWgVmEvQoqwIQ1A8TAeS/C64BetovZgIXKOS+AYpkdk8CJ8IAwgGj8SoXtJB4BhA=
+Content-Language: ja
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5626
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5626>
+
+Hi all,
+
+FYI
+
+I tested the installation CDs with and without patches on a Personal =
+Workstation 600a and XP1000.
+All the results showed that everything booted up without any problems.
+
+1)Personal Workstation 600a
+>>>show config
+
+Firmware
+SRM Console:	V7.2-1		Mar  6 2000 14:47:02
+ARC Console:	5.70
+PALcode:	OpenVMS PALcode V1.20-16, Tru64 UNIX PALcode V1.22-18
+SROM Version:   v5.90
+
+Processor
+DECchip (tm) 21164A-2	Pass   600 MHz  96 KBytes SCache=20
+2 MB BCache
+PYXIS ASIC Pass 257
+
+MEMORY
+
+
+Memory Size =3D 1536Mb
+
+Bank      Size/Sets   Base Addr
+------    ----------  ---------
+   0        512Mb      00000000
+   1        512Mb      20000000
+   2        512Mb      40000000
+
+
+BCache Size =3D 2Mb
+
+Tested Memory =3D  1536Mbytes
+
+PCI Bus=20
+     Bus 00  Slot 03: Digital Semiconductor 21143 Network Controller
+                                   ewa0.0.0.3.0          =
+00-00-F8-75-C8-24  =20
+
+     Bus 00  Slot 04: PCI IDE
+                                   pqb0.0.1.4.0          PCI EIDE        =
+   =20
+                                   dka0.0.0.4.0           401248 C DRW   =
+    =20
+
+     Bus 00  Slot 07: Intel SIO 82378
+                                                                         =
+   =20
+
+     Bus 00  Slot 20: DECchip 21152 PCI to PCI Bridge
+       Bus 01  Slot 08: NCR     895 Scsi Controller
+                                   pkc0.7.0.1008.0       SCSI Bus ID 7   =
+   =20
+                                   dkc0.0.0.1008.0        SEAGATE =
+ST336607LW =20
+
+       Bus 01  Slot 09: ISP1040 Scsi Controller
+                                   pkd0.7.0.1009.0       SCSI Bus ID 7   =
+   =20
+                                   dkd0.0.0.1009.0        SEAGATE =
+ST39102LW  =20
+                                   dkd300.3.0.1009.0      SEAGATE =
+ST39102LW  =20
+                                   dkd400.4.0.1009.0      IBM =
+DDRS-39130W    =20
+
+       Bus 01  Slot 10: Matrox Millenium II
+ISA
+Slot	Device	Name		Type	     Enabled  BaseAddr	IRQ	DMA
+0
+	0	MOUSE		Embedded	Yes	60	12=09
+
+	1	KBD		Embedded	Yes	60	1=09
+
+	2	COM1		Embedded	Yes	3f8	4=09
+
+	3	COM2		Embedded	Yes	2f8	3=09
+
+	4	LPT1		Embedded	Yes	3bc	7=09
+
+	5	FLOPPY		Embedded	Yes	3f0	6	2
+
+	6	EIDE		Embedded	Yes	1f0	14=09
+							3f6	15=09
+							170	=09
+							376	=09
+	7	ES1888		Embedded	Yes	220	5	1
+
+1-1)20260214081227Z daily image
+>>>boot dka0 -fl A
+(boot dka0.0.0.4.0 -flags A)
+block 0 of dka0.0.0.4.0 is a valid boot block
+reading 13 blocks from dka0.0.0.4.0
+bootstrap code read in
+base =3D 1d8000, image_start =3D 0, image_bytes =3D 1a00
+initializing HWRPB at 2000
+initializing page table at 1ca000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 11.99.5 ISO 9660 Primary Bootstrap
+Jumping to entry point...
+
+NetBSD/alpha 11.99.5 Secondary Bootstrap, Revision 1.13 (Sat Feb 14 =
+08:12:27 UTC 2026)
+
+VMS PAL rev: 0x1000000010114
+OSF PAL rev: 0x1000000020116
+Switch to OSF PAL code succeeded.
+
+Boot flags: A
+11312480+255344=3D0xb08980
+
+Entering netbsd at 0xfffffc0000a01410...
+[   1.0000000] Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, =
+2003,
+[   1.0000000]     2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, =
+2013,
+[   1.0000000]     2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, =
+2023,
+[   1.0000000]     2024, 2025, 2026
+[   1.0000000]     The NetBSD Foundation, Inc.  All rights reserved.
+[   1.0000000] Copyright (c) 1982, 1986, 1989, 1991, 1993
+[   1.0000000]     The Regents of the University of California.  All =
+rights reserved.
+
+[   1.0000000] NetBSD 11.99.5 (INSTALL) #0: Sat Feb 14 08:12:27 UTC 2026
+[   1.0000000] 	=
+mkrepro@mkrepro.NetBSD.org:/usr/src/sys/arch/alpha/compile/INSTALL
+[   1.0000000] Digital Personal WorkStation 600au, 598MHz
+[   1.0000000] 8192 byte page size, 1 processor.
+[   1.0000000] total memory =3D 1536 MB
+[   1.0000000] (1896 KB reserved for PROM, 1534 MB used by NetBSD)
+[   1.0000000] avail memory =3D 1501 MB
+[   1.0000000] mainbus0 (root)
+[   1.0000000] cpu0 at mainbus0: ID 0 (primary), 21164A-0 (EV56)
+[   1.0000000] cpu0: Architecture extensions: 0x1<BWX>
+[   1.0000000] cia0 at mainbus0: DECchip 2117x Core Logic Chipset =
+(Pyxis), pass 2
+[   1.0000000] cia0: extended capabilities: 0x1<BWEN>
+[   1.0000000] cia0: using BWX for PCI config access
+[   1.0000000] cia0: WARNING: Pyxis pass 1 DMA bug; no bets...
+[   1.0000000] pci0 at cia0 bus 0
+[   1.0000000] tlp0 at pci0 dev 3 function 0: DECchip 21143 Ethernet, =
+pass 3.0
+[   1.0000000] tlp0: interrupting at dec 550 irq 0
+[   1.0000000] tlp0: DEC, Ethernet address 00:00:f8:75:c8:24
+[   1.0000000] nsphy0 at tlp0 phy 5: DP83840 10/100 media interface, =
+rev. 1
+[   1.0000000] nsphy0: 10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, =
+auto
+[   1.0000000] tlp0: 10baseT, 10baseT-FDX, 10base2, 10base5
+[   1.0000000] cmdide0 at pci0 dev 4 function 0: CMD Technology PCI0646 =
+(rev. 0x01)
+[   1.0000000] cmdide0: primary channel wired to compatibility mode, =
+channel non-independent
+[   1.0000000] cmdide0: primary channel interrupting at isa irq 14
+[   1.0000000] atabus0 at cmdide0 channel 0
+[   1.0000000] cmdide0: secondary channel wired to compatibility mode, =
+channel non-independent
+[   1.0000000] cmdide0: secondary channel ignored (disabled)
+[   1.0000000] sio0 at pci0 dev 7 function 0: vendor 8086 product 0484 =
+(rev. 0x43)
+[   1.0000000] ppb0 at pci0 dev 20 function 0: vendor 1011 product 0024 =
+(rev. 0x02)
+[   1.0000000] pci1 at ppb0 bus 1
+[   1.0000000] siop0 at pci1 dev 8 function 0: Symbios Logic 53c895 =
+(ultra2-wide scsi)
+[   1.0000000] siop0: using on-board RAM
+[   1.0000000] siop0: interrupting at dec 550 irq 12
+[   1.0000000] scsibus0 at siop0: 16 targets, 8 luns per target
+[   1.0000000] isp0 at pci1 dev 9 function 0: QLogic 1020 Fast Wide SCSI =
+HBA
+[   1.0000000] isp0: interrupting at dec 550 irq 16
+[   1.0000000] vga0 at pci1 dev 10 function 0: vendor 102b product 051b =
+(rev. 0x00)
+[   1.0000000] wsdisplay0 at vga0 (kbdmux ignored)
+[   1.0000000] drm at vga0 not configured
+[   1.0000000] isa0 at sio0
+[   1.0000000] com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, 16-byte =
+FIFO
+[   1.0000000] com0: console
+[   1.0000000] com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, 16-byte =
+FIFO
+[   1.0000000] lpt0 at isa0 port 0x3bc-0x3bf irq 7
+[   1.0000000] pckbc0 at isa0 port 0x60-0x64
+[   1.0000000] pckbd0 at pckbc0 (kbd slot)
+[   1.0000000] pckbc0: using irq 1 for kbd slot
+[   1.0000000] wskbd0 at pckbd0 (mux ignored)
+[   1.0000000] pms0 at pckbc0 (aux slot)
+[   1.0000000] pckbc0: using irq 12 for aux slot
+[   1.0000000] wsmouse0 at pms0 (mux ignored)
+[   1.0000000] fdc0 at isa0 port 0x3f0-0x3f7 irq 6 drq 2
+[   1.0000000] mcclock0 at isa0 port 0x70-0x71: mc146818 compatible =
+time-of-day clock
+[   1.0000000] WARNING: system needs entropy for security; see =
+entropy(7)
+[   1.0095637] stray isa irq 14
+[   1.0427927] stray isa irq 14
+[   1.0770299] scsibus0: waiting 2 seconds for devices to settle...
+[   1.1486262] scsibus1 at isp0: 16 targets, 8 luns per target
+[   1.2156159] atapibus0 at atabus0: 2 targets
+[   1.2648289] stray isa irq 14
+[   1.3035000] scsibus1: waiting 2 seconds for devices to settle...
+[   1.3738761] cd0 at atapibus0 drive 0: <401248 CDRW, 2J18NE0121, 1.0D> =
+cdrom removable
+[   3.4596929] sd0 at scsibus0 target 0 lun 0: <SEAGATE, ST336607LW, =
+DS09> disk fixed
+[   3.5495362] sd0: 34732 MB, 49855 cyl, 2 head, 713 sec, 512 bytes/sect =
+x 71132959 sectors
+[   3.6452348] sd0: sync (25.00ns offset 31), 16-bit (80.000MB/s) =
+transfers, tagged queueing
+[   3.9772564] fd0 at fdc0 drive 0: 1.44MB, 80 cyl, 2 head, 18 sec
+[   7.9000079] sd1 at scsibus1 target 0 lun 0: <SEAGATE, ST39102LW, =
+8320> disk fixed
+[   7.9898510] sd1: 8683 MB, 6962 cyl, 12 head, 212 sec, 512 bytes/sect =
+x 17783240 sectors
+[   8.0884795] sd1: sync (50.00ns offset 8), 16-bit (40.000MB/s) =
+transfers, tagged queueing
+[   9.1948958] sd2 at scsibus1 target 3 lun 0: <SEAGATE, ST39102LW, =
+0004> disk fixed
+[   9.2847385] sd2: 8683 MB, 6962 cyl, 12 head, 212 sec, 512 bytes/sect =
+x 17783240 sectors
+[   9.3833672] sd2: sync (50.00ns offset 8), 16-bit (40.000MB/s) =
+transfers, tagged queueing
+[   9.4888341] sd3 at scsibus1 target 4 lun 0: <IBM, DDRS-39130W, S97B> =
+disk fixed
+[   9.6636350] sd3: 8715 MB, 8387 cyl, 10 head, 212 sec, 512 bytes/sect =
+x 17850000 sectors
+[   9.7622639] sd3: sync (50.00ns offset 8), 16-bit (40.000MB/s) =
+transfers, tagged queueing
+[  15.0121304] WARNING: 1 error while detecting hardware; check system =
+log.
+[  15.0910640] WARNING: can't figure what device matches "SCSI 0 4 0 0 0 =
+0 0"
+[  15.1732609] root on md0a dumps on md0b
+[  15.2181865] root file system type: ffs
+[  15.2622590] kern.module.path=3D/stand/alpha/11.99.5/modules
+[  15.3344009] entropy: best effort
+Terminal type? [vt100]=20
+                                                                        =
+Erase set to backspace.
+erase ^?, werase ^W, kill ^U, intr ^C
+
+1-2)John's patched 11.0_RC1 image
+>>>boot dka0 -fl A
+(boot dka0.0.0.4.0 -flags A)
+block 0 of dka0.0.0.4.0 is a valid boot block
+reading 13 blocks from dka0.0.0.4.0
+bootstrap code read in
+base =3D 1d8000, image_start =3D 0, image_bytes =3D 1a00
+initializing HWRPB at 2000
+initializing page table at 1ca000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 11.0_RC1 ISO 9660 Primary Bootstrap
+Jumping to entry point...
+
+NetBSD/alpha 11.0_RC1 Secondary Bootstrap, Revision 1.13 (Tue Feb 17 =
+02:52:46 UTC 2026)
+
+VMS PAL rev: 0x1000000010114
+OSF PAL rev: 0x1000000020116
+Switch to OSF PAL code succeeded.
+
+Boot flags: A
+11290976+255344=3D0xb034d0
+
+Entering netbsd at 0xfffffc0000a01410...
+[   1.0000000] Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, =
+2003,
+[   1.0000000]     2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, =
+2013,
+[   1.0000000]     2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, =
+2023,
+[   1.0000000]     2024, 2025, 2026
+[   1.0000000]     The NetBSD Foundation, Inc.  All rights reserved.
+[   1.0000000] Copyright (c) 1982, 1986, 1989, 1991, 1993
+[   1.0000000]     The Regents of the University of California.  All =
+rights reserved.
+
+[   1.0000000] NetBSD 11.0_RC1 (INSTALL) #0: Tue Feb 17 02:57:57 UTC =
+2026
+[   1.0000000] 	=
+john@platypus.zia.io:/usr/obj-alpha/sys/arch/alpha/compile/INSTALL
+[   1.0000000] Digital Personal WorkStation 600au, 598MHz
+[   1.0000000] 8192 byte page size, 1 processor.
+[   1.0000000] total memory =3D 1536 MB
+[   1.0000000] (1896 KB reserved for PROM, 1534 MB used by NetBSD)
+[   1.0000000] avail memory =3D 1501 MB
+[   1.0000000] mainbus0 (root)
+[   1.0000000] cpu0 at mainbus0: ID 0 (primary), 21164A-0 (EV56)
+[   1.0000000] cpu0: Architecture extensions: 0x1<BWX>
+[   1.0000000] cia0 at mainbus0: DECchip 2117x Core Logic Chipset =
+(Pyxis), pass 2
+[   1.0000000] cia0: extended capabilities: 0x1<BWEN>
+[   1.0000000] cia0: using BWX for PCI config access
+[   1.0000000] cia0: WARNING: Pyxis pass 1 DMA bug; no bets...
+[   1.0000000] pci0 at cia0 bus 0
+[   1.0000000] tlp0 at pci0 dev 3 function 0: DECchip 21143 Ethernet, =
+pass 3.0
+[   1.0000000] tlp0: interrupting at dec 550 irq 0
+[   1.0000000] tlp0: DEC, Ethernet address 00:00:f8:75:c8:24
+[   1.0000000] nsphy0 at tlp0 phy 5: DP83840 10/100 media interface, =
+rev. 1
+[   1.0000000] nsphy0: 10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, =
+auto
+[   1.0000000] tlp0: 10baseT, 10baseT-FDX, 10base2, 10base5
+[   1.0000000] cmdide0 at pci0 dev 4 function 0: CMD Technology PCI0646 =
+(rev. 0x01)
+[   1.0000000] cmdide0: primary channel wired to compatibility mode, =
+channel non-independent
+[   1.0000000] cmdide0: primary channel interrupting at isa irq 14
+[   1.0000000] atabus0 at cmdide0 channel 0
+[   1.0000000] cmdide0: secondary channel wired to compatibility mode, =
+channel non-independent
+[   1.0000000] cmdide0: secondary channel ignored (disabled)
+[   1.0000000] sio0 at pci0 dev 7 function 0: vendor 8086 product 0484 =
+(rev. 0x43)
+[   1.0000000] ppb0 at pci0 dev 20 function 0: vendor 1011 product 0024 =
+(rev. 0x02)
+[   1.0000000] pci1 at ppb0 bus 1
+[   1.0000000] siop0 at pci1 dev 8 function 0: Symbios Logic 53c895 =
+(ultra2-wide scsi)
+[   1.0000000] siop0: using on-board RAM
+[   1.0000000] siop0: interrupting at dec 550 irq 12
+[   1.0000000] scsibus0 at siop0: 16 targets, 8 luns per target
+[   1.0000000] isp0 at pci1 dev 9 function 0: QLogic 1020 Fast Wide SCSI =
+HBA
+[   1.0000000] isp0: interrupting at dec 550 irq 16
+[   1.0000000] vga0 at pci1 dev 10 function 0: vendor 102b product 051b =
+(rev. 0x00)
+[   1.0000000] wsdisplay0 at vga0 (kbdmux ignored)
+[   1.0000000] drm at vga0 not configured
+[   1.0000000] isa0 at sio0
+[   1.0000000] lpt0 at isa0 port 0x3bc-0x3bf irq 7
+[   1.0000000] com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, 16-byte =
+FIFO
+[   1.0000000] com0: console
+[   1.0000000] com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, 16-byte =
+FIFO
+[   1.0000000] pckbc0 at isa0 port 0x60-0x64
+[   1.0000000] pckbd0 at pckbc0 (kbd slot)
+[   1.0000000] pckbc0: using irq 1 for kbd slot
+[   1.0000000] wskbd0 at pckbd0 (mux ignored)
+[   1.0000000] pms0 at pckbc0 (aux slot)
+[   1.0000000] pckbc0: using irq 12 for aux slot
+[   1.0000000] wsmouse0 at pms0 (mux ignored)
+[   1.0000000] fdc0 at isa0 port 0x3f0-0x3f7 irq 6 drq 2
+[   1.0000000] mcclock0 at isa0 port 0x70-0x71: mc146818 compatible =
+time-of-day clock
+[   1.0000000] WARNING: system needs entropy for security; see =
+entropy(7)
+[   1.0095470] stray isa irq 14
+[   1.0428199] stray isa irq 14
+[   1.0770580] scsibus0: waiting 2 seconds for devices to settle...
+[   1.1486571] scsibus1 at isp0: 16 targets, 8 luns per target
+[   1.2156149] atapibus0 at atabus0: 2 targets
+[   1.2648662] stray isa irq 14
+[   1.3035002] scsibus1: waiting 2 seconds for devices to settle...
+[   1.3739186] cd0 at atapibus0 drive 0: <401248 CDRW, 2J18NE0121, 1.0D> =
+cdrom removable
+[   3.4598045] sd0 at scsibus0 target 0 lun 0: <SEAGATE, ST336607LW, =
+DS09> disk fixed
+[   3.5496495] sd0: 34732 MB, 49855 cyl, 2 head, 713 sec, 512 bytes/sect =
+x 71132959 sectors
+[   3.6453581] sd0: sync (25.00ns offset 31), 16-bit (80.000MB/s) =
+transfers, tagged queueing
+[   3.9773920] fd0 at fdc0 drive 0: 1.44MB, 80 cyl, 2 head, 18 sec
+[   7.8759313] sd1 at scsibus1 target 0 lun 0: <SEAGATE, ST39102LW, =
+8320> disk fixed
+[   7.9657745] sd1: 8683 MB, 6962 cyl, 12 head, 212 sec, 512 bytes/sect =
+x 17783240 sectors
+[   8.0644101] sd1: sync (50.00ns offset 8), 16-bit (40.000MB/s) =
+transfers, tagged queueing
+[   9.1699054] sd2 at scsibus1 target 3 lun 0: <SEAGATE, ST39102LW, =
+0004> disk fixed
+[   9.2607292] sd2: 8683 MB, 6962 cyl, 12 head, 212 sec, 512 bytes/sect =
+x 17783240 sectors
+[   9.3583880] sd2: sync (50.00ns offset 8), 16-bit (40.000MB/s) =
+transfers, tagged queueing
+[   9.4648355] sd3 at scsibus1 target 4 lun 0: <IBM, DDRS-39130W, S97B> =
+disk fixed
+[   9.6406186] sd3: 8715 MB, 8387 cyl, 10 head, 212 sec, 512 bytes/sect =
+x 17850000 sectors
+[   9.7392544] sd3: sync (50.00ns offset 8), 16-bit (40.000MB/s) =
+transfers, tagged queueing
+[  14.9913435] WARNING: 1 error while detecting hardware; check system =
+log.
+[  15.0695681] WARNING: can't figure what device matches "SCSI 0 4 0 0 0 =
+0 0"
+[  15.1515361] root on md0a dumps on md0b
+[  15.1964282] root file system type: ffs
+[  15.2407739] kern.module.path=3D/stand/alpha/11.0/modules
+[  15.3106948] entropy: best effort
+Terminal type? [vt100]=20
+                                                                        =
+Erase set to backspace.
+erase ^?, werase ^W, kill ^U, intr ^C
+
+1-3)Thorpej's patched image
+>>>boot dka0 -fl A
+(boot dka0.0.0.4.0 -flags A)
+block 0 of dka0.0.0.4.0 is a valid boot block
+reading 13 blocks from dka0.0.0.4.0
+bootstrap code read in
+base =3D 1d8000, image_start =3D 0, image_bytes =3D 1a00
+initializing HWRPB at 2000
+initializing page table at 1ca000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 11.99.5 ISO 9660 Primary Bootstrap
+Jumping to entry point...
+
+NetBSD/alpha 11.99.5 Secondary Bootstrap, Revision 1.13 (Wed Apr 22 =
+03:25:12 UTC 2026)
+
+VMS PAL rev: 0x1000000010114
+OSF PAL rev: 0x1000000020116
+Switch to OSF PAL code succeeded.
+
+Boot flags: A
+11314192+254592=3D0xb08d40
+
+Entering netbsd at 0xfffffc0000a01410...
+[   1.0000000] Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, =
+2003,
+[   1.0000000]     2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, =
+2013,
+[   1.0000000]     2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, =
+2023,
+[   1.0000000]     2024, 2025, 2026
+[   1.0000000]     The NetBSD Foundation, Inc.  All rights reserved.
+[   1.0000000] Copyright (c) 1982, 1986, 1989, 1991, 1993
+[   1.0000000]     The Regents of the University of California.  All =
+rights reserved.
+
+[   1.0000000] NetBSD 11.99.5 (INSTALL) #1: Wed Apr 22 04:27:07 PDT 2026
+[   1.0000000] 	=
+thorpej@the-ripe-vessel:/nbsd/objdir/alpha/sys/arch/alpha/compile/INSTALL=
+
+[   1.0000000] Digital Personal WorkStation 600au, 598MHz
+[   1.0000000] 8192 byte page size, 1 processor.
+[   1.0000000] total memory =3D 1536 MB
+[   1.0000000] (1896 KB reserved for PROM, 1534 MB used by NetBSD)
+[   1.0000000] avail memory =3D 1501 MB
+[   1.0000000] mainbus0 (root)
+[   1.0000000] cpu0 at mainbus0: ID 0 (primary), 21164A-0 (EV56)
+[   1.0000000] cpu0: Architecture extensions: 0x1<BWX>
+[   1.0000000] cia0 at mainbus0: DECchip 2117x Core Logic Chipset =
+(Pyxis), pass 2
+[   1.0000000] cia0: extended capabilities: 0x1<BWEN>
+[   1.0000000] cia0: using BWX for PCI config access
+[   1.0000000] cia0: WARNING: Pyxis pass 1 DMA bug; no bets...
+[   1.0000000] pci0 at cia0 bus 0
+[   1.0000000] tlp0 at pci0 dev 3 function 0: DECchip 21143 Ethernet, =
+pass 3.0
+[   1.0000000] tlp0: interrupting at dec 550 irq 0
+[   1.0000000] tlp0: DEC, Ethernet address 00:00:f8:75:c8:24
+[   1.0000000] nsphy0 at tlp0 phy 5: DP83840 10/100 media interface, =
+rev. 1
+[   1.0000000] nsphy0: 10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, =
+auto
+[   1.0000000] tlp0: 10baseT, 10baseT-FDX, 10base2, 10base5
+[   1.0000000] cmdide0 at pci0 dev 4 function 0: CMD Technology PCI0646 =
+(rev. 0x01)
+[   1.0000000] cmdide0: primary channel wired to compatibility mode, =
+channel non-independent
+[   1.0000000] cmdide0: primary channel interrupting at isa irq 14
+[   1.0000000] atabus0 at cmdide0 channel 0
+[   1.0000000] cmdide0: secondary channel wired to compatibility mode, =
+channel non-independent
+[   1.0000000] cmdide0: secondary channel ignored (disabled)
+[   1.0000000] sio0 at pci0 dev 7 function 0: vendor 8086 product 0484 =
+(rev. 0x43)
+[   1.0000000] ppb0 at pci0 dev 20 function 0: vendor 1011 product 0024 =
+(rev. 0x02)
+[   1.0000000] pci1 at ppb0 bus 1
+[   1.0000000] siop0 at pci1 dev 8 function 0: Symbios Logic 53c895 =
+(ultra2-wide scsi)
+[   1.0000000] siop0: using on-board RAM
+[   1.0000000] siop0: interrupting at dec 550 irq 12
+[   1.0000000] scsibus0 at siop0: 16 targets, 8 luns per target
+[   1.0000000] isp0 at pci1 dev 9 function 0: QLogic 1020 Fast Wide SCSI =
+HBA
+[   1.0000000] isp0: interrupting at dec 550 irq 16
+[   1.0000000] vga0 at pci1 dev 10 function 0: vendor 102b product 051b =
+(rev. 0x00)
+[   1.0000000] wsdisplay0 at vga0 (kbdmux ignored)
+[   1.0000000] drm at vga0 not configured
+[   1.0000000] isa0 at sio0
+[   1.0000000] com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, 16-byte =
+FIFO
+[   1.0000000] com0: console
+[   1.0000000] com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, 16-byte =
+FIFO
+[   1.0000000] lpt0 at isa0 port 0x3bc-0x3bf irq 7
+[   1.0000000] pckbc0 at isa0 port 0x60-0x64
+[   1.0000000] pckbd0 at pckbc0 (kbd slot)
+[   1.0000000] pckbc0: using irq 1 for kbd slot
+[   1.0000000] wskbd0 at pckbd0 (mux ignored)
+[   1.0000000] pms0 at pckbc0 (aux slot)
+[   1.0000000] pckbc0: using irq 12 for aux slot
+[   1.0000000] wsmouse0 at pms0 (mux ignored)
+[   1.0000000] fdc0 at isa0 port 0x3f0-0x3f7 irq 6 drq 2
+[   1.0000000] mcclock0 at isa0 port 0x70-0x71: mc146818 compatible =
+time-of-day clock
+[   1.0000000] WARNING: system needs entropy for security; see =
+entropy(7)
+[   1.0099026] stray isa irq 14
+[   1.0431099] stray isa irq 14
+[   1.0772963] scsibus0: waiting 2 seconds for devices to settle...
+[   1.1487318] scsibus1 at isp0: 16 targets, 8 luns per target
+[   1.2159677] atapibus0 at atabus0: 2 targets
+[   1.2649451] stray isa irq 14
+[   1.3038537] scsibus1: waiting 2 seconds for devices to settle...
+[   1.3741694] cd0 at atapibus0 drive 0: <401248 CDRW, 2J18NE0121, 1.0D> =
+cdrom removable
+[   3.4591627] sd0 at scsibus0 target 0 lun 0: <SEAGATE, ST336607LW, =
+DS09> disk fixed
+[   3.5490080] sd0: 34732 MB, 49855 cyl, 2 head, 713 sec, 512 bytes/sect =
+x 71132959 sectors
+[   3.6447148] sd0: sync (25.00ns offset 31), 16-bit (80.000MB/s) =
+transfers, tagged queueing
+[   3.9757699] fd0 at fdc0 drive 0: 1.44MB, 80 cyl, 2 head, 18 sec
+[   7.9045548] sd1 at scsibus1 target 0 lun 0: <SEAGATE, ST39102LW, =
+8320> disk fixed
+[   7.9943991] sd1: 8683 MB, 6962 cyl, 12 head, 212 sec, 512 bytes/sect =
+x 17783240 sectors
+[   8.0920548] sd1: sync (50.00ns offset 8), 16-bit (40.000MB/s) =
+transfers, tagged queueing
+[   9.1985200] sd2 at scsibus1 target 3 lun 0: <SEAGATE, ST39102LW, =
+0004> disk fixed
+[   9.2893430] sd2: 8683 MB, 6962 cyl, 12 head, 212 sec, 512 bytes/sect =
+x 17783240 sectors
+[   9.3869979] sd2: sync (50.00ns offset 8), 16-bit (40.000MB/s) =
+transfers, tagged queueing
+[   9.4934438] sd3 at scsibus1 target 4 lun 0: <IBM, DDRS-39130W, S97B> =
+disk fixed
+[   9.6643452] sd3: 8715 MB, 8387 cyl, 10 head, 212 sec, 512 bytes/sect =
+x 17850000 sectors
+[   9.7629803] sd3: sync (50.00ns offset 8), 16-bit (40.000MB/s) =
+transfers, tagged queueing
+[  15.0150284] WARNING: 1 error while detecting hardware; check system =
+log.
+[  15.0939539] WARNING: can't figure what device matches "SCSI 0 4 0 0 0 =
+0 0"
+[  15.1761649] root on md0a dumps on md0b
+[  15.2210937] root file system type: ffs
+[  15.2651562] kern.module.path=3D/stand/alpha/11.99.5/modules
+[  15.3294881] entropy: best effort
+Terminal type? [vt100]=20
+                                                                        =
+Erase set to backspace.
+erase ^?, werase ^W, kill ^U, intr ^C
+
+2)XP1000
+>>>show config
+                          Compaq Computer Corporation
+                     COMPAQ Professional Workstation XP1000
+
+Firmware
+SRM Console:	V5.9-1		Dec 14 2000 16:04:15
+ARC Console:	5.70
+PALcode:	OpenVMS PALcode V1.88-27, Tru64 UNIX PALcode V1.83-22
+Serial Rom:	SROM B1a
+PIC:		0.36
+
+Processor
+DECchip (tm) 21264A-8	667MHz
+
+Memory
+2048 MBytes of System Memory
+Bank         Size     Base Addr      Dimms
+------    ----------  ---------      -----
+   0     1024 MBytes   40000000      1111
+   1     1024 MBytes   00000000      1111
+
+BCache Size =3D 4 MBytes
+
+ Slot	Option		Hose 0, Bus 0, PCI
+   7/0	Cypress 82C693      	                    	Bridge to Bus 1, ISA
+   7/1	Cypress 82C693 IDE  	dqa.0.0.107.0       =09
+				dqa0.0.0.107.0      	MATSHITA DVD-RAM SW-9585
+   7/2	Cypress 82C693 IDE  	dqb.0.1.207.0       =09
+   7/3	Cypress 82C693 USB  	                    =09
+  11/0	00301000/10101000   	                    =09
+  11/1	00301000/10101000   	                    =09
+  12	51571002/2036148C   	                    =09
+  13	10088086/11078086   	                    =09
+
+ Slot	Option		Hose 1, Bus 0, PCI
+   3	DECchip 21143-AA    	ewa0.0.0.3.1        	08-00-2B-87-1D-B2
+   6	QLogic ISP10x0      	pka0.7.0.6.1        	SCSI Bus ID 7
+				dka100.1.0.6.1      	QUANTUM ATLAS 10K 9WLS
+   8	DECchip 21152-AA    	                    	Bridge to Bus 2, PCI
+
+ Slot	Option		Hose 1, Bus 2, PCI
+   9/0	30381106/02161145   	                    =09
+   9/1	30381106/02161145   	                    =09
+   9/2	31041106/02171145   	                    =09
+   9/3	30441106/304414DB   	                    =09
+
+ISA
+Slot	Device	Name		Type	     Enabled  BaseAddr	IRQ	DMA
+0
+	0	MOUSE		Embedded	Yes	60	12=09
+
+	1	KBD		Embedded	Yes	60	1=09
+
+	2	COM1		Embedded	Yes	3f8	4=09
+
+	3	COM2		Embedded	Yes	2f8	3=09
+
+	4	LPT1		Embedded	Yes	3bc	7=09
+
+	5	FLOPPY	Embedded	Yes	3f0	6	2
+
+	6	EIDE		Embedded	Yes	1f0	14=09
+							3f6	15=09
+							170	=09
+							376	=09
+	7	ES1888		Embedded	Yes	220	5	1
+									5
+
+	8	USB		Embedded	Yes		10=09
+
+2-1)20260214081227Z daily image
+>>>boot dqa0 -fl A
+(boot dqa0.0.0.107.0 -flags A)
+block 0 of dqa0.0.0.107.0 is a valid boot block
+reading 13 blocks from dqa0.0.0.107.0
+bootstrap code read in
+base =3D 1b2000, image_start =3D 0, image_bytes =3D 1a00
+initializing HWRPB at 2000
+initializing page table at 7ffee000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 11.99.5 ISO 9660 Primary Bootstrap
+Jumping to entry point...
+
+NetBSD/alpha 11.99.5 Secondary Bootstrap, Revision 1.13 (Sat Feb 14 =
+08:12:27 UTC 2026)
+
+VMS PAL rev: 0x1001b00010158
+OSF PAL rev: 0x1001600020153
+Switch to OSF PAL code succeeded.
+
+Boot flags: A
+11312480+255344=3D0xb08980
+
+Entering netbsd at 0xfffffc0000a01410...
+[   1.0000000] Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, =
+2003,
+[   1.0000000]     2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, =
+2013,
+[   1.0000000]     2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, =
+2023,
+[   1.0000000]     2024, 2025, 2026
+[   1.0000000]     The NetBSD Foundation, Inc.  All rights reserved.
+[   1.0000000] Copyright (c) 1982, 1986, 1989, 1991, 1993
+[   1.0000000]     The Regents of the University of California.  All =
+rights reserved.
+
+[   1.0000000] NetBSD 11.99.5 (INSTALL) #0: Sat Feb 14 08:12:27 UTC 2026
+[   1.0000000] 	=
+mkrepro@mkrepro.NetBSD.org:/usr/src/sys/arch/alpha/compile/INSTALL
+[   1.0000000] COMPAQ Professional Workstation XP1000, 666MHz, s/n AY0
+[   1.0000000] 8192 byte page size, 1 processor.
+[   1.0000000] total memory =3D 2048 MB
+[   1.0000000] (1816 KB reserved for PROM, 2046 MB used by NetBSD)
+[   1.0000000] avail memory =3D 2006 MB
+[   1.0000000] mainbus0 (root)
+[   1.0000000] cpu0 at mainbus0: ID 0 (primary), 21264A-8 (EV67)
+[   1.0000000] cpu0: Architecture extensions: 0x307<PAT,MVI,CIX,FIX,BWX>
+[   1.0000000] tsc0 at mainbus0: 21272 Core Logic Chipset, Cchip rev 0
+[   1.0000000] tsc0: 4 Dchips, 1 memory bus of 32 bytes
+[   1.0000000] tsc0: arrays present: 1024MB, 1024MB (split), 0MB, 0MB, =
+Dchip 0 rev 1
+[   1.0000000] tsp0 at tsc0
+[   1.0000000] pci0 at tsp0 bus 0
+[   1.0000000] sio0 at pci0 dev 7 function 0: vendor 1080 product c693 =
+(rev. 0x00)
+[   1.0000000] cypide0 at pci0 dev 7 function 1: Cypress 82C693 IDE =
+Controller (rev. 0x00)
+[   1.0000000] cypide0: primary channel wired to compatibility mode
+[   1.0000000] cypide0: primary channel interrupting at isa irq 14
+[   1.0000000] atabus0 at cypide0 channel 0
+[   1.0000000] cypide1 at pci0 dev 7 function 2: Cypress 82C693 IDE =
+Controller (rev. 0x00)
+[   1.0000000] cypide1: hardware does not support DMA
+[   1.0000000] cypide1: primary channel wired to compatibility mode
+[   1.0000000] cypide1: secondary channel interrupting at isa irq 15
+[   1.0000000] atabus1 at cypide1 channel 0
+[   1.0000000] vendor 1080 product c693 (USB serial bus, OHCI) at pci0 =
+dev 7 function 3 not configured
+[   1.0000000] mpt0 at pci0 dev 11 function 0: vendor 1000 product 0030 =
+(rev. 0x08)
+[   1.0000000] mpt0: interrupting at dec 6600 irq 40
+[   1.0000000] scsibus0 at mpt0: 16 targets, 8 luns per target
+[   1.0000000] mpt1 at pci0 dev 11 function 1: vendor 1000 product 0030 =
+(rev. 0x08)
+[   1.0000000] mpt1: interrupting at dec 6600 irq 41
+[   1.0000000] scsibus1 at mpt1: 16 targets, 8 luns per target
+[   1.0000000] vga0 at pci0 dev 12 function 0: vendor 1002 product 5157 =
+(rev. 0x00)
+[   1.0000000] wsdisplay0 at vga0 (kbdmux ignored)
+[   1.0000000] drm at vga0 not configured
+[   1.0000000] wm0 at pci0 dev 13 function 0: Intel i82544EI 1000BASE-T =
+Ethernet (rev. 0x02)
+[   1.0000000] wm0: interrupting at dec 6600 irq 32
+[   1.0000000] wm0: Ethernet address 00:02:b3:d0:61:b9
+[   1.0000000] makphy0 at wm0 phy 1: Marvell 88E1000 Gigabit PHY, rev. 0
+[   1.0000000] makphy0: 10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, =
+1000baseT, 1000baseT-FDX, auto
+[   1.0000000] isa0 at sio0
+[   1.0000000] com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, 16-byte =
+FIFO
+[   1.0000000] com0: console
+[   1.0000000] com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, 16-byte =
+FIFO
+[   1.0000000] lpt0 at isa0 port 0x3bc-0x3bf irq 7
+[   1.0000000] pckbc0 at isa0 port 0x60-0x64
+[   1.0000000] pckbd0 at pckbc0 (kbd slot)
+[   1.0000000] pckbc0: using irq 1 for kbd slot
+[   1.0000000] wskbd0 at pckbd0 (mux ignored)
+[   1.0000000] pms0 at pckbc0 (aux slot)
+[   1.0000000] pckbc0: using irq 12 for aux slot
+[   1.0000000] wsmouse0 at pms0 (mux ignored)
+[   1.0000000] fdc0 at isa0 port 0x3f0-0x3f7 irq 6 drq 2
+[   1.0000000] mcclock0 at isa0 port 0x70-0x71: mc146818 compatible =
+time-of-day clock
+[   1.0000000] tsp1 at tsc0
+[   1.0000000] pci1 at tsp1 bus 0
+[   1.0000000] tlp0 at pci1 dev 3 function 0: DECchip 21143 Ethernet, =
+pass 4.1
+[   1.0000000] tlp0: interrupting at dec 6600 irq 45
+[   1.0000000] tlp0: DEC, Ethernet address 08:00:2b:87:1d:b2
+[   1.0000000] tlp0: 10baseT, 10base2, 10base5, 10baseT-FDX, 100baseTX, =
+100baseTX-FDX, auto
+[   1.0000000] isp0 at pci1 dev 6 function 0: QLogic 1020 Fast Wide SCSI =
+HBA
+[   1.0000000] isp0: interrupting at dec 6600 irq 47
+[   1.0000000] ppb0 at pci1 dev 8 function 0: vendor 1011 product 0024 =
+(rev. 0x03)
+[   1.0000000] pci2 at ppb0 bus 2
+[   1.0000000] vendor 1106 product 3038 (USB serial bus, UHCI, revision =
+0x61) at pci2 dev 9 function 0 not configured
+[   1.0000000] vendor 1106 product 3038 (USB serial bus, UHCI, revision =
+0x61) at pci2 dev 9 function 1 not configured
+[   1.0000000] vendor 1106 product 3104 (USB serial bus, EHCI, revision =
+0x62) at pci2 dev 9 function 2 not configured
+[   1.0000000] vendor 1106 product 3044 (IEEE1394 serial bus, OpenHCI, =
+revision 0x46) at pci2 dev 9 function 3 not configured
+[   1.0000000] tsciic at tsc0
+[   1.0000000]  not configured
+[   1.0000000] WARNING: system needs entropy for security; see =
+entropy(7)
+[   1.1360136] scsibus0: waiting 2 seconds for devices to settle...
+[   1.2058331] scsibus1: waiting 2 seconds for devices to settle...
+[   1.2776171] scsibus2 at isp0: 16 targets, 8 luns per target
+[   1.3489067] stray isa irq 14
+[   1.3821142] scsibus2: waiting 2 seconds for devices to settle...
+[   1.4535961] atapibus0 at atabus0: 2 targets
+[   1.5035184] stray isa irq 14
+[   1.5520380] cd0 at atapibus0 drive 0: <MATSHITADVD-RAM SW-9585, , =
+B100> cdrom removable
+[   3.6204537] sd0 at scsibus0 target 0 lun 0: <COMPAQ, BF0369B272, =
+HPB9> disk fixed
+[   3.7102998] sd0: 34732 MB, 36070 cyl, 2 head, 986 sec, 512 bytes/sect =
+x 71132000 sectors
+[   3.8079587] sd0: sync (6.25ns offset 127), 16-bit (320.000MB/s) =
+transfers, tagged queueing
+[   4.1370692] fd0 at fdc0 drive 0: 1.44MB, 80 cyl, 2 head, 18 sec
+[  18.9685423] sd1 at scsibus2 target 1 lun 0: <QUANTUM, ATLAS 10K 9WLS, =
+UCHK> disk fixed
+[  19.0622960] sd1: 8683 MB, 10042 cyl, 6 head, 295 sec, 512 bytes/sect =
+x 17783240 sectors
+[  19.1580011] sd1: sync (50.00ns offset 8), 16-bit (40.000MB/s) =
+transfers, tagged queueing
+[  25.7695153] WARNING: can't figure what device matches "IDE 0 107 0 0 =
+0 0 0"
+[  25.8517396] root on md0a dumps on md0b
+[  25.8964712] root file system type: ffs
+[  25.9411866] kern.module.path=3D/stand/alpha/11.99.5/modules
+Terminal type? [vt100] [  26.1220649] entropy: best effort
+
+                                                                        =
+Erase set to backspace.
+erase ^?, werase ^W, kill ^U, intr ^C
+
+2-2)John's patched 11.0_RC1 image
+>>>boot dqa0 -fl A
+(boot dqa0.0.0.107.0 -flags A)
+block 0 of dqa0.0.0.107.0 is a valid boot block
+reading 13 blocks from dqa0.0.0.107.0
+bootstrap code read in
+base =3D 1b2000, image_start =3D 0, image_bytes =3D 1a00
+initializing HWRPB at 2000
+initializing page table at 7ffee000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 11.0_RC1 ISO 9660 Primary Bootstrap
+Jumping to entry point...
+
+NetBSD/alpha 11.0_RC1 Secondary Bootstrap, Revision 1.13 (Tue Feb 17 =
+02:52:46 UTC 2026)
+
+VMS PAL rev: 0x1001b00010158
+OSF PAL rev: 0x1001600020153
+Switch to OSF PAL code succeeded.
+
+Boot flags: A
+11290976+255344=3D0xb034d0
+
+Entering netbsd at 0xfffffc0000a01410...
+[   1.0000000] Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, =
+2003,
+[   1.0000000]     2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, =
+2013,
+[   1.0000000]     2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, =
+2023,
+[   1.0000000]     2024, 2025, 2026
+[   1.0000000]     The NetBSD Foundation, Inc.  All rights reserved.
+[   1.0000000] Copyright (c) 1982, 1986, 1989, 1991, 1993
+[   1.0000000]     The Regents of the University of California.  All =
+rights reserved.
+
+[   1.0000000] NetBSD 11.0_RC1 (INSTALL) #0: Tue Feb 17 02:57:57 UTC =
+2026
+[   1.0000000] 	=
+john@platypus.zia.io:/usr/obj-alpha/sys/arch/alpha/compile/INSTALL
+[   1.0000000] COMPAQ Professional Workstation XP1000, 666MHz, s/n AY0
+[   1.0000000] 8192 byte page size, 1 processor.
+[   1.0000000] total memory =3D 2048 MB
+[   1.0000000] (1816 KB reserved for PROM, 2046 MB used by NetBSD)
+[   1.0000000] avail memory =3D 2006 MB
+[   1.0000000] mainbus0 (root)
+[   1.0000000] cpu0 at mainbus0: ID 0 (primary), 21264A-8 (EV67)
+[   1.0000000] cpu0: Architecture extensions: 0x307<PAT,MVI,CIX,FIX,BWX>
+[   1.0000000] tsc0 at mainbus0: 21272 Core Logic Chipset, Cchip rev 0
+[   1.0000000] tsc0: 4 Dchips, 1 memory bus of 32 bytes
+[   1.0000000] tsc0: arrays present: 1024MB, 1024MB (split), 0MB, 0MB, =
+Dchip 0 rev 1
+[   1.0000000] tsp0 at tsc0
+[   1.0000000] pci0 at tsp0 bus 0
+[   1.0000000] sio0 at pci0 dev 7 function 0: vendor 1080 product c693 =
+(rev. 0x00)
+[   1.0000000] cypide0 at pci0 dev 7 function 1: Cypress 82C693 IDE =
+Controller (rev. 0x00)
+[   1.0000000] cypide0: primary channel wired to compatibility mode
+[   1.0000000] cypide0: primary channel interrupting at isa irq 14
+[   1.0000000] atabus0 at cypide0 channel 0
+[   1.0000000] cypide1 at pci0 dev 7 function 2: Cypress 82C693 IDE =
+Controller (rev. 0x00)
+[   1.0000000] cypide1: hardware does not support DMA
+[   1.0000000] cypide1: primary channel wired to compatibility mode
+[   1.0000000] cypide1: secondary channel interrupting at isa irq 15
+[   1.0000000] atabus1 at cypide1 channel 0
+[   1.0000000] vendor 1080 product c693 (USB serial bus, OHCI) at pci0 =
+dev 7 function 3 not configured
+[   1.0000000] mpt0 at pci0 dev 11 function 0: vendor 1000 product 0030 =
+(rev. 0x08)
+[   1.0000000] mpt0: interrupting at dec 6600 irq 40
+[   1.0000000] scsibus0 at mpt0: 16 targets, 8 luns per target
+[   1.0000000] mpt1 at pci0 dev 11 function 1: vendor 1000 product 0030 =
+(rev. 0x08)
+[   1.0000000] mpt1: interrupting at dec 6600 irq 41
+[   1.0000000] scsibus1 at mpt1: 16 targets, 8 luns per target
+[   1.0000000] vga0 at pci0 dev 12 function 0: vendor 1002 product 5157 =
+(rev. 0x00)
+[   1.0000000] wsdisplay0 at vga0 (kbdmux ignored)
+[   1.0000000] drm at vga0 not configured
+[   1.0000000] wm0 at pci0 dev 13 function 0: Intel i82544EI 1000BASE-T =
+Ethernet (rev. 0x02)
+[   1.0000000] wm0: interrupting at dec 6600 irq 32
+[   1.0000000] wm0: Ethernet address 00:02:b3:d0:61:b9
+[   1.0000000] makphy0 at wm0 phy 1: Marvell 88E1000 Gigabit PHY, rev. 0
+[   1.0000000] makphy0: 10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, =
+1000baseT, 1000baseT-FDX, auto
+[   1.0000000] isa0 at sio0
+[   1.0000000] lpt0 at isa0 port 0x3bc-0x3bf irq 7
+[   1.0000000] com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, 16-byte =
+FIFO
+[   1.0000000] com0: console
+[   1.0000000] com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, 16-byte =
+FIFO
+[   1.0000000] pckbc0 at isa0 port 0x60-0x64
+[   1.0000000] pckbd0 at pckbc0 (kbd slot)
+[   1.0000000] pckbc0: using irq 1 for kbd slot
+[   1.0000000] wskbd0 at pckbd0 (mux ignored)
+[   1.0000000] pms0 at pckbc0 (aux slot)
+[   1.0000000] pckbc0: using irq 12 for aux slot
+[   1.0000000] wsmouse0 at pms0 (mux ignored)
+[   1.0000000] fdc0 at isa0 port 0x3f0-0x3f7 irq 6 drq 2
+[   1.0000000] mcclock0 at isa0 port 0x70-0x71: mc146818 compatible =
+time-of-day clock
+[   1.0000000] tsp1 at tsc0
+[   1.0000000] pci1 at tsp1 bus 0
+[   1.0000000] tlp0 at pci1 dev 3 function 0: DECchip 21143 Ethernet, =
+pass 4.1
+[   1.0000000] tlp0: interrupting at dec 6600 irq 45
+[   1.0000000] tlp0: DEC, Ethernet address 08:00:2b:87:1d:b2
+[   1.0000000] tlp0: 10baseT, 10base2, 10base5, 10baseT-FDX, 100baseTX, =
+100baseTX-FDX, auto
+[   1.0000000] isp0 at pci1 dev 6 function 0: QLogic 1020 Fast Wide SCSI =
+HBA
+[   1.0000000] isp0: interrupting at dec 6600 irq 47
+[   1.0000000] ppb0 at pci1 dev 8 function 0: vendor 1011 product 0024 =
+(rev. 0x03)
+[   1.0000000] pci2 at ppb0 bus 2
+[   1.0000000] vendor 1106 product 3038 (USB serial bus, UHCI, revision =
+0x61) at pci2 dev 9 function 0 not configured
+[   1.0000000] vendor 1106 product 3038 (USB serial bus, UHCI, revision =
+0x61) at pci2 dev 9 function 1 not configured
+[   1.0000000] vendor 1106 product 3104 (USB serial bus, EHCI, revision =
+0x62) at pci2 dev 9 function 2 not configured
+[   1.0000000] vendor 1106 product 3044 (IEEE1394 serial bus, OpenHCI, =
+revision 0x46) at pci2 dev 9 function 3 not configured
+[   1.0000000] tsciic at tsc0
+[   1.0000000]  not configured
+[   1.0000000] WARNING: system needs entropy for security; see =
+entropy(7)
+[   1.1350024] scsibus0: waiting 2 seconds for devices to settle...
+[   1.2054330] scsibus1: waiting 2 seconds for devices to settle...
+[   1.2775836] scsibus2 at isp0: 16 targets, 8 luns per target
+[   1.3488701] stray isa irq 14
+[   1.3814261] scsibus2: waiting 2 seconds for devices to settle...
+[   1.4531872] atapibus0 at atabus0: 2 targets
+[   1.5031705] stray isa irq 14
+[   1.5519967] cd0 at atapibus0 drive 0: <MATSHITADVD-RAM SW-9585, , =
+B100> cdrom removable
+[   3.6203437] sd0 at scsibus0 target 0 lun 0: <COMPAQ, BF0369B272, =
+HPB9> disk fixed
+[   3.7101873] sd0: 34732 MB, 36070 cyl, 2 head, 986 sec, 512 bytes/sect =
+x 71132000 sectors
+[   3.8078422] sd0: sync (6.25ns offset 127), 16-bit (320.000MB/s) =
+transfers, tagged queueing
+[   4.1369421] fd0 at fdc0 drive 0: 1.44MB, 80 cyl, 2 head, 18 sec
+[  18.9679356] sd1 at scsibus2 target 1 lun 0: <QUANTUM, ATLAS 10K 9WLS, =
+UCHK> disk fixed
+[  19.0616852] sd1: 8683 MB, 10042 cyl, 6 head, 295 sec, 512 bytes/sect =
+x 17783240 sectors
+[  19.1573883] sd1: sync (50.00ns offset 8), 16-bit (40.000MB/s) =
+transfers, tagged queueing
+[  25.7686892] WARNING: can't figure what device matches "IDE 0 107 0 0 =
+0 0 0"
+[  25.8507186] root on md0a dumps on md0b
+[  25.8956422] root file system type: ffs
+[  25.9401134] kern.module.path=3D/stand/alpha/11.0/modules
+Terminal type? [vt100] [  26.1290390] entropy: best effort
+
+                                                                        =
+Erase set to backspace.
+erase ^?, werase ^W, kill ^U, intr ^C
+
+2-3)Thorpej's patched image
+>>>boot dqa0 -fl A
+(boot dqa0.0.0.107.0 -flags A)
+block 0 of dqa0.0.0.107.0 is a valid boot block
+reading 13 blocks from dqa0.0.0.107.0
+bootstrap code read in
+base =3D 1b2000, image_start =3D 0, image_bytes =3D 1a00
+initializing HWRPB at 2000
+initializing page table at 7ffee000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 11.99.5 ISO 9660 Primary Bootstrap
+Jumping to entry point...
+
+NetBSD/alpha 11.99.5 Secondary Bootstrap, Revision 1.13 (Wed Apr 22 =
+03:25:12 UTC 2026)
+
+VMS PAL rev: 0x1001b00010158
+OSF PAL rev: 0x1001600020153
+Switch to OSF PAL code succeeded.
+
+Boot flags: A
+11314192+254592=3D0xb08d40
+
+Entering netbsd at 0xfffffc0000a01410...
+[   1.0000000] Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, =
+2003,
+[   1.0000000]     2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, =
+2013,
+[   1.0000000]     2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, =
+2023,
+[   1.0000000]     2024, 2025, 2026
+[   1.0000000]     The NetBSD Foundation, Inc.  All rights reserved.
+[   1.0000000] Copyright (c) 1982, 1986, 1989, 1991, 1993
+[   1.0000000]     The Regents of the University of California.  All =
+rights reserved.
+
+[   1.0000000] NetBSD 11.99.5 (INSTALL) #1: Wed Apr 22 04:27:07 PDT 2026
+[   1.0000000] 	=
+thorpej@the-ripe-vessel:/nbsd/objdir/alpha/sys/arch/alpha/compile/INSTALL=
+
+[   1.0000000] COMPAQ Professional Workstation XP1000, 666MHz, s/n AY0
+[   1.0000000] 8192 byte page size, 1 processor.
+[   1.0000000] total memory =3D 2048 MB
+[   1.0000000] (1816 KB reserved for PROM, 2046 MB used by NetBSD)
+[   1.0000000] avail memory =3D 2006 MB
+[   1.0000000] mainbus0 (root)
+[   1.0000000] cpu0 at mainbus0: ID 0 (primary), 21264A-8 (EV67)
+[   1.0000000] cpu0: Architecture extensions: 0x307<PAT,MVI,CIX,FIX,BWX>
+[   1.0000000] tsc0 at mainbus0: 21272 Core Logic Chipset, Cchip rev 0
+[   1.0000000] tsc0: 4 Dchips, 1 memory bus of 32 bytes
+[   1.0000000] tsc0: arrays present: 1024MB, 1024MB (split), 0MB, 0MB, =
+Dchip 0 rev 1
+[   1.0000000] tsp0 at tsc0
+[   1.0000000] pci0 at tsp0 bus 0
+[   1.0000000] sio0 at pci0 dev 7 function 0: vendor 1080 product c693 =
+(rev. 0x00)
+[   1.0000000] cypide0 at pci0 dev 7 function 1: Cypress 82C693 IDE =
+Controller (rev. 0x00)
+[   1.0000000] cypide0: primary channel wired to compatibility mode
+[   1.0000000] cypide0: primary channel interrupting at isa irq 14
+[   1.0000000] atabus0 at cypide0 channel 0
+[   1.0000000] cypide1 at pci0 dev 7 function 2: Cypress 82C693 IDE =
+Controller (rev. 0x00)
+[   1.0000000] cypide1: hardware does not support DMA
+[   1.0000000] cypide1: primary channel wired to compatibility mode
+[   1.0000000] cypide1: secondary channel interrupting at isa irq 15
+[   1.0000000] atabus1 at cypide1 channel 0
+[   1.0000000] vendor 1080 product c693 (USB serial bus, OHCI) at pci0 =
+dev 7 function 3 not configured
+[   1.0000000] mpt0 at pci0 dev 11 function 0: vendor 1000 product 0030 =
+(rev. 0x08)
+[   1.0000000] mpt0: interrupting at dec 6600 irq 40
+[   1.0000000] scsibus0 at mpt0: 16 targets, 8 luns per target
+[   1.0000000] mpt1 at pci0 dev 11 function 1: vendor 1000 product 0030 =
+(rev. 0x08)
+[   1.0000000] mpt1: interrupting at dec 6600 irq 41
+[   1.0000000] scsibus1 at mpt1: 16 targets, 8 luns per target
+[   1.0000000] vga0 at pci0 dev 12 function 0: vendor 1002 product 5157 =
+(rev. 0x00)
+[   1.0000000] wsdisplay0 at vga0 (kbdmux ignored)
+[   1.0000000] drm at vga0 not configured
+[   1.0000000] wm0 at pci0 dev 13 function 0: Intel i82544EI 1000BASE-T =
+Ethernet (rev. 0x02)
+[   1.0000000] wm0: interrupting at dec 6600 irq 32
+[   1.0000000] wm0: Ethernet address 00:02:b3:d0:61:b9
+[   1.0000000] makphy0 at wm0 phy 1: Marvell 88E1000 Gigabit PHY, rev. 0
+[   1.0000000] makphy0: 10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, =
+1000baseT, 1000baseT-FDX, auto
+[   1.0000000] isa0 at sio0
+[   1.0000000] com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, 16-byte =
+FIFO
+[   1.0000000] com0: console
+[   1.0000000] com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, 16-byte =
+FIFO
+[   1.0000000] lpt0 at isa0 port 0x3bc-0x3bf irq 7
+[   1.0000000] pckbc0 at isa0 port 0x60-0x64
+[   1.0000000] pckbd0 at pckbc0 (kbd slot)
+[   1.0000000] pckbc0: using irq 1 for kbd slot
+[   1.0000000] wskbd0 at pckbd0 (mux ignored)
+[   1.0000000] pms0 at pckbc0 (aux slot)
+[   1.0000000] pckbc0: using irq 12 for aux slot
+[   1.0000000] wsmouse0 at pms0 (mux ignored)
+[   1.0000000] fdc0 at isa0 port 0x3f0-0x3f7 irq 6 drq 2
+[   1.0000000] mcclock0 at isa0 port 0x70-0x71: mc146818 compatible =
+time-of-day clock
+[   1.0000000] tsp1 at tsc0
+[   1.0000000] pci1 at tsp1 bus 0
+[   1.0000000] tlp0 at pci1 dev 3 function 0: DECchip 21143 Ethernet, =
+pass 4.1
+[   1.0000000] tlp0: interrupting at dec 6600 irq 45
+[   1.0000000] tlp0: DEC, Ethernet address 08:00:2b:87:1d:b2
+[   1.0000000] tlp0: 10baseT, 10base2, 10base5, 10baseT-FDX, 100baseTX, =
+100baseTX-FDX, auto
+[   1.0000000] isp0 at pci1 dev 6 function 0: QLogic 1020 Fast Wide SCSI =
+HBA
+[   1.0000000] isp0: interrupting at dec 6600 irq 47
+[   1.0000000] ppb0 at pci1 dev 8 function 0: vendor 1011 product 0024 =
+(rev. 0x03)
+[   1.0000000] pci2 at ppb0 bus 2
+[   1.0000000] vendor 1106 product 3038 (USB serial bus, UHCI, revision =
+0x61) at pci2 dev 9 function 0 not configured
+[   1.0000000] vendor 1106 product 3038 (USB serial bus, UHCI, revision =
+0x61) at pci2 dev 9 function 1 not configured
+[   1.0000000] vendor 1106 product 3104 (USB serial bus, EHCI, revision =
+0x62) at pci2 dev 9 function 2 not configured
+[   1.0000000] vendor 1106 product 3044 (IEEE1394 serial bus, OpenHCI, =
+revision 0x46) at pci2 dev 9 function 3 not configured
+[   1.0000000] tsciic at tsc0
+[   1.0000000]  not configured
+[   1.0000000] WARNING: system needs entropy for security; see =
+entropy(7)
+[   1.1359970] scsibus0: waiting 2 seconds for devices to settle...
+[   1.2063132] scsibus1: waiting 2 seconds for devices to settle...
+[   1.2785805] scsibus2 at isp0: 16 targets, 8 luns per target
+[   1.3498679] stray isa irq 14
+[   1.3822839] scsibus2: waiting 2 seconds for devices to settle...
+[   1.4540472] atapibus0 at atabus0: 2 targets
+[   1.5039676] stray isa irq 14
+[   1.5529963] cd0 at atapibus0 drive 0: <MATSHITADVD-RAM SW-9585, , =
+B100> cdrom removable
+[   3.6203810] sd0 at scsibus0 target 0 lun 0: <COMPAQ, BF0369B272, =
+HPB9> disk fixed
+[   3.7092470] sd0: 34732 MB, 36070 cyl, 2 head, 986 sec, 512 bytes/sect =
+x 71132000 sectors
+[   3.8069033] sd0: sync (6.25ns offset 127), 16-bit (320.000MB/s) =
+transfers, tagged queueing
+[   4.1360053] fd0 at fdc0 drive 0: 1.44MB, 80 cyl, 2 head, 18 sec
+[  18.9671086] sd1 at scsibus2 target 1 lun 0: <QUANTUM, ATLAS 10K 9WLS, =
+UCHK> disk fixed
+[  19.0608588] sd1: 8683 MB, 10042 cyl, 6 head, 295 sec, 512 bytes/sect =
+x 17783240 sectors
+[  19.1565621] sd1: sync (50.00ns offset 8), 16-bit (40.000MB/s) =
+transfers, tagged queueing
+[  25.7679118] WARNING: can't figure what device matches "IDE 0 107 0 0 =
+0 0 0"
+[  25.8499432] root on md0a dumps on md0b
+[  25.8948673] root file system type: ffs
+[  25.9393455] kern.module.path=3D/stand/alpha/11.99.5/modules
+Terminal type? [vt100] [  26.1282647] entropy: best effort
+
+                                                                        =
+Erase set to backspace.
+erase ^?, werase ^W, kill ^U, intr ^C
+--=20
+Yoshihiko Iwama
+
+
+
+
+From iwama@t3.rim.or.jp  Mon Apr 27 19:42:44 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: <iwama@t3.rim.or.jp>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: RE: The problems in src/sys/dev/ic/isp.c
+Date: Mon, 27 Apr 2026 19:42:44 +0900
+Approved: news@gmane.org
+Message-ID: <001a01dcd632$95a85c60$c0f91520$@t3.rim.or.jp>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com> <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com> <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com> <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com> <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com> <FD3F4CD9-A625-4633-B784-4FA116A04F8D@me.com> <be97099f-65bf-4dcb-ac61-4d2b31dc74fd@genunix.com> <5265338A-36C2-4567-B1EE-CC577E66E808@me.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="30455"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: "'Istvan Gyenes'" <igyenes@gmail.com>,
+	<port-alpha@NetBSD.org>,
+	"'John Klos'" <john@klos.com>
+To: "'Jason Thorpe'" <thorpej@me.com>,
+	"'Dennis Clarke'" <dc@genunix.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Mon Apr 27 12:43:31 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wHJR4-0007n4-1F
+	for netbsd-port-alpha@m.gmane-mx.org; Mon, 27 Apr 2026 12:43:30 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 958C0855C6; Mon, 27 Apr 2026 10:43:25 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 819B285571
+	for <port-alpha@NetBSD.org>; Mon, 27 Apr 2026 10:42:51 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (1024-bit key) header.d=t3.rim.or.jp
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id rdXJH8qp982a for <port-alpha@netbsd.org>;
+	Mon, 27 Apr 2026 10:42:49 +0000 (UTC)
+Original-Received: from mail01.SiriusCloud.jp (mail101.SiriusCloud.jp [219.118.72.101])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id F23AE84CF9
+	for <port-alpha@NetBSD.org>; Mon, 27 Apr 2026 10:42:48 +0000 (UTC)
+Original-Received: from P6T (p2747002-ipoe.ipoe.ocn.ne.jp [114.163.184.1])
+	(Authenticated sender: iwama@t3.rim.or.jp)
+	by access01.SiriusCloud.jp (Postfix) with ESMTPA id 4g40Wn4qMDz35tvYw;
+	Mon, 27 Apr 2026 19:42:45 +0900 (JST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=t3.rim.or.jp;
+	s=sci17047; t=1777286566;
+	bh=ZS4RNk2c/oLENmIChignn/6diroHAiyW3eaq/QImoHY=;
+	h=From:To:Cc:References:In-Reply-To:Subject:Date;
+	b=GF6s/tMTwW4LxwGJ3S+09Yo0DIX2BFyp4q7dD0t5eHDD1it2hci2YTQeL7Lrd1m9G
+	 z1maTQ3vDOTnx3af3VDBiZaT0MnG5AaDo+6LtQjzFrwWZ3DvRdZtpYhCFRyFgKzXTl
+	 UzfRCBuJsNxzAkDL6z1CL0XiYVTpMme4fCEQgNmk=
+X-Mailer: Microsoft Outlook 16.0
+Thread-Index: AQJYgN0irJVdhjCXmr3zWgVmEvQoqwIQ1A8TAeS/C64BetovZgIXKOS+AYpkdk8CJ8IAwgGj8SoXtJB4BhCAA/twUA==
+Content-Language: ja
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5627
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5627>
+
+Hi all,
+
+I tested replacing the DEC KZPBA-CX(QLogic QLA1040B OEM) on a Personal =
+Workstation 600a with a DEC KZPDA-AA(probably. It has a Qlogic ISP1020A. =
+The sticker on the board says 54-24739-01 B01).
+The result was that everything started up without any problems, just =
+like before the replacement.
+
+3)Personal Workstation 600a
+>>>show config
+
+Firmware
+SRM Console:	V7.2-1		Mar  6 2000 14:47:02
+ARC Console:	5.70
+PALcode:	OpenVMS PALcode V1.20-16, Tru64 UNIX PALcode V1.22-18
+SROM Version:   v5.90
+
+Processor
+DECchip (tm) 21164A-2	Pass   600 MHz  96 KBytes SCache=20
+2 MB BCache
+PYXIS ASIC Pass 257
+
+MEMORY
+
+
+Memory Size =3D 1536Mb
+
+Bank      Size/Sets   Base Addr
+------    ----------  ---------
+   0        512Mb      00000000
+   1        512Mb      20000000
+   2        512Mb      40000000
+
+
+BCache Size =3D 2Mb
+
+Tested Memory =3D  1536Mbytes
+
+PCI Bus=20
+     Bus 00  Slot 03: Digital Semiconductor 21143 Network Controller
+                                   ewa0.0.0.3.0          =
+00-00-F8-75-C8-24  =20
+
+     Bus 00  Slot 04: PCI IDE
+                                   pqb0.0.1.4.0          PCI EIDE        =
+   =20
+                                   dka0.0.0.4.0           401248 C DRW   =
+    =20
+
+     Bus 00  Slot 07: Intel SIO 82378
+                                                                         =
+   =20
+
+     Bus 00  Slot 20: DECchip 21152 PCI to PCI Bridge
+       Bus 01  Slot 08: NCR     895 Scsi Controller
+                                   pkc0.7.0.1008.0       SCSI Bus ID 7   =
+   =20
+                                   dkc0.0.0.1008.0        SEAGATE =
+ST336607LW =20
+
+       Bus 01  Slot 09: DECchip 21050 PCI to PCI Bridge
+       Bus 02  Slot 00: ISP1020 Scsi Controller
+                                   pkd0.7.0.2000.0       SCSI Bus ID 7   =
+   =20
+                                   dkd0.0.0.2000.0        SEAGATE =
+ST39102LW  =20
+                                   dkd300.3.0.2000.0      SEAGATE =
+ST39102LW  =20
+                                   dkd400.4.0.2000.0      IBM =
+DDRS-39130W    =20
+
+       Bus 01  Slot 10: Matrox Millenium II
+ISA
+Slot	Device	Name		Type	     Enabled  BaseAddr	IRQ	DMA
+0
+	0	MOUSE		Embedded	Yes	60	12=09
+
+	1	KBD		Embedded	Yes	60	1=09
+
+	2	COM1		Embedded	Yes	3f8	4=09
+
+	3	COM2		Embedded	Yes	2f8	3=09
+
+	4	LPT1		Embedded	Yes	3bc	7=09
+
+	5	FLOPPY		Embedded	Yes	3f0	6	2
+
+	6	EIDE		Embedded	Yes	1f0	14=09
+							3f6	15=09
+							170	=09
+							376	=09
+	7	ES1888		Embedded	Yes	220	5	1
+
+3-1)20260214081227Z daily image
+>>>boot dka0 -fl A
+(boot dka0.0.0.4.0 -flags A)
+block 0 of dka0.0.0.4.0 is a valid boot block
+reading 13 blocks from dka0.0.0.4.0
+bootstrap code read in
+base =3D 1d8000, image_start =3D 0, image_bytes =3D 1a00
+initializing HWRPB at 2000
+initializing page table at 1ca000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 11.99.5 ISO 9660 Primary Bootstrap
+Jumping to entry point...
+
+NetBSD/alpha 11.99.5 Secondary Bootstrap, Revision 1.13 (Sat Feb 14 =
+08:12:27 UTC 2026)
+
+VMS PAL rev: 0x1000000010114
+OSF PAL rev: 0x1000000020116
+Switch to OSF PAL code succeeded.
+
+Boot flags: A
+11312480+255344=3D0xb08980
+
+Entering netbsd at 0xfffffc0000a01410...
+[   1.0000000] Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, =
+2003,
+[   1.0000000]     2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, =
+2013,
+[   1.0000000]     2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, =
+2023,
+[   1.0000000]     2024, 2025, 2026
+[   1.0000000]     The NetBSD Foundation, Inc.  All rights reserved.
+[   1.0000000] Copyright (c) 1982, 1986, 1989, 1991, 1993
+[   1.0000000]     The Regents of the University of California.  All =
+rights reserved.
+
+[   1.0000000] NetBSD 11.99.5 (INSTALL) #0: Sat Feb 14 08:12:27 UTC 2026
+[   1.0000000] 	=
+mkrepro@mkrepro.NetBSD.org:/usr/src/sys/arch/alpha/compile/INSTALL
+[   1.0000000] Digital Personal WorkStation 600au, 598MHz
+[   1.0000000] 8192 byte page size, 1 processor.
+[   1.0000000] total memory =3D 1536 MB
+[   1.0000000] (1896 KB reserved for PROM, 1534 MB used by NetBSD)
+[   1.0000000] avail memory =3D 1501 MB
+[   1.0000000] mainbus0 (root)
+[   1.0000000] cpu0 at mainbus0: ID 0 (primary), 21164A-0 (EV56)
+[   1.0000000] cpu0: Architecture extensions: 0x1<BWX>
+[   1.0000000] cia0 at mainbus0: DECchip 2117x Core Logic Chipset =
+(Pyxis), pass 2
+[   1.0000000] cia0: extended capabilities: 0x1<BWEN>
+[   1.0000000] cia0: using BWX for PCI config access
+[   1.0000000] cia0: WARNING: Pyxis pass 1 DMA bug; no bets...
+[   1.0000000] pci0 at cia0 bus 0
+[   1.0000000] tlp0 at pci0 dev 3 function 0: DECchip 21143 Ethernet, =
+pass 3.0
+[   1.0000000] tlp0: interrupting at dec 550 irq 0
+[   1.0000000] tlp0: DEC, Ethernet address 00:00:f8:75:c8:24
+[   1.0000000] nsphy0 at tlp0 phy 5: DP83840 10/100 media interface, =
+rev. 1
+[   1.0000000] nsphy0: 10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, =
+auto
+[   1.0000000] tlp0: 10baseT, 10baseT-FDX, 10base2, 10base5
+[   1.0000000] cmdide0 at pci0 dev 4 function 0: CMD Technology PCI0646 =
+(rev. 0x01)
+[   1.0000000] cmdide0: primary channel wired to compatibility mode, =
+channel non-independent
+[   1.0000000] cmdide0: primary channel interrupting at isa irq 14
+[   1.0000000] atabus0 at cmdide0 channel 0
+[   1.0000000] cmdide0: secondary channel wired to compatibility mode, =
+channel non-independent
+[   1.0000000] cmdide0: secondary channel ignored (disabled)
+[   1.0000000] sio0 at pci0 dev 7 function 0: vendor 8086 product 0484 =
+(rev. 0x43)
+[   1.0000000] ppb0 at pci0 dev 20 function 0: vendor 1011 product 0024 =
+(rev. 0x02)
+[   1.0000000] pci1 at ppb0 bus 1
+[   1.0000000] siop0 at pci1 dev 8 function 0: Symbios Logic 53c895 =
+(ultra2-wide scsi)
+[   1.0000000] siop0: using on-board RAM
+[   1.0000000] siop0: interrupting at dec 550 irq 12
+[   1.0000000] scsibus0 at siop0: 16 targets, 8 luns per target
+[   1.0000000] ppb1 at pci1 dev 9 function 0: vendor 1011 product 0001 =
+(rev. 0x02)
+[   1.0000000] pci2 at ppb1 bus 2
+[   1.0000000] isp0 at pci2 dev 0 function 0: QLogic 1020 Fast Wide SCSI =
+HBA
+[   1.0000000] isp0: interrupting at dec 550 irq 16
+[   1.0000000] vga0 at pci1 dev 10 function 0: vendor 102b product 051b =
+(rev. 0x00)
+[   1.0000000] wsdisplay0 at vga0 (kbdmux ignored)
+[   1.0000000] drm at vga0 not configured
+[   1.0000000] isa0 at sio0
+[   1.0000000] com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, 16-byte =
+FIFO
+[   1.0000000] com0: console
+[   1.0000000] com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, 16-byte =
+FIFO
+[   1.0000000] lpt0 at isa0 port 0x3bc-0x3bf irq 7
+[   1.0000000] pckbc0 at isa0 port 0x60-0x64
+[   1.0000000] pckbd0 at pckbc0 (kbd slot)
+[   1.0000000] pckbc0: using irq 1 for kbd slot
+[   1.0000000] wskbd0 at pckbd0 (mux ignored)
+[   1.0000000] pms0 at pckbc0 (aux slot)
+[   1.0000000] pckbc0: using irq 12 for aux slot
+[   1.0000000] wsmouse0 at pms0 (mux ignored)
+[   1.0000000] fdc0 at isa0 port 0x3f0-0x3f7 irq 6 drq 2
+[   1.0000000] mcclock0 at isa0 port 0x70-0x71: mc146818 compatible =
+time-of-day clock
+[   1.0000000] WARNING: system needs entropy for security; see =
+entropy(7)
+[   1.0095432] stray isa irq 14
+[   1.0427910] stray isa irq 14
+[   1.0770307] scsibus0: waiting 2 seconds for devices to settle...
+[   1.1486278] scsibus1 at isp0: 16 targets, 8 luns per target
+[   1.2156030] atapibus0 at atabus0: 2 targets
+[   1.2648329] stray isa irq 14
+[   1.3034904] scsibus1: waiting 2 seconds for devices to settle...
+[   1.3738834] cd0 at atapibus0 drive 0: <401248 CDRW, 2J18NE0121, 1.0D> =
+cdrom removable
+[   3.4597467] sd0 at scsibus0 target 0 lun 0: <SEAGATE, ST336607LW, =
+DS09> disk fixed
+[   3.5495901] sd0: 34732 MB, 49855 cyl, 2 head, 713 sec, 512 bytes/sect =
+x 71132959 sectors
+[   3.6452937] sd0: sync (25.00ns offset 31), 16-bit (80.000MB/s) =
+transfers, tagged queueing
+[   3.9773237] fd0 at fdc0 drive 0: 1.44MB, 80 cyl, 2 head, 18 sec
+[   7.9001886] sd1 at scsibus1 target 0 lun 0: <SEAGATE, ST39102LW, =
+8320> disk fixed
+[   7.9910136] sd1: 8683 MB, 6962 cyl, 12 head, 212 sec, 512 bytes/sect =
+x 17783240 sectors
+[   8.0886672] sd1: sync (100.00ns offset 12), 16-bit (20.000MB/s) =
+transfers, tagged queueing
+[   9.1980471] sd2 at scsibus1 target 3 lun 0: <SEAGATE, ST39102LW, =
+0004> disk fixed
+[   9.2888689] sd2: 8683 MB, 6962 cyl, 12 head, 212 sec, 512 bytes/sect =
+x 17783240 sectors
+[   9.3865238] sd2: sync (100.00ns offset 12), 16-bit (20.000MB/s) =
+transfers, tagged queueing
+[   9.4949202] sd3 at scsibus1 target 4 lun 0: <IBM, DDRS-39130W, S97B> =
+disk fixed
+[   9.6658196] sd3: 8715 MB, 8387 cyl, 10 head, 212 sec, 512 bytes/sect =
+x 17850000 sectors
+[   9.7644548] sd3: sync (100.00ns offset 12), 16-bit (20.000MB/s) =
+transfers, tagged queueing
+[  15.0330300] WARNING: 1 error while detecting hardware; check system =
+log.
+[  15.1114235] WARNING: can't figure what device matches "SCSI 0 4 0 0 0 =
+0 0"
+[  15.1933905] root on md0a dumps on md0b
+[  15.2381095] root file system type: ffs
+[  15.2826285] kern.module.path=3D/stand/alpha/11.99.5/modules
+[  15.3533542] entropy: best effort
+Terminal type? [vt100]=20
+                                                                        =
+Erase set to backspace.
+erase ^?, werase ^W, kill ^U, intr ^C
+
+3-2)John's patched 11.0_RC1 image
+>>>boot dka0 -fl A
+(boot dka0.0.0.4.0 -flags A)
+block 0 of dka0.0.0.4.0 is a valid boot block
+reading 13 blocks from dka0.0.0.4.0
+bootstrap code read in
+base =3D 1d8000, image_start =3D 0, image_bytes =3D 1a00
+initializing HWRPB at 2000
+initializing page table at 1ca000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 11.0_RC1 ISO 9660 Primary Bootstrap
+Jumping to entry point...
+
+NetBSD/alpha 11.0_RC1 Secondary Bootstrap, Revision 1.13 (Tue Feb 17 =
+02:52:46 UTC 2026)
+
+VMS PAL rev: 0x1000000010114
+OSF PAL rev: 0x1000000020116
+Switch to OSF PAL code succeeded.
+
+Boot flags: A
+11290976+255344=3D0xb034d0
+
+Entering netbsd at 0xfffffc0000a01410...
+[   1.0000000] Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, =
+2003,
+[   1.0000000]     2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, =
+2013,
+[   1.0000000]     2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, =
+2023,
+[   1.0000000]     2024, 2025, 2026
+[   1.0000000]     The NetBSD Foundation, Inc.  All rights reserved.
+[   1.0000000] Copyright (c) 1982, 1986, 1989, 1991, 1993
+[   1.0000000]     The Regents of the University of California.  All =
+rights reserved.
+
+[   1.0000000] NetBSD 11.0_RC1 (INSTALL) #0: Tue Feb 17 02:57:57 UTC =
+2026
+[   1.0000000] 	=
+john@platypus.zia.io:/usr/obj-alpha/sys/arch/alpha/compile/INSTALL
+[   1.0000000] Digital Personal WorkStation 600au, 598MHz
+[   1.0000000] 8192 byte page size, 1 processor.
+[   1.0000000] total memory =3D 1536 MB
+[   1.0000000] (1896 KB reserved for PROM, 1534 MB used by NetBSD)
+[   1.0000000] avail memory =3D 1501 MB
+[   1.0000000] mainbus0 (root)
+[   1.0000000] cpu0 at mainbus0: ID 0 (primary), 21164A-0 (EV56)
+[   1.0000000] cpu0: Architecture extensions: 0x1<BWX>
+[   1.0000000] cia0 at mainbus0: DECchip 2117x Core Logic Chipset =
+(Pyxis), pass 2
+[   1.0000000] cia0: extended capabilities: 0x1<BWEN>
+[   1.0000000] cia0: using BWX for PCI config access
+[   1.0000000] cia0: WARNING: Pyxis pass 1 DMA bug; no bets...
+[   1.0000000] pci0 at cia0 bus 0
+[   1.0000000] tlp0 at pci0 dev 3 function 0: DECchip 21143 Ethernet, =
+pass 3.0
+[   1.0000000] tlp0: interrupting at dec 550 irq 0
+[   1.0000000] tlp0: DEC, Ethernet address 00:00:f8:75:c8:24
+[   1.0000000] nsphy0 at tlp0 phy 5: DP83840 10/100 media interface, =
+rev. 1
+[   1.0000000] nsphy0: 10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, =
+auto
+[   1.0000000] tlp0: 10baseT, 10baseT-FDX, 10base2, 10base5
+[   1.0000000] cmdide0 at pci0 dev 4 function 0: CMD Technology PCI0646 =
+(rev. 0x01)
+[   1.0000000] cmdide0: primary channel wired to compatibility mode, =
+channel non-independent
+[   1.0000000] cmdide0: primary channel interrupting at isa irq 14
+[   1.0000000] atabus0 at cmdide0 channel 0
+[   1.0000000] cmdide0: secondary channel wired to compatibility mode, =
+channel non-independent
+[   1.0000000] cmdide0: secondary channel ignored (disabled)
+[   1.0000000] sio0 at pci0 dev 7 function 0: vendor 8086 product 0484 =
+(rev. 0x43)
+[   1.0000000] ppb0 at pci0 dev 20 function 0: vendor 1011 product 0024 =
+(rev. 0x02)
+[   1.0000000] pci1 at ppb0 bus 1
+[   1.0000000] siop0 at pci1 dev 8 function 0: Symbios Logic 53c895 =
+(ultra2-wide scsi)
+[   1.0000000] siop0: using on-board RAM
+[   1.0000000] siop0: interrupting at dec 550 irq 12
+[   1.0000000] scsibus0 at siop0: 16 targets, 8 luns per target
+[   1.0000000] ppb1 at pci1 dev 9 function 0: vendor 1011 product 0001 =
+(rev. 0x02)
+[   1.0000000] pci2 at ppb1 bus 2
+[   1.0000000] isp0 at pci2 dev 0 function 0: QLogic 1020 Fast Wide SCSI =
+HBA
+[   1.0000000] isp0: interrupting at dec 550 irq 16
+[   1.0000000] vga0 at pci1 dev 10 function 0: vendor 102b product 051b =
+(rev. 0x00)
+[   1.0000000] wsdisplay0 at vga0 (kbdmux ignored)
+[   1.0000000] drm at vga0 not configured
+[   1.0000000] isa0 at sio0
+[   1.0000000] lpt0 at isa0 port 0x3bc-0x3bf irq 7
+[   1.0000000] com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, 16-byte =
+FIFO
+[   1.0000000] com0: console
+[   1.0000000] com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, 16-byte =
+FIFO
+[   1.0000000] pckbc0 at isa0 port 0x60-0x64
+[   1.0000000] pckbd0 at pckbc0 (kbd slot)
+[   1.0000000] pckbc0: using irq 1 for kbd slot
+[   1.0000000] wskbd0 at pckbd0 (mux ignored)
+[   1.0000000] pms0 at pckbc0 (aux slot)
+[   1.0000000] pckbc0: using irq 12 for aux slot
+[   1.0000000] wsmouse0 at pms0 (mux ignored)
+[   1.0000000] fdc0 at isa0 port 0x3f0-0x3f7 irq 6 drq 2
+[   1.0000000] mcclock0 at isa0 port 0x70-0x71: mc146818 compatible =
+time-of-day clock
+[   1.0000000] WARNING: system needs entropy for security; see =
+entropy(7)
+[   1.0095448] stray isa irq 14
+[   1.0428312] stray isa irq 14
+[   1.0770704] scsibus0: waiting 2 seconds for devices to settle...
+[   1.1486703] scsibus1 at isp0: 16 targets, 8 luns per target
+[   1.2156128] atapibus0 at atabus0: 2 targets
+[   1.2648787] stray isa irq 14
+[   1.3034992] scsibus1: waiting 2 seconds for devices to settle...
+[   1.3739319] cd0 at atapibus0 drive 0: <401248 CDRW, 2J18NE0121, 1.0D> =
+cdrom removable
+[   3.4598064] sd0 at scsibus0 target 0 lun 0: <SEAGATE, ST336607LW, =
+DS09> disk fixed
+[   3.5496523] sd0: 34732 MB, 49855 cyl, 2 head, 713 sec, 512 bytes/sect =
+x 71132959 sectors
+[   3.6453607] sd0: sync (25.00ns offset 31), 16-bit (80.000MB/s) =
+transfers, tagged queueing
+[   3.9773968] fd0 at fdc0 drive 0: 1.44MB, 80 cyl, 2 head, 18 sec
+[   7.9013361] sd1 at scsibus1 target 0 lun 0: <SEAGATE, ST39102LW, =
+8320> disk fixed
+[   7.9911789] sd1: 8683 MB, 6962 cyl, 12 head, 212 sec, 512 bytes/sect =
+x 17783240 sectors
+[   8.0898142] sd1: sync (100.00ns offset 12), 16-bit (20.000MB/s) =
+transfers, tagged queueing
+[   9.1982437] sd2 at scsibus1 target 3 lun 0: <SEAGATE, ST39102LW, =
+0004> disk fixed
+[   9.2890679] sd2: 8683 MB, 6962 cyl, 12 head, 212 sec, 512 bytes/sect =
+x 17783240 sectors
+[   9.3876999] sd2: sync (100.00ns offset 12), 16-bit (20.000MB/s) =
+transfers, tagged queueing
+[   9.4961039] sd3 at scsibus1 target 4 lun 0: <IBM, DDRS-39130W, S97B> =
+disk fixed
+[   9.6670057] sd3: 8715 MB, 8387 cyl, 10 head, 212 sec, 512 bytes/sect =
+x 17850000 sectors
+[   9.7656417] sd3: sync (100.00ns offset 12), 16-bit (20.000MB/s) =
+transfers, tagged queueing
+[  15.0255527] WARNING: 1 error while detecting hardware; check system =
+log.
+[  15.1045055] WARNING: can't figure what device matches "SCSI 0 4 0 0 0 =
+0 0"
+[  15.1866912] root on md0a dumps on md0b
+[  15.2316154] root file system type: ffs
+[  15.2757081] kern.module.path=3D/stand/alpha/11.0/modules
+[  15.3468627] entropy: best effort
+Terminal type? [vt100]=20
+                                                                        =
+Erase set to backspace.
+erase ^?, werase ^W, kill ^U, intr ^C
+
+3-3)Thorpej's patched image
+>>>boot dka0 -fl A
+(boot dka0.0.0.4.0 -flags A)
+block 0 of dka0.0.0.4.0 is a valid boot block
+reading 13 blocks from dka0.0.0.4.0
+bootstrap code read in
+base =3D 1d8000, image_start =3D 0, image_bytes =3D 1a00
+initializing HWRPB at 2000
+initializing page table at 1ca000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 11.99.5 ISO 9660 Primary Bootstrap
+Jumping to entry point...
+
+NetBSD/alpha 11.99.5 Secondary Bootstrap, Revision 1.13 (Wed Apr 22 =
+03:25:12 UTC 2026)
+
+VMS PAL rev: 0x1000000010114
+OSF PAL rev: 0x1000000020116
+Switch to OSF PAL code succeeded.
+
+Boot flags: A
+11314192+254592=3D0xb08d40
+
+Entering netbsd at 0xfffffc0000a01410...
+[   1.0000000] Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, =
+2003,
+[   1.0000000]     2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, =
+2013,
+[   1.0000000]     2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, =
+2023,
+[   1.0000000]     2024, 2025, 2026
+[   1.0000000]     The NetBSD Foundation, Inc.  All rights reserved.
+[   1.0000000] Copyright (c) 1982, 1986, 1989, 1991, 1993
+[   1.0000000]     The Regents of the University of California.  All =
+rights reserved.
+
+[   1.0000000] NetBSD 11.99.5 (INSTALL) #1: Wed Apr 22 04:27:07 PDT 2026
+[   1.0000000] 	=
+thorpej@the-ripe-vessel:/nbsd/objdir/alpha/sys/arch/alpha/compile/INSTALL=
+
+[   1.0000000] Digital Personal WorkStation 600au, 598MHz
+[   1.0000000] 8192 byte page size, 1 processor.
+[   1.0000000] total memory =3D 1536 MB
+[   1.0000000] (1896 KB reserved for PROM, 1534 MB used by NetBSD)
+[   1.0000000] avail memory =3D 1501 MB
+[   1.0000000] mainbus0 (root)
+[   1.0000000] cpu0 at mainbus0: ID 0 (primary), 21164A-0 (EV56)
+[   1.0000000] cpu0: Architecture extensions: 0x1<BWX>
+[   1.0000000] cia0 at mainbus0: DECchip 2117x Core Logic Chipset =
+(Pyxis), pass 2
+[   1.0000000] cia0: extended capabilities: 0x1<BWEN>
+[   1.0000000] cia0: using BWX for PCI config access
+[   1.0000000] cia0: WARNING: Pyxis pass 1 DMA bug; no bets...
+[   1.0000000] pci0 at cia0 bus 0
+[   1.0000000] tlp0 at pci0 dev 3 function 0: DECchip 21143 Ethernet, =
+pass 3.0
+[   1.0000000] tlp0: interrupting at dec 550 irq 0
+[   1.0000000] tlp0: DEC, Ethernet address 00:00:f8:75:c8:24
+[   1.0000000] nsphy0 at tlp0 phy 5: DP83840 10/100 media interface, =
+rev. 1
+[   1.0000000] nsphy0: 10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, =
+auto
+[   1.0000000] tlp0: 10baseT, 10baseT-FDX, 10base2, 10base5
+[   1.0000000] cmdide0 at pci0 dev 4 function 0: CMD Technology PCI0646 =
+(rev. 0x01)
+[   1.0000000] cmdide0: primary channel wired to compatibility mode, =
+channel non-independent
+[   1.0000000] cmdide0: primary channel interrupting at isa irq 14
+[   1.0000000] atabus0 at cmdide0 channel 0
+[   1.0000000] cmdide0: secondary channel wired to compatibility mode, =
+channel non-independent
+[   1.0000000] cmdide0: secondary channel ignored (disabled)
+[   1.0000000] sio0 at pci0 dev 7 function 0: vendor 8086 product 0484 =
+(rev. 0x43)
+[   1.0000000] ppb0 at pci0 dev 20 function 0: vendor 1011 product 0024 =
+(rev. 0x02)
+[   1.0000000] pci1 at ppb0 bus 1
+[   1.0000000] siop0 at pci1 dev 8 function 0: Symbios Logic 53c895 =
+(ultra2-wide scsi)
+[   1.0000000] siop0: using on-board RAM
+[   1.0000000] siop0: interrupting at dec 550 irq 12
+[   1.0000000] scsibus0 at siop0: 16 targets, 8 luns per target
+[   1.0000000] ppb1 at pci1 dev 9 function 0: vendor 1011 product 0001 =
+(rev. 0x02)
+[   1.0000000] pci2 at ppb1 bus 2
+[   1.0000000] isp0 at pci2 dev 0 function 0: QLogic 1020 Fast Wide SCSI =
+HBA
+[   1.0000000] isp0: interrupting at dec 550 irq 16
+[   1.0000000] vga0 at pci1 dev 10 function 0: vendor 102b product 051b =
+(rev. 0x00)
+[   1.0000000] wsdisplay0 at vga0 (kbdmux ignored)
+[   1.0000000] drm at vga0 not configured
+[   1.0000000] isa0 at sio0
+[   1.0000000] com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, 16-byte =
+FIFO
+[   1.0000000] com0: console
+[   1.0000000] com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, 16-byte =
+FIFO
+[   1.0000000] lpt0 at isa0 port 0x3bc-0x3bf irq 7
+[   1.0000000] pckbc0 at isa0 port 0x60-0x64
+[   1.0000000] pckbd0 at pckbc0 (kbd slot)
+[   1.0000000] pckbc0: using irq 1 for kbd slot
+[   1.0000000] wskbd0 at pckbd0 (mux ignored)
+[   1.0000000] pms0 at pckbc0 (aux slot)
+[   1.0000000] pckbc0: using irq 12 for aux slot
+[   1.0000000] wsmouse0 at pms0 (mux ignored)
+[   1.0000000] fdc0 at isa0 port 0x3f0-0x3f7 irq 6 drq 2
+[   1.0000000] mcclock0 at isa0 port 0x70-0x71: mc146818 compatible =
+time-of-day clock
+[   1.0000000] WARNING: system needs entropy for security; see =
+entropy(7)
+[   1.0098599] stray isa irq 14
+[   1.0430659] stray isa irq 14
+[   1.0772469] scsibus0: waiting 2 seconds for devices to settle...
+[   1.1487139] scsibus1 at isp0: 16 targets, 8 luns per target
+[   1.2159244] atapibus0 at atabus0: 2 targets
+[   1.2649250] stray isa irq 14
+[   1.3038080] scsibus1: waiting 2 seconds for devices to settle...
+[   1.3741242] cd0 at atapibus0 drive 0: <401248 CDRW, 2J18NE0121, 1.0D> =
+cdrom removable
+[   3.4591138] sd0 at scsibus0 target 0 lun 0: <SEAGATE, ST336607LW, =
+DS09> disk fixed
+[   3.5489465] sd0: 34732 MB, 49855 cyl, 2 head, 713 sec, 512 bytes/sect =
+x 71132959 sectors
+[   3.6446531] sd0: sync (25.00ns offset 31), 16-bit (80.000MB/s) =
+transfers, tagged queueing
+[   3.9757067] fd0 at fdc0 drive 0: 1.44MB, 80 cyl, 2 head, 18 sec
+[   7.8898114] sd1 at scsibus1 target 0 lun 0: <SEAGATE, ST39102LW, =
+8320> disk fixed
+[   7.9806347] sd1: 8683 MB, 6962 cyl, 12 head, 212 sec, 512 bytes/sect =
+x 17783240 sectors
+[   8.0782920] sd1: sync (100.00ns offset 12), 16-bit (20.000MB/s) =
+transfers, tagged queueing
+[   9.1876756] sd2 at scsibus1 target 3 lun 0: <SEAGATE, ST39102LW, =
+0004> disk fixed
+[   9.2785006] sd2: 8683 MB, 6962 cyl, 12 head, 212 sec, 512 bytes/sect =
+x 17783240 sectors
+[   9.3761542] sd2: sync (100.00ns offset 12), 16-bit (20.000MB/s) =
+transfers, tagged queueing
+[   9.4845539] sd3 at scsibus1 target 4 lun 0: <IBM, DDRS-39130W, S97B> =
+disk fixed
+[   9.6613129] sd3: 8715 MB, 8387 cyl, 10 head, 212 sec, 512 bytes/sect =
+x 17850000 sectors
+[   9.7599490] sd3: sync (100.00ns offset 12), 16-bit (20.000MB/s) =
+transfers, tagged queueing
+[  15.0119599] WARNING: 1 error while detecting hardware; check system =
+log.
+[  15.0900864] WARNING: can't figure what device matches "SCSI 0 4 0 0 0 =
+0 0"
+[  15.1721166] root on md0a dumps on md0b
+[  15.2170441] root file system type: ffs
+[  15.2612852] kern.module.path=3D/stand/alpha/11.99.5/modules
+[  15.3313140] entropy: best effort
+Terminal type? [vt100]=20
+                                                                        =
+Erase set to backspace.
+erase ^?, werase ^W, kill ^U, intr ^C
+--=20
+Yoshihiko Iwama
+
+
+
+
+From iwama@t3.rim.or.jp  Mon Apr 27 19:52:15 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: <iwama@t3.rim.or.jp>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: RE: The problems in src/sys/dev/ic/isp.c
+Date: Mon, 27 Apr 2026 19:52:15 +0900
+Approved: news@gmane.org
+Message-ID: <001b01dcd633$e8f8ae00$baea0a00$@t3.rim.or.jp>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com> <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com> <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com> <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com> <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com> <FD3F4CD9-A625-4633-B784-4FA116A04F8D@me.com> <be97099f-65bf-4dcb-ac61-4d2b31dc74fd@genunix.com> <5265338A-36C2-4567-B1EE-CC577E66E808@me.com> <c1be15cc-96f9-4dd1-a4ab-f6446d2098c3@genunix.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="24954"; mail-complaints-to="usenet@ciao.gmane.io"
+To: <port-alpha@NetBSD.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Mon Apr 27 12:52:28 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wHJZk-0006L2-2r
+	for netbsd-port-alpha@m.gmane-mx.org; Mon, 27 Apr 2026 12:52:28 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 5785F8560A; Mon, 27 Apr 2026 10:52:23 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 3C22A855D5
+	for <port-alpha@NetBSD.org>; Mon, 27 Apr 2026 10:52:18 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (1024-bit key) header.d=t3.rim.or.jp
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id EhLYpWdXA5zn for <port-alpha@netbsd.org>;
+	Mon, 27 Apr 2026 10:52:17 +0000 (UTC)
+Original-Received: from mail01.SiriusCloud.jp (mail101.SiriusCloud.jp [219.118.72.101])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 47552855BE
+	for <port-alpha@NetBSD.org>; Mon, 27 Apr 2026 10:52:17 +0000 (UTC)
+Original-Received: from P6T (p2747002-ipoe.ipoe.ocn.ne.jp [114.163.184.1])
+	(Authenticated sender: iwama@t3.rim.or.jp)
+	by access01.SiriusCloud.jp (Postfix) with ESMTPA id 4g40km0QvKz35rS8S
+	for <port-alpha@NetBSD.org>; Mon, 27 Apr 2026 19:52:16 +0900 (JST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=t3.rim.or.jp;
+	s=sci17047; t=1777287136;
+	bh=b8h+V6AL90r+pmSQjhUF/KScJA51oKK+fjw0dNebGEU=;
+	h=From:To:References:In-Reply-To:Subject:Date;
+	b=PJ8LdLgiNEFVhocxjiCrBClhqm/kK9ICOmWstIcAmz6JVVK5330QdpqUgQnhkkl4y
+	 rYnqHQpUyZi9pA6NFRjrIgxb3JfQp+mlCZEjskJAIgEHd/Z6s7QifNA23Bzs08zE55
+	 M0bd3pP/rvIDXwhkbHU13QzFloNGlH1i59YowDTE=
+In-Reply-To: <c1be15cc-96f9-4dd1-a4ab-f6446d2098c3@genunix.com>
+X-Mailer: Microsoft Outlook 16.0
+Thread-Index: AQJYgN0irJVdhjCXmr3zWgVmEvQoqwIQ1A8TAeS/C64BetovZgIXKOS+AYpkdk8CJ8IAwgGj8SoXAoyqrd20gBEjAA==
+Content-Language: ja
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5628
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5628>
+
+Hi all,
+
+FYI
+
+I have encountered a problem with several Alpha machines where the power =
+turns on but they do not function. Three Alpha machines, DEC3000 model =
+700, Alpha XL 266, and PC164UX, are now working after replacing their =
+RTC chips.
+In the case of the Alpha XL 266, the NVRAM(DS1225AD-150) was also =
+replaced, but I haven't confirmed whether replacing only the RTC =
+chip(DS12887A) was insufficient.
+Because the PC164UX's RTC chip was soldered directly to the motherboard, =
+I requested a soldering company to remove the RTC chip and replace it =
+with an IC socket.
+The Alpha XL 266 is a machine dedicated to ARC, and the PC164UX is a =
+machine dedicated to ARCSBIOS. Neither supports SRM.
+Replacing the RTC chip doesn't always guarantee a fix, but this is for =
+your reference.
+
+Regards,
+--=20
+Yoshihiko Iwama
+
+-----Original Message-----
+From: port-alpha-owner@NetBSD.org <port-alpha-owner@NetBSD.org> On =
+Behalf Of Dennis Clarke
+Sent: Saturday, April 25, 2026 12:13 PM
+To: Jason Thorpe <thorpej@me.com>
+Cc: Istvan Gyenes <igyenes@gmail.com>; port-alpha@NetBSD.org; John Klos =
+<john@klos.com>
+Subject: Re: The problems in src/sys/dev/ic/isp.c
+
+On 4/24/26 11:45, Jason Thorpe wrote:
+>=20
+>> On Apr 21, 2026, at 3:42=E2=80=AFPM, Dennis Clarke <dc@genunix.com> =
+wrote:
+>>
+>> No rush. This has gone on for months now. I will make a backup tape
+>> of the current OpenBSD situation and then prepare some disks in a =
+SCSI
+>> array for the NetBSD experiments.
+>=20
+>      =
+https://www.netbsd.org/~thorpej/alpha-isp-test/NetBSD-11.99.5-alpha.iso.g=
+z
+>=20
+
+Thank you !
+
+However sadly I shut down the machine and left it cold for a day as I
+moved around the external SCSI array. Now it seems dead. The keyboard
+blinks some lights at power on and then nothing. Nothing on the monitor
+and nothing from the serial console. The tape drive makes some noises.
+
+So this may have all been a waste of about $3000 to build a DEC Alpha.
+
+https://www.genunix.com/dclarke/alpha/DEC_AlphaStation_600_guts_m.png
+
+I have no indication anywhere that there is even firmware working.
+
+     :(
+
+
+--=20
+Dennis Clarke
+RISC-V/SPARC/PPC/ARM/CISC
+UNIX and Linux spoken
+
+
+
+From dc@genunix.com  Mon Apr 27 11:22:05 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Dennis Clarke <dc@genunix.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: The problems in src/sys/dev/ic/isp.c
+Date: Mon, 27 Apr 2026 11:22:05 -0400
+Approved: news@gmane.org
+Message-ID: <7ffd39e2-2298-41dc-b190-ee00d09cafe7@genunix.com>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+ <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com>
+ <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com>
+ <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com>
+ <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com>
+ <FD3F4CD9-A625-4633-B784-4FA116A04F8D@me.com>
+ <be97099f-65bf-4dcb-ac61-4d2b31dc74fd@genunix.com>
+ <5265338A-36C2-4567-B1EE-CC577E66E808@me.com>
+ <c1be15cc-96f9-4dd1-a4ab-f6446d2098c3@genunix.com>
+ <001b01dcd633$e8f8ae00$baea0a00$@t3.rim.or.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="5695"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla Thunderbird
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Mon Apr 27 17:22:24 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wHNmx-0001F7-Mf
+	for netbsd-port-alpha@m.gmane-mx.org; Mon, 27 Apr 2026 17:22:24 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 67AE185604; Mon, 27 Apr 2026 15:22:16 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 9A34084DAF
+	for <port-alpha@NetBSD.org>; Mon, 27 Apr 2026 15:22:13 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=genunix.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id X0LS6m5iQp-l for <port-alpha@netbsd.org>;
+	Mon, 27 Apr 2026 15:22:13 +0000 (UTC)
+Original-Received: from mail.oetec.com (mail.oetec.com [108.160.241.186])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 68A2684D2A
+	for <port-alpha@NetBSD.org>; Mon, 27 Apr 2026 15:22:11 +0000 (UTC)
+Original-Received: from [172.16.35.3] (pool-99-253-118-250.cpe.net.cable.rogers.com [99.253.118.250])
+	(authenticated bits=0)
+	by mail.oetec.com (8.17.1/8.17.1) with ESMTPSA id 63RFM505041667
+	(version=TLSv1.3 cipher=TLS_AES_128_GCM_SHA256 bits=128 verify=NOT)
+	for <port-alpha@NetBSD.org>; Mon, 27 Apr 2026 11:22:06 -0400 (EDT)
+	(envelope-from dc@genunix.com)
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple; d=genunix.com;
+	s=default; t=1777303326;
+	bh=qqziBUF3XssCzXOtwlKXS1B/8WLmfXsR1GdAQzR87N0=;
+	h=Date:Subject:To:References:From:In-Reply-To;
+	b=yklUFDgwB3D4VudAGAFR6YzElqqL8+NlYS2lhPXzA6BTnsBjQDv8yLo3zsh9KznfA
+	 9FSlAO7PxG76zPyoBstIgWZYzw3nQrZbWWIjD9ibHJdtBgsSR1bB3slA+Vhk6g71jJ
+	 t2eA7ZQhj355615/9bPSrEt2SMsGRdwZsJaqC7MzE8XyWjbMcrGTmt/KXW9j/bH79a
+	 8Qd7nblo0LeQC0e1Hbe/Xh3lzOK7rS544Z79z8J20qrENHQ0AK//QXwsVjmOhGAHmn
+	 TOb8ps2NNMKIeC2rJsmyiPLOde5Qsx4SLdIExbunyWCv2NQ6H2voQT43jG4OxhGmGD
+	 2d52vXKILx/ow==
+Content-Language: en-CA
+Autocrypt: addr=dc@genunix.com; keydata=
+ xjMEZpuckhYJKwYBBAHaRw8BAQdAHZtmqkx1WtHIbgvlSIPjF5r5inw6XbdeLQbHbUC2V2jN
+ IURlbm5pcyBNLiBDbGFya2UgPGRjQGdlbnVuaXguY29tPsKTBBMWCgA7FiEEGmDUSc9bgPYJ
+ I9pZZGGjzzCOmvsFAmabnJICGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQZGGj
+ zzCOmvtUCAEA+OqwUmT4BN1YOwTz16UtOuZxHnQYtF9ZYsnp0j15GCAA/2NVJVhI/hju4/Dn
+ hg9cgT9kf1m/nJtchdz4kaUGI/kGzjgEZpuckhIKKwYBBAGXVQEFAQEHQP4D1FVCX/f3kHUV
+ oOu+y5Z8JAGBq0hNY35fHcEVyMJ8AwEIB8J4BBgWCgAgFiEEGmDUSc9bgPYJI9pZZGGjzzCO
+ mvsFAmabnJICGwwACgkQZGGjzzCOmvubcQEAmOhOtYELmUZ5U1+cHDgFD6bi078EREcLsqRU
+ NDwBW90BAORCOd8leIVrRf+Orx7HeTXY3XOzFi7VjJ4ukkxd6hkN
+In-Reply-To: <001b01dcd633$e8f8ae00$baea0a00$@t3.rim.or.jp>
+X-oetec-MailScanner-Information: Please contact the ISP for more information
+X-oetec-MailScanner-ID: 63RFM505041667
+X-oetec-MailScanner: Found to be clean
+X-oetec-MailScanner-From: dc@genunix.com
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5629
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5629>
+
+On 4/27/26 06:52, iwama@t3.rim.or.jp wrote:
+> Hi all,
+> 
+> FYI
+> 
+> I have encountered a problem with several Alpha machines where the power turns on but they do not function. Three Alpha machines, DEC3000 model 700, Alpha XL 266, and PC164UX, are now working after replacing their RTC chips.
+
+OKay !  Thank you. This is a glimmer of hope. I will look closely into
+the machine and find the Dallas? RTC chip. There must be a way to
+replace it and I can tell you it has been years, no decades actually,
+since I held a soldering heater pointy thing-a-ma-gig.
+
+-- 
+Dennis Clarke
+RISC-V/SPARC/PPC/ARM/CISC
+UNIX and Linux spoken
+
+
+From dc@genunix.com  Mon Apr 27 13:53:07 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Dennis Clarke <dc@genunix.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: The problems in src/sys/dev/ic/isp.c
+Date: Mon, 27 Apr 2026 13:53:07 -0400
+Approved: news@gmane.org
+Message-ID: <63912be1-7071-459b-ade5-1ba781d4b482@genunix.com>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+ <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com>
+ <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com>
+ <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com>
+ <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com>
+ <FD3F4CD9-A625-4633-B784-4FA116A04F8D@me.com>
+ <be97099f-65bf-4dcb-ac61-4d2b31dc74fd@genunix.com>
+ <5265338A-36C2-4567-B1EE-CC577E66E808@me.com>
+ <c1be15cc-96f9-4dd1-a4ab-f6446d2098c3@genunix.com>
+ <001b01dcd633$e8f8ae00$baea0a00$@t3.rim.or.jp>
+ <7ffd39e2-2298-41dc-b190-ee00d09cafe7@genunix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="17070"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla Thunderbird
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Mon Apr 27 19:53:28 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wHQ99-0004DE-DY
+	for netbsd-port-alpha@m.gmane-mx.org; Mon, 27 Apr 2026 19:53:28 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 7FC008561B; Mon, 27 Apr 2026 17:53:22 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 0797A8561B
+	for <port-alpha@NetBSD.org>; Mon, 27 Apr 2026 17:53:19 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=genunix.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id E6Pw2GZ5A2mK for <port-alpha@netbsd.org>;
+	Mon, 27 Apr 2026 17:53:18 +0000 (UTC)
+Original-Received: from mail.oetec.com (mail.oetec.com [108.160.241.186])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 15B3D84E83
+	for <port-alpha@NetBSD.org>; Mon, 27 Apr 2026 17:53:17 +0000 (UTC)
+Original-Received: from [172.16.35.3] (pool-99-253-118-250.cpe.net.cable.rogers.com [99.253.118.250])
+	(authenticated bits=0)
+	by mail.oetec.com (8.17.1/8.17.1) with ESMTPSA id 63RHr73b046406
+	(version=TLSv1.3 cipher=TLS_AES_128_GCM_SHA256 bits=128 verify=NOT)
+	for <port-alpha@NetBSD.org>; Mon, 27 Apr 2026 13:53:13 -0400 (EDT)
+	(envelope-from dc@genunix.com)
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple; d=genunix.com;
+	s=default; t=1777312393;
+	bh=TzVpKZpvgQQ//hy+/Wnu65yoPPeYymLm/Hsrp6+LxaI=;
+	h=Date:Subject:From:To:References:In-Reply-To;
+	b=25m9jIb4+Riv6PILm6Sfru/MZbDNKSt2xH4FSIYd/FCiTbZ4EKj/kFX7Vym7e+L/0
+	 FakzHT32mcu46RvfQNlKxK4HP6teVLilDlz3nUKt6841vMypApzZ08euQQyZBchyj4
+	 i2WdZvHFu6CjSZd+w5KPknl0/s9rHnHbSGtIiFzzDJWH3y/1M65NHTbk5th+if/vv/
+	 hR7kdScu7TOw5lfxrEI6UbC/6gKptXcUOpjAuXm8pNMlJpOcBiZUI66DLpKh0eF4wA
+	 +N6D3UG6RnuuLIuU0jkqmwsSB6H3jh/OmoLRwsC/JwQhxCxg4vy0Lb8lleFNulY0DU
+	 nNLj0gMR0fssA==
+Content-Language: en-CA
+Autocrypt: addr=dc@genunix.com; keydata=
+ xjMEZpuckhYJKwYBBAHaRw8BAQdAHZtmqkx1WtHIbgvlSIPjF5r5inw6XbdeLQbHbUC2V2jN
+ IURlbm5pcyBNLiBDbGFya2UgPGRjQGdlbnVuaXguY29tPsKTBBMWCgA7FiEEGmDUSc9bgPYJ
+ I9pZZGGjzzCOmvsFAmabnJICGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQZGGj
+ zzCOmvtUCAEA+OqwUmT4BN1YOwTz16UtOuZxHnQYtF9ZYsnp0j15GCAA/2NVJVhI/hju4/Dn
+ hg9cgT9kf1m/nJtchdz4kaUGI/kGzjgEZpuckhIKKwYBBAGXVQEFAQEHQP4D1FVCX/f3kHUV
+ oOu+y5Z8JAGBq0hNY35fHcEVyMJ8AwEIB8J4BBgWCgAgFiEEGmDUSc9bgPYJI9pZZGGjzzCO
+ mvsFAmabnJICGwwACgkQZGGjzzCOmvubcQEAmOhOtYELmUZ5U1+cHDgFD6bi078EREcLsqRU
+ NDwBW90BAORCOd8leIVrRf+Orx7HeTXY3XOzFi7VjJ4ukkxd6hkN
+In-Reply-To: <7ffd39e2-2298-41dc-b190-ee00d09cafe7@genunix.com>
+X-oetec-MailScanner-Information: Please contact the ISP for more information
+X-oetec-MailScanner-ID: 63RHr73b046406
+X-oetec-MailScanner: Found to be clean
+X-oetec-MailScanner-From: dc@genunix.com
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5630
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5630>
+
+On 4/27/26 11:22, Dennis Clarke wrote:
+> On 4/27/26 06:52, iwama@t3.rim.or.jp wrote:
+>> Hi all,
+>>
+>> FYI
+>>
+>> I have encountered a problem with several Alpha machines where the 
+>> power turns on but they do not function. Three Alpha machines, DEC3000 
+>> model 700, Alpha XL 266, and PC164UX, are now working after replacing 
+>> their RTC chips.
+> 
+> OKay !  Thank you. This is a glimmer of hope. I will look closely into
+> the machine and find the Dallas? RTC chip. There must be a way to
+> replace it and I can tell you it has been years, no decades actually,
+> since I held a soldering heater pointy thing-a-ma-gig.
+> 
+
+Sort of a self reply : I located the nasty miserable DALLAS DS1287
+
+     https://www.genunix.com/dclarke/alpha/dallas/DALLAS_DS1287_RTC_1.png
+
+Just a horrific design wherein pins 16 and 20 are absent.   :(
+
+
+-- 
+Dennis Clarke
+RISC-V/SPARC/PPC/ARM/CISC
+UNIX and Linux spoken
+
+
+From martin@duskware.de  Mon Apr 27 20:27:34 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: The problems in src/sys/dev/ic/isp.c
+Date: Mon, 27 Apr 2026 20:27:34 +0200
+Approved: news@gmane.org
+Message-ID: <ae-qlsC_MBgmyFQQ@big-apple.aprisoft.de>
+References: <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com>
+ <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com>
+ <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com>
+ <FD3F4CD9-A625-4633-B784-4FA116A04F8D@me.com>
+ <be97099f-65bf-4dcb-ac61-4d2b31dc74fd@genunix.com>
+ <5265338A-36C2-4567-B1EE-CC577E66E808@me.com>
+ <c1be15cc-96f9-4dd1-a4ab-f6446d2098c3@genunix.com>
+ <001b01dcd633$e8f8ae00$baea0a00$@t3.rim.or.jp>
+ <7ffd39e2-2298-41dc-b190-ee00d09cafe7@genunix.com>
+ <63912be1-7071-459b-ade5-1ba781d4b482@genunix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="34635"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@NetBSD.org
+To: Dennis Clarke <dc@genunix.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Mon Apr 27 20:27:55 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wHQgU-0008tN-J3
+	for netbsd-port-alpha@m.gmane-mx.org; Mon, 27 Apr 2026 20:27:54 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id AE5E38562A; Mon, 27 Apr 2026 18:27:50 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 1AEF085625
+	for <port-alpha@NetBSD.org>; Mon, 27 Apr 2026 18:27:49 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id Z1GvlKxelimW for <port-alpha@netbsd.org>;
+	Mon, 27 Apr 2026 18:27:48 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [IPv6:2a0a:4cc0:c0:3f56::116:136])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 6483584EC2
+	for <port-alpha@NetBSD.org>; Mon, 27 Apr 2026 18:27:48 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix) id BD028E1FF90;
+	Mon, 27 Apr 2026 20:27:35 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <63912be1-7071-459b-ade5-1ba781d4b482@genunix.com>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5631
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5631>
+
+On Mon, Apr 27, 2026 at 01:53:07PM -0400, Dennis Clarke wrote:
+> Just a horrific design wherein pins 16 and 20 are absent.   :(
+
+Or bent upwards to be soldered to the "internal" battery.
+
+There are variants where the same is done for pins 2 and 3 for the 32mhz
+crystal.
+
+Martin
+
+
+From dc@genunix.com  Tue Apr 28 18:39:25 2026
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Dennis Clarke <dc@genunix.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: The problems in src/sys/dev/ic/isp.c
+Date: Tue, 28 Apr 2026 18:39:25 -0400
+Approved: news@gmane.org
+Message-ID: <9758ffca-af66-4ccc-be8b-0c2ece99c42e@genunix.com>
+References: <13d1a565-5cab-4c01-aefe-f063a8fc3f6c@genunix.com>
+ <6d6a6260-e190-4b5e-9163-eda9c1177abf@genunix.com>
+ <D072D987-37D4-4027-BFEF-603FD0178C2C@me.com>
+ <d96b4afb-2232-4bac-bb32-c93d604c8f7f@genunix.com>
+ <PA6PR01MB10543E7FE6B257091306D1931A92C2@PA6PR01MB10543.eurprd01.prod.exchangelabs.com>
+ <FD3F4CD9-A625-4633-B784-4FA116A04F8D@me.com>
+ <be97099f-65bf-4dcb-ac61-4d2b31dc74fd@genunix.com>
+ <5265338A-36C2-4567-B1EE-CC577E66E808@me.com>
+ <c1be15cc-96f9-4dd1-a4ab-f6446d2098c3@genunix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="15426"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla Thunderbird
+Cc: Istvan Gyenes <igyenes@gmail.com>,
+        "port-alpha@netbsd.org" <port-alpha@NetBSD.org>,
+        John Klos <john@klos.com>
+To: Jason Thorpe <thorpej@me.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Wed Apr 29 00:40:12 2026
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1wHr6B-0003qT-Ci
+	for netbsd-port-alpha@m.gmane-mx.org; Wed, 29 Apr 2026 00:40:12 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 9675E84D86; Tue, 28 Apr 2026 22:40:07 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 77EAA84D6B
+	for <port-alpha@NetBSD.org>; Tue, 28 Apr 2026 22:39:54 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=fail (2048-bit key) reason="fail (message has been altered)"
+	header.d=genunix.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id 9CQPu1Tj-bF1 for <port-alpha@netbsd.org>;
+	Tue, 28 Apr 2026 22:39:53 +0000 (UTC)
+Original-Received: from mail.oetec.com (mail.oetec.com [108.160.241.186])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id E22CC84D53
+	for <port-alpha@NetBSD.org>; Tue, 28 Apr 2026 22:39:52 +0000 (UTC)
+Original-Received: from [172.16.35.3] (pool-99-253-118-250.cpe.net.cable.rogers.com [99.253.118.250])
+	(authenticated bits=0)
+	by mail.oetec.com (8.17.1/8.17.1) with ESMTPSA id 63SMdQ86089929
+	(version=TLSv1.3 cipher=TLS_AES_128_GCM_SHA256 bits=128 verify=NOT);
+	Tue, 28 Apr 2026 18:39:26 -0400 (EDT)
+	(envelope-from dc@genunix.com)
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple; d=genunix.com;
+	s=default; t=1777415967;
+	bh=W1Z5b3w1bITEg4hPz7HwZiaBtHBhGBUJI16qv5GsuRM=;
+	h=Date:Subject:From:To:Cc:References:In-Reply-To;
+	b=GIH7eUgkJ+cVVjSxt2C53HQmSto0Ksbk8swVHTlK1WDUgLrXYiRqRV/2d0Vjych99
+	 hr46vAFtfgGOO7PDQZ/AdHWuM3kJFZIP1+ZqL/bRYGXx37v0PgWIQP+cMoQu1l8JR+
+	 GPT44lELFcj83wEFs/3fk+XjyS2W27rQxT6qAcP8ZbLBkOV7K7cPNFB/H2n6bmIlUD
+	 OciCAxR/trWxXHFTShqrDyZpfy+OWxI+iR0EiwBvizTSrWD7OK3yg04HthoQMlKD6y
+	 KAmNLjB0duZ50sevvycf65RYqQ6xHCf8SyX/OyZ8dxxVRGa2+Nqa0Dbakv3ul4TxLm
+	 jLuLlUncvdwLA==
+Content-Language: en-CA
+Autocrypt: addr=dc@genunix.com; keydata=
+ xjMEZpuckhYJKwYBBAHaRw8BAQdAHZtmqkx1WtHIbgvlSIPjF5r5inw6XbdeLQbHbUC2V2jN
+ IURlbm5pcyBNLiBDbGFya2UgPGRjQGdlbnVuaXguY29tPsKTBBMWCgA7FiEEGmDUSc9bgPYJ
+ I9pZZGGjzzCOmvsFAmabnJICGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQZGGj
+ zzCOmvtUCAEA+OqwUmT4BN1YOwTz16UtOuZxHnQYtF9ZYsnp0j15GCAA/2NVJVhI/hju4/Dn
+ hg9cgT9kf1m/nJtchdz4kaUGI/kGzjgEZpuckhIKKwYBBAGXVQEFAQEHQP4D1FVCX/f3kHUV
+ oOu+y5Z8JAGBq0hNY35fHcEVyMJ8AwEIB8J4BBgWCgAgFiEEGmDUSc9bgPYJI9pZZGGjzzCO
+ mvsFAmabnJICGwwACgkQZGGjzzCOmvubcQEAmOhOtYELmUZ5U1+cHDgFD6bi078EREcLsqRU
+ NDwBW90BAORCOd8leIVrRf+Orx7HeTXY3XOzFi7VjJ4ukkxd6hkN
+In-Reply-To: <c1be15cc-96f9-4dd1-a4ab-f6446d2098c3@genunix.com>
+X-oetec-MailScanner-Information: Please contact the ISP for more information
+X-oetec-MailScanner-ID: 63SMdQ86089929
+X-oetec-MailScanner: Found to be clean
+X-oetec-MailScanner-From: dc@genunix.com
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5632
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5632>
+
+On 4/24/26 23:13, Dennis Clarke wrote:
+> On 4/24/26 11:45, Jason Thorpe wrote:
+>>
+>>> On Apr 21, 2026, at 3:42 PM, Dennis Clarke <dc@genunix.com> wrote:
+>>>
+>>> No rush. This has gone on for months now. I will make a backup tape
+>>> of the current OpenBSD situation and then prepare some disks in a SCSI
+>>> array for the NetBSD experiments.
+
+Quite mysteriously the DEC AlphaStation 600 was kind enough to power on
+and then go into firmware magic and perform "init" today. I have done
+nothing ( yet ) with the dreaded DALLAS RTC battery chip.
+
+Sadly the iso image for NetBSD-11.99.5-alpha seems to show a panic :
+
+ >>>init
+ff.fe.fd.fc.fb.fa.f9.f8.f7.f6.f5.
+ef.ee.ed.f4.ec.eb.
+ea.e9.e8.e7.e6.e5.e4.
+  Digital AlphaStation 600 5/266 Console V6.9-5
+         built on Oct 10 1998 at 14:22:57
+ >>>show config
+
+Firmware
+SRM Console:    V6.9-5
+ARC Console:    4.57
+PALcode:        VMS PALcode V1.20-0, OSF PALcode V1.22-0
+SROM Version:   V1.2
+
+Processor
+DECchip (tm) 21164-5    Pass 4  266 MHz  96 KBytes SCache
+2 MB BCache
+CIA ASIC Pass 2
+
+MEMORY
+
+
+Memory Size = 1024Mb
+
+Bank      Size/Sets   Base Addr     Speed
+------    ----------  ---------     -----
+00        256Mb/2     000000000     Fast
+01        256Mb/2     010000000     Fast
+02        256Mb/2     020000000     Fast
+03        256Mb/2     030000000     Fast
+
+
+BCache Size = 2Mb
+
+Tested Memory =  1024Mbytes
+
+PCI Bus
+      Bus 00  Slot 07: Digital ZLXp Graphics Controller
+  
+
+
+      Bus 00  Slot 08: DECchip 21050 PCI to PCI Bridge
+        Bus 01  Slot 00: DECchip 21040 Network Controller
+                                    ewa0.0.0.1000.0 
+08-00-2B-E7-D4-57
+
+        Bus 01  Slot 01: ISP1020 Scsi Controller
+                                    pka0.7.0.1001.0       SCSI Bus ID 7 
+
+                                    dka500.5.0.1001.0      RRD45 
+
+
+        Bus 01  Slot 02: ISP1020 Scsi Controller
+                                    pkb0.7.0.1002.0       SCSI Bus ID 7 
+
+                                    dkb100.1.0.1002.0      SEAGATE 
+ST336704LSUN
+                                    dkb200.2.0.1002.0      SEAGATE 
+ST336704LSUN
+                                    dkb300.3.0.1002.0      SEAGATE 
+ST336704LSUN
+
+      Bus 00  Slot 09: DECchip 21152 PCI to PCI Bridge
+        Bus 02  Slot 04: Vendor: 1000  Device: f
+        Bus 02  Slot 05: Vendor: 1022  Device: 2000
+      Bus 00  Slot 10: Intel   8275EB PCI to Eisa Bridge
+  
+
+
+
+EISA Bus Modules (installed)
+
+EISA/ISA NVR configuration
+         SLOT    Module
+          1      ISA2000
+ >>>boot dkb200
+(boot dkb200.2.0.1002.0 -flags A)
+block 0 of dkb200.2.0.1002.0 is a valid boot block
+reading 13 blocks from dkb200.2.0.1002.0
+bootstrap code read in
+base = 142000, image_start = 0, image_bytes = 1a00
+initializing HWRPB at 2000
+initializing page table at 134000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 11.99.5 ISO 9660 Primary Bootstrap
+Jumping to entry point...
+
+NetBSD/alpha 11.99.5 Secondary Bootstrap, Revision 1.13 (Wed Apr 22 
+03:25:12 UTC 2026)
+
+VMS PAL rev: 0x1000000010114
+OSF PAL rev: 0x1000000020116
+Switch to OSF PAL code succeeded.
+
+Boot flags: A
+11314192+254592=0xb08d40
+
+Entering netbsd at 0xfffffc0000a01410...
+[   1.0000000] Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
+[   1.0000000]     2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 
+2013,
+[   1.0000000]     2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 
+2023,
+[   1.0000000]     2024, 2025, 2026
+[   1.0000000]     The NetBSD Foundation, Inc.  All rights reserved.
+[   1.0000000] Copyright (c) 1982, 1986, 1989, 1991, 1993
+[   1.0000000]     The Regents of the University of California.  All 
+rights reserved.
+
+[   1.0000000] NetBSD 11.99.5 (INSTALL) #1: Wed Apr 22 04:27:07 PDT 2026
+[   1.0000000] 
+thorpej@the-ripe-vessel:/nbsd/objdir/alpha/sys/arch/alpha/compile/INSTALL
+[   1.0000000] Digital AlphaStation 600 5/266, 266MHz
+[   1.0000000] 8192 byte page size, 1 processor.
+[   1.0000000] total memory = 1024 MB
+[   1.0000000] (2224 KB reserved for PROM, 1021 MB used by NetBSD)
+[   1.0000000] avail memory = 996 MB
+[   1.0000000] mainbus0 (root)
+[   1.0000000] cpu0 at mainbus0: ID 0 (primary), 21164-0 (EV5)
+[   1.0000000] cia0 at mainbus0: DECchip 2117x Core Logic Chipset 
+(ALCOR/ALCOR2), pass 2
+[   1.0000000] pci0 at cia0 bus 0
+[   1.0000000] tga0 at pci0 dev 7 function 0: DC21030 step C, board type 
+T8-02
+[   1.0000000] tga0: 1280 x 1024, 8bpp, Bt485 RAMDAC
+[   1.0000000] tga0: interrupting at kn20aa irq 8
+[   1.0000000] wsdisplay0 at tga0 (kbdmux ignored)
+[   1.0000000] ppb0 at pci0 dev 8 function 0: vendor 1011 product 0001 
+(rev. 0x02)
+[   1.0000000] pci1 at ppb0 bus 1
+[   1.0000000] tlp0 at pci1 dev 0 function 0: DECchip 21040 Ethernet, 
+pass 2.3
+[   1.0000000] tlp0: interrupting at kn20aa irq 16
+[   1.0000000] tlp0: Ethernet address 08:00:2b:e7:d4:57
+[   1.0000000] tlp0: 10baseT, 10baseT-FDX, 10base5, manual
+[   1.0000000] isp0 at pci1 dev 1 function 0: QLogic 1020 Fast Wide SCSI HBA
+[   1.0000000] isp0: interrupting at kn20aa irq 17
+[   1.0000000] isp0: invalid NVRAM header
+[   1.0000000] isp1 at pci1 dev 2 function 0: QLogic 1020 Fast Wide SCSI HBA
+[   1.0000000] isp1: interrupting at kn20aa irq 18
+[   1.0000000] isp1: invalid NVRAM header
+[   1.0000000] ppb1 at pci0 dev 9 function 0: vendor 1011 product 0024 
+(rev. 0x03)
+[   1.0000000] pci2 at ppb1 bus 2
+[   1.0000000] siop0 at pci2 dev 4 function 0: Symbios Logic 53c875 
+(ultra-wide scsi)
+[   1.0000000] siop0: using on-board RAM
+[   1.0000000] siop0: interrupting at kn20aa irq 12
+[   1.0000000] scsibus0 at siop0: 16 targets, 8 luns per target
+[   1.0000000] pcn0 at pci2 dev 5 function 0: AMD PCnet-PCI Ethernet
+[   1.0000000] pcn0: Am79c971 PCnet-FAST rev 5, Ethernet address 
+00:60:b0:fa:1e:c7
+[   1.0000000] pcn0: interrupting at kn20aa irq 13
+[   1.0000000] lxtphy0 at pcn0 phy 1: LXT970 10/100 media interface, rev. 1
+[   1.0000000] lxtphy0: 10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, auto
+[   1.0000000] ukphy0 at pcn0 phy 31: OUI 0x000058, model 0x0001, rev. 1
+[   1.0000000] ukphy0: 10baseT, 10baseT-FDX, auto
+[   1.0000000] pceb0 at pci0 dev 10 function 0: vendor 8086 product 0482 
+(rev. 0x05)
+[   1.0000000] eisa0 at pceb0
+[   1.0000000] isa0 at pceb0
+[   1.0000000] panic: _isa_dmainit: unable to map DMA controller #1
+[   1.0000000] cpu0: Begin traceback...
+[   1.0000000] at 0xfffffc0000145718 pc 0xfffffc0000d52764
+[   1.0000000] cpu0: End traceback...
+Stopped in pid 0.0 (system) at  fffffc0000a509b4:       ret     zero,(ra)
+db>
+db> bt
+
+Nothing. I do not see a registers command available.
+
+Perhaps there is a way to trace/step into this ?
+
+If you wanted direct access to the machines serial console then I can
+easily ( with SSH etc ) set that up. I am not sure what else to do.
+
+
+-- 
+Dennis Clarke
+RISC-V/SPARC/PPC/ARM/CISC
+UNIX and Linux spoken
+
+

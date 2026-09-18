@@ -1,0 +1,4304 @@
+From freebsd-alpha  Sat Jul 31 20:38:22 1999
+From: Chuck Robey <chuckr () picnic ! mat ! net>
+Date: Sat, 31 Jul 1999 20:38:22 +0000
+To: freebsd-alpha
+Subject: Installing the heatsink
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207909
+
+My alpha came with a heatsink that has what seems to be a thin lead
+gasket, between the processor and the heatsink itself.  I've never used
+one before; I've always used silicone grease.
+
+Does anyone know if I should use that gasket, and (if so) how should I
+think use the silicone grease (if at all)?  Is there any rule of thumb
+about tightening down those two bolts that connect the heatsink to the
+processor?
+
+Thanks.
+
+----------------------------+-----------------------------------------------
+Chuck Robey                 | Interests include any kind of voice or data 
+chuckr@picnic.mat.net       | communications topic, C programming, and Unix.
+213 Lakeside Drive Apt T-1  |
+Greenbelt, MD 20770         | I run picnic and jaunt, both FreeBSD-current.
+(301) 220-2114              | 
+----------------------------+-----------------------------------------------
+
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Jul 29 08:59:36 1999
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Thu, 29 Jul 1999 08:59:36 +0000
+To: freebsd-alpha
+Subject: Re: 3.2-RELEASE problems IEEE Math
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207908
+
+On Wed, 28 Jul 1999, Jeff Wheat wrote:
+
+> Hi there. I am new to this list as recently installing 3.2
+> on my alphastation 250 4/266. I must start by saying it was
+> amazingly simple to install considering I was using the serial
+> console!
+> 
+> Anyhow, I am attempting to compile a package that uses IEEE math
+> and I am running into trouble.
+> 
+> Here is the test program:
+> 
+> #include <signal.h>
+> #include <floatingpoint.h>
+>         int main(void){
+>               double a;
+>               double b=22.0;
+>               double c;
+>               signal(SIGFPE,SIG_IGN);
+> //#              fpsetmask(0);
+>                 a=0.0/0.0;
+> 
+>              c=b/a;
+>               if (!isnan(c)) return 1;
+>               c=a==c?1.0:0.0;
+>               if (c>0.0) return 1;
+>               c=a==c?1.0:0.0;
+>               if (c>0.0) return 1;
+>               c=a>c?1.0:0.0;
+>               if (c>0.0) return 1;
+>               c=a<c?1.0:0.0;
+>               if (c>0.0) return 1;
+>               c=a>=c?1.0:0.0;
+>               if (c>0.0) return 1;
+>               c=a<=c?1.0:0.0;
+>               if (c>0.0) return 1;
+>               return 0;
+>              }
+> 
+> Here are the results:
+> alpha# gcc nantest.c -o nantest ; ./nantest ; echo $?
+> 1
+> alpha# gcc nantest.c -O -o nantest ; ./nantest ; echo $?
+> 0
+> alpha# gcc nantest.c -O1 -o nantest ; ./nantest ; echo $?
+> 0
+> alpha# gcc nantest.c -O2 -o nantest ; ./nantest ; echo $?
+> 0
+> alpha# gcc nantest.c -ieee -o nantest ; ./nantest ; echo $?
+> 1
+> 
+> This seems odd that optimization would cause these differences.
+> 
+> Can anyone suggest what the problem is?
+
+The problem is that the alpha requires floating point code to be written
+in a special way to allow NaNs. INFs and denorms to work properly.
+Unfortunately the compiler in 3.2-RELEASE is not able to generate the
+right code. This is fixed in -current (use the -mieee flag) and will be
+fixed in 3.3 (different flags which I can't remember right now).
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Jul 28 15:48:28 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Wed, 28 Jul 1999 15:48:28 +0000
+To: freebsd-alpha
+Subject: Re: breakage du jour....
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207906
+
+> 
+> >Reopening this again... the changes that were made in CVS do not address
+> >the problem that had occurred before- namely the panic. The following
+> >patch is still necessary (at least if you have a serial console).
+> >
+> >-matt
+> 
+> ? The latest revision of cons.c is 1.12 on 24 July.  Do you mean the
+> latest version still doesn't work?
+
+Whoa! Sorry- I apologize! A broken cvsup script apparently bit me on
+this....
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 27 19:53:17 1999
+From: Mike Smith <mike () smith ! net ! au>
+Date: Tue, 27 Jul 1999 19:53:17 +0000
+To: freebsd-alpha
+Subject: Re: NFS broken on Noname
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207902
+
+> > The box was running 3.2, on which NFS works fine.  I upgraded to a snap 
+> > from the 5th of this month, as which time it stopped.  I can't be a lot 
+> > more precise than that, I'm afraid, and playing binary-search with 
+> > kernels would be painful in the extreme.
+> 
+> How about a tigher definition of 'not working'? What symptoms? Is the rest
+> of network stuff fine? Did the rc files get upgraded correctly?
+
+See my original post for the symptoms.  The system was freshly 
+installed; other networking appears to work (install, FTP, etc.).
+-- 
+\\  The mind's the standard       \\  Mike Smith
+\\  of the man.                   \\  msmith@freebsd.org
+\\    -- Joseph Merrick           \\  msmith@cdrom.com
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 26 20:16:25 1999
+From: eric () hotrail ! com
+Date: Mon, 26 Jul 1999 20:16:25 +0000
+To: freebsd-alpha
+Subject: alpha/12821: slib.aq for the 3.2-RELEASE alpha distribution is broken
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207889
+
+
+>Number:         12821
+>Category:       alpha
+>Synopsis:       slib.aq for the 3.2-RELEASE alpha distribution is broken
+>Confidential:   no
+>Severity:       serious
+>Priority:       high
+>Responsible:    freebsd-alpha
+>State:          open
+>Quarter:        
+>Keywords:       
+>Date-Required:
+>Class:          sw-bug
+>Submitter-Id:   current-users
+>Arrival-Date:   Mon Jul 26 13:20:01 PDT 1999
+>Closed-Date:
+>Last-Modified:
+>Originator:     eric
+>Release:        3.2-RELEASE
+>Organization:
+hotrail
+>Environment:
+not important
+>Description:
+ealpha# ls -l slib.aq
+-rw-r--r--  1 root  daemon  32768 Jul 26 19:35 slib.aq
+
+ealpha# md5 slib.aq
+MD5 (slib.aq) = 36ec4288161b114c79d5d5b392ddc506
+
+ealpha# grep slib.aq CHECKSUM.MD5
+MD5 (slib.aq) = cd90c518b3ea2cdda4fd97c7de0527dd
+
+This file is directly from the ftp site ftp.freebsd.org.
+
+>How-To-Repeat:
+
+>Fix:
+
+
+>Release-Note:
+>Audit-Trail:
+>Unformatted:
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 26 17:22:15 1999
+From: "Brad D." <brad.deeley () flash ! net>
+Date: Mon, 26 Jul 1999 17:22:15 +0000
+To: freebsd-alpha
+Subject: subscribe
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207887
+
+subscribe
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Jul 23 06:04:38 1999
+From: John Polstra <jdp () polstra ! com>
+Date: Fri, 23 Jul 1999 06:04:38 +0000
+To: freebsd-alpha
+Subject: Re: "Gary Palmer": Hmmm?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207884
+
+In article <75999.932677552@noop.colo.erols.net>,
+Gary Palmer <gpalmer@FreeBSD.ORG> wrote:
+> 
+> ===> libexec/ypxfr
+> gzip -cn /usr/src/libexec/ypxfr/ypxfr.8 > ypxfr.8.gz
+> rm -f ypxfr_clnt.c
+> rpcgen -I -C -DYPPUSH_ONLY -l -o ypxfr_clnt.c /usr/src/libexec/ypxfr/../../include/rpcsvc/yp.x
+> rm -f yp_clnt.c
+> rpcgen -I -C -DYPSERV_ONLY -l -o yp_clnt.c /usr/src/libexec/ypxfr/../../include/rpcsvc/yp.x
+> /usr/libexec/ld-elf.so.1: /usr/obj/usr/src/tmp/usr/lib/libc.so.3: Unsupported relocation type 0 in non-PLT relocations
+> /usr/libexec/ld-elf.so.1: /usr/obj/usr/src/tmp/usr/lib/libc.so.3: Unsupported relocation type 0 in non-PLT relocations
+> *** Error code 1
+...
+> Anyone know what causes this? Out-of-date ld.so?
+
+Yep.  Update your ld-elf.so.1 and that will fix it.  Doug's recent
+linker fix (src/contrib/binutils/bfd elf64-alpha.c revision 1.2)
+relies on an up-to-date dynamic linker.
+
+John
+-- 
+  John Polstra                                               jdp@polstra.com
+  John D. Polstra & Co., Inc.                        Seattle, Washington USA
+  "No matter how cynical I get, I just can't keep up."        -- Nora Ephron
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Jul 22 00:54:33 1999
+From: Mike Smith <mike () smith ! net ! au>
+Date: Thu, 22 Jul 1999 00:54:33 +0000
+To: freebsd-alpha
+Subject: Re: Multihead XFree86 4.0 beta 3.9.15 working
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207877
+
+> On Wed, 21 Jul 1999, Roger Hardiman wrote:
+> 
+> > Hi,
+> > You all may be interested in this.
+> > 
+> > The first snapshot of XFree86 4.0 (ver 3.9.15) was released on the
+> > XFree86 web site a few days ago.  http://www.xfree86.org
+> 
+> If there is any interest, I can prepare a patch to 3.9.15 to allow it to
+> work on FreeBSD/alpha. I am gradually submitting fixes back to the XFree86
+> folks when I am happy with things and I expect 4.0 to work 'out of the
+> box' for FreeBSD/alpha.
+
+That'd be fun.  I have a 4/200 here that I'd love to see it running on, 
+and yes, it's all yours to play with if you feel like making a start on 
+the Alpha SMP issues.  8)
+
+-- 
+\\  The mind's the standard       \\  Mike Smith
+\\  of the man.                   \\  msmith@freebsd.org
+\\    -- Joseph Merrick           \\  msmith@cdrom.com
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Jul 21 22:42:21 1999
+From: Wilko Bulte <wilko () yedi ! iaf ! nl>
+Date: Wed, 21 Jul 1999 22:42:21 +0000
+To: freebsd-alpha
+Subject: Re: making release & bootable cdrom?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207881
+
+As Mike Smith wrote ...
+> > Would a "make release" on -current result in a cdrom-image that when put on
+> > cdrom is bootable on the alpha?
+> 
+> No.
+
+Right...
+
+> Someone needs to look at the NetBSD iso9660 boot module and boot module 
+> installer, and fix it to work like our current alpha boot module does.  
+> I haven't look at this hard enough to have a good idea of how difficult 
+> it might or might not be.
+
+Thanks for the information. 
+
+-- 
+|   / o / /  _  	 Arnhem, The Netherlands	- Powered by FreeBSD -
+|/|/ / / /( (_) Bulte 	 WWW  : http://www.tcja.nl 	http://www.freebsd.org
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Jul 21 08:41:55 1999
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Wed, 21 Jul 1999 08:41:55 +0000
+To: freebsd-alpha
+Subject: Re: kern/12378
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207875
+
+On Wed, 21 Jul 1999, Alan Cox wrote:
+
+> Could one of you take a look at PR kern/12378?  Specifically, I'd
+> like a confirmation that the same pmap change should be applied
+> to the Alpha as well as the x86.
+
+The same problem potentially exists in the alpha if the kernel VM space
+overflows grows such that a new level 2 page table is needed (as you know,
+the alpha uses 3 levels of page tables and if a level 3 page table is
+added, nothing special needs to happen since the corresponding level 2
+page table is already shared by all processes).
+
+The suggested fix looks as if it could be easily adapted to the alpha
+pmap.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 20 08:12:55 1999
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Tue, 20 Jul 1999 08:12:55 +0000
+To: freebsd-alpha
+Subject: Re: How about netboot?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207873
+
+On Mon, 19 Jul 1999, Shawn Kelly O Shea wrote:
+
+> 
+> I havent actually had FreeBSD/alpha installed yet, so I didnt know there
+> was a /boot/netboot. I grabbed it out of the install bin.?? set w/ tar and
+> tried the netboot. The FreeBSD/alpha SRM loader comes up, and this seems
+> to load the NetBSD/alpha netboot install. I say this, because it complains
+> that "boot: boot device name does not contain ethernet address" and goes
+> on to tell you that in the NetBSD/alpha distro you can code the enet addr
+> into the image w/ the setnetbootinfo command. I checked out FreeBSD bin.??
+> set again and didnt see this, so I'll have to grab it from NetBSD, see if
+> I can run it on my AlphaServer 300 (another alpha i have running RedHat5.2
+> right now) and go from there.
+> -Shawn
+
+Hmm. I've never tested that bit of the code (as you can see). Would it be
+possible for you to upgrade your firmware and see if netboot works better.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Jul 18 14:41:12 1999
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sun, 18 Jul 1999 14:41:12 +0000
+To: freebsd-alpha
+Subject: Re: 64bit address space on alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207868
+
+On Sun, 18 Jul 1999, Bernd Walter wrote:
+
+> On Sun, Jul 18, 1999 at 09:27:14AM +0100, Doug Rabson wrote:
+> > On Sat, 17 Jul 1999, Bernd Walter wrote:
+> > 
+> > > I would like to mmap a large file into a single process address space.
+> > > Is it save to increase MAXDSIZ to more than 4G?
+> > > If not is there already work in progress?
+> > 
+> > It should be safe to increase MAXDSIZ. The maximum user address space is
+> > about 4T on FreeBSD/alpha. I have programs which mmap about 12G of device
+> > addresses.
+> I tried to compile a kernel with MAXDSIZ set to 128G and got several overflow
+> compiler warnings:
+> 
+> Are these realy save to ignore?
+
+I'll check.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Jul 18 00:18:40 1999
+From: John Polstra <jdp () polstra ! com>
+Date: Sun, 18 Jul 1999 00:18:40 +0000
+To: freebsd-alpha
+Subject: Re: alpha/12623: strtod(3) FPE on alphaev56
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207862
+
+
+Doug Rabson wrote:
+> On Fri, 16 Jul 1999, Hidetoshi Shimokawa wrote:
+> 
+>> A well-optimized program multiplying two 1000 * 1000 matrixes.
+>> 
+>> % cc -mcpu=ev56 -O2 matrix2a.c
+>> % time ./a.out
+>> ./a.out  5.95s user 0.10s system 99% cpu 6.052 total
+>> % cc -mieee -mcpu=ev56 -O2 matrix2a.c 
+>> % time ./a.out
+>> ./a.out  21.86s user 0.08s system 99% cpu 21.976 total
+> 
+> This is quite a severe penalty.
+
+Yes, it is really bad!
+
+> However, such code is hopefully fairly rare and the developer can
+> still build the program using -mno-ieee for maximum performance so
+> perhaps it isn't a problem?
+
+It's hard to say.  From what I've been told, fast FP is what many
+people buy Alphas for.  I'm starting to get cold feet about changing
+the compiler default.  Maybe sys.mk or bsd.{lib,prog}.mk would be
+a better place to do it.  Then at least it would be visible in the
+"make" output.
+
+> I really must build my 3D code on the alpha soon and see what kind of
+> penalty I get for the maths in that.
+
+Yes, it would be good to have another data point.
+
+John
+---
+  John Polstra                                               jdp@polstra.com
+  John D. Polstra & Co., Inc.                        Seattle, Washington USA
+  "No matter how cynical I get, I just can't keep up."        -- Nora Ephron
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Jul 14 18:10:53 1999
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Wed, 14 Jul 1999 18:10:53 +0000
+To: freebsd-alpha
+Subject: Re: Serial console speed
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207855
+
+
+Douglas K. Rand writes:
+ > Andrew> I suspect that things are working, but that the console output
+ > Andrew> is going to an unexpected place, so make sure the SRM console
+ > Andrew> setting matches reality.  Eg, if you're running on a graphics
+ > Andrew> head, do 'set console graphics' & if you're with a serial
+ > Andrew> console, do 'set console serial' from the SRM console prompt
+ > Andrew> (>>> )
+ > 
+ > Your response reminds me of an annoying problem we have with a Digital
+ > 600au Personal Workstation. I've got the serial console working, but I
+ > cannot figure out how to get the speed up above 9600 baud. It is
+ > annoying accessing the console at this speed. (But not enough so that
+ > I have actually fixed the problem yet.) 
+ > 
+ > Might you be able to shed some light?
+
+Perhaps.  We run at 9600 baud because that's what the SRM console runs
+at by default (not sure if you can even change that), and I've never
+even thought about how to change it.  
+
+Have you tried bumping up comcnrate in sys/alpha/alpha/dec_st550.c?
+That's the first thing I'd look at..
+
+Drew
+
+------------------------------------------------------------------------------
+Andrew Gallatin, Sr Systems Programmer	http://www.cs.duke.edu/~gallatin
+Duke University				Email: gallatin@cs.duke.edu
+Department of Computer Science		Phone: (919) 660-6590
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Jul 14 14:12:37 1999
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Wed, 14 Jul 1999 14:12:37 +0000
+To: freebsd-alpha
+Subject: Re: Jumping to bootstrap
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207854
+
+
+Dustin Machi writes:
+
+<..>
+
+ > base = 1d8000, image_start = 0, image_bytes = 1c00
+ > initializing HWRPB at 2000
+ > initializing page table at 1ca000
+ > initializing machine state
+ > setting affinity to the primary CPU
+ > jumping to bootstrap code
+ > 
+ > this is all it does...
+ > 
+<..>
+
+I suspect that things are working, but that the console output is
+going to an unexpected place, so make sure the SRM console setting
+matches reality.  Eg, if you're running on a graphics head, do 'set
+console graphics' & if you're with a serial console, do 'set console
+serial' from the SRM console prompt (>>> )
+
+Cheers,
+
+Drew
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Jul 14 12:03:35 1999
+From: "Peter Hoskin" <virustorm () bigfoot ! com>
+Date: Wed, 14 Jul 1999 12:03:35 +0000
+To: freebsd-alpha
+Subject: 
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207853
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------=_NextPart_000_0068_01BECE44.B7E3A500"
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_0068_01BECE44.B7E3A500
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+subscribe freebsd-alpha virustorm@bigfoot.com
+
+------=_NextPart_000_0068_01BECE44.B7E3A500
+Content-Type: text/html;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META content=3D"text/html; charset=3Diso-8859-1" =
+http-equiv=3DContent-Type>
+<META content=3D"MSHTML 5.00.2014.210" name=3DGENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=3D#ffffff>
+<DIV><FONT face=3DArial size=3D2>subscribe freebsd-alpha=20
+virustorm@bigfoot.com</FONT></DIV></BODY></HTML>
+
+------=_NextPart_000_0068_01BECE44.B7E3A500--
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 13 15:40:57 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Tue, 13 Jul 1999 15:40:57 +0000
+To: freebsd-alpha
+Subject: X in Alpha FreeBSD (was Re: Alpha FreeBSD 3.2)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207846
+
+
+Minor note (at least for -current): you have to make sure
+/usr/src/sys/pci_ioctl.h is in /usr/include/sys- this isn't installed by
+default and is needed for the servers to build.
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 13 08:40:08 1999
+From: Hidetoshi Shimokawa <simokawa () sat ! t ! u-tokyo ! ac ! jp>
+Date: Tue, 13 Jul 1999 08:40:08 +0000
+To: freebsd-alpha
+Subject: Re: problem compiling Python
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207844
+
+At Mon, 12 Jul 1999 09:12:17 -0400 (EDT),
+System Admin. <pe@student.lssu.edu> wrote:
+> 
+> Hi all,
+> 	Is there anybody successfully compiled and installed  Python-1.5.2
+> on FreeBSD-3.2/Alpha? When I compiled and run make test everything pass
+> except test_fcntl function. It seem to be the really important one that I
+> need too. This is the output of the test:
+> 
+> host# python test_fcntl.py
+> Status from fnctl with O_NONBLOCK:  0
+> struct.pack:
+> '\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
+> 000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
+> 000\000\000\000\003\000\000\000'
+> Traceback (innermost last):
+>   File "test_fcntl.py", line 30, in ?
+>     rv = fcntl.fcntl(f.fileno(), FCNTL.F_SETLKW, lockdata)
+> IOError: [Errno 22] Invalid argument
+> 
+> Any trick to make this thing work? Please help!
+> 
+> TIA
+> 
+> pe'
+> 
+> 
+> ------------------------------
+> UNIX System Admin.
+> Distributed Computing Services
+> Lake Superior State University
+> 650 W. Easterday Ave.
+> Sault Ste. Marie. MI
+> 49783 USA.
+> ------------------------------
+
+Try attached patch.
+You may want to fix posixfile.py too.
+
+--- test_fcntl.py.orig	Tue Feb 23 13:13:37 1999
++++ test_fcntl.py	Tue Jul 13 17:36:34 1999
+@@ -17,9 +17,9 @@
+     print 'Status from fnctl with O_NONBLOCK: ', rv
+     
+ if sys.platform in ('netbsd1',
+-                    'freebsd2', 'freebsd3',
++                    'freebsd2', 'freebsd3', 'freebsd4',
+                     'bsdos2', 'bsdos3', 'bsdos4'):
+-    lockdata = struct.pack('lxxxxlxxxxlhh', 0, 0, 0, FCNTL.F_WRLCK, 0)
++    lockdata = struct.pack('ixxxxixxxxihh', 0, 0, 0, FCNTL.F_WRLCK, 0)
+ elif sys.platform in ['aix3', 'aix4']:
+     lockdata = struct.pack('hhlllii', FCNTL.F_WRLCK, 0, 0, 0, 0, 0, 0)
+ else:
+
+/\ Hidetoshi Shimokawa
+\/  simokawa@sat.t.u-tokyo.ac.jp
+PGP public key: finger -l simokawa@sat.t.u-tokyo.ac.jp
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 12 19:15:17 1999
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Mon, 12 Jul 1999 19:15:17 +0000
+To: freebsd-alpha
+Subject: Re: Alpha FreeBSD 3.2
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207843
+
+
+Mark Holloway writes:
+
+  > Does anyone know if installing FreeBSD Alpha will get Xfree86 up and
+  > running with an Elsa GLoria Synergy card?  It uses the Permedia 2 chip
+  > which is supported by Xfree86 3.3.3.  The card itself was designed by
+  > Elsa to work on Intel and DEC Alpha.  According to the commercial X
+  > servers like Metro-X and Accelerated-X they support this card on Alpha
+  > running Linux.  Xfree86 project has a driver for it, but I'm lost in
+  > knowing if it has been ported to Alpha FreeBSD.
+  >  
+  > 
+  > Regards,
+  > Mark
+
+<Apologies for reformatting your message, but it was almost totally
+unreadable..>
+
+You'll need to build Xfree86 from ports, after after applying Doug's
+patch for FreeBSD/alpha support
+(http://www.freebsd.org/~dfr/XFree86.diff ).
+
+I believe that it should work for your card.  I'm running X on a few
+alphas (personal workstations, xp1000s) running -current (but -stable
+should work too ) using Dec PowerStorm 4d10 cards, which I think use
+the same chipset:
+
+XFree86 Version 3.3.3.1 / X Window System
+(protocol Version 11, revision 0, vendor release 6300)
+Release Date: January 4 1999
+        If the server is older than 6-12 months, or if your card is newer
+        than the above date, look for a newer version before reporting
+        problems.  (see http://www.XFree86.Org/FAQ)
+Operating System: FreeBSD 4.0-CURRENT alpha [ELF] 
+Configured drivers:
+  GLINT: accelerated server for 3DLabs GLINT graphics adapters
+(Patchlevel 0)
+Using syscons driver with X support (version 2.0)
+(using VT number 4)
+<...>
+(--) GLINT: found TI chip GLINT Permedia 2 at card #10 func #0 with base 0x81000000
+(--) GLINT: Framebuffer address at 0x80000000
+(--) GLINT: videoram : 8192k
+(--) GLINT: Using builtin RAMDAC of Permedia 2 chip
+<..>
+
+Cheers,
+
+Drew
+------------------------------------------------------------------------------
+Andrew Gallatin, Sr Systems Programmer	http://www.cs.duke.edu/~gallatin
+Duke University				Email: gallatin@cs.duke.edu
+Department of Computer Science		Phone: (919) 660-6590
+
+
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Jul 09 21:54:47 1999
+From: Ben Black <black () layer8 ! net>
+Date: Fri, 09 Jul 1999 21:54:47 +0000
+To: freebsd-alpha
+Subject: fpa driver?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207840
+
+Is the fpa driver functional on alpha?
+
+-- 
+ --b
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Jul 09 20:16:46 1999
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Fri, 09 Jul 1999 20:16:46 +0000
+To: freebsd-alpha
+Subject: Re: Alpha 500a ok
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207839
+
+On Fri, 9 Jul 1999, Dirk Kleinhesselink wrote:
+
+> 
+> 
+> > Mark Holloway wrote:
+> 
+> >> Hi FreeBSD/Alpha people..[snip]Some people have asked me why I'm
+> >> looking at Alpha and not Intel.  Right now I have an Intel/FreeBSD
+> >> machine at home and it works great.  However, I've always looked for
+> >> the best "bang for the buck" and $1400 is a pretty low price to pay
+> >> for the Alpha and I feel the components are built better.  The SpecINT
+> >> on the Alpha 500 is still higher than any other used RISC based
+> >> machine in this price range (Sparc 20, SGI Indy, all with SpecINT
+> >> around 2.5 -> 4.5). Does anyone know of any issues or quirks with the
+> >> Alpha 500a machines?  Or are they pretty stable?
+> >
+> >
+> >  One word on the Spec* benchmarks: I guess the quoted numbers are the
+> > ones published by DEC. They probably used their highly polished compiler
+> > to produce the benchmark binaries --- on DEC OSF/1 a.k.a. True64 or what
+> > they changed the name to. On Net/FreeBSD you'll have to rely on the
+> > gcc/egcs family of compilers whose optimization for Alpha is less than
+> > perfect. At least, it was like that until gcc2.8.1 (I lost track of
+> > recent development). So, if you really get the best 'bang for the buck'
+> > is questionable.
+> > 
+> >  Any better information on that? I haven't seen any good benches for
+> > Alpha/Linux or *BSD recently.
+> 
+> >  For myself, I'd go with the Alpha every day, just because it's got more
+> > style, but that's a different story.
+> > 
+> > -Rain
+> Compaq has released for beta testing their Digital UNIX FORTRAN compiler
+> ported to Linux/Alpha and this seems to be working pretty well, at least
+> for me and for some of the people who've commented on it in the
+> redhat-alpha list.  Can Linux apps work on FreeBSD/alpha as they do for
+> FreeBSD/386 ?
+
+The Linux emulator has not yet been ported. It shouldn't be a huge job
+though.
+
+> I intend to try FreeBSD/alpha as soon as I can get my ARC
+> based PC164 over to SRM.  BTW the newest SRM recognizes and will boot from
+> IDE drives, so I hope the FreeBSD/alpha developers can take advantage of
+> this.  OpenBSD will boot and install to IDE drives from SRM.
+
+Current snapshots don't include the ATA drivers needed for this. It might
+be a case of just adding the drivers to GENERIC but I'm not sure if
+sysinstall understands the ATA driver (it should).
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Jul 09 17:50:09 1999
+From: <mjacob () FreeBSD ! org>
+Date: Fri, 09 Jul 1999 17:50:09 +0000
+To: freebsd-alpha
+Subject: Re: alpha/12579: procfs broken for alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207838
+
+Synopsis: procfs broken for alpha
+
+State-Changed-From-To: open->closed
+State-Changed-By: mjacob
+State-Changed-When: Fri Jul 9 10:49:21 PDT 1999
+State-Changed-Why: 
+added stubs missing on the alpha procfs code
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Jul 09 15:34:51 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Fri, 09 Jul 1999 15:34:51 +0000
+To: freebsd-alpha
+Subject: Re: Adaptec 2940UW on alpha working?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207835
+
+
+You have to give more details than 'does not work'. We're good, but not
+telepathic.
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Jul 08 09:56:03 1999
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Thu, 08 Jul 1999 09:56:03 +0000
+To: freebsd-alpha
+Subject: Re: Alpha 500a ok?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207828
+
+On Wed, 7 Jul 1999, Mark Holloway wrote:
+
+> Hi FreeBSD/Alpha people.. 
+> 
+> I have been using FreeBSD on intel (PII/333/128MB RAM) and it is
+> great.. I was looking at getting another machine to act as a personal
+> server on my home network and maybe eventually into a production
+> environment.  For the money, I could spend around $1200 and build a
+> PII/450 machine but a friend of mine who is a used Sun/SGI/DEC/IBM
+> reseller has a DEC Alpha 500a (21164 Generation) Personal Workstation
+> with 128MB Ram, DEC 16MB PCI Video, 4GB SCSI, and CD-Rom for $1400.  
+> The thing that I like most about this box is that it has 2MB cache
+> versus Intel's 512k (unless you get a Xeon, but that's a lot more than
+> $1400).
+> 
+> Some people have asked me why I'm looking at Alpha and not Intel.  
+> Right now I have an Intel/FreeBSD machine at home and it works great.  
+> However, I've always looked for the best "bang for the buck" and $1400
+> is a pretty low price to pay for the Alpha and I feel the components
+> are built better.  The SpecINT on the Alpha 500 is still higher than
+> any other used RISC based machine in this price range (Sparc 20, SGI
+> Indy, all with SpecINT around 2.5 -> 4.5).
+> 
+> Does anyone know of any issues or quirks with the Alpha 500a machines?  
+> Or are they pretty stable?
+
+I have an older model (the 433au) and it works well. I think that all of
+the PWS series work with FreeBSD/alpha.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 06 04:10:52 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Tue, 06 Jul 1999 04:10:52 +0000
+To: freebsd-alpha
+Subject: Re: panic in recent kernel
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207826
+
+
+
+On Mon, 5 Jul 1999, Steve Price wrote:
+
+> On Mon, 5 Jul 1999, Matthew Jacob wrote:
+> 
+> # 
+> # Brain idiocy on my part. I couldn't figure out why this kept panic'ing for
+> # ccdconfig when I hadn't config'd ccd in. It turns out there *are* .ko
+> # modules in /modules- they're way out of date because the interfaces
+> # changed.
+> # 
+> # phk rev'd the kernel version, but that didn't stop the modules from
+> # loading. Somebody file the appropriate bugs.
+> 
+> Sorry for being clueless here... What you are saying is that if
+> I install new modules the new kernel will work?  I'd be happy to
+
+That I don't know. Remove the modules first. See if things work.
+If they do, then install new modules. If things work and the modules load
+then the problem here is that the module loading isn't cognizant of an
+incompatible interface change.  It's my understanding that if you bump a
+kernel revision (__FreeBSD_Version), kernel modules and other things that
+depend upon kernel APIs and data structures need to be recompiled. The
+module loading code should not have us spend a day to find out that this
+is what happened.
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 05 23:51:43 1999
+From: Archie Cobbs <archie () whistle ! com>
+Date: Mon, 05 Jul 1999 23:51:43 +0000
+To: freebsd-alpha
+Subject: Re: alpha kernel build failure (w/patch)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207822
+
+Steve Price writes:
+>  	}
+> +#ifdef __i386__
+>  	sc->wb_btag = I386_BUS_SPACE_IO;
+> +#endif
+> +#ifdef __alpha__
+> +	sc->wb_btag = ALPHA_BUS_SPACE_IO;
+> +#endif
+>  #else
+>  	if (!(command & PCIM_CMD_MEMEN)) {
+
+Just a minor comment.. anytime you have something like this, it's
+always nice to do it this way instead:
+
+  #if defined(__i386__)
+	  sc->wb_btag = I386_BUS_SPACE_IO;
+  #elif defined(__alpha__)
+	  sc->wb_btag = ALPHA_BUS_SPACE_IO;
+  #else
+  #error Machine architecture unsupported
+  #endif
+
+That way when somebody wants to add M68K support or whatever they
+are alerted that they need to implement the new flag at compile
+time instead of at panic time :-)
+
+-Archie
+
+___________________________________________________________________________
+Archie Cobbs   *   Whistle Communications, Inc.  *   http://www.whistle.com
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Jul 02 02:38:52 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Fri, 02 Jul 1999 02:38:52 +0000
+To: freebsd-alpha
+Subject: there's been Qlogic ISP breakage all along....sorry....
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207814
+
+
+At some point recently, allocations for the request/response queues for
+the ISP started to fail in startup- but I wasn't checking for errors
+(because the !@*$!($#*(!#! busdma framework is so bloody awkward and I got
+lazy)... A little auditting and error checking found:
+
+Qlogic ISP Driver, FreeBSD CAM Version 0.991, Core Version 1.8
+isp0: <Qlogic ISP 1020/1040 PCI SCSI Adapter> irq 2 at device 5.0 on pci0
+isp0: interrupting at CIA irq 2
+isp0: Ultra Mode Capable
+isp0: Board Revision 1040B, loaded F/W Revision 7.63.0
+isp0: Last F/W revision was 2.10.0
+bus_dmamap_load: Too many segs! buf_len = 0x2000
+isp0: error 27 loading dma map for DMA request queue
+isp0: can't setup dma mailboxes
+de0: <Digital 21140A Fast Ethernet> irq 1 at device 7.0 on pci0
+de0: interrupting at CIA irq 1
+de0: 21140A [10-100Mb/s] pass 2.0
+de0: address 00:c0:f0:16:2d:7c
+isab0: <Intel 82378IB PCI to ISA bridge> at device 8.0 on pci0
+isa0: <ISA bus> on isab0
+isp1: <Qlogic ISP 2100 PCI FC-AL Adapter> irq 3 at device 9.0 on pci0
+isp1: interrupting at CIA irq 3
+isp1: Board Revision 2100, loaded F/W Revision 1.15.37
+isp1: Last F/W revision was 1.15.37
+bus_dmamap_load: Too many segs! buf_len = 0x2000
+isp1: error 27 loading dma map for DMA request queue
+isp1: can't setup dma mailboxes
+
+
+So, if you've had mysterious crashes, well, this might explain it. I'm
+chasing down why this fails- basically it's because I *thought* I was
+asking for a continguous chunk of memory which should get mapped with
+only one DMA segment- the ISP can't do multiple DMA descriptors to the
+request/response/FC scratch areas- but apparently I'm getting things back
+such that I'm getting multiple descriptors. Tsk.
+
+-matt
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Jul 28 18:45:24 1999
+From: Jeff Wheat <jeff () cetlink ! net>
+Date: Wed, 28 Jul 1999 18:45:24 +0000
+To: freebsd-alpha
+Subject: 3.2-RELEASE problems IEEE Math
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207907
+
+Hi there. I am new to this list as recently installing 3.2
+on my alphastation 250 4/266. I must start by saying it was
+amazingly simple to install considering I was using the serial
+console!
+
+Anyhow, I am attempting to compile a package that uses IEEE math
+and I am running into trouble.
+
+Here is the test program:
+
+#include <signal.h>
+#include <floatingpoint.h>
+        int main(void){
+              double a;
+              double b=22.0;
+              double c;
+              signal(SIGFPE,SIG_IGN);
+//#              fpsetmask(0);
+                a=0.0/0.0;
+
+             c=b/a;
+              if (!isnan(c)) return 1;
+              c=a==c?1.0:0.0;
+              if (c>0.0) return 1;
+              c=a==c?1.0:0.0;
+              if (c>0.0) return 1;
+              c=a>c?1.0:0.0;
+              if (c>0.0) return 1;
+              c=a<c?1.0:0.0;
+              if (c>0.0) return 1;
+              c=a>=c?1.0:0.0;
+              if (c>0.0) return 1;
+              c=a<=c?1.0:0.0;
+              if (c>0.0) return 1;
+              return 0;
+             }
+
+Here are the results:
+alpha# gcc nantest.c -o nantest ; ./nantest ; echo $?
+1
+alpha# gcc nantest.c -O -o nantest ; ./nantest ; echo $?
+0
+alpha# gcc nantest.c -O1 -o nantest ; ./nantest ; echo $?
+0
+alpha# gcc nantest.c -O2 -o nantest ; ./nantest ; echo $?
+0
+alpha# gcc nantest.c -ieee -o nantest ; ./nantest ; echo $?
+1
+
+This seems odd that optimization would cause these differences.
+
+Can anyone suggest what the problem is?
+
+Best regards,
+Jeff
+
+
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Jul 28 02:22:35 1999
+From: Kazutaka YOKOTA <yokota () zodiac ! mech ! utsunomiya-u ! ac ! jp>
+Date: Wed, 28 Jul 1999 02:22:35 +0000
+To: freebsd-alpha
+Subject: Re: breakage du jour....
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207905
+
+
+>Reopening this again... the changes that were made in CVS do not address
+>the problem that had occurred before- namely the panic. The following
+>patch is still necessary (at least if you have a serial console).
+>
+>-matt
+
+? The latest revision of cons.c is 1.12 on 24 July.  Do you mean the
+latest version still doesn't work?
+
+Kazu
+
+>Index: cons.c
+>===================================================================
+>RCS file: /cvs-src/src/sys/alpha/alpha/cons.c,v
+>retrieving revision 1.11
+>diff -u -r1.11 cons.c
+>--- cons.c	1999/06/22 14:13:16	1.11
+>+++ cons.c	1999/07/28 00:57:40
+>@@ -183,8 +183,12 @@
+> 	cdp->d_close = cnclose;
+> 	cn_phys_open = cdp->d_open;
+> 	cdp->d_open = cnopen;
+>+#ifdef	worked
+> 	cn_tp = (*cdp->d_devtotty)(cn_tab->cn_dev);
+> 	cn_dev_t = cn_tp->t_dev;
+>+#else
+>+	cn_dev_t = cn_tab->cn_dev;
+>+#endif
+> 	cn_udev_t = dev2udev(cn_dev_t);
+> }
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Jul 28 01:28:35 1999
+From: Peter Wemm <peter () netplex ! com ! au>
+Date: Wed, 28 Jul 1999 01:28:35 +0000
+To: freebsd-alpha
+Subject: Re: breakage du jour....
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207904
+
+Matthew Jacob wrote:
+> 
+> Reopening this again... the changes that were made in CVS do not address
+> the problem that had occurred before- namely the panic. The following
+> patch is still necessary (at least if you have a serial console).
+> 
+> -matt
+> Index: cons.c
+> ===================================================================
+> RCS file: /cvs-src/src/sys/alpha/alpha/cons.c,v
+> retrieving revision 1.11
+> diff -u -r1.11 cons.c
+> --- cons.c	1999/06/22 14:13:16	1.11
+> +++ cons.c	1999/07/28 00:57:40
+> @@ -183,8 +183,12 @@
+>  	cdp->d_close = cnclose;
+>  	cn_phys_open = cdp->d_open;
+>  	cdp->d_open = cnopen;
+> +#ifdef	worked
+>  	cn_tp = (*cdp->d_devtotty)(cn_tab->cn_dev);
+>  	cn_dev_t = cn_tp->t_dev;
+> +#else
+> +	cn_dev_t = cn_tab->cn_dev;
+> +#endif
+>  	cn_udev_t = dev2udev(cn_dev_t);
+>  }
+
+As a data point, on a system with serial console only and no vga card:
+
+Initial rc.alpha initialization:.
+rc.alpha configuring syscons: blank_time/etc/rc.alpha: cannot open /dev/ttyv0: no such device or address
+.
+Local package initialization: sshd.
+Mon Jul 26 15:40:07 WST 1999
+de0: abnormal interrupt: transmit underflow (raising TX threshold to 96|256)
+=59U%`!QQepA%55)55)Last login: Mon Jul 26 15:40:08 from overcee
+Copyright (c) 1980, 1983, 1986, 1988, 1990, 1991, 1993, 1994
+        The Regents of the University of California.  All rights reserved.
+
+Note the burst of garbage just before Last Login.  This was the second
+last boot - it's been doing this for a week but stopped after the recompile
+last night (for some unrelated tests).
+
+Mind you, this could just be de0 driver problems with doing printf's from
+interrupt context.  I've had garbage and complete loss of serial console
+when the initial 'ifconfig de0' happened on other systems.
+
+Cheers,
+-Peter
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Jul 28 01:03:12 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Wed, 28 Jul 1999 01:03:12 +0000
+To: freebsd-alpha
+Subject: Re: breakage du jour....
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207903
+
+
+Reopening this again... the changes that were made in CVS do not address
+the problem that had occurred before- namely the panic. The following
+patch is still necessary (at least if you have a serial console).
+
+-matt
+Index: cons.c
+===================================================================
+RCS file: /cvs-src/src/sys/alpha/alpha/cons.c,v
+retrieving revision 1.11
+diff -u -r1.11 cons.c
+--- cons.c	1999/06/22 14:13:16	1.11
++++ cons.c	1999/07/28 00:57:40
+@@ -183,8 +183,12 @@
+ 	cdp->d_close = cnclose;
+ 	cn_phys_open = cdp->d_open;
+ 	cdp->d_open = cnopen;
++#ifdef	worked
+ 	cn_tp = (*cdp->d_devtotty)(cn_tab->cn_dev);
+ 	cn_dev_t = cn_tp->t_dev;
++#else
++	cn_dev_t = cn_tab->cn_dev;
++#endif
+ 	cn_udev_t = dev2udev(cn_dev_t);
+ }
+ 
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 27 14:58:45 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Tue, 27 Jul 1999 14:58:45 +0000
+To: freebsd-alpha
+Subject: Re: breakage du jour....
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207893
+
+> Was this ever committed/otherwise resolved?
+
+Well, I was about to commit this, but somebody was in disagreement about it
+so I don't know what happened.
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 27 08:43:30 1999
+From: Kazutaka YOKOTA <yokota () zodiac ! mech ! utsunomiya-u ! ac ! jp>
+Date: Tue, 27 Jul 1999 08:43:30 +0000
+To: freebsd-alpha
+Subject: Re: breakage du jour....
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207892
+
+
+Fixed in the following commit.
+
+Kazu
+
+----------------------------
+revision 1.12
+date: 1999/07/24 09:40:57;  author: yokota;  state: Exp;  lines: +5 -5
+- Correctly initialize cn_dev_t and cn_udev_t.
+- Add D_TTY for alpha.
+
+Reviewed by: bde, dfr
+----------------------------
+
+>Was this ever committed/otherwise resolved?
+>
+>> Doug Rabson wrote...
+>> > On Wed, 21 Jul 1999, Matthew Jacob wrote:
+>> > 
+>> > > 
+>> > > -current...
+>> > > 
+>> > > sio0: interrupting at ISA irq 4
+>> > > sio1: reserved for low-level i/o
+>> > > fdc0: interrupting at ISA irq 6
+>> > > fdc0: <NEC 72065B or clone> at port 0x3f0-0x3f7 irq 6 drq 2 on isa0
+>> > > fdc0: FIFO enabled, 8 bytes threshold
+>> > > fd0: <1440-KB 3.5" drive> at fdc0 drive 0
+>> > > 
+>> > > fatal kernel trap:
+>> > 
+>> > Try this patch:
+[...]
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 27 08:28:05 1999
+From: Mike Smith <mike () smith ! net ! au>
+Date: Tue, 27 Jul 1999 08:28:05 +0000
+To: freebsd-alpha
+Subject: Re: breakage du jour....
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207891
+
+
+Was this ever committed/otherwise resolved?
+
+> Doug Rabson wrote...
+> > On Wed, 21 Jul 1999, Matthew Jacob wrote:
+> > 
+> > > 
+> > > -current...
+> > > 
+> > > sio0: interrupting at ISA irq 4
+> > > sio1: reserved for low-level i/o
+> > > fdc0: interrupting at ISA irq 6
+> > > fdc0: <NEC 72065B or clone> at port 0x3f0-0x3f7 irq 6 drq 2 on isa0
+> > > fdc0: FIFO enabled, 8 bytes threshold
+> > > fd0: <1440-KB 3.5" drive> at fdc0 drive 0
+> > > 
+> > > fatal kernel trap:
+> > 
+> > Try this patch:
+> > 
+> > Index: cons.c
+> > ===================================================================
+> > RCS file: /home/ncvs/src/sys/alpha/alpha/cons.c,v
+> > retrieving revision 1.11
+> > diff -u -r1.11 cons.c
+> > --- cons.c	1999/06/22 14:13:16	1.11
+> > +++ cons.c	1999/07/21 20:51:24
+> > @@ -183,8 +183,7 @@
+> >  	cdp->d_close = cnclose;
+> >  	cn_phys_open = cdp->d_open;
+> >  	cdp->d_open = cnopen;
+> > -	cn_tp = (*cdp->d_devtotty)(cn_tab->cn_dev);
+> > -	cn_dev_t = cn_tp->t_dev;
+> > +	cn_dev_t = cn_tab->cn_dev;
+> >  	cn_udev_t = dev2udev(cn_dev_t);
+> >  }
+> 
+> That patch fixes things for me.  Thanks!
+> 
+> Ken
+> -- 
+> Kenneth Merry
+> ken@plutotech.com
+> 
+> 
+> To Unsubscribe: send mail to majordomo@FreeBSD.org
+> with "unsubscribe freebsd-alpha" in the body of the message
+> 
+
+-- 
+\\  The mind's the standard       \\  Mike Smith
+\\  of the man.                   \\  msmith@freebsd.org
+\\    -- Joseph Merrick           \\  msmith@cdrom.com
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Jul 22 17:07:54 1999
+From: "Kenneth D. Merry" <ken () plutotech ! com>
+Date: Thu, 22 Jul 1999 17:07:54 +0000
+To: freebsd-alpha
+Subject: Re: breakage du jour....
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207880
+
+Doug Rabson wrote...
+> On Wed, 21 Jul 1999, Matthew Jacob wrote:
+> 
+> > 
+> > -current...
+> > 
+> > sio0: interrupting at ISA irq 4
+> > sio1: reserved for low-level i/o
+> > fdc0: interrupting at ISA irq 6
+> > fdc0: <NEC 72065B or clone> at port 0x3f0-0x3f7 irq 6 drq 2 on isa0
+> > fdc0: FIFO enabled, 8 bytes threshold
+> > fd0: <1440-KB 3.5" drive> at fdc0 drive 0
+> > 
+> > fatal kernel trap:
+> 
+> Try this patch:
+> 
+> Index: cons.c
+> ===================================================================
+> RCS file: /home/ncvs/src/sys/alpha/alpha/cons.c,v
+> retrieving revision 1.11
+> diff -u -r1.11 cons.c
+> --- cons.c	1999/06/22 14:13:16	1.11
+> +++ cons.c	1999/07/21 20:51:24
+> @@ -183,8 +183,7 @@
+>  	cdp->d_close = cnclose;
+>  	cn_phys_open = cdp->d_open;
+>  	cdp->d_open = cnopen;
+> -	cn_tp = (*cdp->d_devtotty)(cn_tab->cn_dev);
+> -	cn_dev_t = cn_tp->t_dev;
+> +	cn_dev_t = cn_tab->cn_dev;
+>  	cn_udev_t = dev2udev(cn_dev_t);
+>  }
+
+That patch fixes things for me.  Thanks!
+
+Ken
+-- 
+Kenneth Merry
+ken@plutotech.com
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Jul 22 08:39:18 1999
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Thu, 22 Jul 1999 08:39:18 +0000
+To: freebsd-alpha
+Subject: Re: breakage du jour....
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207879
+
+On Wed, 21 Jul 1999, Matthew Jacob wrote:
+
+> 
+> -current...
+> 
+> sio0: interrupting at ISA irq 4
+> sio1: reserved for low-level i/o
+> fdc0: interrupting at ISA irq 6
+> fdc0: <NEC 72065B or clone> at port 0x3f0-0x3f7 irq 6 drq 2 on isa0
+> fdc0: FIFO enabled, 8 bytes threshold
+> fd0: <1440-KB 3.5" drive> at fdc0 drive 0
+> 
+> fatal kernel trap:
+
+Try this patch:
+
+Index: cons.c
+===================================================================
+RCS file: /home/ncvs/src/sys/alpha/alpha/cons.c,v
+retrieving revision 1.11
+diff -u -r1.11 cons.c
+--- cons.c	1999/06/22 14:13:16	1.11
++++ cons.c	1999/07/21 20:51:24
+@@ -183,8 +183,7 @@
+ 	cdp->d_close = cnclose;
+ 	cn_phys_open = cdp->d_open;
+ 	cdp->d_open = cnopen;
+-	cn_tp = (*cdp->d_devtotty)(cn_tab->cn_dev);
+-	cn_dev_t = cn_tp->t_dev;
++	cn_dev_t = cn_tab->cn_dev;
+ 	cn_udev_t = dev2udev(cn_dev_t);
+ }
+ 
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Jul 22 04:44:32 1999
+From: Matthew Jacob <mjacob () nas ! nasa ! gov>
+Date: Thu, 22 Jul 1999 04:44:32 +0000
+To: freebsd-alpha
+Subject: breakage du jour....
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207878
+
+
+-current...
+
+sio0: interrupting at ISA irq 4
+sio1: reserved for low-level i/o
+fdc0: interrupting at ISA irq 6
+fdc0: <NEC 72065B or clone> at port 0x3f0-0x3f7 irq 6 drq 2 on isa0
+fdc0: FIFO enabled, 8 bytes threshold
+fd0: <1440-KB 3.5" drive> at fdc0 drive 0
+
+fatal kernel trap:
+
+    trap entry = 0x2 (memory management fault)
+    a0         = 0x14
+    a1         = 0x1
+    a2         = 0x0
+    pc         = 0xfffffc000035ba08
+    ra         = 0xfffffc000048acbc
+    curproc    = 0xfffffc0000531eb0
+        pid = 0, comm = swapper
+
+ddbprinttrap from 0xfffffc000035ba08
+ddbprinttrap(0x14, 0x1, 0x0, 0x2)
+panic: trap
+panic
+Stopped at      Debugger+0x2c:  ldq     ra,0(sp) <0xfffffc000058bb30>   <ra=0xfffffc000048e680,sp=0xfffffc000058bb30>
+db> t
+Debugger() at Debugger+0x2c
+panic() at panic+0xf4
+trap() at trap+0x5c8
+XentMM() at XentMM+0x20
+cninit_finish() at cninit_finish+0x9c
+(null)() at 0x6
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 27 19:50:28 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Tue, 27 Jul 1999 19:50:28 +0000
+To: freebsd-alpha
+Subject: Re: NFS broken on Noname
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207901
+
+
+> > > 
+> > 
+> > And just NFS stopped working... that's very strange indeed.... Well, I'll
+> > if I can't dust off the UDB...
+> 
+> The box was running 3.2, on which NFS works fine.  I upgraded to a snap 
+> from the 5th of this month, as which time it stopped.  I can't be a lot 
+> more precise than that, I'm afraid, and playing binary-search with 
+> kernels would be painful in the extreme.
+
+How about a tigher definition of 'not working'? What symptoms? Is the rest
+of network stuff fine? Did the rc files get upgraded correctly?
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 27 19:40:46 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Tue, 27 Jul 1999 19:40:46 +0000
+To: freebsd-alpha
+Subject: Re: NFS broken on Noname
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207899
+
+
+
+> > > > have you tried another alpha?
+> > > 
+> > > Like the AS2100? 8)  Peter verified that it's been working for him all 
+> > > along on his PC164SX; I only have the one functional system here at the 
+> > > moment, that being the noname.
+> > 
+> > What's beast?
+> 
+> EB164 or similar (Aspen Durango); also working fine.
+> 
+
+And just NFS stopped working... that's very strange indeed.... Well, I'll
+if I can't dust off the UDB...
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 27 19:40:44 1999
+From: Mike Smith <mike () smith ! net ! au>
+Date: Tue, 27 Jul 1999 19:40:44 +0000
+To: freebsd-alpha
+Subject: Re: NFS broken on Noname
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207900
+
+> 
+> 
+> > > > > have you tried another alpha?
+> > > > 
+> > > > Like the AS2100? 8)  Peter verified that it's been working for him all 
+> > > > along on his PC164SX; I only have the one functional system here at the 
+> > > > moment, that being the noname.
+> > > 
+> > > What's beast?
+> > 
+> > EB164 or similar (Aspen Durango); also working fine.
+> > 
+> 
+> And just NFS stopped working... that's very strange indeed.... Well, I'll
+> if I can't dust off the UDB...
+
+The box was running 3.2, on which NFS works fine.  I upgraded to a snap 
+from the 5th of this month, as which time it stopped.  I can't be a lot 
+more precise than that, I'm afraid, and playing binary-search with 
+kernels would be painful in the extreme.
+
+-- 
+\\  The mind's the standard       \\  Mike Smith
+\\  of the man.                   \\  msmith@freebsd.org
+\\    -- Joseph Merrick           \\  msmith@cdrom.com
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 27 19:34:32 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Tue, 27 Jul 1999 19:34:32 +0000
+To: freebsd-alpha
+Subject: Re: NFS broken on Noname
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207897
+
+> > have you tried another alpha?
+> 
+> Like the AS2100? 8)  Peter verified that it's been working for him all 
+> along on his PC164SX; I only have the one functional system here at the 
+> moment, that being the noname.
+
+What's beast?
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 27 19:34:23 1999
+From: Mike Smith <mike () smith ! net ! au>
+Date: Tue, 27 Jul 1999 19:34:23 +0000
+To: freebsd-alpha
+Subject: Re: NFS broken on Noname
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207898
+
+> > > have you tried another alpha?
+> > 
+> > Like the AS2100? 8)  Peter verified that it's been working for him all 
+> > along on his PC164SX; I only have the one functional system here at the 
+> > moment, that being the noname.
+> 
+> What's beast?
+
+EB164 or similar (Aspen Durango); also working fine.
+
+
+-- 
+\\  The mind's the standard       \\  Mike Smith
+\\  of the man.                   \\  msmith@freebsd.org
+\\    -- Joseph Merrick           \\  msmith@cdrom.com
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 27 19:28:09 1999
+From: Mike Smith <mike () smith ! net ! au>
+Date: Tue, 27 Jul 1999 19:28:09 +0000
+To: freebsd-alpha
+Subject: Re: NFS broken on Noname
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207896
+
+> 
+> have you tried another alpha?
+
+Like the AS2100? 8)  Peter verified that it's been working for him all 
+along on his PC164SX; I only have the one functional system here at the 
+moment, that being the noname.
+
+> On Tue, 27 Jul 1999, Mike Smith wrote:
+> 
+> > 
+> > Here's a weird one; NFS isn't working on the noname at the moment 
+> > (current as of the 27th).  But it's reputedly working on other 
+> > platforms...
+> > 
+> > A noname client can mount another system, but any attempt to access the 
+> > mount fails with EBADF.
+> > 
+> > A noname server won't respond to mount requests; the requesting clieng 
+> > hangs in sbwait (and if the client mount is aborted, the target 
+> > directory for the mount is left marked busy...)
+> > 
+> > -- 
+> > \\  The mind's the standard       \\  Mike Smith
+> > \\  of the man.                   \\  msmith@freebsd.org
+> > \\    -- Joseph Merrick           \\  msmith@cdrom.com
+> > 
+> > 
+> > 
+> > 
+> > To Unsubscribe: send mail to majordomo@FreeBSD.org
+> > with "unsubscribe freebsd-alpha" in the body of the message
+> > 
+> 
+> 
+> 
+> To Unsubscribe: send mail to majordomo@FreeBSD.org
+> with "unsubscribe freebsd-alpha" in the body of the message
+> 
+
+-- 
+\\  The mind's the standard       \\  Mike Smith
+\\  of the man.                   \\  msmith@freebsd.org
+\\    -- Joseph Merrick           \\  msmith@cdrom.com
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 27 19:27:04 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Tue, 27 Jul 1999 19:27:04 +0000
+To: freebsd-alpha
+Subject: Re: NFS broken on Noname
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207895
+
+
+
+have you tried another alpha?
+
+
+On Tue, 27 Jul 1999, Mike Smith wrote:
+
+> 
+> Here's a weird one; NFS isn't working on the noname at the moment 
+> (current as of the 27th).  But it's reputedly working on other 
+> platforms...
+> 
+> A noname client can mount another system, but any attempt to access the 
+> mount fails with EBADF.
+> 
+> A noname server won't respond to mount requests; the requesting clieng 
+> hangs in sbwait (and if the client mount is aborted, the target 
+> directory for the mount is left marked busy...)
+> 
+> -- 
+> \\  The mind's the standard       \\  Mike Smith
+> \\  of the man.                   \\  msmith@freebsd.org
+> \\    -- Joseph Merrick           \\  msmith@cdrom.com
+> 
+> 
+> 
+> 
+> To Unsubscribe: send mail to majordomo@FreeBSD.org
+> with "unsubscribe freebsd-alpha" in the body of the message
+> 
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 27 19:13:18 1999
+From: Mike Smith <mike () smith ! net ! au>
+Date: Tue, 27 Jul 1999 19:13:18 +0000
+To: freebsd-alpha
+Subject: NFS broken on Noname
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207894
+
+
+Here's a weird one; NFS isn't working on the noname at the moment 
+(current as of the 27th).  But it's reputedly working on other 
+platforms...
+
+A noname client can mount another system, but any attempt to access the 
+mount fails with EBADF.
+
+A noname server won't respond to mount requests; the requesting clieng 
+hangs in sbwait (and if the client mount is aborted, the target 
+directory for the mount is left marked busy...)
+
+-- 
+\\  The mind's the standard       \\  Mike Smith
+\\  of the man.                   \\  msmith@freebsd.org
+\\    -- Joseph Merrick           \\  msmith@cdrom.com
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Jul 22 21:05:52 1999
+From: "Gary Palmer" <gpalmer () freebsd ! org>
+Date: Thu, 22 Jul 1999 21:05:52 +0000
+To: freebsd-alpha
+Subject: "Gary Palmer": Hmmm?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207882
+
+
+===> libexec/ypxfr
+gzip -cn /usr/src/libexec/ypxfr/ypxfr.8 > ypxfr.8.gz
+rm -f ypxfr_clnt.c
+rpcgen -I -C -DYPPUSH_ONLY -l -o ypxfr_clnt.c /usr/src/libexec/ypxfr/../../include/rpcsvc/yp.x
+rm -f yp_clnt.c
+rpcgen -I -C -DYPSERV_ONLY -l -o yp_clnt.c /usr/src/libexec/ypxfr/../../include/rpcsvc/yp.x
+/usr/libexec/ld-elf.so.1: /usr/obj/usr/src/tmp/usr/lib/libc.so.3: Unsupported relocation type 0 in non-PLT relocations
+/usr/libexec/ld-elf.so.1: /usr/obj/usr/src/tmp/usr/lib/libc.so.3: Unsupported relocation type 0 in non-PLT relocations
+*** Error code 1
+*** Error code 1
+2 errors
+*** Error code 2
+1 error
+*** Error code 2
+1 error
+*** Error code 2
+1 error
+*** Error code 2
+1 error
+*** Error code 2
+1 error
+
+
+Anyone know what causes this? Out-of-date ld.so?
+
+Thanks
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Jul 21 20:23:57 1999
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Wed, 21 Jul 1999 20:23:57 +0000
+To: freebsd-alpha
+Subject: Re: Multihead XFree86 4.0 beta 3.9.15 working
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207876
+
+On Wed, 21 Jul 1999, Roger Hardiman wrote:
+
+> Hi,
+> You all may be interested in this.
+> 
+> The first snapshot of XFree86 4.0 (ver 3.9.15) was released on the
+> XFree86 web site a few days ago.  http://www.xfree86.org
+
+If there is any interest, I can prepare a patch to 3.9.15 to allow it to
+work on FreeBSD/alpha. I am gradually submitting fixes back to the XFree86
+folks when I am happy with things and I expect 4.0 to work 'out of the
+box' for FreeBSD/alpha.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 19 00:46:57 1999
+From: Mike Smith <mike () smith ! net ! au>
+Date: Mon, 19 Jul 1999 00:46:57 +0000
+To: freebsd-alpha
+Subject: Re: making release & bootable cdrom?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207869
+
+> Would a "make release" on -current result in a cdrom-image that when put on
+> cdrom is bootable on the alpha?
+
+No.
+
+Someone needs to look at the NetBSD iso9660 boot module and boot module 
+installer, and fix it to work like our current alpha boot module does.  
+I haven't look at this hard enough to have a good idea of how difficult 
+it might or might not be.
+
+-- 
+\\  The mind's the standard       \\  Mike Smith
+\\  of the man.                   \\  msmith@freebsd.org
+\\    -- Joseph Merrick           \\  msmith@cdrom.com
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Jul 18 00:46:52 1999
+From: jonathan michaels <jon () caamora ! com ! au>
+Date: Sun, 18 Jul 1999 00:46:52 +0000
+To: freebsd-alpha
+Subject: Re: making release & bootable cdrom?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207863
+
+On Sat, Jul 17, 1999 at 07:36:25PM +0200, Wilko Bulte wrote:
+> Would a "make release" on -current result in a cdrom-image that when put on
+> cdrom is bootable on the alpha?
+> 
+> If it is possible, is there anything special to be done when burning the
+> CDR?
+
+sorry, i've not got an answer, rather a question along the same 
+lines.
+
+i've been reading a book on how to become a good system admin 
+without resorting to shooting the users (grin) and it talks 
+about irix having a bootable tape. i know that it is possible 
+to make a tape that you can use to crudely install from in 
+freebsd fr intel.
+
+a bootable tape, or cdrom (od, worm any of teh crinkly 
+aluminiun, gold whatever sandwiches for that matter). i've 
+asked several times over the years and always get the same 
+answer .. crickets croaking in teh background.
+
+i've read some books (started on the 4.4BSD sermons from teh 
+mount) about unix in general and as spicifically bsd as i could 
+get. i plan to get tboth copies of the evi nemeth (red and 
+yellow). some times i wonder of god had of wanted us to be 
+programmers why didn't he give fast static ram with ecc and 
+full parit checking .. insteady of this easily confused neuron 
+entanglement ? sorry mine is playing up.
+
+if you get any further wilko could you keep me posted please ?
+
+warm regards
+
+jonathan
+
+-- 
+===============================================================================
+Jonathan Michaels
+PO Box 144, Rosebery, NSW 1445 Australia
+===========================================================<jon@caamora.com.au>
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Jul 17 17:36:25 1999
+From: Wilko Bulte <wilko () yedi ! iaf ! nl>
+Date: Sat, 17 Jul 1999 17:36:25 +0000
+To: freebsd-alpha
+Subject: making release & bootable cdrom?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207860
+
+Would a "make release" on -current result in a cdrom-image that when put on
+cdrom is bootable on the alpha?
+
+If it is possible, is there anything special to be done when burning the
+CDR?
+
+Wilko
+-- 
+|   / o / /  _  	 Arnhem, The Netherlands	- Powered by FreeBSD -
+|/|/ / / /( (_) Bulte 	 WWW  : http://www.tcja.nl 	http://www.freebsd.org
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Jul 21 06:59:48 1999
+From: Alan Cox <alc () cs ! rice ! edu>
+Date: Wed, 21 Jul 1999 06:59:48 +0000
+To: freebsd-alpha
+Subject: kern/12378
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207874
+
+Could one of you take a look at PR kern/12378?  Specifically, I'd
+like a confirmation that the same pmap change should be applied
+to the Alpha as well as the x86.
+
+Thanks,
+Alan
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 19 22:12:45 1999
+From: Shawn Kelly O Shea <booga () connix ! com>
+Date: Mon, 19 Jul 1999 22:12:45 +0000
+To: freebsd-alpha
+Subject: Re: How about netboot?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207872
+
+
+I havent actually had FreeBSD/alpha installed yet, so I didnt know there
+was a /boot/netboot. I grabbed it out of the install bin.?? set w/ tar and
+tried the netboot. The FreeBSD/alpha SRM loader comes up, and this seems
+to load the NetBSD/alpha netboot install. I say this, because it complains
+that "boot: boot device name does not contain ethernet address" and goes
+on to tell you that in the NetBSD/alpha distro you can code the enet addr
+into the image w/ the setnetbootinfo command. I checked out FreeBSD bin.??
+set again and didnt see this, so I'll have to grab it from NetBSD, see if
+I can run it on my AlphaServer 300 (another alpha i have running RedHat5.2
+right now) and go from there.
+-Shawn
+
+
+On Mon, 19 Jul 1999, Doug Rabson wrote:
+
+> On Sun, 18 Jul 1999, Shawn Kelly O Shea wrote:
+> 
+> > 
+> > I'm trying to netboot an AlphaStation 200 (avanti). I've got bootp (via a
+> > dhcp server) and tftp server setup. Any ideas how to roll an install bootp
+> > capable image?
+> > -Shawn
+> 
+> Try using /boot/netboot.
+> 
+> --
+> Doug Rabson				Mail:  dfr@nlsystems.com
+> Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+> 
+> 
+> 
+
+--------------------------------------------------------------
+# ifconfig eth0.net "Shawn O'Shea" netmask 255.255.255.0 up
+# route add -net smtp shawn@eth0.net
+# route add -net http http://eth0.net
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 19 07:14:09 1999
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Mon, 19 Jul 1999 07:14:09 +0000
+To: freebsd-alpha
+Subject: Re: How about netboot?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207871
+
+On Sun, 18 Jul 1999, Shawn Kelly O Shea wrote:
+
+> 
+> I'm trying to netboot an AlphaStation 200 (avanti). I've got bootp (via a
+> dhcp server) and tftp server setup. Any ideas how to roll an install bootp
+> capable image?
+> -Shawn
+
+Try using /boot/netboot.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 19 00:57:52 1999
+From: Shawn Kelly O Shea <booga () connix ! com>
+Date: Mon, 19 Jul 1999 00:57:52 +0000
+To: freebsd-alpha
+Subject: How about netboot?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207870
+
+
+I'm trying to netboot an AlphaStation 200 (avanti). I've got bootp (via a
+dhcp server) and tftp server setup. Any ideas how to roll an install bootp
+capable image?
+-Shawn
+
+--------------------------------------------------------------
+# ifconfig eth0.net "Shawn O'Shea" netmask 255.255.255.0 up
+# route add -net smtp shawn@eth0.net
+# route add -net http http://eth0.net
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Mar 12 21:54:50 2000
+From: Peter Jeremy <peter.jeremy () alcatel ! com ! au>
+Date: Sun, 12 Mar 2000 21:54:50 +0000
+To: freebsd-alpha
+Subject: Re: 64bit address space on alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030594007256
+
+On 2000-Mar-12 21:22:58 +1100, Bernd Walter <ticso@cicely.de> wrote:
+>I put (128*1024*1024*1024) in config following the example in LINT.
+>The point is that gcc uses an int to calculate the number behind.
+
+As would any other C compiler.
+
+(128*1024*1024*1024) is an expression comprising 4 int constants.
+According to the ANSI C rules, that means the expression should be
+evaluated as an int.  If you stuck an `L' after one of the constants,
+the expression would be evaluated as `long'.
+
+Peter
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Mar 12 11:16:17 2000
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sun, 12 Mar 2000 11:16:17 +0000
+To: freebsd-alpha
+Subject: Re: 64bit address space on alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030594007255
+
+On Sun, 12 Mar 2000, Bernd Walter wrote:
+
+> Just to get you informed about this point:
+> It was completely my fault and it took me realy a half year to recheck and
+> find this stupid thing :(
+> I put (128*1024*1024*1024) in config following the example in LINT.
+> The point is that gcc uses an int to calculate the number behind.
+> Now that I'm using a constant everything is fine...
+
+Good. Thanks for checking this out. You might have been able to try
+something like (128*1024*1024*1024L) to force gcc to use the right types
+for its arithmetic.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Mar 12 10:21:33 2000
+From: Bernd Walter <ticso () cicely ! de>
+Date: Sun, 12 Mar 2000 10:21:33 +0000
+To: freebsd-alpha
+Subject: Re: 64bit address space on alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030594007254
+
+On Sun, Jul 18, 1999 at 03:41:12PM +0100, Doug Rabson wrote:
+> On Sun, 18 Jul 1999, Bernd Walter wrote:
+> 
+> > On Sun, Jul 18, 1999 at 09:27:14AM +0100, Doug Rabson wrote:
+> > > On Sat, 17 Jul 1999, Bernd Walter wrote:
+> > > 
+> > > > I would like to mmap a large file into a single process address space.
+> > > > Is it save to increase MAXDSIZ to more than 4G?
+> > > > If not is there already work in progress?
+> > > 
+> > > It should be safe to increase MAXDSIZ. The maximum user address space is
+> > > about 4T on FreeBSD/alpha. I have programs which mmap about 12G of device
+> > > addresses.
+> > I tried to compile a kernel with MAXDSIZ set to 128G and got several overflow
+> > compiler warnings:
+> > 
+> > Are these realy save to ignore?
+> 
+> I'll check.
+
+Just to get you informed about this point:
+It was completely my fault and it took me realy a half year to recheck and
+find this stupid thing :(
+I put (128*1024*1024*1024) in config following the example in LINT.
+The point is that gcc uses an int to calculate the number behind.
+Now that I'm using a constant everything is fine...
+
+-- 
+B.Walter                  COSMO-Project              http://www.cosmo-project.de
+ticso@cicely.de             Usergroup                info@cosmo-project.de
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Jul 18 10:56:57 1999
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sun, 18 Jul 1999 10:56:57 +0000
+To: freebsd-alpha
+Subject: Re: 64bit address space on alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207867
+
+On Sun, 18 Jul 1999, Bernd Walter wrote:
+
+> On Sun, Jul 18, 1999 at 09:27:14AM +0100, Doug Rabson wrote:
+> > On Sat, 17 Jul 1999, Bernd Walter wrote:
+> > 
+> > > I would like to mmap a large file into a single process address space.
+> > > Is it save to increase MAXDSIZ to more than 4G?
+> > > If not is there already work in progress?
+> > 
+> > It should be safe to increase MAXDSIZ. The maximum user address space is
+> > about 4T on FreeBSD/alpha. I have programs which mmap about 12G of device
+> > addresses.
+> Mmm 4T interesting...
+> My Documentation says that my 21066 is limited to 43Bit Vitual - which should
+> be something around 4T
+> Applys the 43Bit limit to modern alpha CPUs too or is FreeBSD limiting.
+
+I think 21264s can use larger address spaces but FreeBSD is currently
+limited to 43bit virtual (half for user, quarter for direct map
+physical->virtual and quarter for pte mapped kernel).
+
+Supporting 53bit addressing wouldn't be very hard. The main different is
+that it needs four levels of pagetables instead of three.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Jul 18 10:37:21 1999
+From: Bernd Walter <ticso () cicely ! de>
+Date: Sun, 18 Jul 1999 10:37:21 +0000
+To: freebsd-alpha
+Subject: Re: 64bit address space on alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207866
+
+On Sun, Jul 18, 1999 at 09:27:14AM +0100, Doug Rabson wrote:
+> On Sat, 17 Jul 1999, Bernd Walter wrote:
+> 
+> > I would like to mmap a large file into a single process address space.
+> > Is it save to increase MAXDSIZ to more than 4G?
+> > If not is there already work in progress?
+> 
+> It should be safe to increase MAXDSIZ. The maximum user address space is
+> about 4T on FreeBSD/alpha. I have programs which mmap about 12G of device
+> addresses.
+I tried to compile a kernel with MAXDSIZ set to 128G and got several overflow
+compiler warnings:
+
+[...]
+rm -f .depend
+mv -f .newdep .depend
+cc -c -O -pipe -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -ansi -g -nostdinc -I- -I. -I../.. -I../../../include  -DKERNEL -include opt_global.h -mno-fp-regs -Wa,-mev56  ../../kern/imgact_elf.c
+../../kern/imgact_elf.c: In function `exec_elf_imgact':
+../../kern/imgact_elf.c:524: warning: integer overflow in expression
+cc -c -O -pipe -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -ansi -g -nostdinc -I- -I. -I../.. -I../../../include  -DKERNEL -include opt_global.h -mno-fp-regs -Wa,-mev56  ../../kern/kern_resource.c
+../../kern/kern_resource.c: In function `dosetrlimit':
+../../kern/kern_resource.c:411: warning: integer overflow in expression
+../../kern/kern_resource.c:412: warning: integer overflow in expression
+../../kern/kern_resource.c:413: warning: integer overflow in expression
+../../kern/kern_resource.c:414: warning: integer overflow in expression
+cc -c -O -pipe -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -ansi -g -nostdinc -I- -I. -I../.. -I../../../include  -DKERNEL -include opt_global.h -mno-fp-regs -Wa,-mev56  ../../kern/sysv_shm.c
+../../kern/sysv_shm.c: In function `shmat':
+../../kern/sysv_shm.c:268: warning: integer overflow in expression
+cc -c -O -pipe -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -ansi -g -nostdinc -I- -I. -I../.. -I../../../include  -DKERNEL -include opt_global.h -mno-fp-regs -Wa,-mev56  ../../vm/vm_glue.c
+../../vm/vm_glue.c: In function `vm_init_limits':
+../../vm/vm_glue.c:291: warning: integer overflow in expression
+cc -c -O -pipe -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -ansi -g -nostdinc -I- -I. -I../.. -I../../../include  -DKERNEL -include opt_global.h -mno-fp-regs -Wa,-mev56  ../../vm/vm_mmap.c
+../../vm/vm_mmap.c: In function `mmap':
+../../vm/vm_mmap.c:233: warning: integer overflow in expression
+../../vm/vm_mmap.c:234: warning: integer overflow in expression
+Generating kernel linker sets
+cc -c -O -pipe -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -ansi -g -nostdinc -I- -I. -I../.. -I../../../include  -DKERNEL -include opt_global.h -mno-fp-regs -Wa,-mev56  ../../alpha/alpha/setdef0.c
+cc -O -pipe -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -ansi -g -nostdinc -I- -I. -I../.. -I../../../include  -DKERNEL -include opt_global.h -mno-fp-regs -Wa,-mev56 -c config.c
+cc -c -O -pipe -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -ansi -g -nostdinc -I- -I. -I../.. -I../../../include  -DKERNEL -include opt_global.h -mno-fp-regs -Wa,-mev56  ../../alpha/alpha/setdef1.c
+sh ../../conf/newvers.sh CICELY9 
+cc -O -pipe -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -ansi -g -nostdinc -I- -I. -I../.. -I../../../include  -DKERNEL -include opt_global.h -mno-fp-regs -Wa,-mev56 -c vers.c
+linking kernel.debug
+[...]
+
+Are these realy save to ignore?
+
+-- 
+B.Walter                  COSMO-Project              http://www.cosmo-project.de
+ticso@cicely.de             Usergroup                info@cosmo-project.de
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Jul 18 10:32:52 1999
+From: Bernd Walter <ticso () cicely ! de>
+Date: Sun, 18 Jul 1999 10:32:52 +0000
+To: freebsd-alpha
+Subject: Re: 64bit address space on alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207865
+
+On Sun, Jul 18, 1999 at 09:27:14AM +0100, Doug Rabson wrote:
+> On Sat, 17 Jul 1999, Bernd Walter wrote:
+> 
+> > I would like to mmap a large file into a single process address space.
+> > Is it save to increase MAXDSIZ to more than 4G?
+> > If not is there already work in progress?
+> 
+> It should be safe to increase MAXDSIZ. The maximum user address space is
+> about 4T on FreeBSD/alpha. I have programs which mmap about 12G of device
+> addresses.
+Mmm 4T interesting...
+My Documentation says that my 21066 is limited to 43Bit Vitual - which should
+be something around 4T
+Applys the 43Bit limit to modern alpha CPUs too or is FreeBSD limiting.
+
+-- 
+B.Walter                  COSMO-Project              http://www.cosmo-project.de
+ticso@cicely.de             Usergroup                info@cosmo-project.de
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Jul 18 08:27:14 1999
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sun, 18 Jul 1999 08:27:14 +0000
+To: freebsd-alpha
+Subject: Re: 64bit address space on alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207864
+
+On Sat, 17 Jul 1999, Bernd Walter wrote:
+
+> I would like to mmap a large file into a single process address space.
+> Is it save to increase MAXDSIZ to more than 4G?
+> If not is there already work in progress?
+
+It should be safe to increase MAXDSIZ. The maximum user address space is
+about 4T on FreeBSD/alpha. I have programs which mmap about 12G of device
+addresses.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Jul 17 19:42:27 1999
+From: Bernd Walter <ticso () cicely ! de>
+Date: Sat, 17 Jul 1999 19:42:27 +0000
+To: freebsd-alpha
+Subject: 64bit address space on alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207861
+
+I would like to mmap a large file into a single process address space.
+Is it save to increase MAXDSIZ to more than 4G?
+If not is there already work in progress?
+
+-- 
+B.Walter                  COSMO-Project              http://www.cosmo-project.de
+ticso@cicely.de             Usergroup                info@cosmo-project.de
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Jul 17 08:27:51 1999
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sat, 17 Jul 1999 08:27:51 +0000
+To: freebsd-alpha
+Subject: Re: alpha/12623: strtod(3) FPE on alphaev56
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207859
+
+On Fri, 16 Jul 1999, Hidetoshi Shimokawa wrote:
+
+> At Fri, 16 Jul 1999 09:45:35 +0100 (BST),
+> Doug Rabson <dfr@nlsystems.com> wrote:
+> > I agree. As long as there is a -mno-ieee option for those programs which
+> > need to squeeze the last drop of performance then this is the right thing
+> > to do.
+> 
+> I agree too.
+> 
+> However, I'm very suprised when I found -mieee has BIG performance
+> penatly on my system(21164/600MHz).
+> 
+> A well-optimized program multiplying two 1000 * 1000 matrixes.
+> 
+> % cc -mcpu=ev56 -O2 matrix2a.c
+> % time ./a.out
+> ./a.out  5.95s user 0.10s system 99% cpu 6.052 total
+> % cc -mieee -mcpu=ev56 -O2 matrix2a.c 
+> % time ./a.out
+> ./a.out  21.86s user 0.08s system 99% cpu 21.976 total
+
+This is quite a severe penalty. However, such code is hopefully fairly
+rare and the developer can still build the program using -mno-ieee for
+maximum performance so perhaps it isn't a problem?
+
+I really must build my 3D code on the alpha soon and see what kind of
+penalty I get for the maths in that.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Jul 16 12:11:46 1999
+From: Hidetoshi Shimokawa <simokawa () sat ! t ! u-tokyo ! ac ! jp>
+Date: Fri, 16 Jul 1999 12:11:46 +0000
+To: freebsd-alpha
+Subject: Re: alpha/12623: strtod(3) FPE on alphaev56
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207858
+
+At Fri, 16 Jul 1999 09:45:35 +0100 (BST),
+Doug Rabson <dfr@nlsystems.com> wrote:
+> I agree. As long as there is a -mno-ieee option for those programs which
+> need to squeeze the last drop of performance then this is the right thing
+> to do.
+
+I agree too.
+
+However, I'm very suprised when I found -mieee has BIG performance
+penatly on my system(21164/600MHz).
+
+A well-optimized program multiplying two 1000 * 1000 matrixes.
+
+% cc -mcpu=ev56 -O2 matrix2a.c
+% time ./a.out
+./a.out  5.95s user 0.10s system 99% cpu 6.052 total
+% cc -mieee -mcpu=ev56 -O2 matrix2a.c 
+% time ./a.out
+./a.out  21.86s user 0.08s system 99% cpu 21.976 total
+
+-- 
+/\ Hidetoshi Shimokawa
+\/  simokawa@sat.t.u-tokyo.ac.jp
+PGP public key: finger -l simokawa@sat.t.u-tokyo.ac.jp
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Jul 16 08:45:35 1999
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Fri, 16 Jul 1999 08:45:35 +0000
+To: freebsd-alpha
+Subject: Re: alpha/12623: strtod(3) FPE on alphaev56
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207857
+
+On Thu, 15 Jul 1999, John Polstra wrote:
+
+> Doug Rabson wrote:
+> > On Tue, 13 Jul 1999, John Polstra wrote:
+> > 
+> >> Yes, or the equivalent "-mieee".  In my opinion, all of the libraries
+> >> (if not the whole world) should be compiled that way.  In fact, this
+> >> option should be the default.  Users who wanted a little extra speed
+> >> and who knew what they are doing could turn it off.
+> > 
+> > I agree (at least as far as the libraries go). Setting it as default would
+> > be easy but there are performance implications. On the other hand, the
+> > only applications whose performance is affected are ones using floating
+> > point..
+> 
+> Yes, I think "correct by default" would be more in keeping with the
+> FreeBSD tradition than "fast but possibly wrong by default".  So I
+> still think -mieee should be used for everything.
+> 
+> My only real concern about making it the compiler default is that it
+> causes us to deviate from standard egcs a little bit more.  But the
+> deviation would be confined to "egcs/config/alpha/freebsd.h", which is
+> probably OK.  I think we should add a "-mno-ieee" option to disable
+> it, too.  That's not hard.
+
+I agree. As long as there is a -mno-ieee option for those programs which
+need to squeeze the last drop of performance then this is the right thing
+to do.
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Jul 16 04:54:15 1999
+From: John Polstra <jdp () polstra ! com>
+Date: Fri, 16 Jul 1999 04:54:15 +0000
+To: freebsd-alpha
+Subject: Re: alpha/12623: strtod(3) FPE on alphaev56
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207856
+
+Doug Rabson wrote:
+> On Tue, 13 Jul 1999, John Polstra wrote:
+> 
+>> Yes, or the equivalent "-mieee".  In my opinion, all of the libraries
+>> (if not the whole world) should be compiled that way.  In fact, this
+>> option should be the default.  Users who wanted a little extra speed
+>> and who knew what they are doing could turn it off.
+> 
+> I agree (at least as far as the libraries go). Setting it as default would
+> be easy but there are performance implications. On the other hand, the
+> only applications whose performance is affected are ones using floating
+> point..
+
+Yes, I think "correct by default" would be more in keeping with the
+FreeBSD tradition than "fast but possibly wrong by default".  So I
+still think -mieee should be used for everything.
+
+My only real concern about making it the compiler default is that it
+causes us to deviate from standard egcs a little bit more.  But the
+deviation would be confined to "egcs/config/alpha/freebsd.h", which is
+probably OK.  I think we should add a "-mno-ieee" option to disable
+it, too.  That's not hard.
+
+John
+---
+  John Polstra                                               jdp@polstra.com
+  John D. Polstra & Co., Inc.                        Seattle, Washington USA
+  "No matter how cynical I get, I just can't keep up."        -- Nora Ephron
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Jul 14 10:11:20 1999
+From: Matthew Seaman <m.seaman () inpharmatica ! co ! uk>
+Date: Wed, 14 Jul 1999 10:11:20 +0000
+To: freebsd-alpha
+Subject: Re: alpha/12623: strtod(3) FPE on alphaev56
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207852
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="--------------99239EED8BCDF62A6E75BB4D"
+
+This is a multi-part message in MIME format.
+--------------99239EED8BCDF62A6E75BB4D
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+Doug Rabson wrote:
+> 
+> On Tue, 13 Jul 1999, John Polstra wrote:
+> 
+> > In article <14219.25613.478914.44162J@ett.sat.t.u-tokyo.ac.jp>,
+> > Hidetoshi Shimokawa  <simokawa@sat.t.u-tokyo.ac.jp> wrote:
+> > >
+> > > /usr/src/lib/libc/stdlib/strtod.c seems broken on alpha in three ways.
+> > >
+> > > 1) IEEE_8087 should be defined instead of IEEE_MC68k.
+> > >
+> > > 2) It assumes long is 32bit, but long is 64bit on alpha.
+> > >     s/unsigned long/u_int32_t/, s/long/int32_t/.
+> > >
+> > > 3) It generates denormal numbers which can not be treaded by the hardware
+> > >    on alpha. It should be compiled with the option
+> > >    `-mtrap-precision=i -mfp-trap-mode=su' to enable software completion.
+> >
+> > Yes, or the equivalent "-mieee".  In my opinion, all of the libraries
+> > (if not the whole world) should be compiled that way.  In fact, this
+> > option should be the default.  Users who wanted a little extra speed
+> > and who knew what they are doing could turn it off.
+> 
+> I agree (at least as far as the libraries go). Setting it as default would
+> be easy but there are performance implications. On the other hand, the
+> only applications whose performance is affected are ones using floating
+> point..
+
+Great.  Although /usr/src/lib/libc/stdlib/netbsd_strtod.c is temporarily being
+substituted for strtod.c on alpha --- applying the patches attached to this
+message should make strtod.c usable on both i386 and alpha.  There are a bunch
+of other changes from the current {Net,Open}BSD sources that would probably be
+a good idea to merge in but I don't have time to do that right now.
+
+After installing egcs from ports I could compile a small test case using the
+-mieee
+flag and everything seems to be working fine:
+
+b0:/tmp:% cat foo.c
+#include <stdio.h>
+#include <stdlib.h>
+
+int
+main(int argc, char *argv[])
+{
+        char            str[128] = "2.49521e-297";
+        double          num;
+
+        if (argc > 1) {
+                strncpy(str, argv[1], 127);
+        }
+        num = strtod(str, NULL);
+        printf("%s -> %.20lg\n", str, num);
+        exit(0);
+}
+b0:/tmp:% egcc -g -c foo.c 
+b0:/tmp:% egcc -g -c strtod.c 
+b0:/tmp:% egcc foo.o strtod.o -o foo
+b0:/tmp:% ./foo
+Floating exception (core dumped)
+b0:/tmp:% egcc -mieee -g -c foo.c 
+b0:/tmp:% egcc -mieee -g -c strtod.c
+b0:/tmp:% egcc -mieee foo.o strtod.o -o foo 
+b0:/tmp:% ./foo
+2.49521e-297 -> 2.4952099999999999545e-297
+
+I guess it's time to make world using egcc -mieee and run some more extensive
+tests.	
+
+	Cheers,
+
+
+	Matthew
+
+-- 
+           Certe, Toto, sentio nos in Kansate non iam adesse.
+
+   Dr. Matthew Seaman, Inpharmatica Ltd, 60 Charlotte St, London, W1P 2AX
+            Tel: +44 171 631 4644 x229  Fax: +44 171 631 4844
+--------------99239EED8BCDF62A6E75BB4D
+Content-Type: text/plain; charset=us-ascii;
+ name="Makefile.inc.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="Makefile.inc.diff"
+
+--- Makefile.inc.orig	Wed Sep 16 04:16:06 1998
++++ Makefile.inc	Wed Jul 14 09:44:56 1999
+@@ -7,17 +7,8 @@
+ MISRCS+=abort.c abs.c atexit.c atof.c atoi.c atol.c bsearch.c calloc.c div.c \
+ 	exit.c getenv.c getopt.c getsubopt.c heapsort.c labs.c ldiv.c \
+ 	malloc.c merge.c putenv.c qsort.c radixsort.c rand.c random.c \
+-	reallocf.c realpath.c setenv.c strhash.c strtol.c strtoq.c strtoul.c \
+-	strtouq.c system.c
+-
+-.if ${MACHINE_ARCH} == "alpha"
+-#  XXX Temporary until the assumption that a long is 32-bits is resolved
+-#  XXX FreeBSD's code. NetBSD kludged this with Long = int32_t and
+-#  XXX ULong = u_int32_t
+-SRCS+=	netbsd_strtod.c
+-.else
+-SRCS+=	strtod.c
+-.endif
++	reallocf.c realpath.c setenv.c strhash.c strtod.c strtol.c strtoq.c \
++	strtoul.c strtouq.c system.c
+ 
+ # machine-dependent stdlib sources
+ .include "${.CURDIR}/../libc/${MACHINE_ARCH}/stdlib/Makefile.inc"
+
+--------------99239EED8BCDF62A6E75BB4D
+Content-Type: text/plain; charset=us-ascii;
+ name="strtod.c.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="strtod.c.diff"
+
+--- strtod.c.orig	Fri Jul 12 19:55:22 1996
++++ strtod.c	Wed Jul 14 10:29:20 1999
+@@ -94,9 +94,9 @@
+  */
+ 
+ /*
+- * #define IEEE_8087 for IEEE-arithmetic machines where the least
++ * #define IEEE_LITTLE_ENDIAN for IEEE-arithmetic machines where the least
+  *	significant byte has the lowest address.
+- * #define IEEE_MC68k for IEEE-arithmetic machines where the most
++ * #define IEEE_BIG_ENDIAN for IEEE-arithmetic machines where the most
+  *	significant byte has the lowest address.
+  * #define Sudden_Underflow for IEEE-format machines without gradual
+  *	underflow (i.e., that flush to zero on underflow).
+@@ -112,19 +112,27 @@
+  * #define ROUND_BIASED for IEEE-format with biased rounding.
+  * #define Inaccurate_Divide for IEEE-format with correctly rounded
+  *	products but inaccurate quotients, e.g., for Intel i860.
+- * #define Just_16 to store 16 bits per 32-bit long when doing high-precision
+- *	integer arithmetic.  Whether this speeds things up or slows things
+- *	down depends on the machine and the number being converted.
++ * #define Just_16 to store 16 bits per 32-bit integer when doing
++ *	high-precision integer arithmetic.  Whether this speeds things up
++ *	or slows things	down depends on the machine and the number being
++ *	converted.
+  * #define KR_headers for old-style C function headers.
+  * #define Bad_float_h if your system lacks a float.h or if it does not
+  *	define some or all of DBL_DIG, DBL_MAX_10_EXP, DBL_MAX_EXP,
+  *	FLT_RADIX, FLT_ROUNDS, and DBL_MAX.
+  */
+ 
+-#if defined(i386) || defined(mips) && defined(MIPSEL)
+-#define IEEE_8087
++#include <sys/cdefs.h>
++
++#if defined(__m68k__) || defined(__sparc__) || defined(__i386__) || \
++    defined(__mips__) || defined(__ns32k__) || defined(__alpha__) || \
++    defined(__powerpc__)
++#include <sys/types.h>
++#if BYTE_ORDER == BIG_ENDIAN
++#define IEEE_BIG_ENDIAN
+ #else
+-#define IEEE_MC68k
++#define IEEE_LITTLE_ENDIAN
++#endif
+ #endif
+ 
+ #ifdef DEBUG
+@@ -149,10 +157,10 @@
+ #include <ctype.h>
+ #ifdef Bad_float_h
+ #undef __STDC__
+-#ifdef IEEE_MC68k
++#ifdef IEEE_BIG_ENDIAN
+ #define IEEE_ARITHMETIC
+ #endif
+-#ifdef IEEE_8087
++#ifdef IEEE_LITTLE_ENDIAN
+ #define IEEE_ARITHMETIC
+ #endif
+ #ifdef IEEE_ARITHMETIC
+@@ -210,23 +218,25 @@
+ #define Sign_Extend(a,b) /*no-op*/
+ #endif
+ 
+-#if defined(IEEE_8087) + defined(IEEE_MC68k) + defined(VAX) + defined(IBM) != 1
+-Exactly one of IEEE_8087, IEEE_MC68k, VAX, or IBM should be defined.
++#if defined(IEEE_LITTLE_ENDIAN) + defined(IEEE_BIG_ENDIAN) + defined(VAX) + \
++    defined(IBM) != 1
++#error Exactly one of IEEE_LITTLE_ENDIAN, IEEE_BIG_ENDIAN, VAX, or IBM \
++       should be defined.
+ #endif
+ 
+-#ifdef IEEE_8087
+-#define word0(x) ((unsigned long *)&x)[1]
+-#define word1(x) ((unsigned long *)&x)[0]
++#ifdef IEEE_LITTLE_ENDIAN
++#define word0(x) ((u_int32_t *)&x)[1]
++#define word1(x) ((u_int32_t *)&x)[0]
+ #else
+-#define word0(x) ((unsigned long *)&x)[0]
+-#define word1(x) ((unsigned long *)&x)[1]
++#define word0(x) ((u_int32_t *)&x)[0]
++#define word1(x) ((u_int32_t *)&x)[1]
+ #endif
+ 
+ /* The following definition of Storeinc is appropriate for MIPS processors.
+  * An alternative that might be better on some machines is
+  * #define Storeinc(a,b,c) (*a++ = b << 16 | c & 0xffff)
+  */
+-#if defined(IEEE_8087) + defined(VAX)
++#if defined(IEEE_LITTLE_ENDIAN) + defined(VAX)
+ #define Storeinc(a,b,c) (((unsigned short *)a)[1] = (unsigned short)b, \
+ ((unsigned short *)a)[0] = (unsigned short)c, a++)
+ #else
+@@ -240,7 +250,7 @@
+ /* Quick_max = floor((P-1)*log(FLT_RADIX)/log(10) - 1) */
+ /* Int_max = floor(P*log(FLT_RADIX)/log(10) - 1) */
+ 
+-#if defined(IEEE_8087) + defined(IEEE_MC68k)
++#if defined(IEEE_LITTLE_ENDIAN) + defined(IEEE_BIG_ENDIAN)
+ #define Exp_shift  20
+ #define Exp_shift1 20
+ #define Exp_msk1    0x100000
+@@ -342,10 +352,10 @@
+ #define Big1 0xffffffff
+ 
+ #ifndef Just_16
+-/* When Pack_32 is not defined, we store 16 bits per 32-bit long.
++/* When Pack_32 is not defined, we store 16 bits per 32-bit integer.
+  * This makes some inner loops simpler and sometimes saves work
+  * during multiplications, but it often seems to make things slightly
+- * slower.  Hence the default is now to store 32 bits per long.
++ * slower.  Hence the default is now to store 32 bits per integer.
+  */
+ #ifndef Pack_32
+ #define Pack_32
+@@ -364,7 +374,7 @@
+ Bigint {
+ 	struct Bigint *next;
+ 	int k, maxwds, sign, wds;
+-	unsigned long x[1];
++	u_int32_t x[1];
+ };
+ 
+  typedef struct Bigint Bigint;
+@@ -386,7 +396,7 @@
+ 		freelist[k] = rv->next;
+ 	} else {
+ 		x = 1 << k;
+-		rv = (Bigint *)malloc(sizeof(Bigint) + (x-1)*sizeof(long));
++		rv = (Bigint *)malloc(sizeof(Bigint) + (x-1)*sizeof(int32_t));
+ 		rv->k = k;
+ 		rv->maxwds = x;
+ 	}
+@@ -409,7 +419,7 @@
+ }
+ 
+ #define Bcopy(x,y) memcpy((char *)&x->sign, (char *)&y->sign, \
+-y->wds*sizeof(long) + 2*sizeof(int))
++y->wds*sizeof(int32_t) + 2*sizeof(int))
+ 
+  static Bigint *
+ multadd
+@@ -420,9 +430,9 @@
+ #endif
+ {
+ 	int i, wds;
+-	unsigned long *x, y;
++	u_int32_t *x, y;
+ #ifdef Pack_32
+-	unsigned long xi, z;
++	u_int32_t xi, z;
+ #endif
+ 	Bigint *b1;
+ 
+@@ -458,14 +468,14 @@
+  static Bigint *
+ s2b
+ #ifdef KR_headers
+-	(s, nd0, nd, y9) CONST char *s; int nd0, nd; unsigned long y9;
++	(s, nd0, nd, y9) CONST char *s; int nd0, nd; u_int32_t y9;
+ #else
+-	(CONST char *s, int nd0, int nd, unsigned long y9)
++	(CONST char *s, int nd0, int nd, u_int32_t y9)
+ #endif
+ {
+ 	Bigint *b;
+ 	int i, k;
+-	long x, y;
++	int32_t x, y;
+ 
+ 	x = (nd + 8) / 9;
+ 	for (k = 0, y = 1; x > y; y <<= 1, k++) ;
+@@ -496,9 +506,9 @@
+  static int
+ hi0bits
+ #ifdef KR_headers
+-	(x) register unsigned long x;
++	(x) register u_int32_t x;
+ #else
+-	(register unsigned long x)
++	(register u_int32_t x)
+ #endif
+ {
+ 	register int k = 0;
+@@ -530,13 +540,13 @@
+  static int
+ lo0bits
+ #ifdef KR_headers
+-	(y) unsigned long *y;
++	(y) u_int32_t *y;
+ #else
+-	(unsigned long *y)
++	(u_int32_t *y)
+ #endif
+ {
+ 	register int k;
+-	register unsigned long x = *y;
++	register u_int32_t x = *y;
+ 
+ 	if (x & 7) {
+ 		if (x & 1)
+@@ -601,10 +611,10 @@
+ {
+ 	Bigint *c;
+ 	int k, wa, wb, wc;
+-	unsigned long carry, y, z;
+-	unsigned long *x, *xa, *xae, *xb, *xbe, *xc, *xc0;
++	u_int32_t carry, y, z;
++	u_int32_t *x, *xa, *xae, *xb, *xbe, *xc, *xc0;
+ #ifdef Pack_32
+-	unsigned long z2;
++	u_int32_t z2;
+ #endif
+ 
+ 	if (a->wds < b->wds) {
+@@ -727,7 +737,7 @@
+ {
+ 	int i, k1, n, n1;
+ 	Bigint *b1;
+-	unsigned long *x, *x1, *xe, z;
++	u_int32_t *x, *x1, *xe, z;
+ 
+ #ifdef Pack_32
+ 	n = k >> 5;
+@@ -784,7 +794,7 @@
+ 	(Bigint *a, Bigint *b)
+ #endif
+ {
+-	unsigned long *xa, *xa0, *xb, *xb0;
++	u_int32_t *xa, *xa0, *xb, *xb0;
+ 	int i, j;
+ 
+ 	i = a->wds;
+@@ -820,10 +830,10 @@
+ {
+ 	Bigint *c;
+ 	int i, wa, wb;
+-	long borrow, y;	/* We need signed shifts here. */
+-	unsigned long *xa, *xae, *xb, *xbe, *xc;
++	int32_t borrow, y;	/* We need signed shifts here. */
++	u_int32_t *xa, *xae, *xb, *xbe, *xc;
+ #ifdef Pack_32
+-	long z;
++	int32_t z;
+ #endif
+ 
+ 	i = cmp(a,b);
+@@ -897,7 +907,7 @@
+ 	(double x)
+ #endif
+ {
+-	register long L;
++	register int32_t L;
+ 	double a;
+ 
+ 	L = (word0(x) & Exp_mask) - (P-1)*Exp_msk1;
+@@ -933,11 +943,11 @@
+ 	(Bigint *a, int *e)
+ #endif
+ {
+-	unsigned long *xa, *xa0, w, y, z;
++	u_int32_t *xa, *xa0, w, y, z;
+ 	int k;
+ 	double d;
+ #ifdef VAX
+-	unsigned long d0, d1;
++	u_int32_t d0, d1;
+ #else
+ #define d0 word0(d)
+ #define d1 word1(d)
+@@ -1004,9 +1014,9 @@
+ {
+ 	Bigint *b;
+ 	int de, i, k;
+-	unsigned long *x, y, z;
++	u_int32_t *x, y, z;
+ #ifdef VAX
+-	unsigned long d0, d1;
++	u_int32_t d0, d1;
+ 	d0 = word0(d) >> 16 | word0(d) << 16;
+ 	d1 = word1(d) >> 16 | word1(d) << 16;
+ #else
+@@ -1197,8 +1207,8 @@
+ 		 e, e1, esign, i, j, k, nd, nd0, nf, nz, nz0, sign;
+ 	CONST char *s, *s0, *s1;
+ 	double aadj, aadj1, adj, rv, rv0;
+-	long L;
+-	unsigned long y, z;
++	int32_t L;
++	u_int32_t y, z;
+ 	Bigint *bb, *bb1, *bd, *bd0, *bs, *delta;
+ 	sign = nz0 = nz = 0;
+ 	rv = 0.;
+@@ -1707,12 +1717,12 @@
+ #endif
+ {
+ 	int n;
+-	long borrow, y;
+-	unsigned long carry, q, ys;
+-	unsigned long *bx, *bxe, *sx, *sxe;
++	int32_t borrow, y;
++	u_int32_t carry, q, ys;
++	u_int32_t *bx, *bxe, *sx, *sxe;
+ #ifdef Pack_32
+-	long z;
+-	unsigned long si, zs;
++	int32_t z;
++	u_int32_t si, zs;
+ #endif
+ 
+ 	n = S->wds;
+@@ -1882,10 +1892,10 @@
+ 	int bbits, b2, b5, be, dig, i, ieps, ilim, ilim0, ilim1,
+ 		j, j1, k, k0, k_check, leftright, m2, m5, s2, s5,
+ 		spec_case, try_quick;
+-	long L;
++	int32_t L;
+ #ifndef Sudden_Underflow
+ 	int denorm;
+-	unsigned long x;
++	u_int32_t x;
+ #endif
+ 	Bigint *b, *b1, *delta, *mlo, *mhi, *S;
+ 	double d2, ds, eps;
+@@ -2057,8 +2067,8 @@
+ 			if (i <= 0)
+ 				i = 1;
+ 	}
+-	j = sizeof(unsigned long);
+-	for (result_k = 0; sizeof(Bigint) - sizeof(unsigned long) + j < i;
++	j = sizeof(u_int32_t);
++	for (result_k = 0; sizeof(Bigint) - sizeof(u_int32_t) + j < i;
+ 		j <<= 1) result_k++;
+ 	result = Balloc(result_k);
+ 	s = s0 = (char *)result;
+
+--------------99239EED8BCDF62A6E75BB4D--
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Jul 14 06:55:25 1999
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Wed, 14 Jul 1999 06:55:25 +0000
+To: freebsd-alpha
+Subject: Re: alpha/12623: strtod(3) FPE on alphaev56
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207851
+
+On Tue, 13 Jul 1999, John Polstra wrote:
+
+> In article <14219.25613.478914.44162J@ett.sat.t.u-tokyo.ac.jp>,
+> Hidetoshi Shimokawa  <simokawa@sat.t.u-tokyo.ac.jp> wrote:
+> > 
+> > /usr/src/lib/libc/stdlib/strtod.c seems broken on alpha in three ways.
+> > 
+> > 1) IEEE_8087 should be defined instead of IEEE_MC68k.
+> > 
+> > 2) It assumes long is 32bit, but long is 64bit on alpha.
+> > 	s/unsigned long/u_int32_t/, s/long/int32_t/.
+> > 
+> > 3) It generates denormal numbers which can not be treaded by the hardware
+> >    on alpha. It should be compiled with the option
+> >    `-mtrap-precision=i -mfp-trap-mode=su' to enable software completion.
+> 
+> Yes, or the equivalent "-mieee".  In my opinion, all of the libraries
+> (if not the whole world) should be compiled that way.  In fact, this
+> option should be the default.  Users who wanted a little extra speed
+> and who knew what they are doing could turn it off.
+
+I agree (at least as far as the libraries go). Setting it as default would
+be easy but there are performance implications. On the other hand, the
+only applications whose performance is affected are ones using floating
+point..
+
+--
+Doug Rabson				Mail:  dfr@nlsystems.com
+Nonlinear Systems Ltd.			Phone: +44 181 442 9037
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 13 17:11:27 1999
+From: John Polstra <jdp () polstra ! com>
+Date: Tue, 13 Jul 1999 17:11:27 +0000
+To: freebsd-alpha
+Subject: Re: alpha/12623: strtod(3) FPE on alphaev56
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207849
+
+In article <14219.25613.478914.44162J@ett.sat.t.u-tokyo.ac.jp>,
+Hidetoshi Shimokawa  <simokawa@sat.t.u-tokyo.ac.jp> wrote:
+> 
+> /usr/src/lib/libc/stdlib/strtod.c seems broken on alpha in three ways.
+> 
+> 1) IEEE_8087 should be defined instead of IEEE_MC68k.
+> 
+> 2) It assumes long is 32bit, but long is 64bit on alpha.
+> 	s/unsigned long/u_int32_t/, s/long/int32_t/.
+> 
+> 3) It generates denormal numbers which can not be treaded by the hardware
+>    on alpha. It should be compiled with the option
+>    `-mtrap-precision=i -mfp-trap-mode=su' to enable software completion.
+
+Yes, or the equivalent "-mieee".  In my opinion, all of the libraries
+(if not the whole world) should be compiled that way.  In fact, this
+option should be the default.  Users who wanted a little extra speed
+and who knew what they are doing could turn it off.
+
+John
+-- 
+  John Polstra                                               jdp@polstra.com
+  John D. Polstra & Co., Inc.                        Seattle, Washington USA
+  "No matter how cynical I get, I just can't keep up."        -- Nora Ephron
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 13 16:10:03 1999
+From: Hidetoshi Shimokawa <simokawa () sat ! t ! u-tokyo ! ac ! jp>
+Date: Tue, 13 Jul 1999 16:10:03 +0000
+To: freebsd-alpha
+Subject: Re: alpha/12623: strtod(3) FPE on alphaev56
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207848
+
+The following reply was made to PR alpha/12623; it has been noted by GNATS.
+
+From: Hidetoshi Shimokawa <simokawa@sat.t.u-tokyo.ac.jp>
+To: m.seaman@inpharmatica.co.uk
+Cc: FreeBSD-gnats-submit@FreeBSD.ORG, freebsd-alpha@freebsd.org
+Subject: Re: alpha/12623: strtod(3) FPE on alphaev56
+Date: Wed, 14 Jul 1999 01:06:37 +0900
+
+ At Tue, 13 Jul 1999 12:27:40 +0100 (BST),
+ m.seaman@inpharmatica.co.uk wrote:
+ > >Description:
+ > 
+ > Attempting to convert the string "2.49521e-297" into a double
+ > precision value via strtod(3) results in a floating point exception on
+ > the alphaev56 CPU.  The problem doesn't occur on i586.
+ 
+ /usr/src/lib/libc/stdlib/strtod.c seems broken on alpha in three ways.
+ 
+ 1) IEEE_8087 should be defined instead of IEEE_MC68k.
+ 
+ 2) It assumes long is 32bit, but long is 64bit on alpha.
+ 	s/unsigned long/u_int32_t/, s/long/int32_t/.
+ 
+ 3) It generates denormal numbers which can not be treaded by the hardware
+    on alpha. It should be compiled with the option
+    `-mtrap-precision=i -mfp-trap-mode=su' to enable software completion.
+ 
+ -- 
+ /\ Hidetoshi Shimokawa
+ \/  simokawa@sat.t.u-tokyo.ac.jp
+ PGP public key: finger -l simokawa@sat.t.u-tokyo.ac.jp
+ 
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 13 16:06:37 1999
+From: Hidetoshi Shimokawa <simokawa () sat ! t ! u-tokyo ! ac ! jp>
+Date: Tue, 13 Jul 1999 16:06:37 +0000
+To: freebsd-alpha
+Subject: Re: alpha/12623: strtod(3) FPE on alphaev56
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207847
+
+At Tue, 13 Jul 1999 12:27:40 +0100 (BST),
+m.seaman@inpharmatica.co.uk wrote:
+> >Description:
+> 
+> Attempting to convert the string "2.49521e-297" into a double
+> precision value via strtod(3) results in a floating point exception on
+> the alphaev56 CPU.  The problem doesn't occur on i586.
+
+/usr/src/lib/libc/stdlib/strtod.c seems broken on alpha in three ways.
+
+1) IEEE_8087 should be defined instead of IEEE_MC68k.
+
+2) It assumes long is 32bit, but long is 64bit on alpha.
+	s/unsigned long/u_int32_t/, s/long/int32_t/.
+
+3) It generates denormal numbers which can not be treaded by the hardware
+   on alpha. It should be compiled with the option
+   `-mtrap-precision=i -mfp-trap-mode=su' to enable software completion.
+
+-- 
+/\ Hidetoshi Shimokawa
+\/  simokawa@sat.t.u-tokyo.ac.jp
+PGP public key: finger -l simokawa@sat.t.u-tokyo.ac.jp
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 13 11:27:40 1999
+From: m.seaman () inpharmatica ! co ! uk
+Date: Tue, 13 Jul 1999 11:27:40 +0000
+To: freebsd-alpha
+Subject: alpha/12623: strtod(3) FPE on alphaev56
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207845
+
+
+>Number:         12623
+>Category:       alpha
+>Synopsis:       Certain valid numeric strings cause a SIGFPE when attempting
+>Confidential:   no
+>Severity:       critical
+>Priority:       high
+>Responsible:    freebsd-alpha
+>State:          open
+>Quarter:        
+>Keywords:       
+>Date-Required:
+>Class:          sw-bug
+>Submitter-Id:   current-users
+>Arrival-Date:   Tue Jul 13 04:30:00 PDT 1999
+>Closed-Date:
+>Last-Modified:
+>Originator:     Matthew Seaman
+>Release:        FreeBSD 3.2-STABLE alpha
+>Organization:
+Inpharmatica Ltd
+>Environment:
+
+	b0:/tmp:% uname -a 
+FreeBSD b0.farm.inpharmatica.co.uk 3.2-STABLE FreeBSD 3.2-STABLE #0: Thu Jul  8 09:04:16 BST 1999     matthew@b0.farm.inpharmatica.co.uk:/usr/src/sys/compile/FARM  alpha
+
+
+>Description:
+
+Attempting to convert the string "2.49521e-297" into a double
+precision value via strtod(3) results in a floating point exception on
+the alphaev56 CPU.  The problem doesn't occur on i586.
+
+The problem is sensitive to both the mantissa and exponent of the
+number: the following values are known to trigger the bug:
+
+2.49521e-297
+3.35554e-295
+1.14662e-292
+1.14e-293
+2.495e-293
+2.49e-294
+2.4e-293
+1e-305
+
+whereas these do not:
+
+2.4e-292
+2.49521e-292
+2.4951e-293
+1.14e-292
+1.15e-293
+
+>How-To-Repeat:
+
+#include <stdlib.h>
+
+int
+main (int argc, char *argv[])
+{
+  char str[32] = "2.49521e-297";
+  double num;
+
+  num = strtod (str, NULL);
+}
+
+
+>Fix:
+	
+not known
+
+
+
+
+>Release-Note:
+>Audit-Trail:
+>Unformatted:
+ 		 to convert to double 
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 13 23:05:13 1999
+From: Dustin Machi <dmachi () tusculum ! edu>
+Date: Tue, 13 Jul 1999 23:05:13 +0000
+To: freebsd-alpha
+Subject: Jumping to bootstrap
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207850
+
+
+I am having a problem getting my installation floppies to boot on a
+pc164lx machine. I appologize if this is the incorrect forum for asking
+this question. 
+
+I have SRM booting, and at the prompt, i put in the kern.flp disk (for 3.2
+RELEASE) and type boot dva0...this is what i get:
+
+(boot dva0.0.0.0.0 -flags a)
+block 0 of dva0.0.0.0.0 is a valid boot block
+reading 14 blocks from dva0.0.0.0.0
+bootstrap code read in
+base = 1d8000, image_start = 0, image_bytes = 1c00
+initializing HWRPB at 2000
+initializing page table at 1ca000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+this is all it does...
+
+I've tried many things to make this work and have done alot of searching
+for more information on this topic. I have not seen anyone else run into
+this problem. 
+
+Thanks in advance,
+Dustin
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 12 13:12:17 1999
+From: "System Admin." <pe () student ! lssu ! edu>
+Date: Mon, 12 Jul 1999 13:12:17 +0000
+To: freebsd-alpha
+Subject: problem compiling Python
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207841
+
+Hi all,
+	Is there anybody successfully compiled and installed  Python-1.5.2
+on FreeBSD-3.2/Alpha? When I compiled and run make test everything pass
+except test_fcntl function. It seem to be the really important one that I
+need too. This is the output of the test:
+
+host# python test_fcntl.py
+Status from fnctl with O_NONBLOCK:  0
+struct.pack:
+'\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
+000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\
+000\000\000\000\003\000\000\000'
+Traceback (innermost last):
+  File "test_fcntl.py", line 30, in ?
+    rv = fcntl.fcntl(f.fileno(), FCNTL.F_SETLKW, lockdata)
+IOError: [Errno 22] Invalid argument
+
+Any trick to make this thing work? Please help!
+
+TIA
+
+pe'
+
+
+------------------------------
+UNIX System Admin.
+Distributed Computing Services
+Lake Superior State University
+650 W. Easterday Ave.
+Sault Ste. Marie. MI
+49783 USA.
+------------------------------
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 12 13:59:11 1999
+From: "Mark Holloway" <mholloway () flashmail ! com>
+Date: Mon, 12 Jul 1999 13:59:11 +0000
+To: freebsd-alpha
+Subject: Alpha FreeBSD 3.2
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207842
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------=_NextPart_000_000F_01BECC34.0B8B5940"
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_000F_01BECC34.0B8B5940
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+Does anyone know if installing FreeBSD Alpha will get Xfree86 up and =
+running with an Elsa GLoria Synergy card?  It uses the Permedia 2 chip =
+which is supported by Xfree86 3.3.3.  The card itself was designed by =
+Elsa to work on Intel and DEC Alpha.  According to the commercial X =
+servers like Metro-X and Accelerated-X they support this card on Alpha =
+running Linux.  Xfree86 project has a driver for it, but I'm lost in =
+knowing if it has been ported to Alpha FreeBSD.
+
+Regards,
+Mark
+
+------=_NextPart_000_000F_01BECC34.0B8B5940
+Content-Type: text/html;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META content=3D"text/html; charset=3Diso-8859-1" =
+http-equiv=3DContent-Type>
+<META content=3D"MSHTML 5.00.2614.3401" name=3DGENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=3D#ffffff>
+<DIV><FONT size=3D2>Does anyone know if installing FreeBSD Alpha will =
+get Xfree86=20
+up and running with an Elsa GLoria Synergy card?&nbsp; It uses the =
+Permedia 2=20
+chip which is supported by Xfree86 3.3.3.&nbsp; The card itself was =
+designed by=20
+Elsa to work on Intel and&nbsp;DEC Alpha.&nbsp; According to the =
+commercial X=20
+servers like Metro-X and Accelerated-X they support this card on Alpha =
+running=20
+Linux.&nbsp; Xfree86 project has a driver for it, but I'm lost in =
+knowing if it=20
+has been ported to Alpha FreeBSD.</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>Regards,</FONT></DIV>
+<DIV><FONT size=3D2>Mark</FONT></DIV></BODY></HTML>
+
+------=_NextPart_000_000F_01BECC34.0B8B5940--
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Jul 09 16:14:46 1999
+From: Dirk Kleinhesselink <djk () djk ! saintl ! com>
+Date: Fri, 09 Jul 1999 16:14:46 +0000
+To: freebsd-alpha
+Subject: Re: Alpha 500a ok
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207836
+
+
+
+> Mark Holloway wrote:
+
+>> Hi FreeBSD/Alpha people..[snip]Some people have asked me why I'm
+>> looking at Alpha and not Intel.  Right now I have an Intel/FreeBSD
+>> machine at home and it works great.  However, I've always looked for
+>> the best "bang for the buck" and $1400 is a pretty low price to pay
+>> for the Alpha and I feel the components are built better.  The SpecINT
+>> on the Alpha 500 is still higher than any other used RISC based
+>> machine in this price range (Sparc 20, SGI Indy, all with SpecINT
+>> around 2.5 -> 4.5). Does anyone know of any issues or quirks with the
+>> Alpha 500a machines?  Or are they pretty stable?
+>
+>
+>  One word on the Spec* benchmarks: I guess the quoted numbers are the
+> ones published by DEC. They probably used their highly polished compiler
+> to produce the benchmark binaries --- on DEC OSF/1 a.k.a. True64 or what
+> they changed the name to. On Net/FreeBSD you'll have to rely on the
+> gcc/egcs family of compilers whose optimization for Alpha is less than
+> perfect. At least, it was like that until gcc2.8.1 (I lost track of
+> recent development). So, if you really get the best 'bang for the buck'
+> is questionable.
+> 
+>  Any better information on that? I haven't seen any good benches for
+> Alpha/Linux or *BSD recently.
+
+>  For myself, I'd go with the Alpha every day, just because it's got more
+> style, but that's a different story.
+> 
+> -Rain
+Compaq has released for beta testing their Digital UNIX FORTRAN compiler
+ported to Linux/Alpha and this seems to be working pretty well, at least
+for me and for some of the people who've commented on it in the
+redhat-alpha list.  Can Linux apps work on FreeBSD/alpha as they do for
+FreeBSD/386 ?  I intend to try FreeBSD/alpha as soon as I can get my ARC
+based PC164 over to SRM.  BTW the newest SRM recognizes and will boot from
+IDE drives, so I hope the FreeBSD/alpha developers can take advantage of
+this.  OpenBSD will boot and install to IDE drives from SRM.
+
+Dirk
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Jul 09 17:31:24 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Fri, 09 Jul 1999 17:31:24 +0000
+To: freebsd-alpha
+Subject: alpha/12579: procfs broken for alpha
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207837
+
+
+>Number:         12579
+>Category:       alpha
+>Synopsis:       procfs broken for alpha
+>Confidential:   no
+>Severity:       non-critical
+>Priority:       medium
+>Responsible:    freebsd-alpha
+>State:          open
+>Quarter:        
+>Keywords:       
+>Date-Required:
+>Class:          sw-bug
+>Submitter-Id:   current-users
+>Arrival-Date:   Fri Jul  9 10:40:01 PDT 1999
+>Closed-Date:
+>Last-Modified:
+>Originator:     Matthew Jacob
+>Release:        FreeBSD 4.0-CURRENT alpha
+>Organization:
+Feral Software
+>Environment:
+
+Sources as of Fri Jul  9 10:31:15 PDT 1999
+
+
+>Description:
+
+cc -c -O -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -ansi -g -nostdinc -I- -I. -I../.. -I/usr/include  -DKERNEL -include opt_global.h -mno-fp-regs -Wa,-mev56  ../../miscfs/procfs/procfs_dbregs.c
+../../miscfs/procfs/procfs_dbregs.c: In function `procfs_dodbregs':
+../../miscfs/procfs/procfs_dbregs.c:62: storage size of `r' isn't known
+../../miscfs/procfs/procfs_dbregs.c:62: warning: unused variable `r'
+../../miscfs/procfs/procfs_dbregs.c:63: warning: `kv' might be used uninitialized in this function
+
+
+>How-To-Repeat:
+
+	
+
+>Fix:
+	
+	
+
+
+>Release-Note:
+>Audit-Trail:
+>Unformatted:
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Jul 09 09:04:33 1999
+From: Armin Ollig <armin () metzelkueche ! tabu ! uni-bonn ! de>
+Date: Fri, 09 Jul 1999 09:04:33 +0000
+To: freebsd-alpha
+Subject: Re: Adaptec 2940UW on alpha working?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207834
+
+
+
+On Thu, 8 Jul 1999, Kenneth D. Merry wrote:
+
+> It works:
+
+Unfortunately not for me.
+I have a NCR810 and an 2940uw in the same machine (PC164_).
+The NCR works fine. The kernel detects my 2940uw and the UW disk that is
+connected. However i cannot access the disk at all (cat /dev/da0c and
+disklabel do not work).
+ > 
+> ahc0: <Adaptec 2950 Ultra2 SCSI adapter> irq 20 at device 10.0 on pci1
+> ahc0: aic7890/91 Wide Channel A, SCSI Id=7, 16/255 SCBs
+> ahc0: interrupting at CIA irq 20
+> da2 at ahc0 bus 0 target 0 lun 0
+> da2: <SEAGATE ST34502LW 0004> Fixed Direct Access SCSI-2 device 
+> da2: 80.000MB/s transfers (40.000MHz, offset 15, 16bit), Tagged Queueing Enabled
+> da2: 4340MB (8888924 512 byte sectors: 255H 63S/T 553C)
+
+Same kernel messages at my alphaPC164, except the disk is a quantum and
+the controller is early 2940uw.
+
+I have FBSD current from around last week.
+
+best regards,
+--armin
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Jul 08 19:46:12 1999
+From: "Kenneth D. Merry" <ken () plutotech ! com>
+Date: Thu, 08 Jul 1999 19:46:12 +0000
+To: freebsd-alpha
+Subject: Re: Adaptec 2940UW on alpha working?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207832
+
+Matthew Jacob wrote...
+> 
+> > > I own an unused 2940UW and want to know if it is worth to update to a recent
+> > > current to use it.
+> > 
+> > It works:
+> > 
+> > ahc0: <Adaptec 2950 Ultra2 SCSI adapter> irq 20 at device 10.0 on pci1
+> > ahc0: aic7890/91 Wide Channel A, SCSI Id=7, 16/255 SCBs
+> > ahc0: interrupting at CIA irq 20
+> > da2 at ahc0 bus 0 target 0 lun 0
+> > da2: <SEAGATE ST34502LW 0004> Fixed Direct Access SCSI-2 device 
+> > da2: 80.000MB/s transfers (40.000MHz, offset 15, 16bit), Tagged Queueing Enabled
+> > da2: 4340MB (8888924 512 byte sectors: 255H 63S/T 553C)
+> > 
+> > That's with -current from mid-June on a 433au box.
+> 
+> So why hasn't alpha/conf/GENERIC been updated?
+
+Probably because Justin didn't update it when he checked in the changes to
+the Adaptec driver.
+
+Ken
+-- 
+Kenneth Merry
+ken@plutotech.com
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Jul 08 19:42:33 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Thu, 08 Jul 1999 19:42:33 +0000
+To: freebsd-alpha
+Subject: Re: Adaptec 2940UW on alpha working?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207831
+
+
+> > I own an unused 2940UW and want to know if it is worth to update to a recent
+> > current to use it.
+> 
+> It works:
+> 
+> ahc0: <Adaptec 2950 Ultra2 SCSI adapter> irq 20 at device 10.0 on pci1
+> ahc0: aic7890/91 Wide Channel A, SCSI Id=7, 16/255 SCBs
+> ahc0: interrupting at CIA irq 20
+> da2 at ahc0 bus 0 target 0 lun 0
+> da2: <SEAGATE ST34502LW 0004> Fixed Direct Access SCSI-2 device 
+> da2: 80.000MB/s transfers (40.000MHz, offset 15, 16bit), Tagged Queueing Enabled
+> da2: 4340MB (8888924 512 byte sectors: 255H 63S/T 553C)
+> 
+> That's with -current from mid-June on a 433au box.
+
+So why hasn't alpha/conf/GENERIC been updated?
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Jul 08 19:26:13 1999
+From: "Kenneth D. Merry" <ken () plutotech ! com>
+Date: Thu, 08 Jul 1999 19:26:13 +0000
+To: freebsd-alpha
+Subject: Re: Adaptec 2940UW on alpha working?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207830
+
+Bernd Walter wrote...
+> I need to add some HDDs to my alpha but unfornately I can't use them on the
+> onboard ncr because of cabeling.
+> I own an unused 2940UW and want to know if it is worth to update to a recent
+> current to use it.
+
+It works:
+
+ahc0: <Adaptec 2950 Ultra2 SCSI adapter> irq 20 at device 10.0 on pci1
+ahc0: aic7890/91 Wide Channel A, SCSI Id=7, 16/255 SCBs
+ahc0: interrupting at CIA irq 20
+da2 at ahc0 bus 0 target 0 lun 0
+da2: <SEAGATE ST34502LW 0004> Fixed Direct Access SCSI-2 device 
+da2: 80.000MB/s transfers (40.000MHz, offset 15, 16bit), Tagged Queueing Enabled
+da2: 4340MB (8888924 512 byte sectors: 255H 63S/T 553C)
+
+That's with -current from mid-June on a 433au box.
+
+Of course you can't boot from an Adaptec controller, since SRM doesn't know
+about it.
+
+Ken
+-- 
+Kenneth Merry
+ken@plutotech.com
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Jul 08 16:55:11 1999
+From: Bernd Walter <ticso () cicely ! de>
+Date: Thu, 08 Jul 1999 16:55:11 +0000
+To: freebsd-alpha
+Subject: Adaptec 2940UW on alpha working?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207829
+
+I need to add some HDDs to my alpha but unfornately I can't use them on the
+onboard ncr because of cabeling.
+I own an unused 2940UW and want to know if it is worth to update to a recent
+current to use it.
+
+-- 
+B.Walter                  COSMO-Project              http://www.cosmo-project.de
+ticso@cicely.de             Usergroup                info@cosmo-project.de
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Jul 08 09:08:58 1999
+From: Rainer =?iso-8859-1?Q?Frohnh=F6fer?= <rfrohn () ibm ! net>
+Date: Thu, 08 Jul 1999 09:08:58 +0000
+To: freebsd-alpha
+Subject: Re: Alpha 500a ok?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207833
+
+Mark Holloway wrote:
+
+> Hi FreeBSD/Alpha people..[snip]Some people have asked me why I'm
+> looking at Alpha and not Intel.  Right now I have an Intel/FreeBSD
+> machine at home and it works great.  However, I've always looked for
+> the best "bang for the buck" and $1400 is a pretty low price to pay
+> for the Alpha and I feel the components are built better.  The SpecINT
+> on the Alpha 500 is still higher than any other used RISC based
+> machine in this price range (Sparc 20, SGI Indy, all with SpecINT
+> around 2.5 -> 4.5). Does anyone know of any issues or quirks with the
+> Alpha 500a machines?  Or are they pretty stable?
+
+
+ One word on the Spec* benchmarks: I guess the quoted numbers are the
+ones published by DEC. They probably used their highly polished compiler
+to produce the benchmark binaries --- on DEC OSF/1 a.k.a. True64 or what
+they changed the name to. On Net/FreeBSD you'll have to rely on the
+gcc/egcs family of compilers whose optimization for Alpha is less than
+perfect. At least, it was like that until gcc2.8.1 (I lost track of
+recent development). So, if you really get the best 'bang for the buck'
+is questionable.
+
+ Any better information on that? I haven't seen any good benches for
+Alpha/Linux or *BSD recently.
+
+ For myself, I'd go with the Alpha every day, just because it's got more
+style, but that's a different story.
+
+-Rain.
+
+--
+"To save energy
+    the light at the end of the tunnel
+         will temporarily be switched off."
+  (I don't employ for my speaker)
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Jul 08 02:53:54 1999
+From: "Mark Holloway" <mholloway () flashmail ! com>
+Date: Thu, 08 Jul 1999 02:53:54 +0000
+To: freebsd-alpha
+Subject: Alpha 500a ok?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207827
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------=_NextPart_000_0009_01BEC8B2.7125F740"
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_0009_01BEC8B2.7125F740
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+Hi FreeBSD/Alpha people..=20
+
+I have been using FreeBSD on intel (PII/333/128MB RAM) and it is great.. =
+I was looking at getting another machine to act as a personal server on =
+my home network and maybe eventually into a production environment.  For =
+the money, I could spend around $1200 and build a PII/450 machine but a =
+friend of mine who is a used Sun/SGI/DEC/IBM reseller has a DEC Alpha =
+500a (21164 Generation) Personal Workstation with 128MB Ram, DEC 16MB =
+PCI Video, 4GB SCSI, and CD-Rom for $1400.  The thing that I like most =
+about this box is that it has 2MB cache versus Intel's 512k (unless you =
+get a Xeon, but that's a lot more than $1400). =20
+
+Some people have asked me why I'm looking at Alpha and not Intel.  Right =
+now I have an Intel/FreeBSD machine at home and it works great.  =
+However, I've always looked for the best "bang for the buck" and $1400 =
+is a pretty low price to pay for the Alpha and I feel the components are =
+built better.  The SpecINT on the Alpha 500 is still higher than any =
+other used RISC based machine in this price range (Sparc 20, SGI Indy, =
+all with SpecINT around 2.5 -> 4.5). =20
+
+Does anyone know of any issues or quirks with the Alpha 500a machines?  =
+Or are they pretty stable?
+
+
+Thanks!
+Mark
+
+
+
+
+
+
+------=_NextPart_000_0009_01BEC8B2.7125F740
+Content-Type: text/html;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META content=3D"text/html; charset=3Diso-8859-1" =
+http-equiv=3DContent-Type>
+<META content=3D"MSHTML 5.00.2614.3401" name=3DGENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=3D#ffffff>
+<DIV><FONT size=3D2>Hi FreeBSD/Alpha people.. </FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>I have been using FreeBSD on intel (PII/333/128MB =
+RAM) and it=20
+is great.. I was looking at getting another machine to act as a personal =
+server=20
+on my home network and maybe eventually into a production =
+environment.&nbsp; For=20
+the money, I could spend around $1200 and build a PII/450 machine but a =
+friend=20
+of mine who is a used Sun/SGI/DEC/IBM reseller has a DEC Alpha 500a =
+(21164=20
+Generation) Personal Workstation with 128MB Ram, DEC 16MB PCI Video, 4GB =
+SCSI,=20
+and CD-Rom for $1400.&nbsp; The thing that I like most about this box is =
+that it=20
+has 2MB cache versus Intel's 512k (unless you get a Xeon, but that's a =
+lot more=20
+than $1400).&nbsp; </FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>Some people have asked me why I'm looking at Alpha =
+and not=20
+Intel.&nbsp; Right now I have an Intel/FreeBSD machine at home =
+and&nbsp;it works=20
+great.&nbsp; However, I've always looked for the best "bang for the =
+buck" and=20
+$1400 is a pretty low price to pay for the Alpha and I feel the =
+components are=20
+built better.&nbsp; The SpecINT on the Alpha 500 is still higher than =
+any other=20
+used RISC based machine in this price range (Sparc 20, SGI Indy, all =
+with=20
+SpecINT around 2.5 -&gt; 4.5).&nbsp; </FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>Does anyone know of any issues or quirks with the =
+Alpha 500a=20
+machines?&nbsp; Or are they pretty stable?</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT size=3D2>Thanks!</FONT></DIV>
+<DIV><FONT size=3D2>Mark</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>&nbsp;</DIV></BODY></HTML>
+
+------=_NextPart_000_0009_01BEC8B2.7125F740--
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 06 02:16:50 1999
+From: Steve Price <sprice () hiwaay ! net>
+Date: Tue, 06 Jul 1999 02:16:50 +0000
+To: freebsd-alpha
+Subject: Re: panic in recent kernel
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207825
+
+On Mon, 5 Jul 1999, Matthew Jacob wrote:
+
+# 
+# Brain idiocy on my part. I couldn't figure out why this kept panic'ing for
+# ccdconfig when I hadn't config'd ccd in. It turns out there *are* .ko
+# modules in /modules- they're way out of date because the interfaces
+# changed.
+# 
+# phk rev'd the kernel version, but that didn't stop the modules from
+# loading. Somebody file the appropriate bugs.
+
+Sorry for being clueless here... What you are saying is that if
+I install new modules the new kernel will work?  I'd be happy to
+file a problem report if I knew what I was filing. :-)
+
+-steve
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 06 01:53:10 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Tue, 06 Jul 1999 01:53:10 +0000
+To: freebsd-alpha
+Subject: Re: panic in recent kernel
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207824
+
+
+Brain idiocy on my part. I couldn't figure out why this kept panic'ing for
+ccdconfig when I hadn't config'd ccd in. It turns out there *are* .ko
+modules in /modules- they're way out of date because the interfaces
+changed.
+
+phk rev'd the kernel version, but that didn't stop the modules from
+loading. Somebody file the appropriate bugs.
+
+
+On Mon, 5 Jul 1999, Steve Price wrote:
+
+> To followup on my own post I rebuilt a kernel with debugging
+> symbols and DDB.  Here's what I get now.
+> 
+> Preloader elf kernel "kernel" at 0xfffffc000060a000.
+> 
+> fatal kernel trap:
+> 
+>     trap entry = 0x2 (memory management fault)
+>     a0         = 0x168
+>     a1         = 0x1
+>     a2         = 0x0
+>     pc         = 0xfffffc0000361c3c
+>     ra         = 0xfffffc0000361de8
+>     curproc    = 0xfffffc00005a97f0
+>         pid = 0, comm = swapper
+> 
+> ddbprinttrap from 0xfffffc0000361c3c
+> ddbprinttrap(0x168, 0x1, 0x0, 0x2)
+> panic: trap
+> panic
+> Stopped at	Debugger+0x2c:	ldq	ra,0(sp) <0xfffffc000060faf0>	<ra=0xfffffc00004cc8a0,sp=0xfffffc000060faf0>
+> db> 
+> 
+> Unfortunately I'm unable to type in anything at the prompt.
+> Every character results in a carriage return and a new prompt. :/
+> 
+> It appears the problem is somewhere in cdevsw_add and may be
+> related to Poul-Henning's commit to "Remove cmaj and bmaj args
+> from DEV_DRIVER_MODULE."
+> 
+> $ nm /kernel.debug | grep fffffc0000361 | sort
+> fffffc0000361040 T nanouptime
+> fffffc0000361100 t tco_setscales
+> fffffc0000361160 T update_timecounter
+> fffffc0000361180 T init_timecounter
+> fffffc0000361320 T set_timecounter
+> fffffc00003613c0 t sync_other_counter
+> fffffc00003614a0 t tco_forward
+> fffffc0000361680 T pps_ioctl
+> fffffc0000361800 T pps_init
+> fffffc0000361840 T pps_event
+> fffffc0000361a20 T chrtoblk
+> fffffc0000361ac0 T devsw
+> fffffc0000361b00 T bdevsw
+> fffffc0000361be0 T cdevsw_add
+> fffffc0000361d20 T cdevsw_remove
+> fffffc0000361da0 T devsw_module_handler
+> fffffc0000361ea0 T major
+> fffffc0000361ec0 T minor
+> fffffc0000361ee0 T makebdev
+> fffffc0000361f20 T makedev
+> fffffc0000361f40 T dev2udev
+> fffffc0000361fa0 T udev2dev
+> $ 
+> 
+> -steve
+> 
+> 
+> 
+> To Unsubscribe: send mail to majordomo@FreeBSD.org
+> with "unsubscribe freebsd-alpha" in the body of the message
+> 
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Jul 06 00:27:13 1999
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Tue, 06 Jul 1999 00:27:13 +0000
+To: freebsd-alpha
+Subject: Re: panic in recent kernel
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207823
+
+
+The problem has to do with an attempt to open a device that's not
+configured- in my case I found this to be ccd. I'm trying to understand
+why this is broken now.
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 05 06:03:02 1999
+From: Steve Price <sprice () hiwaay ! net>
+Date: Mon, 05 Jul 1999 06:03:02 +0000
+To: freebsd-alpha
+Subject: Re: panic in recent kernel
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207817
+
+To followup on my own post I rebuilt a kernel with debugging
+symbols and DDB.  Here's what I get now.
+
+Preloader elf kernel "kernel" at 0xfffffc000060a000.
+
+fatal kernel trap:
+
+    trap entry = 0x2 (memory management fault)
+    a0         = 0x168
+    a1         = 0x1
+    a2         = 0x0
+    pc         = 0xfffffc0000361c3c
+    ra         = 0xfffffc0000361de8
+    curproc    = 0xfffffc00005a97f0
+        pid = 0, comm = swapper
+
+ddbprinttrap from 0xfffffc0000361c3c
+ddbprinttrap(0x168, 0x1, 0x0, 0x2)
+panic: trap
+panic
+Stopped at	Debugger+0x2c:	ldq	ra,0(sp) <0xfffffc000060faf0>	<ra=0xfffffc00004cc8a0,sp=0xfffffc000060faf0>
+db> 
+
+Unfortunately I'm unable to type in anything at the prompt.
+Every character results in a carriage return and a new prompt. :/
+
+It appears the problem is somewhere in cdevsw_add and may be
+related to Poul-Henning's commit to "Remove cmaj and bmaj args
+from DEV_DRIVER_MODULE."
+
+$ nm /kernel.debug | grep fffffc0000361 | sort
+fffffc0000361040 T nanouptime
+fffffc0000361100 t tco_setscales
+fffffc0000361160 T update_timecounter
+fffffc0000361180 T init_timecounter
+fffffc0000361320 T set_timecounter
+fffffc00003613c0 t sync_other_counter
+fffffc00003614a0 t tco_forward
+fffffc0000361680 T pps_ioctl
+fffffc0000361800 T pps_init
+fffffc0000361840 T pps_event
+fffffc0000361a20 T chrtoblk
+fffffc0000361ac0 T devsw
+fffffc0000361b00 T bdevsw
+fffffc0000361be0 T cdevsw_add
+fffffc0000361d20 T cdevsw_remove
+fffffc0000361da0 T devsw_module_handler
+fffffc0000361ea0 T major
+fffffc0000361ec0 T minor
+fffffc0000361ee0 T makebdev
+fffffc0000361f20 T makedev
+fffffc0000361f40 T dev2udev
+fffffc0000361fa0 T udev2dev
+$ 
+
+-steve
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 05 05:09:09 1999
+From: Steve Price <sprice () hiwaay ! net>
+Date: Mon, 05 Jul 1999 05:09:09 +0000
+To: freebsd-alpha
+Subject: panic in recent kernel
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207815
+
+Hi all,
+
+I've been experiencing a panic with kernel sources from earlier
+today.  Has anyone else seen this?  The particulars are as
+follows:
+
+Preloaded elf kernel "kernel" at 0xfffffc00005ee000.
+
+fatal kernel trap:
+
+    trap entry = 0x2 (memory management fault)
+    a0         = 0x168
+    a1         = 0x1
+    a2         = 0x0
+    pc         = 0xfffffc000035abbc
+    ra         = 0xfffffc000035ad68
+    curproc    = 0xfffffc000058ea98
+        pid = 0, comm = swapper
+
+panic: trap
+
+Note there might be transcription errors in the above.  What
+other information would be helpful in diagnosing this problem?
+
+Thanks.
+
+-steve
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 05 23:14:25 1999
+From: Warner Losh <imp () harmony ! village ! org>
+Date: Mon, 05 Jul 1999 23:14:25 +0000
+To: freebsd-alpha
+Subject: Re: alpha kernel build failure (w/patch)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207821
+
+In message <64807.931197577@pinhead.parag.codegen.com> Parag Patel writes:
+: Just curious, but is there a reason that these lines aren't simply
+: 
+: 	sc->wb_btag = BUS_SPACE_IO;
+: 
+: with this macro being set to the correct machine-specific one in some
+: appropriate header file?  I'm sure I'm missing something...
+
+Yes.  The bus tag should be obtained from new-bus's functions rather
+than it being hard coded.
+
+Also, the bus space on more complicated machines might be different
+than just I/O.  In fact, even on Pccard machines one can make a good
+case for it being a different bus tag...
+
+Warner
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 05 22:22:01 1999
+From: Peter Wemm <peter () netplex ! com ! au>
+Date: Mon, 05 Jul 1999 22:22:01 +0000
+To: freebsd-alpha
+Subject: Re: alpha kernel build failure (w/patch)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207819
+
+Parag Patel wrote:
+> On Mon, 05 Jul 1999 00:33:57 CDT, Steve Price wrote:
+> >+#ifdef __i386__
+> > 	sc->wb_btag = I386_BUS_SPACE_IO;
+> >+#endif
+> >+#ifdef __alpha__
+> >+	sc->wb_btag = ALPHA_BUS_SPACE_IO;
+> >+#endif
+> 
+> Just curious, but is there a reason that these lines aren't simply
+> 
+> 	sc->wb_btag = BUS_SPACE_IO;
+> 
+> with this macro being set to the correct machine-specific one in some
+> appropriate header file?  I'm sure I'm missing something...
+> 
+> Thanks!
+
+The really annoying thing is that this is handled in the bus configuration
+system already.  The driver only has to ask for the handle and tags for the
+resource it's activated and can then use that directly for the bus_space
+calls.
+
+But, old style drivers don't have access to that as the information is
+not available across the compatability shims.
+
+> 	-- Parag Patel
+
+Cheers,
+-Peter
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 05 17:59:37 1999
+From: Parag Patel <parag () cgt ! com>
+Date: Mon, 05 Jul 1999 17:59:37 +0000
+To: freebsd-alpha
+Subject: Re: alpha kernel build failure (w/patch)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207818
+
+On Mon, 05 Jul 1999 00:33:57 CDT, Steve Price wrote:
+>+#ifdef __i386__
+> 	sc->wb_btag = I386_BUS_SPACE_IO;
+>+#endif
+>+#ifdef __alpha__
+>+	sc->wb_btag = ALPHA_BUS_SPACE_IO;
+>+#endif
+
+Just curious, but is there a reason that these lines aren't simply
+
+	sc->wb_btag = BUS_SPACE_IO;
+
+with this macro being set to the correct machine-specific one in some
+appropriate header file?  I'm sure I'm missing something...
+
+Thanks!
+
+
+	-- Parag Patel
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Jul 05 05:33:57 1999
+From: Steve Price <sprice () hiwaay ! net>
+Date: Mon, 05 Jul 1999 05:33:57 +0000
+To: freebsd-alpha
+Subject: alpha kernel build failure (w/patch)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030573207816
+
+Anyone object to me fixing the wb driver so kernel builds on
+the Alpha don't fall over anymore?  The patch was gleened from
+the similar changes to the al driver.  Thanks.
+
+-steve
+
+Index: if_wb.c
+===================================================================
+RCS file: /home/ncvs/src/sys/pci/if_wb.c,v
+retrieving revision 1.11
+diff -u -r1.11 if_wb.c
+--- if_wb.c	1999/07/02 04:17:16	1.11
++++ if_wb.c	1999/07/05 05:29:15
+@@ -1096,7 +1096,12 @@
+ 		printf ("wb%d: couldn't map ports\n", unit);
+ 		goto fail;
+ 	}
++#ifdef __i386__
+ 	sc->wb_btag = I386_BUS_SPACE_IO;
++#endif
++#ifdef __alpha__
++	sc->wb_btag = ALPHA_BUS_SPACE_IO;
++#endif
+ #else
+ 	if (!(command & PCIM_CMD_MEMEN)) {
+ 		printf("wb%d: failed to enable memory mapping!\n", unit);
+@@ -1107,7 +1112,12 @@
+ 		printf ("wb%d: couldn't map memory\n", unit);
+ 		goto fail;
+ 	}
++#ifdef __i386__
+ 	sc->wb_btag = I386_BUS_SPACE_MEM;
++#endif
++#ifdef __alpha__
++	sc->wb_btag = ALPHA_BUS_SPACE_MEM;
++#endif
+ 	sc->wb_bhandle = vbase;
+ #endif
+ 
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+

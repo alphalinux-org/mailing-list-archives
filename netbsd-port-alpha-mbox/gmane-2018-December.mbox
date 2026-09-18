@@ -1,0 +1,264 @@
+From john@ziaspace.com  Thu Dec 6 21:54:52 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: John Klos <john@ziaspace.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: PCI on Alpha issues and DS20L usability
+Date: Thu, 6 Dec 2018 21:54:52 +0000 (UTC)
+Lines: 103
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.1811300347250.9749@hlin.zia.io>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: blaine.gmane.org 1544133189 10993 195.159.176.226 (6 Dec 2018 21:53:09 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Thu, 6 Dec 2018 21:53:09 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Dec 06 22:53:05 2018
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1gV1Zv-0002dd-IR
+	for netbsd-port-alpha@m.gmane.org; Thu, 06 Dec 2018 22:53:04 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 8D18184DFB; Thu,  6 Dec 2018 21:55:10 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 7A9BE84D32
+	for <port-alpha@netbsd.org>; Thu,  6 Dec 2018 21:55:00 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id vqYWu2AZ0Ufb for <port-alpha@netbsd.org>;
+	Thu,  6 Dec 2018 21:54:59 +0000 (UTC)
+Original-Received: from hlin.zia.io (hlin.zia.io [82.221.135.73])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id B853584CCC
+	for <port-alpha@netbsd.org>; Thu,  6 Dec 2018 21:54:58 +0000 (UTC)
+Original-Received: from hlin.zia.io (localhost [127.0.0.1])
+	by hlin.zia.io (8.15.2/8.15.2) with ESMTPS id wB6Lsq4o019390
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT)
+	for <port-alpha@netbsd.org>; Thu, 6 Dec 2018 21:54:55 GMT
+Original-Received: from localhost (john@localhost)
+	by hlin.zia.io (8.15.2/8.15.2/Submit) with ESMTP id wB6LsqAd028255
+	for <port-alpha@netbsd.org>; Thu, 6 Dec 2018 21:54:52 GMT
+X-Authentication-Warning: hlin.zia.io: john owned process doing -bs
+X-X-Sender: john@hlin.zia.io
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.4.3 (hlin.zia.io [127.0.0.1]); Thu, 06 Dec 2018 21:54:55 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5057
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5057>
+
+After my previous adventures:
+
+http://mail-index.netbsd.org/port-alpha/2018/08/30/msg000893.html
+
+I've finally at a point where I ALMOST have a happy, stable, 
+self-contained system that can boot and reboot on its own.
+
+The timecounter patch still needs to be added manually:
+http://mail-index.netbsd.org/port-alpha/2017/11/02/msg000879.html
+
+For -current, MSGBUFSIZE needs to be doubled or so to see a full dmesg.
+
+
+The things that don't work for my API CS20 (AlphaServer DS20L):
+
+
+IDE in DMA mode for any extended amount of time seems to kill filesystems 
+and/or make disks unbootable. Also, when IDE is used with DMA, rebooting 
+NetBSD fails - the system hangs - but shutting down to the SRM prompt, 
+then running "init" will allow an uninterrupted boot without power cycle.
+
+
+arcmsr* initializes, but I can't use any volumes. I only get 1 sector 
+volumes:
+http://mail-index.netbsd.org/port-alpha/2018/11/02/msg000900.html
+
+
+mfi* on a PCIe to PCI adapter is seen, but dmesg shows 0MB RAM and 0 
+volumes after a few thousand of "stray 6600 irq 36" messages:
+http://mail-index.netbsd.org/port-alpha/2018/11/10/msg000901.html
+
+
+nvme* on a PCIe to PCI adapter panics after:
+[   6.4580944] extent `tsp_sgmap' (0x0 - 0x7fffff), flags = 0x2
+[   6.4580944]      0x1000 - 0x2fff
+[   6.4590709] extent_free: start 0x0, end 0x1fff
+[   6.4600475] panic: extent_free: region not found
+
+
+viaide* (VIA 6421A) gives a machine check while the kernel is booting:
+pci_mem_find: expected type mem, found i/o
+viaide0 at pci1 dev 4 function 0: VIA Technologies VT6421 Serial ATA RAID Controller (rev. 0x50)
+viaide0: using dec 6600 irq 36 for native-PCI interrupt
+System Machine Check (660): Rev 0x1, Code 0x202, Flags 0x0
+
+
+satalink* (Silicon Image 3512) works, but not on cold boot. If I boot the 
+kernel from onboard IDE, I get:
+satalink0 at pci1 dev 4 function 0: Silicon Image SATALink 3512 (rev. 0x01)
+satalink0: using dec 6600 irq 36 for native-PCI interrupt
+atabus2 at satalink0 channel 0
+atabus3 at satalink0 channel 1
+...
+wd1 at atabus2 drive 0
+wd1: <Samsung SSD 750 EVO 500GB>
+wd1: 465 GB, 969021 cyl, 16 head, 63 sec, 512 bytes/sect x 976773168 sectors
+wd1: no disk label
+wd1: no disk label
+
+disklabel /dev/wd1 shows a blank disklabel. However, if I netboot and run:
+dd if=/dev/wd1c of=/dev/null bs=1m count=100
+
+then disklabel magically shows the proper disklabel and a reboot allows 
+this disk to be used as the root filesystem!
+
+
+Here are the things that work:
+
+
+A USB 3 card on a PCIe to PCI adapter works perfectly. I've used a USB 3 
+SSD as the root filesystem for weeks at a time with lots of I/O and 
+compiling and have had zero problems.
+
+Have had no problems with PCI ethernet adapters.
+
+Onboard SCSI (SYM 53C1000, esiop*) seems to work fine, but large disks, 
+such as a 2 TB disk, cause the SRM to report a test error.
+
+IDE without DMA (flags 0x0002) on aceride seems to work fine. It also 
+allows for a reboot without SRM init. I may've had this backwards in an 
+earlier post.
+
+
+On my AlphaServer DS25, the PCIe to PCI adapter doesn't work. Nothing is 
+seen. I have outputs of a boot on both the CS20 (DS20L) and the DS25 of a 
+kernel with PCI_CONFIG_DUMP, but I haven't had time to go through them.
+
+
+So... Aside from USB 3, does anyone know of a good, consistent, usable PCI 
+SATA or PCI RAID card that'll definitely work with Alpha? Has anyone tried 
+mvsata*, or twa*, or twe*?
+
+Does anyone have any thoughts about what can be done to fix satalink* so 
+it works on first boot?
+
+If not, I may just get a PCIe USB 3 card with an internal USB port and 
+connect the SSD internally that way to get a completely self-contained, 
+self-booting system. The kernel currently boots from an IDE-flash module.
+
+Almost there...
+
+John Klos
+
+
+From john@ziaspace.com  Thu Dec 20 01:01:29 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: John Klos <john@ziaspace.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Found a RAID card which almost works with Alpha
+Date: Thu, 20 Dec 2018 01:01:29 +0000 (UTC)
+Lines: 46
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.1812191845220.1172@hlin.zia.io>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: blaine.gmane.org 1545267580 19615 195.159.176.226 (20 Dec 2018 00:59:40 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Thu, 20 Dec 2018 00:59:40 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Dec 20 01:59:36 2018
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1gZmgZ-0004za-3m
+	for netbsd-port-alpha@m.gmane.org; Thu, 20 Dec 2018 01:59:35 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id A5F8984E6A; Thu, 20 Dec 2018 01:01:42 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id E742984E67
+	for <port-alpha@netbsd.org>; Thu, 20 Dec 2018 01:01:36 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id Y5onD_C8DKEs for <port-alpha@netbsd.org>;
+	Thu, 20 Dec 2018 01:01:36 +0000 (UTC)
+Original-Received: from hlin.zia.io (hlin.zia.io [82.221.135.73])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 98AAB84D6C
+	for <port-alpha@netbsd.org>; Thu, 20 Dec 2018 01:01:34 +0000 (UTC)
+Original-Received: from hlin.zia.io (localhost [127.0.0.1])
+	by hlin.zia.io (8.15.2/8.15.2) with ESMTPS id wBK11UjH029188
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT)
+	for <port-alpha@netbsd.org>; Thu, 20 Dec 2018 01:01:32 GMT
+Original-Received: from localhost (john@localhost)
+	by hlin.zia.io (8.15.2/8.15.2/Submit) with ESMTP id wBK11T6C020388
+	for <port-alpha@netbsd.org>; Thu, 20 Dec 2018 01:01:30 GMT
+X-Authentication-Warning: hlin.zia.io: john owned process doing -bs
+X-X-Sender: john@hlin.zia.io
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5058
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5058>
+
+I found a RAID card which sorta works.
+
+These don't work:
+
+arcmsr*
+mfi*
+nvem*
+viaide*
+
+These work, but have issues:
+
+aceride*
+satalink*
+
+The new card that sorta works is what I think is a 3ware Escalade 8506-4LP 
+(twe*):
+
+twe0 at pci1 dev 4 function 0: 3ware Escalade
+twe0: interrupting at dec 6600 irq 36
+twe0: 4 ports, Firmware FE8S 1.05.00.068, BIOS BE7X 1.08.00.048
+twe0: Monitor ME7X 1.01.00.040, PCB Rev5    , Achip 3.20    , Pchip 1.30-66
+twe0: port 1: ST1000LM024 HN-M101MBB                   953869 MB
+twe0: port 3: ST1000LM024 HN-M101MBB                   953869 MB
+ld0 at twe0 unit 1: TwinStor, status: Normal
+ld0: 931 GB, 121601 cyl, 255 head, 63 sec, 512 bytes/sect x 1953523120 sectors
+
+It makes me wonder if the 3ware 9000 series (twa*) might work, too. It 
+doesn't get me RAID-6, but at least the 9000 series is supposed to support
+volumes larger than 2TB.
+
+However, it takes a few restarts before the ld is seen. Most of the time I 
+see:
+
+twe0: reset not reported
+twe0: reset failed
+
+This doesn't happen on an x86 machine. I'd guess that the BIOS boot 
+initializes something that is good and ready by the time the kernel tries 
+to use it.
+
+So, I suppose my quest for a working RAID card continues. In the 
+meanwhile, I'll be using a hardware mirroring SATA enclosure connected via 
+USB 3 so I can finally have a machine I can close :)
+
+John
+
+

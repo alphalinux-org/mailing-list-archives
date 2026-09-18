@@ -1,0 +1,4963 @@
+From thorpej@nas.nasa.gov  Sat Aug 1 13:11:30 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 01 Aug 1998 13:11:30 +0000
+Subject: Interrupt changes
+
+Hi folks..
+
+I just implemented isa_intr_disestablish() and pci_intr_disestablish()
+for the Alpha port.  Previously, they only printed out debug messages
+or panic'd.
+
+This should make PCMCIA work a bit better on machines that are so-equipped.
+
+If you encounter any problems, please let me know.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From tsprad@set.spradley.tmi.net  Sun Aug 2 13:12:42 1998
+From: Ted Spradley <tsprad@set.spradley.tmi.net>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 02 Aug 1998 13:12:42 +0000
+Subject: Serial port console
+
+I have a AlphaStation 200 running the 0628 snapshot.  It has no video 
+card, no keyboard, no mouse.  I use a null modem cable from one of the 
+built-in serial ports to the seyon terminal emulator running on another 
+machine for a console.  This works fine for talking to the SRM and for 
+booting, but I can't seem to get logged in thru the serial port.  It puts 
+up a login prompt, I type a name (e.g., root) and hit <Enter>, it prompts 
+"Password:" and I type the password, but it usually doesn't echo the 
+CR-LF.  Nothing happens for a time, then "Login timed out after 300 
+seconds".
+
+Should I expect this to work?  
+
+Ted Spradley <A HREF="mailto:tsprad@metronet.com">tsprad@metronet.com </A>
+ +1-972-484-5356
+My other computer is an Alpha.
+
+From mjacob@feral.com  Sun Aug 2 11:21:43 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: tsprad@set.spradley.tmi.net
+Date: Sun, 02 Aug 1998 11:21:43 +0000
+Subject: Re: Serial port console
+
+I don't have this beast, but I run all my alphas on serial lines.
+
+I expect there are few things you may need to do, based on a variety
+of unclear experiences that I've had-
+
+1) select the 'correct' console in /etc/ttys- the console pseudo-device
+doesn't seem to always do what I expect.
+
+2) parity=none seems to be important.
+
+Can you get to single user (e.g., w/o boot flags set to 'a') and
+do things work well there? Other than this, it may be the h/w on
+this particular beast.
+
+-matt
+
+
+On Sun, 2 Aug 1998, Ted Spradley wrote:
+
+> I have a AlphaStation 200 running the 0628 snapshot.  It has no video 
+> card, no keyboard, no mouse.  I use a null modem cable from one of the 
+> built-in serial ports to the seyon terminal emulator running on another 
+> machine for a console.  This works fine for talking to the SRM and for 
+> booting, but I can't seem to get logged in thru the serial port.  It puts 
+> up a login prompt, I type a name (e.g., root) and hit <Enter>, it prompts 
+> "Password:" and I type the password, but it usually doesn't echo the 
+> CR-LF.  Nothing happens for a time, then "Login timed out after 300 
+> seconds".
+> 
+> Should I expect this to work?  
+> 
+> Ted Spradley <A HREF="mailto:tsprad@metronet.com">tsprad@metronet.com </A>
+>  +1-972-484-5356
+> My other computer is an Alpha.
+> 
+>
+
+From thorpej@nas.nasa.gov  Sun Aug 2 11:14:09 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: tsprad@set.spradley.tmi.net
+Date: Sun, 02 Aug 1998 11:14:09 +0000
+Subject: Re: Serial port console
+
+On Sun, 02 Aug 1998 13:12:42 -0500 
+ Ted Spradley <tsprad@set.spradley.tmi.net> wrote:
+
+ > I have a AlphaStation 200 running the 0628 snapshot.  It has no video 
+ > card, no keyboard, no mouse.  I use a null modem cable from one of the 
+ > built-in serial ports to the seyon terminal emulator running on another 
+ > machine for a console.  This works fine for talking to the SRM and for 
+ > booting, but I can't seem to get logged in thru the serial port.  It puts 
+ > up a login prompt, I type a name (e.g., root) and hit <Enter>, it prompts 
+ > "Password:" and I type the password, but it usually doesn't echo the 
+ > CR-LF.  Nothing happens for a time, then "Login timed out after 300 
+ > seconds".
+ > 
+ > Should I expect this to work?  
+
+I use tip(1) on a NetBSD/sparc system to communicate with my AlphaStation 500
+via serial console, and it all works fine.
+
+Perhaps the terminal emulator software you're using is confused?
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From tsprad@set.spradley.tmi.net  Sun Aug 2 16:13:45 1998
+From: Ted Spradley <tsprad@set.spradley.tmi.net>
+To: mjacob@feral.com
+Date: Sun, 02 Aug 1998 16:13:45 +0000
+Subject: Re: Serial port console
+
+> 1) select the 'correct' console in /etc/ttys- the console pseudo-device
+> doesn't seem to always do what I expect.
+
+I think this is what finally straightened it out.  I had both 'console' 
+and 'ttyC0' 'on' in /etc/ttys.
+
+> 2) parity=none seems to be important.
+
+Yeah, I was watching out for that.
+
+> Can you get to single user (e.g., w/o boot flags set to 'a') and
+> do things work well there? Other than this, it may be the h/w on
+> this particular beast.
+
+Yeah, it worked fine in single-user mode.
+
+I should be able to change the 'off's and 'on's in /etc/ttys and 'kill -1 
+1' to turn getty's on and off, shouldn't I?
+
+Since I still had 1.3.2 on another disk, I booted that up and tried it.  
+I never did get logged in on ttyC0, but when I moved the cable to ttyC1 
+that worked just fine.  I could not get it to start a getty on ttyC0.
+
+I booted up 1.3F and changed /etc/ttys to turn 'console' off and leave 
+ttyC0 and ttyC1 on, 'kill -1 1', and it put up a getty and let me login 
+on ttyC0 just fine.
+
+It had me stumped for a while there, but it's working fine now.  I guess 
+I should have paid attention to that comment in /etc/ttys:
+
+# In normal operation, getty on 'console' pseudo-device is disabled, and 
+is
+# enabled for the correct 'real' device (e.g. one of the serial ports).
+
+Thanks, guys!
+
+From root@garbled.net  Mon Aug 3 06:37:08 1998
+From: Tim Rightnour <root@garbled.net>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 03 Aug 1998 06:37:08 +0000
+Subject: Still fiddling with xemacs
+
+Encouraged by Ross's latest post about the --export-dynamic stuff.. I decided
+to take another wild stab at xemacs..  Still no go.. it dies in the same place
+here.
+
+I'm guessing that it's trying to purify it's own binary somehow in here, and is
+blowing up because it isn't properly groking the elf format.  Any ideas of
+where to start looking?
+
+Loading site-load...
+Finding pointers to doc strings...
+Finding pointers to doc strings...done
+Dumping under the name xemacs
+Purespace usage: 1138680 of 1139192 (100%).
+
+XEmacs: Couldn't find segment next to .bss in
+/usr/src/current/pkgsrc/editors/xemacs20/work/xemacs-20.3/src/temacs
+
+./xemacs: permission denied
+
+---
+Tim Rightnour    -  root@garbled.net
+http://www.zynetwc.com/~garbled/garbled.html
+
+From tv@pobox.com  Mon Aug 3 09:43:37 1998
+From: Todd Vierling <tv@pobox.com>
+To: root@garbled.net
+Date: Mon, 03 Aug 1998 09:43:37 +0000
+Subject: Re: Still fiddling with xemacs
+
+On Mon, 3 Aug 1998, Tim Rightnour wrote:
+
+: Encouraged by Ross's latest post about the --export-dynamic stuff.. I decided
+: to take another wild stab at xemacs..  Still no go.. it dies in the same place
+: here.
+
+I believe alpha may need to use a CANNOT_DUMP setup.  I remember this
+keyword, but for the life of me I don't know what it means beyond "there's
+no information on how to undump on this platform."  8-)
+
+-- 
+-- Todd Vierling (Personal tv@pobox.com; Bus. todd_vierling@xn.xerox.com)
+
+From root@garbled.net  Mon Aug 3 07:00:54 1998
+From: Tim Rightnour <root@garbled.net>
+To: tv@pobox.com
+Date: Mon, 03 Aug 1998 07:00:54 +0000
+Subject: Re: Still fiddling with xemacs
+
+On 03-Aug-98 Todd Vierling spoke unto us all:
+#  On Mon, 3 Aug 1998, Tim Rightnour wrote:
+#  
+# : Encouraged by Ross's latest post about the --export-dynamic stuff.. I
+# : decided
+# : to take another wild stab at xemacs..  Still no go.. it dies in the same
+# : place
+# : here.
+#  
+#  I believe alpha may need to use a CANNOT_DUMP setup.  I remember this
+#  keyword, but for the life of me I don't know what it means beyond "there's
+#  no information on how to undump on this platform."  8-)
+
+Yeah.. I saw that..  I'm just wondering if it can be fixed, rather than "hacked
+around"  But if it's a matter of "you just need to code a ton of stuff to make
+xemacs aware of netbsd-alpha's unique elf format"  Then thats probably way
+outta my leauge, and I'll just have to "CANNOT_DUMP" it and punt.
+
+---
+Tim Rightnour    -  root@garbled.net
+http://www.zynetwc.com/~garbled/garbled.html
+
+From tv@pobox.com  Mon Aug 3 22:33:19 1998
+From: Todd Vierling <tv@pobox.com>
+To: mda@mhri.edu.au
+Date: Mon, 03 Aug 1998 22:33:19 +0000
+Subject: Re: /usr/src build failing, still. :(
+
+On Tue, 4 Aug 1998, Matthew Aldous wrote:
+
+: # tcsh
+: Bad system call (core dumped)
+
+Um, you _did_ build and install a new kernel from freshly updated sources
+before "make build"?
+
+-- 
+-- Todd Vierling (Personal tv@pobox.com; Bus. todd_vierling@xn.xerox.com)
+
+From perry@piermont.com  Mon Aug 3 22:38:50 1998
+From: Perry E. Metzger <perry@piermont.com>
+To: mda@mhri.edu.au
+Date: Mon, 03 Aug 1998 22:38:50 +0000
+Subject: Re: /usr/src build failing, still. :(
+
+Are you updating to -current from an older system?
+
+Unfortunately, to do that you *really* need to update your kernel
+FIRST or you will find yourself with Bad Mojo. libc and the kernel
+don't agree on system calls and such...
+
+.pm
+
+Matthew Aldous writes:
+> Hello all,
+> 
+> I hope someone can point me in the right direction - as
+> I'm still unable to build the /usr/src tree. Here's a 
+> synopsis of what I've done recently to try and get it 
+> up and working.
+> 
+> -----------------------------------------------------------------------------
+-
+> # cd /usr/src
+> # rm -fr *
+> # cd /
+> # tar --unlink -zxpf /usr/snapshot/19980628/base.tgz
+> # tar --unlink -zxpf /usr/snapshot/19980628/comp.tgz
+> # tar --unlink -zxpf /usr/snapshot/19980628/games.tgz
+> # tar --unlink -zxpf /usr/snapshot/19980628/kern.tgz
+> # tar --unlink -zxpf /usr/snapshot/19980628/man.tgz
+> # tar --unlink -zxpf /usr/snapshot/19980628/misc.tgz
+> # tar --unlink -zxpf /usr/snapshot/19980628/text.tgz
+> # sup -sv
+> # cd /usr/src
+> # make build
+> -----------------------------------------------------------------------------
+-
+> 
+> At which stage, lint SEGV'd.. (no output here, sorry).
+> 
+> But..
+> 
+> -----------------------------------------------------------------------------
+-
+> X-UIDL: 9430a9661373dcc635b575122dce259e
+> Subject: Re: new alpha user - supped & lint2 segv? 
+> Date: Thu, 30 Jul 1998 11:07:11 -0700
+> Sender: thorpej@nas.nasa.gov
+> 
+> ...yah, you need to rebuild/reinstall lint first; I saw that, too.  It was
+> apparently a bug in lint that a certain construct in libc tickled.
+> -----------------------------------------------------------------------------
+-
+> 
+> So, I go for this...
+> 
+> -----------------------------------------------------------------------------
+-
+> # cd usr.bin
+> # cd xlint
+> # make
+> # make install
+> # cd /usr/src
+> # make build
+> -----------------------------------------------------------------------------
+-
+> 
+> At which stage, libc falls over.
+> 
+> -----------------------------------------------------------------------------
+-
+> install -c -o root -g wheel -m 444 libc.so.12.30  /usr/lib/libc.so.12.30
+> rm -f /usr/lib/libc.so.12
+> ln -s libc.so.12.30  /usr/lib/libc.so.12
+> rm -f /usr/lib/libc.so
+> ln -s libc.so.12.30  /usr/lib/libc.so
+> install -c -o root -g wheel -m 444  llib-lc.ln /usr/libdata/lint
+> *** Signal 12
+> -----------------------------------------------------------------------------
+-
+> 
+And now I've got all kinds of bozo-isity.
+> 
+> -----------------------------------------------------------------------------
+-
+> # tcsh
+> Bad system call (core dumped)
+> -----------------------------------------------------------------------------
+-
+> 
+> And likewise with chown(8) - which is (I presume) making install fubar.
+> 
+> Advice appreciated :)
+> 
+> Thanks in advance,
+> Matthew.
+>
+
+From mda@mhri.edu.au  Tue Aug 4 12:28:58 1998
+From: Matthew Aldous <mda@mhri.edu.au>
+To: port-alpha@netbsd.org
+Date: Tue, 04 Aug 1998 12:28:58 +0000
+Subject: /usr/src build failing, still. :(
+
+Hello all,
+
+I hope someone can point me in the right direction - as
+I'm still unable to build the /usr/src tree. Here's a 
+synopsis of what I've done recently to try and get it 
+up and working.
+
+------------------------------------------------------------------------------
+# cd /usr/src
+# rm -fr *
+# cd /
+# tar --unlink -zxpf /usr/snapshot/19980628/base.tgz
+# tar --unlink -zxpf /usr/snapshot/19980628/comp.tgz
+# tar --unlink -zxpf /usr/snapshot/19980628/games.tgz
+# tar --unlink -zxpf /usr/snapshot/19980628/kern.tgz
+# tar --unlink -zxpf /usr/snapshot/19980628/man.tgz
+# tar --unlink -zxpf /usr/snapshot/19980628/misc.tgz
+# tar --unlink -zxpf /usr/snapshot/19980628/text.tgz
+# sup -sv
+# cd /usr/src
+# make build
+------------------------------------------------------------------------------
+
+At which stage, lint SEGV'd.. (no output here, sorry).
+
+But..
+
+------------------------------------------------------------------------------
+Subject: Re: new alpha user - supped & lint2 segv? 
+Date: Thu, 30 Jul 1998 11:07:11 -0700
+
+...yah, you need to rebuild/reinstall lint first; I saw that, too.  It was
+apparently a bug in lint that a certain construct in libc tickled.
+------------------------------------------------------------------------------
+
+So, I go for this...
+
+------------------------------------------------------------------------------
+# cd usr.bin
+# cd xlint
+# make
+# make install
+# cd /usr/src
+# make build
+------------------------------------------------------------------------------
+
+At which stage, libc falls over.
+
+------------------------------------------------------------------------------
+install -c -o root -g wheel -m 444 libc.so.12.30  /usr/lib/libc.so.12.30
+rm -f /usr/lib/libc.so.12
+ln -s libc.so.12.30  /usr/lib/libc.so.12
+rm -f /usr/lib/libc.so
+ln -s libc.so.12.30  /usr/lib/libc.so
+install -c -o root -g wheel -m 444  llib-lc.ln /usr/libdata/lint
+*** Signal 12
+------------------------------------------------------------------------------
+
+And now I've got all kinds of bozo-isity.
+
+------------------------------------------------------------------------------
+# tcsh
+Bad system call (core dumped)
+------------------------------------------------------------------------------
+
+And likewise with chown(8) - which is (I presume) making install fubar.
+
+Advice appreciated :)
+
+Thanks in advance,
+Matthew.
+
+From elric@arioch.imrryr.org  Tue Aug 4 02:08:48 1998
+From: R. C. Dowdeswell <elric@arioch.imrryr.org>
+To: port-alpha@netbsd.org
+Date: Tue, 04 Aug 1998 02:08:48 +0000
+Subject: Two unrelated problems on my AlphaStation 200
+
+Well,
+
+The tale of woe begins as such.  My basic config is an AlphaStation
+200 4/233 with 16 Meg a' Ram and a SCSI disk and an Aria 16 sound card.
+Some VGA graphics card.  And there is some pcmcia card in it that hasn't
+really forced any interest out of me, yet.
+
+I installed the latest snapshot a couple of weeks ago, and sup'ed down
+a slightly more recent version of the source (circa a bit before July
+19th.)  And I noticed that whenever I really exercised the machine for
+a bit (i.e. compiling perl, etc..)  I'd crash with:
+
+# dmesg -M netbsd.0.core -N netbsd.0
+...
+extent_alloc_subregion: can't allocate region descriptor
+extent_alloc_subregion: can't allocate region descriptor
+extent_alloc_subregion: can't allocate region descriptor
+extent_alloc_subregion: can't allocate region descriptor
+panic: malloc: out of space in kmem_map
+syncing disks... panic: lockmgr: locking against myself
+
+This was pretty repeatable.  So today, I sup'ed a new kernel.  This
+one refuses to speak to the SCSI disk.  It boots to the point of
+root on sd0a swap on sd0b, and then hangs for a while, finally complaining
+that the abort timed out.
+
+So the question is:
+
+Has any one else experienced either of these problems with relatively
+or very recent kernels?
+
+ == Roland
+
+From tv@pobox.com  Tue Aug 4 08:09:47 1998
+From: Todd Vierling <tv@pobox.com>
+To: elric@imrryr.org
+Date: Tue, 04 Aug 1998 08:09:47 +0000
+Subject: Re: Two unrelated problems on my AlphaStation 200
+
+On Tue, 4 Aug 1998, R. C. Dowdeswell wrote:
+
+: panic: malloc: out of space in kmem_map
+: syncing disks... panic: lockmgr: locking against myself
+
+Don't see this.
+
+: This was pretty repeatable.  So today, I sup'ed a new kernel.  This
+: one refuses to speak to the SCSI disk.  It boots to the point of
+: root on sd0a swap on sd0b, and then hangs for a while, finally complaining
+: that the abort timed out.
+
+However, I do see this.
+
+-- 
+-- Todd Vierling (Personal tv@pobox.com; Bus. todd_vierling@xn.xerox.com)
+
+From cgd@netbsd1.cygnus.com  Tue Aug 4 08:31:28 1998
+From: Chris G. Demetriou <cgd@netbsd1.cygnus.com>
+To: elric@imrryr.org
+Date: Tue, 04 Aug 1998 08:31:28 +0000
+Subject: Re: Two unrelated problems on my AlphaStation 200
+
+"R. C. Dowdeswell" <elric@arioch.imrryr.org> writes:
+> The tale of woe begins as such.  My basic config is an AlphaStation
+> 200 4/233 with 16 Meg a' Ram and a SCSI disk and an Aria 16 sound card.
+> Some VGA graphics card.  And there is some pcmcia card in it that hasn't
+> really forced any interest out of me, yet.
+
+You "need" more than 16MB of memory.  (I seem to recall ross saying that the system got nearly, but not quite, to single-user for him on a 16MB system, but even if it does get there it'll spend all its time paging.)
+
+I'd advise 48 or 64 if you can swing it, but, depending on what you're
+doing you may be OK with 32.  (I've got 32 in a machine that I use as
+a web and POP server, and it runs file.)  For a Long Time I did all my
+builds on a 64MB AlphaStation 200, running X, etc.
+
+
+
+cgd
+
+From mikeride@prez.buf.servtech.com  Tue Aug 4 12:26:08 1998
+From: Michael G. Schabert <mikeride@prez.buf.servtech.com>
+To: port-alpha@netbsd.org
+Date: Tue, 04 Aug 1998 12:26:08 +0000
+Subject: Re: Two unrelated problems on my AlphaStation 200
+
+You "need" more than 16MB of memory.  (I seem to recall ross saying that
+the system got nearly, but not quite, to single-user for him on a 16MB
+system, but even if it does get there it'll spend all its time paging.)
+>
+>I'd advise 48 or 64 if you can swing it, but, depending on what you're
+>doing you may be OK with 32.  (I've got 32 in a machine that I use as
+>a web and POP server, and it runs file.)  For a Long Time I did all my
+>builds on a 64MB AlphaStation 200, running X, etc.
+
+
+While I agree that 16 MB isn't enough to run an active un*x on, it should
+be able to at least boot, and the requirements aren't very much beyond
+that. On port-mac68k, I've seen people with 8 MB systems boot fine
+(although that's a 32-bit system). On my AlphaStation, I just quit all of
+my memory-hogging applications and Top reports active memory usage at under
+6 MB:
+
+Memory: 5784K Act 2736K Inact 248K Wired 54M Free 8K Swap 227M Swap free
+
+
+Given this, I would hope that we could at least boot with 16 MB RAM. Even
+with 2 fairly large MUDs, Apache, and compilations going, I've never gone
+beyond about 40 MB active RAM usage, and usually hover between 25 and 35 MB.
+
+
+Mike
+
+Bikers don't *DO* taglines.
+
+From cgd@netbsd1.cygnus.com  Tue Aug 4 09:39:01 1998
+From: Chris G. Demetriou <cgd@netbsd1.cygnus.com>
+To: mikeride@prez.buf.servtech.com
+Date: Tue, 04 Aug 1998 09:39:01 +0000
+Subject: Re: Two unrelated problems on my AlphaStation 200
+
+"Michael G. Schabert" <mikeride@prez.buf.servtech.com> writes:
+> While I agree that 16 MB isn't enough to run an active un*x on, it should
+> be able to at least boot, and the requirements aren't very much beyond
+> that. On port-mac68k, I've seen people with 8 MB systems boot fine
+> (although that's a 32-bit system).
+
+Boot, or boot quickly, sanely, without paging a fair bit?
+
+First of all, you don't even have 16MB in a 16MB system.  The firmware
+eats, and owns, 2MB.  So you have 14.
+
+A generic kernel (1.3F; Ross's end-of-june snapshot) is:
+
+1 [alpha] cgd % size /netbsd
+text    data    bss     dec     hex     filename
+2230800 176776  246264  2653840 287e90  /netbsd
+
+You now have 11.5MB.
+
+Your buffer cache is goign to eat another meg or so.
+
+Let's assume that by the time you get up to multi-user mode and a
+shell prompt you have 20 processes running.  20 * (2 pages of uarea +
+1 page L1PT + 1 page L2 pt + 1 page L3 pt) = 100 pages == 800k.  In
+reality (IIRC) dynamically linked processes will need more than one
+L3.  (I forget where we put the stack these days; that could add to
+it, too.)
+
+After you account for page tables and all that, you've got less than
+10MB left.  that gives you (on average) less than 500KB of memory for
+each process process, if you don't consider: processes that don't
+'live through' startup (i.e. things which do actions and then exit,
+and don't live on in multi-user mode), any other run-time use of
+memory by the system, or the fact that the system likes to keep some
+pages free.
+
+In other words, paging on a 16MB machine is to be expected, even if
+you're just booting to multi-user mode.
+
+It should _work_, i.e. succeed and get to a prompt (if you have a swap
+device configured), but it'll page.
+
+
+The 32-bit vs. 64-bit system comparison is a serious one.  Also
+there's the fact that m68k processors are CISC, and the Alpha is most
+definitely RISC.  That leads to, overall, inflation.  More than you
+might think.  (Compare the kernel sizes, for instance.)
+
+
+
+> On my AlphaStation, I just quit all of
+> my memory-hogging applications and Top reports active memory usage at under
+> 6 MB:
+>
+> Memory: 5784K Act 2736K Inact 248K Wired 54M Free 8K Swap 227M Swap free
+> 
+> Given this, I would hope that we could at least boot with 16 MB RAM. Even
+> with 2 fairly large MUDs, Apache, and compilations going, I've never gone
+> beyond about 40 MB active RAM usage, and usually hover between 25 and 35 MB.
+
+FWIW, i'm not sure that I really believe those numbers.  They've never
+seemed to actually make sense or correspond to what was going on with
+my machines at the time.  (That doesn't mean that they're invalid,
+only that i've never been able to grok their validity. 8-)
+
+My AlphaStation 200 with 32MB of RAM (running an HTTP server that's idle; i'm unpopular! 8-) and my network login (rsh) and other than that the 'minimum' amount of stuff, says:
+
+$ vmstat -s
+     8192 bytes per page
+     3438 pages managed
+     1289 pages free
+     1040 pages active
+      253 pages inactive
+        0 pages paging
+       53 pages wired
+...
+
+It only has 10MB free, and it's not doing _anything_ other than coping
+with my login.  (FWIW, there are 27 processes running, 6 of which are
+httpds.  The system hasn't paged at all.)
+
+
+
+cgd
+
+From ragge@ludd.luth.se  Tue Aug 4 18:51:21 1998
+From: Anders Magnusson <ragge@ludd.luth.se>
+To: mikeride@prez.buf.servtech.com
+Date: Tue, 04 Aug 1998 18:51:21 +0000
+Subject: Re: Two unrelated problems on my AlphaStation 200
+
+> 
+> that. On port-mac68k, I've seen people with 8 MB systems boot fine
+> (although that's a 32-bit system). On my AlphaStation, I just quit all of
+>
+NetBSD/vax can run nicely on a 2MB machine :-)
+
+-- Ragge
+
+From thorpej@nas.nasa.gov  Tue Aug 4 10:25:50 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mikeride@prez.buf.servtech.com
+Date: Tue, 04 Aug 1998 10:25:50 +0000
+Subject: Re: Two unrelated problems on my AlphaStation 200
+
+On Tue, 4 Aug 1998 12:26:08 -0500 
+ "Michael G. Schabert" <mikeride@prez.buf.servtech.com> wrote:
+
+ > While I agree that 16 MB isn't enough to run an active un*x on, it should
+ > be able to at least boot, and the requirements aren't very much beyond
+ > that. On port-mac68k, I've seen people with 8 MB systems boot fine
+ > (although that's a 32-bit system). On my AlphaStation, I just quit all of
+ > my memory-hogging applications and Top reports active memory usage at under
+ > 6 MB:
+
+An Alpha is not a Macintosh.  The Alpha PROM actually consumes a fair
+chunk of memory, and there's not a lot you can do about that.  Also, Alpha
+executables are larger, and pointers and longs take twice as much space.
+This adds up.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From thorpej@nas.nasa.gov  Tue Aug 4 10:29:29 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: ragge@ludd.luth.se
+Date: Tue, 04 Aug 1998 10:29:29 +0000
+Subject: Re: Two unrelated problems on my AlphaStation 200
+
+On Tue, 4 Aug 1998 18:51:21 +0200 (MET DST) 
+ Anders Magnusson <ragge@ludd.luth.se> wrote:
+
+ > NetBSD/vax can run nicely on a 2MB machine :-)
+
+Yah, but you have all that microcode to help you!  :-)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From seifert@sequent.com  Tue Aug 4 10:57:12 1998
+From: David Seifert <seifert@sequent.com>
+To: port-alpha@netbsd.org
+Date: Tue, 04 Aug 1998 10:57:12 +0000
+Subject: I can run that OS in *one* megabyte...
+
+>> On port-mac68k, I've seen people with 8 MB systems boot fine
+>> (although that's a 32-bit system).
+>
+> NetBSD/vax can run nicely on a 2MB machine :-)
+
+I have a ns32k box that can run a BSD-based OS in 0.75 MB.
+It runs okay in 1 MB and nicely in 3.
+
+I have another ns32k box that runs NetBSD in 4MB and
+nicely in 16.
+
+My alphas page and swap like crazy with 32MB.  If we believe
+ps(1) output, alpha binaries need 10x the memory that ns32k
+does (both running NetBSD).  I routinely see rn(1) with a VSS of
+50MB!!! (rn-classic, not the X11 version)
+
+Now I know that ns32k is one of the most efficient architectures,
+that the alpha is RISC and 64 bits and has a larger page size, but
+10 times as large???  Something seems wrong here?
+
+Anyone know why the alpha is such a memory pig?
+
+From joe@js.ne.mediaone.net  Tue Aug 4 16:27:29 1998
+From: Joseph Sarkes <joe@js.ne.mediaone.net>
+To: seifert@sequent.com
+Date: Tue, 04 Aug 1998 16:27:29 +0000
+Subject: Re: I can run that OS in *one* megabyte...
+
+David Seifert writes:
+> 
+> >> On port-mac68k, I've seen people with 8 MB systems boot fine
+> >> (although that's a 32-bit system).
+> >
+> > NetBSD/vax can run nicely on a 2MB machine :-)
+> 
+> I have a ns32k box that can run a BSD-based OS in 0.75 MB.
+> It runs okay in 1 MB and nicely in 3.
+> 
+> I have another ns32k box that runs NetBSD in 4MB and
+> nicely in 16.
+> 
+> My alphas page and swap like crazy with 32MB.  If we believe
+> ps(1) output, alpha binaries need 10x the memory that ns32k
+> does (both running NetBSD).  I routinely see rn(1) with a VSS of
+> 50MB!!! (rn-classic, not the X11 version)
+> 
+> Now I know that ns32k is one of the most efficient architectures,
+> that the alpha is RISC and 64 bits and has a larger page size, but
+> 10 times as large???  Something seems wrong here?
+> 
+> Anyone know why the alpha is such a memory pig?
+> 
+
+Hmmm, seems to me that the vax had 128 or 256 byte pages, although
+as far as what netbsd does on a vax i haven't got a clue. likely
+the ns32k was modeled on the vax. More likely, since the alpha is
+a more modern machine, from times of plenty (memory, etc.) things
+were never shoe-horned into smaller chunks of memory for efficiency.
+
+My favorite object lesson of this is microsoft products, working in
+conjunction with intel, requiring new hardware/new software/new hardware/
+new software, ad nauseum, just to run a calculator app. The mainframe
+i used back in 1974 cost a cool half a million, and had 512K memory on
+it. Probably close to the speed of an intel 80286 running at 32 MHz a 
+decade later. That ibm 370/145 supported multiple users, a 4 Mb virtual
+memory space, and did so very nicely. Times change, so that a 300 MHz
+cpu seems slow with current software, and requires upgrading.
+
+We are using more graphics, but to need megabytes to just do a calculator
+program seems to be excessive to me. Now if i just had a building to hold
+an ibm mainframe in...
+
+
+-- 
+Joseph Sarkes                   mailto:joe@mediaone.net
+P.O. Box 482
+Ipswich, MA 01938
+(978) 948-5017
+
+From tv@pobox.com  Tue Aug 4 16:48:16 1998
+From: Todd Vierling <tv@pobox.com>
+To: seifert@sequent.com
+Date: Tue, 04 Aug 1998 16:48:16 +0000
+Subject: Re: I can run that OS in *one* megabyte...
+
+On Tue, 4 Aug 1998, David Seifert wrote:
+
+: > NetBSD/vax can run nicely on a 2MB machine :-)
+: 
+: I have a ns32k box that can run a BSD-based OS in 0.75 MB.
+: It runs okay in 1 MB and nicely in 3.
+
+I have a PDP-11 simulator that can run V5 UNIX in 256K and a 1MB virtual
+_disk_.  And?  :)
+
+: Now I know that ns32k is one of the most efficient architectures,
+: that the alpha is RISC and 64 bits and has a larger page size, but
+: 10 times as large???  Something seems wrong here?
+
+Pointers and longs are twice as big.  (64 bit vs. 32 bit.)  Pagetables are
+_much_ bigger.  The instruction set is nowhere near as compact (this is
+RISC).  And, the subjective reason:  Alphas were designed in the "new
+computing" world, where extra memory isn't as much of a concern.
+
+I wonder if V6 UNIX can be ported to run on a 65816 processor....
+
+-- 
+-- Todd Vierling (Personal tv@pobox.com; Bus. todd_vierling@xn.xerox.com)
+
+From nmanisca@vt.edu  Tue Aug 4 17:03:28 1998
+From: nm <nmanisca@vt.edu>
+To: seifert@sequent.com
+Date: Tue, 04 Aug 1998 17:03:28 +0000
+Subject: Re: I can run that OS in *one* megabyte...
+
+and of course one major reason os's on alpha take up so much ram is that
+SRM is a pig!
+SRM sits resident in memory and uses up quite a bit...
+
+I do not know exactly how much it uses up but I have heard reports of
+around 6 megs or so.
+
+Anyone have more info on the mem requirements of SRM?
+
+At 04:48 PM 8/4/98 -0400, Todd Vierling wrote:
+>On Tue, 4 Aug 1998, David Seifert wrote:
+>
+>: > NetBSD/vax can run nicely on a 2MB machine :-)
+>: 
+>: I have a ns32k box that can run a BSD-based OS in 0.75 MB.
+>: It runs okay in 1 MB and nicely in 3.
+>
+>I have a PDP-11 simulator that can run V5 UNIX in 256K and a 1MB virtual
+>_disk_.  And?  :)
+>
+>: Now I know that ns32k is one of the most efficient architectures,
+>: that the alpha is RISC and 64 bits and has a larger page size, but
+>: 10 times as large???  Something seems wrong here?
+>
+>Pointers and longs are twice as big.  (64 bit vs. 32 bit.)  Pagetables are
+>_much_ bigger.  The instruction set is nowhere near as compact (this is
+>RISC).  And, the subjective reason:  Alphas were designed in the "new
+>computing" world, where extra memory isn't as much of a concern.
+>
+>I wonder if V6 UNIX can be ported to run on a 65816 processor....
+>
+>-- 
+>-- Todd Vierling (Personal tv@pobox.com; Bus. todd_vierling@xn.xerox.com)
+>
+>
+
+From cgd@netbsd1.cygnus.com  Tue Aug 4 14:19:06 1998
+From: Chris G. Demetriou <cgd@netbsd1.cygnus.com>
+To: nmanisca@vt.edu
+Date: Tue, 04 Aug 1998 14:19:06 +0000
+Subject: Re: I can run that OS in *one* megabyte...
+
+nm <nmanisca@vt.edu> writes:
+> Anyone have more info on the mem requirements of SRM?
+
+2MB.  Less on some system types.  I don't think i've _ever_ seen it
+take more than a hair over 2MB, let alone 6MB, and i've seen... many
+models of alpha.
+
+NetBSD/alpha tells you how much memory the SRM is using, in the kernel
+message output, FYI.
+
+
+cgd
+
+From nmanisca@vt.edu  Tue Aug 4 18:07:28 1998
+From: nm <nmanisca@vt.edu>
+To: nmanisca@smtp1.erols.com
+Date: Tue, 04 Aug 1998 18:07:28 +0000
+Subject: Re: I can run that OS in *one* megabyte...
+
+Ah... The info I saw must have referenced something else then...
+
+I checked my kernel messages and found that 2072576 bytes were being used by
+the prom and that 48922624 bytes were available (avail mem = line)
+
+This machine has 67108864 bytes of real memory so where did the 16113664
+bytes go?
+
+I assume that the kernel is using this much memory?
+
+At 02:19 PM 8/4/98 -0700, Chris G. Demetriou wrote:
+>nm <nmanisca@vt.edu> writes:
+>> Anyone have more info on the mem requirements of SRM?
+>
+>2MB.  Less on some system types.  I don't think i've _ever_ seen it
+>take more than a hair over 2MB, let alone 6MB, and i've seen... many
+>models of alpha.
+>
+>NetBSD/alpha tells you how much memory the SRM is using, in the kernel
+>message output, FYI.
+>
+>
+>cgd
+>
+
+From thorpej@nas.nasa.gov  Tue Aug 4 14:58:59 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: nmanisca@vt.edu
+Date: Tue, 04 Aug 1998 14:58:59 +0000
+Subject: Re: I can run that OS in *one* megabyte...
+
+On Tue, 04 Aug 1998 18:07:28 -0400 
+ nm <nmanisca@vt.edu> wrote:
+
+ > This machine has 67108864 bytes of real memory so where did the 16113664
+ > bytes go?
+ > 
+ > I assume that the kernel is using this much memory?
+
+Some of it is buffer cache (spelled out in kernel messages), some of it
+is overhead of kernel page tables needed to map the various pieces of
+kernel address space.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From thorpej@nas.nasa.gov  Tue Aug 4 15:20:40 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: nmanisca@vt.edu
+Date: Tue, 04 Aug 1998 15:20:40 +0000
+Subject: Re: I can run that OS in *one* megabyte...
+
+On Tue, 04 Aug 1998 14:58:59 -0700 
+ Jason Thorpe <thorpej@nas.nasa.gov> wrote:
+
+ >  > This machine has 67108864 bytes of real memory so where did the 16113664
+ >  > bytes go?
+ >  > 
+ >  > I assume that the kernel is using this much memory?
+ > 
+ > Some of it is buffer cache (spelled out in kernel messages), some of it
+ > is overhead of kernel page tables needed to map the various pieces of
+ > kernel address space.
+
+And to follow-up on this, with some simple instrumentation in
+pmap_steal_memory():
+
+Entering netbsd at 0xfffffc0000300fc0...
+[ preserving 155592 bytes of netbsd symbol table ]
+Copyright (c) 1996, 1997, 1998
+    The NetBSD Foundation, Inc.  All rights reserved.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+    The Regents of the University of California.  All rights reserved.
+
+NetBSD 1.3G (BISHOP) #424: Tue Aug  4 15:09:45 PDT 1998
+    thorpej@bishop:/tmp_mnt/dracul/u5/netbsd/src/sys/arch/alpha/compile/BISHOP
+Digital AlphaStation 500/500, 500MHz
+8192 byte page size, 1 processor.
+real mem = 268435456 (2252800 reserved for PROM, 266182656 used by NetBSD)
+avail mem = 230948864
+stolen memory for VM structures = 4849664 bytes
+using 3249 buffers containing 26615808 bytes of memory
+
+...ok, plus kernel: 2310080 on my system.  Note that avail mem is also
+printed after the kernel malloc has been allowed to run, so there may
+be some pages that have been given to the malloc engine already.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From cgd@netbsd1.cygnus.com  Tue Aug 4 15:37:39 1998
+From: Chris G. Demetriou <cgd@netbsd1.cygnus.com>
+To: thorpej@nas.nasa.gov
+Date: Tue, 04 Aug 1998 15:37:39 +0000
+Subject: Re: I can run that OS in *one* megabyte...
+
+Jason Thorpe <thorpej@nas.nasa.gov> writes:
+> On Tue, 04 Aug 1998 18:07:28 -0400 
+>  nm <nmanisca@vt.edu> wrote:
+> 
+>  > This machine has 67108864 bytes of real memory so where did the 16113664
+>  > bytes go?
+>  > 
+>  > I assume that the kernel is using this much memory?
+> 
+> Some of it is buffer cache (spelled out in kernel messages), some of it
+> is overhead of kernel page tables needed to map the various pieces of
+> kernel address space.
+
+Also:
+
+* some of it is kernel.
+
+* some of it is "other data structures initialized early" by MD code, such as:
+
+	* callouts
+	* sysvshm segment descriptors
+	* sysv semaphore and message queue data structures
+	* the buffer structures themselves (in addition to the pages
+	  of memory that back the buffer cache
+
+* some of it is other data structures initialized early by MI code, such as:
+
+	* vm_page structures.
+
+A megabyte here, a megabyte there...  8-)
+
+
+
+cgd
+
+From ross@teraflop.com  Tue Aug 4 16:28:57 1998
+From: Ross Harvey <ross@teraflop.com>
+To: port-alpha@netbsd.org, seifert@sequent.com
+Date: Tue, 04 Aug 1998 16:28:57 +0000
+Subject: Re: I can run that OS in *one* megabyte...
+
+> From: David Seifert <seifert@sequent.com>
+>
+> >> On port-mac68k, I've seen people with 8 MB systems boot fine
+> >> (although that's a 32-bit system).
+> >
+> > NetBSD/vax can run nicely on a 2MB machine :-)
+>
+> I have a ns32k box that can run a BSD-based OS in 0.75 MB.
+> It runs okay in 1 MB and nicely in 3.
+>
+> I have another ns32k box that runs NetBSD in 4MB and
+> nicely in 16.
+>
+> My alphas page and swap like crazy with 32MB.  If we believe
+> ps(1) output, alpha binaries need 10x the memory that ns32k
+> does (both running NetBSD).  I routinely see rn(1) with a VSS of
+> 50MB!!! (rn-classic, not the X11 version)
+>
+> Now I know that ns32k is one of the most efficient architectures,
+> that the alpha is RISC and 64 bits and has a larger page size, but
+> 10 times as large???  Something seems wrong here?
+>
+> Anyone know why the alpha is such a memory pig?
+>
+
+Hmm, 1575 email messages after only a 3-day weekend vacation.  
+   
+But this one is the easiest to deal with. Besides working on the alpha
+(as you all know) I was with the group at National that built the first
+NS32K compilers and systems. I can actually explain this!
+ 
+Yes, the NS32 takes the all-time code-density prize, at least among 32
+bit architectures. But that is not what you are seeing. What you are seeing
+is:
+ 
+        The ps(1) listings you are comparing are measuring two completely
+	different things...
+
+	I don't think your old NS32K BSD system did shared libraries, so
+	each image has a static mapping of just the program and the library
+	functions it actually needed to link.
+
+	NetBSD/alpha executables directly execve(2) very little, the program
+	and all libraries it uses are mmap(2)'ed in.  Consequently, any
+	_one_ executable will _appear_ to use vastly more memory, but the
+	RAM size of the program and the system as a whole will be reasonable.
+	It's even possible (because of the shared libraries) to make a test
+	case that uses a lot _more_ memory on your static NS32 system than
+	NetBSD/alpha...believe it or not!
+
+
+Also, the alpha isn't a memory pig at all. Yes, the NS32 had little 512-byte
+pages, so the VM overhead was miniscule, and the instruction set code density
+was nothing short of amazing.
+
+But we can boot and run real stuff in 16 MB, and that's after giving away
+2 MB to the console, as was noted. And that's running GENERIC.
+
+I was able to get to a multi-user login prompt with a grand total of only
+8MB installed, although I never actually got a shell prompt. With a little
+tweaking, I bet we could get logged in on an 8 MB (6 MB after SRM!) system.
+(Oh, and cgd's recollection of my test results--16MB--wasn't really wrong...I
+initially reported it incorrectly...thinking I had run the test with more
+RAM than I had.)
+
+Junk fax from last week quotes the following memory prices: (McDonald
+and Associates) 72-pin Parity: 16/32/64MB for $21/38/135. SDRAM: 32/64/128MB
+for $31/75/143. "100MHz Intel certifed": $42/88/180. So, clearly, the
+relatively small amount of extra memory required by the Alpha's bigger
+pages and SRM console are reasonable. And our instruction set code density
+should be exactly the same as any other RISC processor, and data sizes only
+a bit bigger due to the 64-pointers and longs.
+
+From ajo@wopr.campus.luth.se  Tue Aug 4 23:14:37 1998
+From: Andreas Johansson <ajo@wopr.campus.luth.se>
+To: port-alpha@netbsd.org
+Date: Tue, 04 Aug 1998 23:14:37 +0000
+Subject: PCI problem with 21164PC system
+
+Hi!
+
+I have a problem with my 21164PC system. It seems that the SRM (v5.1)
+doesn't initiate the LT register for the pci devices. I have one NCR875
+and two 21140's. The latency timers were set to 0, and this means that
+incredibly large dma transfers takes place on the pci bus causing several 
+ugly things in the system.
+
+Now, I get much better system performance if I set all my LT's to for
+example 32, but I'm not sure where this should be "fixed up".
+
+I am using a current snapshot from april, and I am unable to make a
+newer current that works. The ncr dies with timeouts just after /etc/rc is
+started. The ncr driver has not changed between the working and
+non-working kernel. Any ideas?
+
+/Andreas
+
+From elric@arioch.imrryr.org  Wed Aug 5 01:40:43 1998
+From: R. C. Dowdeswell <elric@arioch.imrryr.org>
+To: port-alpha@netbsd.org
+Date: Wed, 05 Aug 1998 01:40:43 +0000
+Subject: Re: Two unrelated problems on my AlphaStation 200
+
+On 902244688 seconds since the Beginning of the UNIX epoch
+Chris G. Demetriou wrote:
+>
+>You "need" more than 16MB of memory.  (I seem to recall ross saying that the s
+>ystem got nearly, but not quite, to single-user for him on a 16MB system, but 
+>even if it does get there it'll spend all its time paging.)
+
+The system actually had 5 days of uptime at 16MB, but that is probably
+because I use it for only two purposes:  as my alarm clock (an at job which
+invokes mpg123 :) and cracking rc5.  It does truth be told support a couple
+of users infrequently logging on.  I only seem to run into problems when
+doing compiles.  This is the only thing that starts to give uvm a work out.
+
+Sorry that I didn't notice in the INSTALL notes that I should have 32MB..
+I do wonder though, whether the low memory condition exacerbate a uvm
+bug, or simply fails in an unpreventable way.  As I mentioned above, it
+seems to work really well for quite a while before it crashes.  (Otherwise
+I would still be running the snapshot, unable to compile kernels.  :)
+
+>I'd advise 48 or 64 if you can swing it, but, depending on what you're
+>doing you may be OK with 32.  (I've got 32 in a machine that I use as
+>a web and POP server, and it runs file.)  For a Long Time I did all my
+>builds on a 64MB AlphaStation 200, running X, etc.
+
+An aside:
+ I tried to put another 64MB into it today, but was thwarted by a couple
+ of mistakes that I made.
+	o I went to Fry's.
+	o I did not check the memory before I left the place.
+ They didn't have 32MB 72 pin parity SIMMS, so I ``bought'' two 16MB 72
+ pin parity SIMMS.  When I got home, I discovered that what I had was
+ two 32MB DIMMS.  Which don't go into the machine in question.
+
+ == Roland
+ == http://www.imrryr.org/~elric/
+
+From mouse@Rodents.Montreal.QC.CA  Wed Aug 5 14:56:30 1998
+From: der Mouse <mouse@Rodents.Montreal.QC.CA>
+To: port-alpha@netbsd.org
+Date: Wed, 05 Aug 1998 14:56:30 +0000
+Subject: Re: I can run that OS in *one* megabyte...
+
+> Hmmm, seems to me that the vax had 128 or 256 byte pages, although as
+> far as what netbsd does on a vax i haven't got a clue.
+
+512 bytes, they were (er, are).  I think NetBSD does what historical
+BSD does on the VAX, and cluster them so as to pretend it has larger
+(1K, IIRC) pages except when it comes to actually shoving the bits into
+the hardware.  (Admittedly, I haven't checked the NetBSD part of this.)
+
+I suspect this is related to 512-byte disk sectors and 512 bytes being
+the default blocksize for dd and suchlike, though the chain of
+causality may go back even farther, like the PDP-11 or something
+(though fuzzy memory says a PDP-11 with VM hardware has 4K pages)....
+
+					der Mouse
+
+			       mouse@rodents.montreal.qc.ca
+		     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+From nmanisca@vt.edu  Wed Aug 5 10:34:53 1998
+From: nm <nmanisca@vt.edu>
+To: port-alpha@netbsd.org
+Date: Wed, 05 Aug 1998 10:34:53 +0000
+Subject: help me im going insane
+
+I have a netbsd system with 1.3 and I want to reinstall with 1.3.2
+
+Its an Axppci33 system with a 500 meg disk on the ncr controler
+I have added two wide disks on an adaptec 2940uw in a pci slot.
+
+the 500 meg disk (sd0) on the ncr is used to load boot and netbsd from.
+root is on one of the wide disks off of the adaptec.
+
+What I want to do is use a kernel that I already have (it is special
+because it mounts sd1a as root) and use that with my 1.3.2 system 
+once its installed.
+
+That way I can install to one of the wide disks and not use the 500 megger
+at all.
+Then I will always boot from a floppy...
+
+Anyway here is where the fun starts...
+
+I followed the instructions on the FAQ on how to create a boot disk but I
+had problems
+SRM told me that dva0 did not contain a valid boot block :(
+
+so I grabbed install132.fs and 
+
+  vnconfig -v -c /dev/vnd0c install132.fs
+
+then
+
+  mount /dev/vnd0a /mnt
+
+and copied over my netbsd.gz to /mnt and then unmounted and unvnconfig'd
+
+rawrite'd it down to a floppy (on an intel box) and started booting it...
+
+boot loaded up but later bombed shortly.  Here is the last bit of what was
+displayed:
+
+Loading netbsd.gz...
+3849336lseek text: Unknown error: 88
+
+Boot failed!  Halting...
+
+halt code = 5
+
+And them im shortly back to the >>> prompt
+
+Is my logic impaired here?
+what am I doing wrong?
+
+Anyone have a set of instructions on how to make a boot disk
+that they have used before?
+
+Thanks,
+Nick Maniscalco
+nmanisca@vt.edu
+
+From davisoja@clarkson.edu  Wed Aug 5 23:52:15 1998
+From: John Davison <davisoja@clarkson.edu>
+To: port-alpha@netbsd.org
+Date: Wed, 05 Aug 1998 23:52:15 +0000
+Subject: Any ZLXp-E[23] news?
+
+I was under the impression (from a posting in June) that Jason Thorpe was
+working on ZLXp-E2 support.  Have you made any progress, Jason?  I have an
+E2 and some AS200's and would be more than happy to help test any code.
+
+On a related note, what is keeping the xfree86 SVGA, etc. Xservers from
+running?  ISA DMA support?  Does anyone care to further explain this issue
+to me?
+
+See, my roommate has an XL w/Millenium 8MB, and I'm getting jealous... =)
+
+john
+
+From nmanisca@vt.edu  Thu Aug 6 10:42:18 1998
+From: nm <nmanisca@vt.edu>
+To: port-alpha@netbsd.org
+Date: Thu, 06 Aug 1998 10:42:18 +0000
+Subject: problems with 100baseTX
+
+I have an axppci33 system running 1.3.2 and a windows nt 4.0 system on the
+same
+fast ethernet.
+
+Both have accton 10/100 pci cards (de* driver, DEC 21140)
+
+They are connected via cat-5 and a fast hub.
+
+on the NetBSD side here is how I ifconfig'd
+
+ifconfig de0 media 100baseTX
+ifconfig de0 192.168.1.1 255.255.255.0
+
+This all works fine...
+If I put both of thses boxes on a 10baseT ethernet cand ifconfig the media
+to 10baseT everything works great.
+
+but on a 100baseTX network they cannot communicate.  I can't ping the
+nt box from the netbsd box.
+
+but when I do ping, the light flashes on the hub and on the back of the cards
+the lights light up showing that there is traffic (the ping request).
+
+Also each card has a light that shows if its doing 100 or 10 and they both
+show
+100.
+
+I am stumped here...
+
+What information would help trouble shoot this problem?
+
+Thanks,
+Nick
+
+From ajo@wopr.campus.luth.se  Thu Aug 6 09:34:17 1998
+From: Andreas Johansson <ajo@wopr.campus.luth.se>
+To: port-alpha@netbsd.org
+Date: Thu, 06 Aug 1998 09:34:17 +0000
+Subject: Re: PCI problem with 21164PC system
+
+On Tue, 4 Aug 1998, Andreas Johansson wrote:
+
+> Hi!
+> 
+> I have a problem with my 21164PC system. It seems that the SRM (v5.1)
+                                                                  ^^^^
+Ooops, make that v5.2 (the latest).
+
+> doesn't initiate the LT register for the pci devices. I have one NCR875
+> and two 21140's. The latency timers were set to 0, and this means that
+> incredibly large dma transfers takes place on the pci bus causing several 
+> ugly things in the system.
+
+BTW, I don't think that LT=0 should lead to large DMA transfers according
+to the PCI spec, but it surely seems to. Anyway, LT should be 0 when the
+system comes up, and we can't change the SRM's behaviour I guess.
+
+/Andreas
+
+From drochner@zelux6.zel.kfa-juelich.de  Fri Aug 7 12:44:21 1998
+From: Matthias Drochner <drochner@zelux6.zel.kfa-juelich.de>
+To: port-alpha@netbsd.org
+Date: Fri, 07 Aug 1998 12:44:21 +0000
+Subject: The keyboard beep is back!
+
+(PCI alphas only of course)
+It is enabled by a
+
+isabeep0 at pcppi?
+
+line in the config file.
+
+best regards
+Matthias
+
+From mjacob@feral.com  Fri Aug 7 11:08:16 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: ross@teraflop.com
+Date: Fri, 07 Aug 1998 11:08:16 +0000
+Subject: about ncr.c..
+
+Heh. Heh. Heh. Let me requalify this and say that "label reads worked, but
+other odd things seem to be happening"....
+
+The latest is that some attempts to fsck a device get this failure:
+
+sd4(ncr0:1:0): error code 0
+
+This looks to be due to corrupted sense data getting reflected back.
+I'll check into this more fully and report back a bit later today.
+
+From nmanisca@vt.edu  Fri Aug 7 18:53:27 1998
+From: nm <nmanisca@vt.edu>
+To: port-alpha@netbsd.org
+Date: Fri, 07 Aug 1998 18:53:27 +0000
+Subject: still looking
+
+Has anyone used a 10/100 base T(X) ethernet card in a NetBSD-1.3.2 box?
+
+I have a 21140A based card that I can't get to work, yet I think it should
+be working.
+
+Thanks
+Nick
+
+From mjacob@feral.com  Fri Aug 7 15:57:52 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: nmanisca@vt.edu
+Date: Fri, 07 Aug 1998 15:57:52 +0000
+Subject: Re: still looking
+
+On Fri, 7 Aug 1998, nm wrote:
+
+> Has anyone used a 10/100 base T(X) ethernet card in a NetBSD-1.3.2 box?
+
+Yes. I have a kingston. I don't remember what rev of the chip it is.
+I believe 'C' rev of the 21140. 
+
+> 
+> I have a 21140A based card that I can't get to work, yet I think it should
+> be working.
+
+details?
+
+From nmanisca@vt.edu  Sat Aug 8 00:33:31 1998
+From: nm <nmanisca@vt.edu>
+To: mjacob@feral.com
+Date: Sat, 08 Aug 1998 00:33:31 +0000
+Subject: Re: still looking
+
+While trying to gather info about my system (netstat -i, etc)
+I got a kernel panic while deleteing a route...
+
+Anything dealing with networking makes my system completely unstable...
+I just don't understand it...
+
+At 03:57 PM 8/7/98 -0700, Matthew Jacob wrote:
+>
+>
+>
+>On Fri, 7 Aug 1998, nm wrote:
+>
+>> Has anyone used a 10/100 base T(X) ethernet card in a NetBSD-1.3.2 box?
+>
+>Yes. I have a kingston. I don't remember what rev of the chip it is.
+>I believe 'C' rev of the 21140. 
+>
+>> 
+>> I have a 21140A based card that I can't get to work, yet I think it should
+>> be working.
+>
+>details?
+>
+>
+>
+>
+
+From nmanisca@vt.edu  Sat Aug 8 00:41:50 1998
+From: nm <nmanisca@vt.edu>
+To: port-alpha@netbsd.org
+Date: Sat, 08 Aug 1998 00:41:50 +0000
+Subject: info on nic problem
+
+Okay, its a pci 21140A based card that doesn't work.
+it's sitting in an axppci33 with a 21040 based card that
+DOES work.
+
+if I if ifconfig de0 (the 21140A card) then subsequent ifconfigs
+of the de1 (the working 21040 card) have no effect and the system
+becomes unreliable...
+
+However if de0 is not touched and de1 is ifconfig'd all appears fine...
+
+When de0 is set up and you ping from host to host you can see lights
+flash on the hub and on the back of the card yet packets are not recieved...
+
+Some pertinant info is at the end... if there is something I left
+out please email me.
+
+Thanks
+Nick
+
+
+
+Output from netstat -i...
+
+Name  Mtu   Network       Address              Ipkts Ierrs    Opkts Oerrs
+Coll
+de0   1500  <Link>        00:00:e8:3b:27:c9        0     0        1     1
+  0
+de0   1500  192.168.1     192.168.1.1              0     0        1     1
+  0
+de1*  1500  <Link>        00:00:c0:99:c0:0d        0     0        0     0
+  0
+lo0   33200 <Link>                                25     0       25     0
+  0
+lo0   33200 your-net      localhost               25     0       25     0
+  0
+ppp0* 1500  <Link>                                 0     0        0     0
+  0
+ppp1* 1500  <Link>                                 0     0        0     0
+  0
+ppp2* 1500  <Link>                                 0     0        0     0
+  0
+ppp3* 1500  <Link>                                 0     0        0     0
+  0
+sl0*  296   <Link>                                 0     0        0     0
+  0
+sl1*  296   <Link>                                 0     0        0     0
+  0
+sl2*  296   <Link>                                 0     0        0     0
+  0
+sl3*  296   <Link>                                 0     0        0     0
+  0
+
+
+
+Output from ifconfig de0...
+
+de0: flags=8863<UP,BROADCAST,NOTRAILERS,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+        media: 100baseTX status: active
+        inet 192.168.1.1 netmask 0xffffff00 broadcast 255.255.255.0
+
+
+
+Some output from dmesg...
+
+de0 at pci0 dev 8 function 0
+de0: interrupting at isa irq 5
+de0: ACCTON EN1207 21140A [10-100Mb/s] pass 2.2
+de0: address 00:00:e8:3b:27:c9
+de0: enabling 100baseTX port
+de0: enabling 10baseT port
+
+From mjacob@feral.com  Sat Aug 8 00:01:02 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: nmanisca@vt.edu
+Date: Sat, 08 Aug 1998 00:01:02 +0000
+Subject: Re: still looking
+
+On Sat, 8 Aug 1998, nm wrote:
+
+> While trying to gather info about my system (netstat -i, etc)
+> I got a kernel panic while deleteing a route...
+
+I've heard that this has been an issue. I thought it had been
+fixed. But that is just rumour.
+
+From mjacob@feral.com  Sat Aug 8 00:07:05 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: nmanisca@vt.edu
+Date: Sat, 08 Aug 1998 00:07:05 +0000
+Subject: Re: info on nic problem
+
+I suggest a send-pr on this with things that include the
+release you're running. I keep getting yelled at for not getting
+this kind of info, so it would probably help if this is done.
+
+
+
+On Sat, 8 Aug 1998, nm wrote:
+
+> Okay, its a pci 21140A based card that doesn't work.
+> it's sitting in an axppci33 with a 21040 based card that
+> DOES work.
+> 
+> if I if ifconfig de0 (the 21140A card) then subsequent ifconfigs
+> of the de1 (the working 21040 card) have no effect and the system
+> becomes unreliable...
+> 
+> However if de0 is not touched and de1 is ifconfig'd all appears fine...
+> 
+> When de0 is set up and you ping from host to host you can see lights
+> flash on the hub and on the back of the card yet packets are not recieved...
+> 
+> Some pertinant info is at the end... if there is something I left
+> out please email me.
+> 
+> Thanks
+> Nick
+> 
+> 
+> 
+> Output from netstat -i...
+> 
+> Name  Mtu   Network       Address              Ipkts Ierrs    Opkts Oerrs
+> Coll
+> de0   1500  <Link>        00:00:e8:3b:27:c9        0     0        1     1
+>   0
+> de0   1500  192.168.1     192.168.1.1              0     0        1     1
+>   0
+> de1*  1500  <Link>        00:00:c0:99:c0:0d        0     0        0     0
+>   0
+> lo0   33200 <Link>                                25     0       25     0
+>   0
+> lo0   33200 your-net      localhost               25     0       25     0
+>   0
+> ppp0* 1500  <Link>                                 0     0        0     0
+>   0
+> ppp1* 1500  <Link>                                 0     0        0     0
+>   0
+> ppp2* 1500  <Link>                                 0     0        0     0
+>   0
+> ppp3* 1500  <Link>                                 0     0        0     0
+>   0
+> sl0*  296   <Link>                                 0     0        0     0
+>   0
+> sl1*  296   <Link>                                 0     0        0     0
+>   0
+> sl2*  296   <Link>                                 0     0        0     0
+>   0
+> sl3*  296   <Link>                                 0     0        0     0
+>   0
+> 
+> 
+> 
+> Output from ifconfig de0...
+> 
+> de0: flags=8863<UP,BROADCAST,NOTRAILERS,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+>         media: 100baseTX status: active
+>         inet 192.168.1.1 netmask 0xffffff00 broadcast 255.255.255.0
+> 
+> 
+> 
+> Some output from dmesg...
+> 
+> de0 at pci0 dev 8 function 0
+> de0: interrupting at isa irq 5
+> de0: ACCTON EN1207 21140A [10-100Mb/s] pass 2.2
+> de0: address 00:00:e8:3b:27:c9
+> de0: enabling 100baseTX port
+> de0: enabling 10baseT port
+>
+
+From haszlaki@UAccess.NET  Sat Aug 8 03:39:00 1998
+From: Eric Haszlakiewicz <haszlaki@UAccess.NET>
+To: mjacob@feral.com
+Date: Sat, 08 Aug 1998 03:39:00 +0000
+Subject: Re: still looking
+
+> > While trying to gather info about my system (netstat -i, etc)
+> > I got a kernel panic while deleteing a route...
+> 
+> I've heard that this has been an issue. I thought it had been
+> fixed. But that is just rumour.
+
+	I've also seen a problem with deleting routes.  See PR#4561.  It might
+be related.  I haven't had an opportunity to look at it much but I believe
+it is still a problem.  (yep, just tried it.  of course, I'm using a
+July 1st kernel, but I'd imaging it's probably still broken)
+
+eric
+erh@uaccess.net
+
+From nmanisca@vt.edu  Sat Aug 8 16:11:54 1998
+From: nm <nmanisca@vt.edu>
+To: haszlaki@UAccess.NET
+Date: Sat, 08 Aug 1998 16:11:54 +0000
+Subject: Re: still looking
+
+At 03:39 AM 8/8/98 -0500, Eric Haszlakiewicz wrote:
+>> > While trying to gather info about my system (netstat -i, etc)
+>> > I got a kernel panic while deleteing a route...
+>> 
+>> I've heard that this has been an issue. I thought it had been
+>> fixed. But that is just rumour.
+>
+>	I've also seen a problem with deleting routes.  See PR#4561.  It might
+>be related.  I haven't had an opportunity to look at it much but I believe
+>it is still a problem.  (yep, just tried it.  of course, I'm using a
+>July 1st kernel, but I'd imaging it's probably still broken)
+>
+>eric
+>erh@uaccess.net
+
+Aha, the panics happened while I was deleting routes!  So this is a known
+problem?
+fixed in current?
+
+>
+
+From tsprad@spradley.tmi.net  Sat Aug 8 17:50:01 1998
+From: Ted Spradley <tsprad@spradley.tmi.net>
+To: port-alpha@netbsd.org
+Date: Sat, 08 Aug 1998 17:50:01 +0000
+Subject: Size limitation in MFS?
+
+Is there a known limitation of problem with Memory file system?
+
+On an AS200-4/233 w/ 96M bytes main memory running the 0628 Snapshot, I 
+have two swap partitions:  /dev/sd0b is ~ 750M bytes and /dev/sd1b is 
+~250M bytes.  Both are listed as swap in /etc/fstab.  If I "mount -t mfs 
+/dev/sd1b /tmp" it's fine, but if instead I try sd0b, the bigger one, I 
+get:
+
+fatal kernel trap:
+
+    trap entry = 0x2 (memory management fault)
+    a0         = 0x120176000
+    a1         = 0x1
+    a2         = 0xffffffffffffffff
+    pc         = 0x120176000
+    ra         = 0x120176000
+    curproc    = 0xfffffe0000425800
+        pid = 156, comm = mount_mfs
+
+panic: trap
+syncing disks... 7 6 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 giving up
+
+
+I do have "/dev/sd1b /tmp mfs rw,noauto 0 0" in /etc/fstab, but the 
+'noauto' should prevent that from interfering, shouldn't it?
+
+I haven't yet got a dump because /var is smaller than main memory, and 
+savecore apparently doesn't follow symlinks.  Before I pursue that, I may 
+as well build a kernel with debug symbols.  Can anyone give me a quick 
+clue on that?  Is it as simple as "config -g" and then copy the kernel, 
+"strip -d" one copy and put that in / and keep the other copy for 
+debugging?
+
+From thorpej@nas.nasa.gov  Sat Aug 8 16:11:12 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: tsprad@spradley.tmi.net
+Date: Sat, 08 Aug 1998 16:11:12 +0000
+Subject: Re: Size limitation in MFS?
+
+On Sat, 08 Aug 1998 17:50:01 -0500 
+ Ted Spradley <tsprad@spradley.tmi.net> wrote:
+
+ > fatal kernel trap:
+ > 
+ >     trap entry = 0x2 (memory management fault)
+ >     a0         = 0x120176000
+ >     a1         = 0x1
+ >     a2         = 0xffffffffffffffff
+ >     pc         = 0x120176000
+ >     ra         = 0x120176000
+ >     curproc    = 0xfffffe0000425800
+ >         pid = 156, comm = mount_mfs
+
+Wow, that's curious.  Look at the faulting address, the program counter,
+and the return address.  These are all addresses in userspace, yet you
+managed to get a "fatal kernel trap", implying the CPU was in supervisor
+mode!
+
+*puzzled*
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From fredb@enteract.com  Sat Aug 8 21:04:05 1998
+From: Frederick Bruckman <fredb@enteract.com>
+To: tsprad@spradley.tmi.net
+Date: Sat, 08 Aug 1998 21:04:05 +0000
+Subject: Re: Size limitation in MFS?
+
+On Sat, 8 Aug 1998, Ted Spradley wrote:
+
+> Is there a known limitation of problem with Memory file system?
+> 
+> On an AS200-4/233 w/ 96M bytes main memory running the 0628 Snapshot, I 
+> have two swap partitions:  /dev/sd0b is ~ 750M bytes and /dev/sd1b is 
+> ~250M bytes.  Both are listed as swap in /etc/fstab.  If I "mount -t mfs 
+> /dev/sd1b /tmp" it's fine, but if instead I try sd0b, the bigger one, I 
+> get:
+> 
+> fatal kernel trap:
+> 
+>     trap entry = 0x2 (memory management fault)
+>     a0         = 0x120176000
+>     a1         = 0x1
+>     a2         = 0xffffffffffffffff
+>     pc         = 0x120176000
+>     ra         = 0x120176000
+>     curproc    = 0xfffffe0000425800
+>         pid = 156, comm = mount_mfs
+> 
+> panic: trap
+> syncing disks... 7 6 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 giving up
+> 
+> 
+> I do have "/dev/sd1b /tmp mfs rw,noauto 0 0" in /etc/fstab, but the 
+> 'noauto' should prevent that from interfering, shouldn't it?
+
+It might be interesting to experiment with intermediate sizes, with
+something like this: "/dev/sd0b /tmp mfs rw,-s=1000000 0 0".
+
+> I haven't yet got a dump because /var is smaller than main memory, and 
+> savecore apparently doesn't follow symlinks.  Before I pursue that, I may 
+> as well build a kernel with debug symbols.  Can anyone give me a quick 
+> clue on that?  Is it as simple as "config -g" and then copy the kernel, 
+> "strip -d" one copy and put that in / and keep the other copy for 
+> debugging?
+
+AFAIK, all you have to do is add 'makeoptions DEBUG="-g"' to your kernel
+configuration file, and that will lead to two kernels: one stripped, for
+the booter, and one huge one, for the debugger.
+
+From ross@teraflop.com  Sat Aug 8 19:54:19 1998
+From: Ross Harvey <ross@teraflop.com>
+To: port-alpha@netbsd.org
+Date: Sat, 08 Aug 1998 19:54:19 +0000
+Subject: scsi problems in -current and with UVM resolved
+
+I fixed a problem preventing SCSI operation that appeared in kernels
+built in the last 10 days.
+
+Also, I seem to have solved a problem that was intermittently confusing
+alpha SCSI host adapaters when UVM was used...at least...one machine I had
+here that refused (usually) to do both SCSI and UVM at the same time now
+appears to run just fine.
+
+ --Ross
+
+From root@garbled.net  Sun Aug 9 07:46:38 1998
+From: Tim Rightnour <root@garbled.net>
+To: port-alpha@netbsd.org
+Date: Sun, 09 Aug 1998 07:46:38 +0000
+Subject: ps giving wierd output for pagedaemon
+
+I was doing a random PS while compiling today.. and:
+
+rigel# ps -aux | grep page
+root         2  0.0 -25640.9     0 587072 ??  DL   12Jun98    5:03.52
+(pagedaemon)
+
+this one struct me as a bit wild..  I hit ps a few more times and it's still
+there..  I don't have the faintest clue whats going on here.. but I'm running a
+6/10/98 build, with the compiler set from the snapshot (not that that part
+matters)  This is a multia w/ 48 megs of ram..
+
+some other information.. if it helps:
+
+rigel# pstat -s
+Device      1K-blocks     Used    Avail Capacity  Priority
+/dev/sd0b      156750     5144   151606     3%    0
+
+rigel# vmstat
+ procs   memory     page                       disks   faults   cpu
+ r b w   avm   fre  flt  re  pi   po   fr   sr s0 m0   in   sy  cs us sy id
+ 2 0 0 20064 16384   17   0   0    0    0    3  1  0  162   35  17 94  2  4
+rigel# 
+
+---
+Tim Rightnour    -  root@garbled.net
+http://www.zynetwc.com/~garbled/garbled.html
+
+From proff@suburbia.net  Mon Aug 10 10:03:50 1998
+From: None <proff@suburbia.net>
+To: alpha@netbsd.org
+Date: Mon, 10 Aug 1998 10:03:50 +0000
+Subject: Working X/kernel combination
+
+I have an AlphaStation 255/233 + TGA2 (rev. 0x22). Can someone
+suggest a kernel/userland/xland combination? -current (from the
+8th of august) with X from the last alpha snapshot, complains
+on X invocation thus:
+
+	Getting interface configuration (4): Device not configured
+	unable to get frame buffer type: Inappropriate ioctl for device
+
+Cheers,
+Julian.
+
+From proff@iq.org  Mon Aug 10 10:41:41 1998
+From: Julian Assange <proff@iq.org>
+To: tsprad@spradley.tmi.net
+Date: Mon, 10 Aug 1998 10:41:41 +0000
+Subject: Re: Working X/kernel combination
+
+Ted Spradley <tsprad@spradley.tmi.net> writes:
+
+> > 
+> > I have an AlphaStation 255/233 + TGA2 (rev. 0x22). Can someone
+> > suggest a kernel/userland/xland combination? -current (from the
+> > 8th of august) with X from the last alpha snapshot, complains
+> > on X invocation thus:
+> > 
+> > 	Getting interface configuration (4): Device not configured
+> > 	unable to get frame buffer type: Inappropriate ioctl for device
+> > 
+> > Cheers,
+> > Julian.
+> > 
+> Sorry, there doesn't seem to be much available at all for Xservers for Alphas.
+> 
+> The two messages attached are the most recent postings on the list on that subject.
+
+I believe the TGA2 in the AlphaStation 255/233 is a ZLXp-E1 (i.e not
+E2). It only has 2Mb ram in anyevent. Near the VGA out, the card has
+the letters `PGXBB-AA' which I presume is the DEC part number?.
+
+Surely the alpha xserver works with at least one graphics card. Is there a
+list about?
+
+Cheers,
+Julian.
+
+From joda@pdc.kth.se  Mon Aug 10 15:52:51 1998
+From: Johan Danielsson <joda@pdc.kth.se>
+To: port-alpha@netbsd.org
+Date: Mon, 10 Aug 1998 15:52:51 +0000
+Subject: There is a hole in my ELF
+
+While hacking on an ELF aware modload, I stumbled on this GNU-ld
+feature (from elf.sc):
+
+  /* Adjust the address for the data segment.  We want to adjust up to
+     the same address within the page on the next page up.  */
+
+Ok, fine. But why? I can imagine cases where you'd want the data
+segment to start at the next page, but why offset it into the next
+page? IRIX ld seems to put things at the next page boundary.
+
+And why is MAXPAGESIZE 1MB on alpha?
+
+I guess this isn't a problem with ordinary programs, but with the
+present a.out-centric lkm interface, quite a lot of kernel memory gets
+wasted without doing ugly tricks.
+
+Thinking about it, this might perhaps be a tool-chain issue...
+
+/Johan
+
+From ross@teraflop.com  Mon Aug 10 07:23:40 1998
+From: Ross Harvey <ross@teraflop.com>
+To: joda@pdc.kth.se, port-alpha@netbsd.org
+Date: Mon, 10 Aug 1998 07:23:40 +0000
+Subject: Re: There is a hole in my ELF
+
+> From: joda@pdc.kth.se (Johan Danielsson)
+>
+> While hacking on an ELF aware modload, I stumbled on this GNU-ld
+> feature (from elf.sc):
+>
+>   /* Adjust the address for the data segment.  We want to adjust up to
+>      the same address within the page on the next page up.  */
+>
+> Ok, fine. But why? I can imagine cases where you'd want the data
+> segment to start at the next page, but why offset it into the next
+> page? IRIX ld seems to put things at the next page boundary.
+>
+> And why is MAXPAGESIZE 1MB on alpha?
+>
+> I guess this isn't a problem with ordinary programs, but with the
+> present a.out-centric lkm interface, quite a lot of kernel memory gets
+> wasted without doing ugly tricks.
+>
+> Thinking about it, this might perhaps be a tool-chain issue...
+>
+> /Johan
+>
+
+I'm not sure exactly what the toolchain is doing, but there were a couple
+of neat tricks discovered long ago.
+
+If you start the data segment at the offset within a page that the text
+segment ended with, then you can use the same page on disk (from the image
+file) to page in both the last text page and the first data page, thus
+saving up to a memory-page of disk space on every adjacent section pair
+following this rule. Of course, this applies to any two adjacent sections,
+not just to text and data.
+
+The same trick can be used to skip over COFF or ELF headers, too. One begins
+the first section at a page boundary plus the size of the file headers.
+
+Actually, you can save pages in main memory too with this, although if the
+attributes differ significantly (r/o vs r/w, say), then problems may appear
+between adjacent dissimilar sections.
+
+I have no idea what the 1MB issue is. I'm not aware of any 1MB boundaries
+in the architecture, at least, none that are associated with VM hardware
+or palcode.
+
+  --Ross
+
+From syko@sykotik.org  Tue Aug 11 15:46:29 1998
+From: Dusk Auriel Sykotik <syko@sykotik.org>
+To: port-alpha@netbsd.org
+Date: Tue, 11 Aug 1998 15:46:29 +0000
+Subject: new server questions
+
+I'm going to be installing a new Alpha XL300 for Sykotik shortly.  Being a
+current FreeBSD sysadmin, and because FreeBSD does not support the Alpha
+platform at all, I chose NetBSD as the operating system. I was just
+wondering if NetBSD Alpha supported the XL300?  It is not stated in the
+readme that it does support it, nor that it does not.  I'm not on the
+list, reply to my address.  Thank you.  
+
+/*
+**  Matt Harris                      Syko
+**  BPSOFH, BIOFH, C, SQL, PERL      http://www.sykotik.org/~syko/
+**  FreeBSD SysAdmin                 sykotik.org
+**  IRC TechnoNet - dark.technonet.net Cabalnet - dark-temple.cabalnet.org
+**  "Those who are right in the mind are left in the dust." -- Me.
+*/
+
+From thorpej@nas.nasa.gov  Tue Aug 11 14:26:05 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: port-i386@netbsd.org
+Date: Tue, 11 Aug 1998 14:26:05 +0000
+Subject: 3Com 3c595 and 3c90x cards
+
+How many people out there have the various varieties of the PCI
+3Com cards (but NOT the new -B cards)?  I'm completely rewriting
+the media selection code to use the new MII stuff if appropriate,
+and I need people willing to test drivers.  Please send me mail if
+you can help out.
+
+thanks!
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From scotte@intrepid.warped.com  Tue Aug 11 17:31:36 1998
+From: Scott Ellis <scotte@intrepid.warped.com>
+To: thorpej@nas.nasa.gov
+Date: Tue, 11 Aug 1998 17:31:36 +0000
+Subject: Re: 3Com 3c595 and 3c90x cards
+
+On Tue, Aug 11, 1998 at 02:26:05PM -0700, Jason Thorpe wrote:
+> How many people out there have the various varieties of the PCI
+> 3Com cards (but NOT the new -B cards)?  I'm completely rewriting
+> the media selection code to use the new MII stuff if appropriate,
+> and I need people willing to test drivers.  Please send me mail if
+> you can help out.
+
+I've got one of each (3c590 (AFAIK the Combo version of the 595), and a 3c905
+(not B)).  The 3c590 is in the BSD box, so I can certainly test that one..
+the 905 is in the NT machine, but I can move it to the BSD box for testing
+if you can't find anyone else.
+
+-- 
+   //////////////////////////////////////////////////////////////////////
+  //    Scott Ellis     //   scotte@warped.com   //   sellis@gi.com   //
+ //////////////////////////////////////////////////////////////////////
+// WARNING: This signature warps  time and space in its vicinity    //
+
+From drochner@zelux6.zel.kfa-juelich.de  Wed Aug 12 09:53:01 1998
+From: Matthias Drochner <drochner@zelux6.zel.kfa-juelich.de>
+To: thorpej@nas.nasa.gov
+Date: Wed, 12 Aug 1998 09:53:01 +0000
+Subject: Re: 3Com 3c595 and 3c90x cards
+
+Excerpts from netbsd: 11-Aug-98 3Com 3c595 and 3c90x cards Jason
+Thorpe@nas.nasa.go (591)
+
+> How many people out there have the various varieties of the PCI
+> 3Com cards
+
+Is the ISA 509 that different?
+However, I have a number of 590 and 900 combos, and a
+905TPO.
+
+One thing comes to mind which I think was proposed already:
+How about an ifconfig option which can set the default media
+selection stored on the card's flash ROM?
+It's especially useful for diskless boot where the ROM has no
+way to parse "rc.conf" or so.
+
+best regards
+Matthias
+
+From thorpej@nas.nasa.gov  Wed Aug 12 01:14:31 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: drochner@zelux6.zel.kfa-juelich.de
+Date: Wed, 12 Aug 1998 01:14:31 +0000
+Subject: Re: 3Com 3c595 and 3c90x cards
+
+On Wed, 12 Aug 1998 09:53:01 +0200 (MET DST) 
+ Matthias Drochner <drochner@zelux6.zel.kfa-juelich.de> wrote:
+
+ > Is the ISA 509 that different?
+
+Yah, the ISA device is totally different...
+
+ > However, I have a number of 590 and 900 combos, and a
+ > 905TPO.
+
+Cool, if you could test the 590 and 90x models, that'd be
+great:
+
+	ftp://ftp.netbsd.org/pub/incoming/thorpej/netbsd-i386-GENERIC.gz
+
+ > One thing comes to mind which I think was proposed already:
+ > How about an ifconfig option which can set the default media
+ > selection stored on the card's flash ROM?
+ > It's especially useful for diskless boot where the ROM has no
+ > way to parse "rc.conf" or so.
+
+Yah, I'd still like to have something like this, or a program for
+the 3Com cards that manipulated the eeprom from userspace...
+
+I don't know how you set that stuff in NV storage on the Demon,
+Vortex, and Boomerang chips, tho.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From thorpej@nas.nasa.gov  Wed Aug 12 01:17:04 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: drochner@zelux6.zel.kfa-juelich.de
+Date: Wed, 12 Aug 1998 01:17:04 +0000
+Subject: Re: 3Com 3c595 and 3c90x cards
+
+On Wed, 12 Aug 1998 01:14:31 -0700 
+ Jason Thorpe <thorpej@nas.nasa.gov> wrote:
+
+ >  > Is the ISA 509 that different?
+ > 
+ > Yah, the ISA device is totally different...
+
+...err, in terms of setting the media, that is.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From cherkus@homerun.unimaster.com  Wed Aug 12 11:26:02 1998
+From: Dave Cherkus <cherkus@homerun.unimaster.com>
+To: port-alpha@netbsd.org
+Date: Wed, 12 Aug 1998 11:26:02 +0000
+Subject: Minor install nits
+
+I'm re-installing 1.3.2 for the Alpha, and have noticed the following:
+
+1) When running the kernel from the boot floppy, the install
+instructions indicate that I should be able to use the name reslution
+routines after populating /etc/resolv.conf, but in my case it didn't
+work.  I had to put entries into /etc/hosts so I could use nfs to do
+the rest of the installation.  Does this happen to anyone else?
+
+2) The INSTALL file I got today off gatekeeper.dec.com has the following:
+
+    The sets and kernel are extracted with
+
+        cd /mnt
+        for file in base kern comp etc games man misc text; do
+            tar xpfz /mnt/var/tmp/$file.tgz;
+        done
+
+    or (but do NOT unpack source/toolchain.tgz from / or /mnt) perhaps:
+
+        cd /mnt
+        for file in /mnt/var/tmp/[a-z]*.tgz; do
+            echo $i
+            tar xpfz $i
+        done
+
+
+Note how the second section uses 'file' in the 'for' statement yet uses
+'$i' in the 'echo' and 'tar' commands, which doesn't work.
+
+-- 
+Dave Cherkus ------- UniMaster, Inc. ------ Contract Software Development
+Specialties: UNIX Internals/Kernel TCP/IP Alpha Clusters Performance ISDN
+Email: cherkus@UniMaster.COM  When the music's over, turn out the lights!
+
+From ross@teraflop.com  Wed Aug 12 11:20:16 1998
+From: Ross Harvey <ross@teraflop.com>
+To: cherkus@homerun.unimaster.com, port-alpha@netbsd.org
+Date: Wed, 12 Aug 1998 11:20:16 +0000
+Subject: Re: Minor install nits
+
+> From: Dave Cherkus <cherkus@homerun.unimaster.com>
+>
+> I'm re-installing 1.3.2 for the Alpha, and have noticed the following:
+>
+> 1) When running the kernel from the boot floppy, the install
+> instructions indicate that I should be able to use the name reslution
+> routines after populating /etc/resolv.conf, but in my case it didn't
+> work.  I had to put entries into /etc/hosts so I could use nfs to do
+> the rest of the installation.  Does this happen to anyone else?
+
+Are you sure?  I just looked at the 1.3.2 notes and I do see a note w.r.t.
+resolv.conf on setting up the final system, but in terms of the installation
+instructions I see this:
+
+	In order to save space on the install floppy, the resolver does
+	not implement the DNS protocol, ignores /etc/resolv.conf and
+	does only host table lookups.  You can specify all host addresses
+	as IP numbers or you can enter the host names and numbers into
+	/etc/hosts. For example, you can prepare a hosts table beforehand,
+	and ftp(1) it down (by IP number) to /etc/hosts. This is not
+	stored on the floppy but on the temporary ramdisk filesystem,
+	so it must be repeated on any subsequent reboots from floppy.
+
+Could you be looking at 1.3 maybe?
+
+> : : :
+> : : :
+>         for file in /mnt/var/tmp/[a-z]*.tgz; do
+>             echo $i
+>             tar xpfz $i
+> : : :
+> Note how the second section uses 'file' in the 'for' statement yet uses
+> '$i' in the 'echo' and 'tar' commands, which doesn't work.
+
+Sigh, right. I fixed that a couple of months ago...you will note that it
+is OK in the June 28 snapshot instructions.
+
+From cherkus@homerun.unimaster.com  Wed Aug 12 14:25:42 1998
+From: Dave Cherkus <cherkus@homerun.unimaster.com>
+To: ross@teraflop.com
+Date: Wed, 12 Aug 1998 14:25:42 +0000
+Subject: Re: Minor install nits
+
+Ross Harvey writes:
+|> 
+|> Could you be looking at 1.3 maybe?
+|> 
+
+Re: resolver: Yes, I was looking at a 1.3 version, blush...
+
+I was looking at 1.3.2 on one system and 1.3 on a different system...
+
+|> 
+|> Sigh, right. I fixed that a couple of months ago...you will note that it
+|> is OK in the June 28 snapshot instructions.
+|> 
+
+Ok.  Thanks for making the fix.
+
+-- 
+Dave Cherkus ------- UniMaster, Inc. ------ Contract Software Development
+Specialties: UNIX Internals/Kernel TCP/IP Alpha Clusters Performance ISDN
+Email: cherkus@UniMaster.COM  When the music's over, turn out the lights!
+
+From nmanisca@vt.edu  Wed Aug 12 22:34:26 1998
+From: nm <nmanisca@vt.edu>
+To: port-alpha@netbsd.org
+Date: Wed, 12 Aug 1998 22:34:26 +0000
+Subject: semi-offtopic: netgear?
+
+Sorry for the intrusive nature of this email...
+
+I am looking for anyone who has used a Netgear FA310TX
+in a DEC Alpha with NetBSD.
+
+pricewatch tells me that I can get this card for around $30
+
+If I can be sure that it will work then its a go...
+
+I recently purchased an ACCTON 21140A based card
+and couldn't get it to work (I don't think it's just me)
+so I wanted to get real world verification that the next
+card I buy will work.
+
+Thanks,
+Nick Maniscalco
+nmanisca@vt.edu
+
+From cherkus@homerun.unimaster.com  Wed Aug 12 22:39:30 1998
+From: Dave Cherkus <cherkus@homerun.unimaster.com>
+To: cgd@pa.dec.com
+Date: Wed, 12 Aug 1998 22:39:30 +0000
+Subject: Re: Boot floppy for TC Alpha is available.
+
+Chris G. Demetriou writes:
+|> 
+|> The ZLXp-E1 TGA, i.e. the only frame buffer supported by NetBSD/alpha
+|> for X 8-), is largely just a next-generation SFB.
+
+[snip]
+
+A dumb question:  I see 'vga' in the config file.  Given your statement
+above, do vga boards only work in character-cell mode, and not under X?
+
+-- 
+Dave Cherkus ------- UniMaster, Inc. ------ Contract Software Development
+Specialties: UNIX Internals/Kernel TCP/IP Alpha Clusters Performance ISDN
+Email: cherkus@UniMaster.COM  When the music's over, turn out the lights!
+
+From nmanisca@vt.edu  Wed Aug 12 23:06:58 1998
+From: nm <nmanisca@vt.edu>
+To: port-alpha@netbsd.org
+Date: Wed, 12 Aug 1998 23:06:58 +0000
+Subject: Re: semi-offtopic: netgear?
+
+At 10:58 PM 8/12/98 -0400, you wrote:
+>On Wed, Aug 12, 1998 at 10:34:26PM -0400, nm wrote:
+>> Sorry for the intrusive nature of this email...
+>> 
+>> I am looking for anyone who has used a Netgear FA310TX
+>> in a DEC Alpha with NetBSD.
+>
+>Almost.  I had one in a Linux/Alpha box for a bit.  It's based on a
+>later revision of the Tulip chipset, so it "should work".  I didn't
+>even have to recompile my kernel (since I already had the Tulip driver
+>configured for my UDB's onboard ethernet).
+>
+>> pricewatch tells me that I can get this card for around $30
+>
+>Yep, mine was $34 from CDW (on special).
+>
+>> If I can be sure that it will work then its a go...
+>
+>I'd be suprised if it didn't.
+>
+>> I recently purchased an ACCTON 21140A based card
+>> and couldn't get it to work (I don't think it's just me)
+>> so I wanted to get real world verification that the next
+>> card I buy will work.
+>
+>If the Accton doesn't work, there's probably something more important
+>wrong.  The Accton and Netgear cards are probably nearly identical, so
+>if the one doesn't work the other probably won't either.  But who
+>knows...
+
+right!  thats why I want to find someone to confirm that the netgear
+should work before I buy it.
+
+>-andy
+>-- 
+>Andy Isaacson adisaacs@mtu.edu adi@acm.org    Fight Spam, join CAUCE:
+>http://www.csl.mtu.edu/~adisaacs/              http://www.cauce.org/
+>
+
+From mrg@eterna.com.au  Thu Aug 13 17:20:39 1998
+From: matthew green <mrg@eterna.com.au>
+To: port-alpha@netbsd.org
+Date: Thu, 13 Aug 1998 17:20:39 +0000
+Subject: README:  struct audio_prinfo changing size!
+
+hi folks.  the BSD extension to the sun extension was erroneously
+given a `u_long' tag, which means that when trying to maintain
+32 <-> 64 bit compatibility (eg, compat_sparc32 for a 64-bit
+ultrasparc port), this means all audio ioctls need to be converted.
+pain.  as the alpha did not support any audio devices in 1.3, and
+only recently started supporting the wss in -current, i am changing
+the type of audio_prinfo.seek to a u_int (it was only ever set from
+an int in the kernel anyway!).
+
+this means that any old audio tools will *not* work with a new
+kernel, and you must rebuild these.  this includes the in tree 
+audioctl and all the audio players/recorders that are provided in
+pkgsrc also..
+
+sorry for any inconvience...
+
+
+.mrg.
+
+From wulf@ping.net.au  Thu Aug 13 20:57:33 1998
+From: Berndt Josef Wulf <wulf@ping.net.au>
+To: nmanisca@vt.edu
+Date: Thu, 13 Aug 1998 20:57:33 +0000
+Subject: Re: semi-offtopic: netgear?
+
+I can't confirm this card working on NetBSD-axp but have a
+Netgear FA310TX Fast Ethernet PCI Adapter running in an
+OpenBSD-2.3-i386 box - see report below - hence there is a pretty
+good chance for it to work under NetBSD too.
+
+cheerio Berndt
+
+----------------------------- snip --------------------------
+de0 at pci0 dev 20 function 0 "Digital Equipment DECchip 21140 (FasterNet)" rev 0x22: irq 11
+de0: 21140A [10-100Mb/s] pass 2.2 address 00:40:05:41:88:95
+de0: media: 1="10baseT" 2="Full Duplex 10baseT" 3="100baseTX" 4="Full Duplex 100baseTX"
+de0: enabling 10baseT port
+----------------------------- snip --------------------------
+
+nm wrote
+> 
+> At 10:58 PM 8/12/98 -0400, you wrote:
+> >On Wed, Aug 12, 1998 at 10:34:26PM -0400, nm wrote:
+> >> Sorry for the intrusive nature of this email...
+> >> 
+> >> I am looking for anyone who has used a Netgear FA310TX
+> >> in a DEC Alpha with NetBSD.
+> >
+> >Almost.  I had one in a Linux/Alpha box for a bit.  It's based on a
+> >later revision of the Tulip chipset, so it "should work".  I didn't
+> >even have to recompile my kernel (since I already had the Tulip driver
+> >configured for my UDB's onboard ethernet).
+> >
+> >> pricewatch tells me that I can get this card for around $30
+> >
+> >Yep, mine was $34 from CDW (on special).
+> >
+> >> If I can be sure that it will work then its a go...
+> >
+> >I'd be suprised if it didn't.
+> >
+> >> I recently purchased an ACCTON 21140A based card
+> >> and couldn't get it to work (I don't think it's just me)
+> >> so I wanted to get real world verification that the next
+> >> card I buy will work.
+> >
+> >If the Accton doesn't work, there's probably something more important
+> >wrong.  The Accton and Netgear cards are probably nearly identical, so
+> >if the one doesn't work the other probably won't either.  But who
+> >knows...
+> 
+> right!  thats why I want to find someone to confirm that the netgear
+> should work before I buy it.
+> 
+> >-andy
+> >-- 
+> >Andy Isaacson adisaacs@mtu.edu adi@acm.org    Fight Spam, join CAUCE:
+> >http://www.csl.mtu.edu/~adisaacs/              http://www.cauce.org/
+> >
+> 
+> 
+
+
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@ping.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.3
+
+From tv@pobox.com  Thu Aug 13 08:25:37 1998
+From: Todd Vierling <tv@pobox.com>
+To: mrg@eterna.com.au
+Date: Thu, 13 Aug 1998 08:25:37 +0000
+Subject: Re: README:  struct audio_prinfo changing size!
+
+On Thu, 13 Aug 1998, matthew green wrote:
+
+: the type of audio_prinfo.seek to a u_int (it was only ever set from
+: an int in the kernel anyway!).
+
+Uh, can you size-type it?  u_int32_t?  Pleeeeeeze?
+
+Oh, and don't forget to bump __NetBSD_Version__.
+
+-- 
+-- Todd Vierling (Personal tv@pobox.com; Bus. todd_vierling@xn.xerox.com)
+
+From cgd@netbsd1.cygnus.com  Thu Aug 13 07:53:25 1998
+From: Chris G. Demetriou <cgd@netbsd1.cygnus.com>
+To: tv@pobox.com
+Date: Thu, 13 Aug 1998 07:53:25 +0000
+Subject: Re: README:  struct audio_prinfo changing size!
+
+Todd Vierling <tv@pobox.com> writes:
+> Uh, can you size-type it?  u_int32_t?  Pleeeeeeze?
+
+What reason is there to make this a fixed-size type?
+
+
+
+cgd
+
+From gallatin@cs.duke.edu  Thu Aug 13 11:29:09 1998
+From: Andrew Gallatin <gallatin@cs.duke.edu>
+To: port-alpha@netbsd.org
+Date: Thu, 13 Aug 1998 11:29:09 +0000
+Subject: Re: semi-offtopic: netgear?
+
+Speaking of 21140 NICs, has anybody ever been able to get a DEC 21143 NIC
+into Full Duplex 100base-TX mode? 
+
+All of my Digital Personal Workstations have 21143's integrated.  They
+are identified as 'DEC 21143 [10-100Mb/s] pass 3.0' 
+
+Thanks,
+
+Drew
+
+------------------------------------------------------------------------------
+Andrew Gallatin, Sr Systems Programmer	http://www.cs.duke.edu/~gallatin
+Duke University				Email: gallatin@cs.duke.edu
+Department of Computer Science		Phone: (919) 660-6590
+
+From thorpej@nas.nasa.gov  Thu Aug 13 10:26:00 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: wulf@ping.net.au
+Date: Thu, 13 Aug 1998 10:26:00 +0000
+Subject: Re: semi-offtopic: netgear?
+
+On Thu, 13 Aug 1998 20:57:33 +0930 (CST) 
+ Berndt Josef Wulf <wulf@ping.net.au> wrote:
+
+ > I can't confirm this card working on NetBSD-axp but have a
+ > Netgear FA310TX Fast Ethernet PCI Adapter running in an
+
+In fact, we have Netgear cards working in several NetBSD/alpha systems
+here at the NAS facility.  They work fine.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From thorpej@nas.nasa.gov  Thu Aug 13 10:27:02 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: tv@pobox.com
+Date: Thu, 13 Aug 1998 10:27:02 +0000
+Subject: Re: README: struct audio_prinfo changing size!
+
+On Thu, 13 Aug 1998 08:25:37 -0400 (EDT) 
+ Todd Vierling <tv@pobox.com> wrote:
+
+ > Oh, and don't forget to bump __NetBSD_Version__.
+
+Not appropriate in this case.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From ross@teraflop.com  Thu Aug 13 12:03:43 1998
+From: Ross Harvey <ross@teraflop.com>
+To: nmanisca@vt.edu, port-alpha@netbsd.org
+Date: Thu, 13 Aug 1998 12:03:43 +0000
+Subject: Patch for Accton, was Re: semi-offtopic: netgear?
+
+> >> I recently purchased an ACCTON 21140A based card
+> >> and couldn't get it to work (I don't think it's just me)
+> >> so I wanted to get real world verification that the next
+> >> card I buy will work.
+> >
+> >If the Accton doesn't work, there's probably something more important
+> >wrong.  The Accton and Netgear cards are probably nearly identical, so
+> >if the one doesn't work the other probably won't either.  But who
+> >knows...
+>
+> right!  thats why I want to find someone to confirm that the netgear
+> should work before I buy it.
+
+The de driver has quirk tables for a few Accton cards, but it only looks
+at the MAC chip type to select between them.  In a lucky moment of
+clairvoyance I tried disabling the quirk test and my Accton 21140 sprang
+to life.
+
+Index: if_de.c
+===================================================================
+RCS file: /cvsroot/src/sys/dev/pci/if_de.c,v
+retrieving revision 1.72
+diff -u -w -r1.72 if_de.c
+--- if_de.c	1998/07/05 06:49:14	1.72
++++ if_de.c	1998/08/13 18:56:22
+@@ -2291,7 +2291,7 @@
+     tulip_softc_t * const sc)
+ {
+     strcpy(sc->tulip_boardid, "ACCTON ");
+-    switch (sc->tulip_chipid) {
++    switch (/*sc->tulip_chipid*/-123) {
+ 	case TULIP_21140A:
+ 	    strcat(sc->tulip_boardid, "EN1207 ");
+ 	    sc->tulip_boardsw = &tulip_21140_accton_boardsw;
+
+From ross@teraflop.com  Thu Aug 13 12:55:51 1998
+From: Ross Harvey <ross@teraflop.com>
+To: nmanisca@vt.edu, port-alpha@netbsd.org, ross@teraflop.com
+Date: Thu, 13 Aug 1998 12:55:51 +0000
+Subject: Re: Patch for Accton, was Re: semi-offtopic: netgear?
+
+> : : :
+> : : :
+> ...my Accton 21140 sprang to life...
+
+Err, I should have said, `my Accton 21140A' ...
+
+	de0: interrupting at irq 12
+	de0: ACCTON 21140A [10-100Mb/s] pass 2.2
+	de0: address 00:00:e8:49:65:28
+
+From mts@rare.net  Fri Aug 14 10:47:40 1998
+From: Michael T. Stolarchuk <mts@rare.net>
+To: port-alpha@netbsd.org
+Date: Fri, 14 Aug 1998 10:47:40 +0000
+Subject: MAXUSER?
+
+I've been trying to get a target built with a larger number
+of MAXUSER's set... primarily to get processes which can
+open about 2000 files per process...
+
+When i set MAXUSER to 64 the kernel doesn't even
+get past memory checking... like this:
+
+
+    Copyright (c) 1996, 1997, 1998
+	The NetBSD Foundation, Inc.  All rights reserved.
+    Copyright (c) 1982, 1986, 1989, 1991, 1993
+	The Regents of the University of California.  All rights reserved.
+
+    NetBSD 1.3.2 (ALPHAGW) #0: Mon Aug 10 12:14:40 EDT 1998
+	mts@sandbox.pdq.com:/usr/u/src/sys/arch/alpha/compile/ALPHAGW
+    EB164, 500MHz
+    8192 byte page size, 1 processor.
+    real mem = 1073741824 (2220032 reserved for PROM, 1071521792 used by NetBSD)
+
+
+32, or 30, the kernel, and the kernel panic's:
+
+    Copyright (c) 1996, 1997, 1998
+	The NetBSD Foundation, Inc.  All rights reserved.
+    Copyright (c) 1982, 1986, 1989, 1991, 1993
+	The Regents of the University of California.  All rights reserved.
+
+    panic: pmap_enter_ptpage: can't get KPT page
+
+What am i doing wrong?
+
+mts.
+
+From amarks@sarnoff.com  Fri Aug 14 10:58:37 1998
+From: AARON MARKS <amarks@sarnoff.com>
+To: port-alpha@netbsd.org, current-users@netbsd.org
+Date: Fri, 14 Aug 1998 10:58:37 +0000
+Subject: g77 on NetBSD 1.3F?
+
+Anyone compile g77 on NetBSD 1.3F (snapshot 19980628)?
+I'm currently attempting to merge g77 (5.20) with the gcc (2.7.2.2) in
+toolchain (waiting for the compile).
+
+Thanks,
+-A.
+
+-- 
+Aaron J. Marks		       Communications and Computing Systems Lab
+Assoc. Member Tech Staff       Advanced Networks and Computation Group
+amarks@sarnoff.com	       Sarnoff Corporation
+
+From perry@piermont.com  Fri Aug 14 11:33:02 1998
+From: Perry E. Metzger <perry@piermont.com>
+To: mts@rare.net
+Date: Fri, 14 Aug 1998 11:33:02 +0000
+Subject: Re: MAXUSER?
+
+"Michael T. Stolarchuk" writes:
+> I've been trying to get a target built with a larger number
+> of MAXUSER's set... primarily to get processes which can
+> open about 2000 files per process...
+> 
+> When i set MAXUSER to 64 the kernel doesn't even
+> get past memory checking... like this:
+
+Someone will correct me, but I believe this was a limitation of the
+old pmap code that has been corrected in -current.
+
+Perry
+
+From tv@pobox.com  Fri Aug 14 11:34:15 1998
+From: Todd Vierling <tv@pobox.com>
+To: amarks@sarnoff.com
+Date: Fri, 14 Aug 1998 11:34:15 +0000
+Subject: Re: g77 on NetBSD 1.3F?
+
+On Fri, 14 Aug 1998, AARON MARKS wrote:
+
+: Anyone compile g77 on NetBSD 1.3F (snapshot 19980628)?
+: I'm currently attempting to merge g77 (5.20) with the gcc (2.7.2.2) in
+: toolchain (waiting for the compile).
+
+The newer egcs toolchain in NetBSD-current will include g77 once the
+toolchain is updated.  Also, you should be able to compile the egcs
+snapshots yourself (egcs 1.0.x is _not_ Alpha friendly).  See:
+    http://www.cygnus.com/egcs/
+(A "cross compiler" for 1.3, that could be used as a native g77 for alpha,
+wil be available soonish as well.)
+
+I don't suggest trying to use gcc 2.7.2 + g77 on alpha - you're going to run
+into some big LP64 problems.
+
+-- 
+-- Todd Vierling (Personal tv@pobox.com; Bus. todd_vierling@xn.xerox.com)
+
+From thorpej@nas.nasa.gov  Fri Aug 14 09:52:13 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: perry@piermont.com
+Date: Fri, 14 Aug 1998 09:52:13 +0000
+Subject: Re: MAXUSER?
+
+On Fri, 14 Aug 1998 11:33:02 -0400 
+ "Perry E. Metzger" <perry@piermont.com> wrote:
+
+ > "Michael T. Stolarchuk" writes:
+ > > I've been trying to get a target built with a larger number
+ > > of MAXUSER's set... primarily to get processes which can
+ > > open about 2000 files per process...
+ > > 
+ > > When i set MAXUSER to 64 the kernel doesn't even
+ > > get past memory checking... like this:
+ > 
+ > Someone will correct me, but I believe this was a limitation of the
+ > old pmap code that has been corrected in -current.
+
+Absolutely, I have "maxusers 64" on all of my Alphas, now.  That was fixed
+when I did that pmap mostly-rewrite.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From cherkus@homerun.unimaster.com  Fri Aug 14 18:34:37 1998
+From: Dave Cherkus <cherkus@homerun.unimaster.com>
+To: davisoja@clarkson.edu
+Date: Fri, 14 Aug 1998 18:34:37 +0000
+Subject: Re: Any ZLXp-E[23] news?
+
+John Davison writes:
+|> 
+|> I was under the impression (from a posting in June) that Jason Thorpe was
+|> working on ZLXp-E2 support.  Have you made any progress, Jason?  I have an
+|> E2 and some AS200's and would be more than happy to help test any code.
+|> 
+|> On a related note, what is keeping the xfree86 SVGA, etc. Xservers from
+|> running?  ISA DMA support?  Does anyone care to further explain this issue
+|> to me?
+|> 
+|> See, my roommate has an XL w/Millenium 8MB, and I'm getting jealous... =)
+|> 
+|> john
+
+http://www.toast.net/~strycher/AS200.html has pointers to diffs
+to get the xfree86 xserver to support this board.  Then there is
+the matter of getting the driver to work.  As others have reported,
+the existing tga driver doesn't do the right thing when this board
+is in your system, and you panic.
+
+-- 
+Dave Cherkus ------- UniMaster, Inc. ------ Contract Software Development
+Specialties: UNIX Internals/Kernel TCP/IP Alpha Clusters Performance ISDN
+Email: cherkus@UniMaster.COM  When the music's over, turn out the lights!
+
+From drizzit@eskimo.com  Sat Aug 15 00:25:12 1998
+From: Greg Baldwin <drizzit@eskimo.com>
+To: thorpej@nas.nasa.gov
+Date: Sat, 15 Aug 1998 00:25:12 +0000
+Subject: Re: 3Com 3c595 and 3c90x cards
+
+On Tue, 11 Aug 1998, Jason Thorpe wrote:
+
+> How many people out there have the various varieties of the PCI
+> 3Com cards (but NOT the new -B cards)?  I'm completely rewriting
+> the media selection code to use the new MII stuff if appropriate,
+> and I need people willing to test drivers.  Please send me mail if
+> you can help out.
+> 
+> thanks!
+
+I have one here at home, and have a few machines at work that will be
+somewhat idle after next week that have various 3Com PCI Fast Ethernet
+cards in them...
+
+On a side note, I noticed that the 3Com NT/9x drivers for these cards from
+3Com's own site not only have media selection to them, but also duplex
+selection.  This comes in handy because a few of the switched port hubs
+and routers we use sometimes don't kick the cards into full duplex like
+they should when duplex mode is set to auto (yes yes, I know that the PCI
+bus could never transfer data fast enough to fill up 200MBit/s, but thats
+not the point!  8)
+
+--
+Greg Baldwin (drizzit@eskimo.com)       NT/3Com/Cisco network installation
+Everett, WA - USA
+Words of wisdom:
+ "Idiocy takes its toll, so please have exact change."
+
+
+
+> 
+> Jason R. Thorpe                                       thorpej@nas.nasa.gov
+> NASA Ames Research Center                            Home: +1 408 866 1912
+> NAS: M/S 258-5                                       Work: +1 650 604 0935
+> Moffett Field, CA 94035                             Pager: +1 650 940 5942
+>
+
+From smurfie@bluesmoke.org  Sat Aug 15 08:22:47 1998
+From: Smurfie <smurfie@bluesmoke.org>
+To: port-alpha@netbsd.org
+Date: Sat, 15 Aug 1998 08:22:47 +0000
+Subject: New DecStation 5000/200 owner needs help :)
+
+Hi all,
+
+I just subscribed to this mailing list because i grabbed an old
+DecStation 5000/200 from school (and an old hp9000).
+After a lot of troubles to get it working (i don't have any video card
+inside, i had to find a terminal...), i noticed i could install NetBSD
+on it. Actually i'd love that because i don't have the Ultrix
+Installation tape. In fact i don't have any tape at all.
+Problem is that i'm a 100% beginner with NetBSD, i'm more into Linux
+than something else.
+
+So i've read the *BSD FAQs, the pmax installation howto, and manymore.
+
+I've found that it would be easier for me to use a disless installation
+: i got two linux boxes here on which i can create a ftpd/nfsd server...
+
+But i can't find any netBSD kernel to boot the DEC with.
+
+Can anyone help me with that?
+BTW i saw that it depends on the dec firmware i have if i can use tftp
+or not...how can i check if i can use it?
+
+thanks,
+
+Arnauld Dravet
+smurfie@bluesmoke.org
+
+From simonb@telstra.com.au  Sat Aug 15 23:20:30 1998
+From: Simon Burge <simonb@telstra.com.au>
+To: smurfie@bluesmoke.org
+Date: Sat, 15 Aug 1998 23:20:30 +0000
+Subject: Re: New DecStation 5000/200 owner needs help :)
+
+On Sat, 15 Aug 1998 08:22:47 +0000  Smurfie wrote:
+
+> Hi all,
+> 
+> I just subscribed to this mailing list because i grabbed an old
+> DecStation 5000/200 from school (and an old hp9000).
+
+You should be on the port-pmax list, not the port-alpha list.  This list
+is for DEC's Alpha series, not the old MIPS-based machines.  Please
+remove port-alpha@netbsd.org from any replies, and subscribe to the
+port-pmax list.
+
+> After a lot of troubles to get it working (i don't have any video card
+> inside, i had to find a terminal...), i noticed i could install NetBSD
+> on it. Actually i'd love that because i don't have the Ultrix
+> Installation tape. In fact i don't have any tape at all.
+> Problem is that i'm a 100% beginner with NetBSD, i'm more into Linux
+> than something else.
+
+We won't hold that against you just yet :-)
+
+> So i've read the *BSD FAQs, the pmax installation howto, and manymore.
+> 
+> I've found that it would be easier for me to use a disless installation
+> : i got two linux boxes here on which i can create a ftpd/nfsd server...
+
+This is true.
+
+> But i can't find any netBSD kernel to boot the DEC with.
+
+It would be easiest to start with the NetBSD 1.3.2 release.  Look at
+ftp://ftp.netbsd.org/pub/NetBSD/NetBSD-1.3.2/pmax.  The 1.3.2 kernels
+are in the .../NetBSD-1.3.2/pmax/binary/kernel directory - you want
+either netbsd.ecoff or nfsnetbsd.ecoff if that one doesn't boot.  This
+is mentioned in the INSTALL doco - look for the line starting with
+"Distribution kernel images".
+
+> Can anyone help me with that?
+> BTW i saw that it depends on the dec firmware i have if i can use tftp
+> or not...how can i check if i can use it?
+
+Most machines work ok - it's just a few that cause problems.  You can
+get your on firmware version from the line before the ">>" when you
+machine powers-up.  It'll be something like "KN02 v5.3s".  Then check
+out http://www.netbsd.org/Ports/pmax/board-list.html to see if it's on
+the list.  If it isn't, can you let the port-pmax list know of your
+successes or failures.
+
+Good luck, and ask any questions on the port-pmax list if you have any.
+
+Simon.
+
+From scott@iprg.nokia.com  Sat Aug 15 13:35:14 1998
+From: Scott Sewall <scott@iprg.nokia.com>
+To: smurfie@bluesmoke.org
+Date: Sat, 15 Aug 1998 13:35:14 +0000
+Subject: Re: New DecStation 5000/200 owner needs help :)
+
+The DECstation 5000/200 is based on MIPS not alpha. You might have
+better luck with a different mail list.
+
+-- Scott
+
+
+Smurfie wrote:
+> 
+> Hi all,
+> 
+> I just subscribed to this mailing list because i grabbed an old
+> DecStation 5000/200 from school (and an old hp9000).
+> After a lot of troubles to get it working (i don't have any video card
+> inside, i had to find a terminal...), i noticed i could install NetBSD
+> on it. Actually i'd love that because i don't have the Ultrix
+> Installation tape. In fact i don't have any tape at all.
+> Problem is that i'm a 100% beginner with NetBSD, i'm more into Linux
+> than something else.
+> 
+> So i've read the *BSD FAQs, the pmax installation howto, and manymore.
+> 
+> I've found that it would be easier for me to use a disless installation
+> : i got two linux boxes here on which i can create a ftpd/nfsd server...
+> 
+> But i can't find any netBSD kernel to boot the DEC with.
+> 
+> Can anyone help me with that?
+> BTW i saw that it depends on the dec firmware i have if i can use tftp
+> or not...how can i check if i can use it?
+> 
+> thanks,
+> 
+> Arnauld Dravet
+> smurfie@bluesmoke.org
+
+From azathoth@cronos.net  Sun Aug 16 16:41:38 1998
+From: aZaTHoTH <azathoth@cronos.net>
+To: port-alpha@netbsd.org
+Date: Sun, 16 Aug 1998 16:41:38 +0000
+Subject: FW: Hey everybody !
+
+Well ... I'm new with netbsd. During the installation process, I've got =
+a problem. I've got an ALPHA PC64 with the SRM.=20
+When I type boot dva0, it loads the installation kernel, start =
+initializing, and says :
+Cpu0 at mainbus0 : ID 0(primary), 21164PC (unknown minor type 0x2) Cia0 =
+at mainbus0 : DECchip 2117257 Core Logic chipset Cia0 : extended =
+capabilities : 111<WLEN,MWEN,BWEN> Sio_intr_setup : 0 LT !
+Sio_sis : initial : ocw =3D (f9,ff), elcr =3D (ff,ff)
+Current : ocw =3D (f9,ff), elcr =3D (fe,ff)
+Panic : sio_setirqstat : hosed
+Halted.
+
+And then I go back to the SRM.
+Anybody has an idea on what's wrong ?=20
+Thanks .
+FreD.
+
+From thorpej@nas.nasa.gov  Sun Aug 16 17:20:16 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: azathoth@cronos.net
+Date: Sun, 16 Aug 1998 17:20:16 +0000
+Subject: Re: FW: Hey everybody !
+
+On Sun, 16 Aug 1998 16:41:38 -0700 
+ aZaTHoTH <azathoth@cronos.net> wrote:
+
+ > Well ... I'm new with netbsd. During the installation process, I've got =
+ > a problem. I've got an ALPHA PC64 with the SRM.=20
+ > When I type boot dva0, it loads the installation kernel, start =
+ > initializing, and says :
+ > Cpu0 at mainbus0 : ID 0(primary), 21164PC (unknown minor type 0x2) Cia0 =
+ > at mainbus0 : DECchip 2117257 Core Logic chipset Cia0 : extended =
+ > capabilities : 111<WLEN,MWEN,BWEN> Sio_intr_setup : 0 LT !
+ > Sio_sis : initial : ocw =3D (f9,ff), elcr =3D (ff,ff)
+ > Current : ocw =3D (f9,ff), elcr =3D (fe,ff)
+ > Panic : sio_setirqstat : hosed
+ > Halted.
+
+Looks like you're using an older NetBSD.  NetBSD 1.3.2 didn't properly
+work on the PC164SX (which seems to be what you have; a PC64 didn't have
+a 21164PC :-)
+
+Try the most recent -current snapshot.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From alanp@lexant.com  Mon Aug 17 15:35:04 1998
+From: Alan Perry <alanp@lexant.com>
+To: port-alpha@netbsd.org, tech-userlevel@netbsd.org
+Date: Mon, 17 Aug 1998 15:35:04 +0000
+Subject: Problems on alpha port
+
+I am helping a friend set-up NetBSD 1.3.2 on alpha.  He encountered
+some problems.  Not sure if they are alpha-specific or not.
+
+a. Couldn't link lynx.  The failure occurred because it couldn't
+   find some curses symbols (scrollok, clearok and others).  It
+   appeared that some symbols were just missing from the shared
+   library version of libcurses because when I did static linking
+   it worked just fine.
+
+b. top doesn't work.  To quote my friend ...
+   > From what I can figure out, it used to work with NetBSD 1.2,
+   > but the memory structures changed in 1.3, and it hasn't been
+   > fixed.
+
+   I do not use top, so I really can't comment.
+
+Thanks for any help you can provide.
+
+alan
+
+From abs@anim.dreamworks.com  Mon Aug 17 15:46:15 1998
+From: David Brownlee <abs@anim.dreamworks.com>
+To: alanp@lexant.com
+Date: Mon, 17 Aug 1998 15:46:15 +0000
+Subject: Re: Problems on alpha port
+
+Are you using the versions from pkgsrc?
+
+		David/absolute
+
+                  -=-  Resentment is a renewable resource  -=-
+
+On Mon, 17 Aug 1998, Alan Perry wrote:
+
+> I am helping a friend set-up NetBSD 1.3.2 on alpha.  He encountered
+> some problems.  Not sure if they are alpha-specific or not.
+> 
+> a. Couldn't link lynx.  The failure occurred because it couldn't
+>    find some curses symbols (scrollok, clearok and others).  It
+>    appeared that some symbols were just missing from the shared
+>    library version of libcurses because when I did static linking
+>    it worked just fine.
+> 
+> b. top doesn't work.  To quote my friend ...
+>    > From what I can figure out, it used to work with NetBSD 1.2,
+>    > but the memory structures changed in 1.3, and it hasn't been
+>    > fixed.
+> 
+>    I do not use top, so I really can't comment.
+> 
+> Thanks for any help you can provide.
+> 
+> alan
+>
+
+From thorpej@nas.nasa.gov  Tue Aug 18 01:24:30 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: port-alpha@netbsd.org
+Date: Tue, 18 Aug 1998 01:24:30 +0000
+Subject: Bt463 RAMDAC code for TGA driver
+
+Hi folks...
+
+I made some progress on this today.  Tomorrow (once I have desk space)
+I will be setting up my AlphaStation 200 to do a first-run test of
+my new tga_bt463.c.  If it "works" (i.e. can display _something_,
+and doesn't panic, at least), I will check it in as a snapshot of
+work-in-progress.
+
+Anyhow, figured some of you would be interested in this :-)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From thorpej@nas.nasa.gov  Tue Aug 18 15:54:31 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: port-alpha@netbsd.org
+Date: Tue, 18 Aug 1998 15:54:31 +0000
+Subject: -E2 TGA framebuffer
+
+Well, it appears as if my -E2 framebuffer was DoA ... the SRM (even the
+latest one) doesn't initialize it correctly, or something.  The screen
+is filled w/ junk, and the text begins 1/2 across the screen, and is
+not really readable.  The hardware cursor, however, appears in the correct
+place!  So I'm not really sure what is going on, here..
+
+The NetBSD kernel does NOT panic w/ my changes, so I think I am going to
+check the rest of them in.  But the text is still not readable, really.
+The raster code still doesn't grok the 24-bit framebuffer, so it will
+need some more work, but this is a step in the right direction, a least.
+
+I also see some purple/blue vertical lines spaced the width of the hardware
+cursor, and the text, again, starts 1/2 across the screen once the kernel
+starts... but at least the screen is cleared, so the junk is gone.  Scrolling
+doesn't appear to quite work properly, either, but I suspect this is more
+24-bit lossage.
+
+I would really appreciate testing assistance, here, as I can obviously not
+test this myself, very well.  The code should appear in tomorrow's SUP,
+and I can make a GENERIC kernel if you really need it.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From rminnich@sarnoff.com  Wed Aug 19 16:13:07 1998
+From: Ron G. Minnich <rminnich@sarnoff.com>
+To: port-alpha@netbsd.org
+Date: Wed, 19 Aug 1998 16:13:07 +0000
+Subject: Nice job!
+
+we just built a 16-node alpha cluster. we planned on using linux on machines 
+from dcg. the machines came with nt however, so we started the process of 
+loading linux. Not long into the process, we noticed the blood on the 
+wall and on the tops of our heads and decided to try netbsd. Wow, what a 
+nice piece of work. Uses SRM, soft reboots, has a serial console, wow wow 
+wow. Anyway, it's up and we love it. Nice job folks. We expect to be 
+doing some good computing once I get back from vacation in september ...
+
+thanks
+ron
+
+Ron Minnich                |"Using Windows NT, which is known to have some 
+rminnich@sarnoff.com       | failure modes, on a warship is similar to hoping 
+(609)-734-3120             | that luck will be in our favor"- A. Digiorgio
+ftp://ftp.sarnoff.com/pub/mnfs/www/docs/cluster.html
+
+From elektron@halo.dope.org  Wed Aug 19 15:34:11 1998
+From: elektron <elektron@halo.dope.org>
+To: port-alpha@netbsd.org
+Date: Wed, 19 Aug 1998 15:34:11 +0000
+Subject: alpha
+
+-----BEGIN PGP SIGNED MESSAGE-----
+
+i have an alpha-station 4/233 and i have recently d/l'd NetBSD. uhh, it
+seems that after i boot my machine locks up. sometimes i can type install
+and hit enter but still, after that, frozen. anyway i used to have the
+8-meg tga card but i replaced it because it isn't supported for shit. now
+i have a S3trio64v+ or something but anyway to get to the point, i was
+wondering if anybody had any ideas or has had this problem before...
+
+thanx...
+
+
+phil freeman
+elektron@halo.dope.org
+
+-----BEGIN PGP SIGNATURE-----
+Version: 2.6.2
+
+iQCVAwUBNds2wjM9VDu3o4ntAQFW2gQAwJ3QdGqNHAHoKsco4vUDL6EGDD7OzapR
+l60E6GdUSiih5AWH8IOnJ4bJRbJ3oJWczsxRsQdp53xNBKfjIZtkslLN6rijwZP3
+uM0y0swS71xAihxZLX1yj13vSKV9zUGNDZNCuloJgZzL4vrFW1FslVDlFXQ61tu3
+/8Otl+GgGTA=
+=qkzo
+-----END PGP SIGNATURE-----
+
+From ross@teraflop.com  Wed Aug 19 13:41:55 1998
+From: Ross Harvey <ross@teraflop.com>
+To: elektron@halo.dope.org, port-alpha@netbsd.org
+Date: Wed, 19 Aug 1998 13:41:55 +0000
+Subject: Re: alpha
+
+> From: elektron <elektron@halo.dope.org>
+>
+> i have an alpha-station 4/233 and i have recently d/l'd NetBSD. uhh, it
+> seems that after i boot my machine locks up. sometimes i can type install
+> and hit enter but still, after that, frozen. anyway i used to have the
+> 8-meg tga card but i replaced it because it isn't supported for shit. now
+> i have a S3trio64v+ or something but anyway to get to the point, i was
+> wondering if anybody had any ideas or has had this problem before...
+>
+> thanx...
+>
+>
+> phil freeman
+> elektron@halo.dope.org
+
+We support that machine pretty well...lots of us have exactly that system.
+Did you get it from onsale.com, BTW? :-)
+
+It wouldn't hurt to connect up a serial console and unplug the keyboard,
+at least until you get up and running.
+
+Also, we have lots of releases and snapshots out there. Mind telling us
+which one you are trying to install?  Right now, the only thing I know,
+and that isn't absolutely for sure, is that you are trying to run NetBSD.
+
+What kind of drive did you put in? What's the boot floppy dmesg output?
+(Note how using a serial console makes it easy to capture these things.)
+
+   --Ross Harvey
+
+From mazza@interport.net  Wed Aug 19 16:56:40 1998
+From: Adam Mazza <mazza@interport.net>
+To: ross@teraflop.com
+Date: Wed, 19 Aug 1998 16:56:40 +0000
+Subject: Re: alpha
+
+> > From: elektron <elektron@halo.dope.org>
+> >
+> > i have an alpha-station 4/233 and i have recently d/l'd NetBSD. uhh, it
+> > seems that after i boot my machine locks up. sometimes i can type install
+> > and hit enter but still, after that, frozen. anyway i used to have the
+> > 8-meg tga card but i replaced it because it isn't supported for shit. now
+> > i have a S3trio64v+ or something but anyway to get to the point, i was
+> > wondering if anybody had any ideas or has had this problem before...
+> >
+> > thanx...
+> >
+> >
+> > phil freeman
+> > elektron@halo.dope.org
+> 
+> We support that machine pretty well...lots of us have exactly that system.
+> Did you get it from onsale.com, BTW? :-)
+> 
+> It wouldn't hurt to connect up a serial console and unplug the keyboard,
+> at least until you get up and running.
+> 
+> Also, we have lots of releases and snapshots out there. Mind telling us
+> which one you are trying to install?  Right now, the only thing I know,
+> and that isn't absolutely for sure, is that you are trying to run NetBSD.
+
+
+Dame thing was happening to me with a Number Nine Motion 771 card, it
+would get to different parts of the install then the machine would just
+freeze up, once i hooked up a console all was fine. BTW the same thing
+happened with OpenBSD as well.
+
+
+
+Adam Mazza
+Interport Communications - an RCN Company
+adam@interport.net
+
+From riz@boogers.sf.ca.us  Thu Aug 20 12:00:15 1998
+From: J Rizzo <riz@boogers.sf.ca.us>
+To: port-alpha@netbsd.org
+Date: Thu, 20 Aug 1998 12:00:15 +0000
+Subject: gdb problems?
+
+Are there known problems with GDB under 1.3.1?  (This is on an Alphastation
+255) Trying to figure out where a program coredumped on me, I tried using GDB,
+which gave me this:
+
+Script started on Thu Aug 20 11:56:12 1998
+fnord:riz  ~> gdb /work/tmp/vnc/Xvnc/programs/Xserver/Xvnc Xv[Kvnc.core.1
+GDB is free software and you are welcome to distribute copies of it
+ under certain conditions; type "show copying" to see the conditions.
+There is absolutely no warranty for GDB; type "show warranty" for details.
+GDB 4.16 (alpha-netbsd), Copyright 1996 Free Software Foundation, Inc...
+Core was generated by `Xvnc'.
+Program terminated with signal 11, Segmentation fault.
+pid 28409 (gdb): unaligned access: va=0x12021fffa pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x120220002 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x12022000a pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x120220012 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x12022001a pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x120220022 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x12022002a pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x120220032 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x12022003a pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x120220042 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x12022004a pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x120220052 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x12022005a pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x120220062 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x12022006a pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x120220072 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x12022007a pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x120220082 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x12022008a pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x120220092 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x12022009a pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x1202200a2 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x1202200aa pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x1202200b2 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x1202200ba pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x1202200c2 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x1202200ca pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x1202200d2 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x1202200da pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x1202200e2 pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x1202200ea pc=0x12004d938 ra=0x12004cbd4 op=stt
+pid 28409 (gdb): unaligned access: va=0x1202200f2 pc=0x12004d94c ra=0x12004cbd4 op=stq
+Bus error (core dumped)
+fnord:riz  ~> exit
+exit
+
+Script done on Thu Aug 20 11:57:24 1998
+
+Running gdb on its own core produces similar results.  :)
+
+Any suggestions?
++j
+
+-- 
+Jeff Rizzo                                         http://boogers.sf.ca.us/~riz
+
+From mazza@interport.net  Thu Aug 20 15:44:03 1998
+From: Adam Mazza <mazza@interport.net>
+To: port-alpha@netbsd.org
+Date: Thu, 20 Aug 1998 15:44:03 +0000
+Subject: savecore: /netbsd: kvm_dump_mkheader: Read: Invalid argument
+
+Hi,
+	On my AlphaStation 200 4/233, 233MHz, booting the generic kernel,
+I am getting savecore: /netbsd: kvm_dump_mkheader: Read: Invalid argument,
+I get this twice during boot, the machine seems to operate just fine
+though. Should I be worried about this?
+
+
+Adam Mazza
+Interport Communications - an RCN Company
+adam@interport.net
+
+From rob@remarque.org  Thu Aug 20 14:30:37 1998
+From: Rob Robertson <rob@remarque.org>
+To: port-alpha@netbsd.org
+Date: Thu, 20 Aug 1998 14:30:37 +0000
+Subject: is there a new alpha snapshot coming out soon?
+
+Hey Y'all,
+
+Is there a new alpha snapshot coming out soon?
+
+I tried to upgrade from the current snapshot, to
+netcgd^H^H^Hbsd-currrent, and the current kernel won't boot on my
+4/200...  
+
+Thanks,
+
+rob
+
+From ross@teraflop.com  Thu Aug 20 15:36:39 1998
+From: Ross Harvey <ross@teraflop.com>
+To: port-alpha@netbsd.org, rob@remarque.org
+Date: Thu, 20 Aug 1998 15:36:39 +0000
+Subject: Re: is there a new alpha snapshot coming out soon?
+
+> From: Rob Robertson <rob@remarque.org>
+> Status: R
+>
+>
+> Hey Y'all,
+>
+> Is there a new alpha snapshot coming out soon?
+>
+> I tried to upgrade from the current snapshot, to
+> netcgd^H^H^Hbsd-currrent, and the current kernel won't boot on my
+> 4/200...  
+
+If there was a good reason to do another snapshot I would be happy to
+crank one out...though it's a little difficult this week due to egcs
+integration issues. (Yes, the old, separate, alpha toolchain module has
+been taken out and shot. The alpha toolchain is now the in-tree egcs
+code, though not completely able to deal with the entire source tree
+yet.)
+
+There was a time when kernel builds got errosr from the ncr SCSI driver,
+but that was between 7/31 and 8/10.
+
+You know, you have given us next to no information...could you maybe
+elaborate on what `current kernel won't boot' means?  If you received a
+report from someone with as little info as you have provided, what would
+you think?  And how new are yours sources, etc, etc...
+
+
+   -- Ross Harvey
+
+From mikenguyen@sprintmail.com  Thu Aug 20 18:08:06 1998
+From: Mike Nguyen <mikenguyen@sprintmail.com>
+To: ross@teraflop.com
+Date: Thu, 20 Aug 1998 18:08:06 +0000
+Subject: Re: is there a new alpha snapshot coming out soon?
+
+I think a good time would be when the ZLXp-E2 framebuffer code is working.
+That's what I'm waiting for, at least.
+
+Mike.
+
+On 20-Aug-98 Ross Harvey uttered:
+>> From: Rob Robertson <rob@remarque.org>
+>> Status: R
+>>
+>>
+>> Hey Y'all,
+>>
+>> Is there a new alpha snapshot coming out soon?
+>>
+>> I tried to upgrade from the current snapshot, to
+>> netcgd^H^H^Hbsd-currrent, and the current kernel won't boot on my
+>> 4/200...  
+> 
+> If there was a good reason to do another snapshot I would be happy to
+> crank one out...though it's a little difficult this week due to egcs
+> integration issues. (Yes, the old, separate, alpha toolchain module has
+> been taken out and shot. The alpha toolchain is now the in-tree egcs
+> code, though not completely able to deal with the entire source tree
+> yet.)
+> 
+> There was a time when kernel builds got errosr from the ncr SCSI driver,
+> but that was between 7/31 and 8/10.
+> 
+> You know, you have given us next to no information...could you maybe
+> elaborate on what `current kernel won't boot' means?  If you received a
+> report from someone with as little info as you have provided, what would
+> you think?  And how new are yours sources, etc, etc...
+> 
+> 
+>    -- Ross Harvey
+> 
+
+--------------------------------------------------------------------------------
+Mike Nguyen <mikenguyen@sprintmail.com> - UNIX Sysadmin and Geek
+  Pager (800) SKY-8888 pin# 1138368
+     or 1138368@skytel.com
+
+So, what's with this guy Gideon, anyway?  And why can't he ever
+remember his Bible?
+
+
+--------------------------------------------------------------------------------
+
+From ajo@wopr.campus.luth.se  Tue Aug 25 20:37:50 1998
+From: Andreas Johansson <ajo@wopr.campus.luth.se>
+To: port-alpha@netbsd.org
+Date: Tue, 25 Aug 1998 20:37:50 +0000
+Subject: PCI latency problem on 164SX
+
+Hi!
+
+I wrote a mail concerning my pci latency problem (the SRM doesn't set the
+pci latency timers in the pci devices to any reasonable values), but I
+have receieved no replies. Is there really noone interrested in fixing
+this problem or am I the only one that has it?
+
+Anyway, to show one way to solve my problem (which is probably not the
+best way to do it), here is a patch for sys/dev/pci/pci.c:
+
+---------------------- snip -------------------------
+--- pci.c.orig	Sat Aug 15 13:13:33 1998
++++ pci.c	Tue Aug 25 20:20:25 1998
+@@ -161,6 +161,8 @@
+ 			nfunctions = 1;
+ 
+ 		for (function = 0; function < nfunctions; function++) {
++			struct device *d;
++			
+ 			tag = pci_make_tag(pc, bus, device, function);
+ 			id = pci_conf_read(pc, tag, PCI_ID_REG);
+ 			csr = pci_conf_read(pc, tag, PCI_COMMAND_STATUS_REG);
+@@ -215,7 +217,23 @@
+ 			}
+ 			pa.pa_intrline = PCI_INTERRUPT_LINE(intr);
+ 
+-			config_found_sm(self, &pa, pciprint, pcisubmatch);
++			if ((d = config_found_sm(self, &pa, pciprint,
++						 pcisubmatch))) {
++#ifdef PCI_FORCE_LATENCY
++				u_int32_t v;
++
++				v = pci_conf_read(pa.pa_pc, pa.pa_tag,
++						  PCI_BHLC_REG);
++				printf ("%s: Changing pci latency from %d to %d\n",
++					d->dv_xname, (v & PCI_LATTIMER_MASK) >>
++					PCI_LATTIMER_SHIFT, PCI_FORCE_LATENCY);
++				v &= ~(PCI_LATTIMER_MASK <<
++				       PCI_LATTIMER_SHIFT);
++				v |= PCI_FORCE_LATENCY << PCI_LATTIMER_SHIFT;
++				pci_conf_write(pa.pa_pc, pa.pa_tag,
++					       PCI_BHLC_REG, v);
++#endif
++			}
+ 		}
+ 	}
+ }
+------------------------------ snip ------------------------------
+
+Then the latency can be forced to any desired value in the config.
+I use 32.
+
+I think this should be fixed some way, and the proper place for this
+fix is probably in the SRM. However, since the SRM doesn't seem to
+initialize any pci latency (all pci devices are set to 0 latency) it
+is necessary to initialize them in the kernel. The system behaves very
+strange if the default latency (0) is used.
+
+/Andreas
+
+From JBarbee@server5.singular.com  Tue Aug 25 12:52:46 1998
+From: John Barbee <JBarbee@server5.singular.com>
+To: port-alpha@netbsd.org
+Date: Tue, 25 Aug 1998 12:52:46 +0000
+Subject: error when running boot disk
+
+I rawrited a floppy and tried to boot.
+This is what happens
+
+VMS PAL revision ...
+OSF PAL rev: ...
+Switch to OSF PAL code succeeded
+
+Boot flags:
+
+Loading netbsd...
+open netbsd: No such file or directory
+
+Loading netbsd.gz
+3849336+882560 [85
+
+
+and then the screen blanks.  the floppy is no longer being read and the
+computer hangs.  is something supposed to happen here or am i supposed
+to do something.  nothing i type seems to make a difference.
+
+this is an alphastation 200
+
+From ross@teraflop.com  Tue Aug 25 17:07:39 1998
+From: Ross Harvey <ross@teraflop.com>
+To: freebsd-alpha@freebsd.org, port-alpha@netbsd.org
+Date: Tue, 25 Aug 1998 17:07:39 +0000
+Subject: Re: error when running boot disk
+
+> From: John Barbee <JBarbee@server5.singular.com>
+>
+> Loading netbsd.gz
+> 3849336+882560 [85
+>
+>
+> and then the screen blanks.  the floppy is no longer being read and the
+> computer hangs.  is something supposed to happen here or am i supposed
+> to do something.  nothing i type seems to make a difference.
+>
+> this is an alphastation 200
+>
+
+> i'm trying to run freebsd on an alpha, so i got the netbsd installation
+> disk and it hung.  i sent mail to port-alpha@netbsd.org but it seems to
+> be an extremely quiet list.  so i figured somebody here might be able to
+> help.
+> 
+> From: John Birrell  <jb@cimlogic.com.au>
+> 
+> Try pulling out the graphics card, disconnecting the keyboard and
+> connecting a serial console before powering up. If the machine boots,
+> you've got the "unsupported graphics card" problem.
+
+
+Well, you only waited three hours for a response from the NetBSD list, and
+you weren't even trying to run NetBSD. :-)
+
+I've had several people tell me they had to unsubscribe from port-alpha
+(@netbsd.org) because of the high volume, so I guess it is at just about
+the right point...some people say it is too high and some say it is too
+low.
+
+Anyway, NetBSD supports that particular system quite well. A lot of the
+NetBSD developers have one or even more than one of that exact AlphaStation.
+The boot code doesn't actually ever touch your drive or display hardware
+directly...everything is done with console callbacks. So, it shouldn't
+really matter at that point what graphics card you have, unless the SRM
+console doesn't support it either and has some bizarre failure mode where
+it can interact and print but still manages to die early on.
+
+Switching to a serial console is something you should do anyway, for other
+reasons, but right now it looks like you just have bad floppy media, or
+some other problem affecting your hardware and/or console firmware. It
+definitely doesn't look like a problem in the NetBSD boot code itself. How
+much RAM is in that system? Which version of the NetBSD install floppy did
+you use?
+
+
+  -- Ross Harvey
+     ross@netbsd.org
+
+From JBarbee@server5.singular.com  Tue Aug 25 17:18:20 1998
+From: John Barbee <JBarbee@server5.singular.com>
+To: ross@teraflop.com
+Date: Tue, 25 Aug 1998 17:18:20 +0000
+Subject: RE: error when running boot disk
+
+This particular machine has 24 megs of RAM.  Incidentally, now that I'm
+using the serial console, the installation programs for NetBSD 1.3.2
+starts up just fine.
+
+-----Original Message-----
+From: Ross Harvey [mailto:ross@teraflop.com]
+Sent: Tuesday, August 25, 1998 5:08 PM
+To: freebsd-alpha@freebsd.org; port-alpha@netbsd.org
+Subject: Re: error when running boot disk
+
+
+> From: John Barbee <JBarbee@server5.singular.com>
+>
+> Loading netbsd.gz
+> 3849336+882560 [85
+>
+>
+> and then the screen blanks.  the floppy is no longer being read and
+the
+> computer hangs.  is something supposed to happen here or am i supposed
+> to do something.  nothing i type seems to make a difference.
+>
+> this is an alphastation 200
+>
+
+> i'm trying to run freebsd on an alpha, so i got the netbsd
+installation
+> disk and it hung.  i sent mail to port-alpha@netbsd.org but it seems
+to
+> be an extremely quiet list.  so i figured somebody here might be able
+to
+> help.
+> 
+> From: John Birrell  <jb@cimlogic.com.au>
+> 
+> Try pulling out the graphics card, disconnecting the keyboard and
+> connecting a serial console before powering up. If the machine boots,
+> you've got the "unsupported graphics card" problem.
+
+
+Well, you only waited three hours for a response from the NetBSD list,
+and
+you weren't even trying to run NetBSD. :-)
+
+I've had several people tell me they had to unsubscribe from port-alpha
+(@netbsd.org) because of the high volume, so I guess it is at just about
+the right point...some people say it is too high and some say it is too
+low.
+
+Anyway, NetBSD supports that particular system quite well. A lot of the
+NetBSD developers have one or even more than one of that exact
+AlphaStation.
+The boot code doesn't actually ever touch your drive or display hardware
+directly...everything is done with console callbacks. So, it shouldn't
+really matter at that point what graphics card you have, unless the SRM
+console doesn't support it either and has some bizarre failure mode
+where
+it can interact and print but still manages to die early on.
+
+Switching to a serial console is something you should do anyway, for
+other
+reasons, but right now it looks like you just have bad floppy media, or
+some other problem affecting your hardware and/or console firmware. It
+definitely doesn't look like a problem in the NetBSD boot code itself.
+How
+much RAM is in that system? Which version of the NetBSD install floppy
+did
+you use?
+
+
+  -- Ross Harvey
+     ross@netbsd.org
+
+From ross@teraflop.com  Tue Aug 25 17:51:04 1998
+From: Ross Harvey <ross@teraflop.com>
+To: freebsd-alpha@freebsd.org, port-alpha@netbsd.org
+Date: Tue, 25 Aug 1998 17:51:04 +0000
+Subject: RE: error when running boot disk
+
+> This particular machine has 24 megs of RAM.  Incidentally, now that I'm
+> using the serial console, the installation programs for NetBSD 1.3.2
+> starts up just fine.
+
+That's good! Probably what was happening was that it didn't really stop at
+the quoted point, but later on when the PCI devices were probed. However,
+it probably happened so fast it couldn't be transcribed.
+
+Also, we have seen some alphas shipped with video hardware that wasn't well
+supported by SRM, or at least, wasn't supported by the version of SRM
+preload in flash as shipped.
+
+
+  -- Ross Harvey
+
+From JBarbee@server5.singular.com  Tue Aug 25 18:05:53 1998
+From: John Barbee <JBarbee@server5.singular.com>
+To: ross@teraflop.com
+Date: Tue, 25 Aug 1998 18:05:53 +0000
+Subject: RE: error when running boot disk
+
+I upgraded the SRM firmware to 6.8.2.  Hopefully the firmware is not the
+issue.
+I used a rhl avanti-s.img boot disk, while the video card was still in.
+The bootstrap info outputted to the monitor just fine.  Although, in
+order to boot I had to use a boot string buried deep in the redhat
+website and even then the boot process stopped with a panic when it was
+unable to mount root (what a surprise).
+
+-----Original Message-----
+From: Ross Harvey [mailto:ross@teraflop.com]
+Sent: Tuesday, August 25, 1998 5:51 PM
+To: freebsd-alpha@freebsd.org; port-alpha@netbsd.org
+Subject: RE: error when running boot disk
+
+
+> This particular machine has 24 megs of RAM.  Incidentally, now that
+I'm
+> using the serial console, the installation programs for NetBSD 1.3.2
+> starts up just fine.
+
+That's good! Probably what was happening was that it didn't really stop
+at
+the quoted point, but later on when the PCI devices were probed.
+However,
+it probably happened so fast it couldn't be transcribed.
+
+Also, we have seen some alphas shipped with video hardware that wasn't
+well
+supported by SRM, or at least, wasn't supported by the version of SRM
+preload in flash as shipped.
+
+
+  -- Ross Harvey
+
+From ck@bellsouth.net  Tue Aug 25 22:03:49 1998
+From: Christian Kuhtz <ck@bellsouth.net>
+To: port-alpha@netbsd.org
+Date: Tue, 25 Aug 1998 22:03:49 +0000
+Subject: need help spec'ing out box for NetBSD/alpha
+
+Hey gang:
+
+I got $20K or so for a workstation and I'd like to spend it on an Alpha.
+Catch is, I haven't dealt with DEC equipment since the (*duck*) days of the
+11/750s.
+
+Can someone recommend a good highend platform?  What amounts of memory
+should I be looking for?  Caveats with regards to graphics boards?
+
+Anyone willing to give me a hand spec'ing this box out?  If I can make this
+happen, I'd like to get involved with NetBSD once again...  The other choice
+is using a high end wintel piece of work... *sigh*
+
+Anyone?  Thanks in advance!...
+
+Cheers,
+Chris
+
+--
+Christian Kuhtz, BellSouth Corp., Sr. Network Architect  <ck@bellsouth.net>
+1100 Ashwood Parkway, Atlanta, GA 30338                        <ck@gnu.org>
+"RSVP is dead. Long live RSVP."
+
+From wathey@salk.edu  Tue Aug 25 23:22:07 1998
+From: Jack Wathey <wathey@salk.edu>
+To: port-alpha@netbsd.org
+Date: Tue, 25 Aug 1998 23:22:07 +0000
+Subject: Need advice: should I switch to BSD from Alpha Linux?
+
+Dear Alpha BSD folks,
+
+This question is for those of you who have used both BSD and Linux
+on the Alpha.  Please don't misunderstand my subject line: I'm not 
+trying to start a flame war about BSD vs Linux.  I just need help in
+making a tough decision.
+
+I'm doing computational biology research with a cluster of Alpha
+clones (LX motherboards, 21164A, 533MHz, SCSI disks, CDROM and tape
+drive and one IDE CDROM; Ethernet cards: D-Link DFE-500TX [uses
+DEC DC21140AC chip] and DEC DE500-AA).  They came with RedHat Linux
+4.2, which I've managed to beat into a barely functional system for
+my purposes.  I'm greatly disappointed in the lack of robustness and
+reliability of Alpha Linux, though.  X often (but not always) crashes
+the whole machine on startup.  The X-server for my video card (Matrox
+Millenium II) is buggy, even when not crashing.  The system malloc is
+buggy.  The debugger (gdb) can't make sense out of core files left by
+program crashes.  I could go on and on (see the archives of the RedHat
+axp-list if you're interested in more horror stories).  I've considered
+"upgrading" to a new RedHat release, but I'm waiting to be convinced
+that the new releases haven't created more bugs than they've fixed.
+Meanwhile I've started to contemplate netBSD as an alternative.
+
+The question: is Alpha BSD more complete, stable and reliable, on
+hardware like mine, than is Alpha Linux?  The main things I care about
+are being able to write, run and debug large complex programs in C
+and C++ using gcc, pvm, rcs and vim.  I also use RasMol a fair
+amount, which requires X.
+
+I noticed on the web site that floppy controllers are not supported
+in BSD for LX machines.  Why is this, and is there any hope of it
+being fixed soon?  What support is there for the Matrox Millenium II?
+I'd welcome any comments, general or specific, from people who have
+experience with both BSD and Linux on the Alpha.  You might want to
+send them to me directly, rather than to the list, in the interest
+of avoiding a conflagration.
+
+TIA,
+Jack Wathey
+
+From tls@panix.com  Wed Aug 26 18:40:32 1998
+From: Thor Lancelot Simon <tls@panix.com>
+To: ck@bellsouth.net
+Date: Wed, 26 Aug 1998 18:40:32 +0000
+Subject: Re: need help spec'ing out box for NetBSD/alpha
+
+On Tue, Aug 25, 1998 at 10:03:49PM -0400, Christian Kuhtz wrote:
+> 
+> Hey gang:
+> 
+> I got $20K or so for a workstation and I'd like to spend it on an Alpha.
+> Catch is, I haven't dealt with DEC equipment since the (*duck*) days of the
+> 11/750s.
+> 
+> Can someone recommend a good highend platform?  What amounts of memory
+> should I be looking for?  Caveats with regards to graphics boards?
+
+Most people running NetBSD on Alphas would probably pick up the relevant
+components and assemble the workstation themselves.  I know I would.  You
+_can_ get approximately the same box from DEC presassmbled, but you'll pay
+a premium for it, even a substantial premium over having a reseller like
+Microway or Enorex assemble the box for you.  Microway and Enorex and several
+other vendors buy motherboards and processors from Samsung or DEC and then
+put the box together themselves, usually even using a chassis from the same
+manufacturer as DEC with a different faceplate.
+
+The appropriate DEC box is probably a Digital Personal Workstation 600au.
+Order it with NT (AlphaBIOS or "ARC") firmware, then get the SRM firmware
+from the DEC FTP site and flash it in.
+
+Support for graphics cards under NetBSD is weak to say the least.  If this
+workstation is for your desktop, you're going to wish you were running
+Digital UNIX.  If it's for development or production work, where tons of
+CPU counts and the graphics are a nice plus, you may do OK, but count on
+buying another box as an X11 "head"; a cheap i386 works fine and you can
+run the X applications on the Alpha.  If you hadn't guessed, NetBSD/alpha
+has a big bias towards headless server applications because that's all
+that A12 or NASA Ames, who fund most of the development, care about.
+
+If you buy from Enorex or Microway, you will get the same machine as the
+600au but you'll be able to afford more goodies.  Be *sure* to get a
+machine with a real 21164 (or 21164A) processor, and not the 21164PC
+processor which has a very different cache architecture and much less
+performance.  Machines built around the AlphaPC164SX motherboard use
+the 21164PC processor.
+
+In this case, you're going to get a very PC-like box with a PCI bus Alpha
+motherboard (same thing that's sitting inside the case of the DEC machine),
+ECC SDRAM memory, and various PCI cards -- if you have to buy it all at
+the same place, the various vendors will insert the cards for you and
+charge you 2X the street price for them. :-)  For $20,000, here's what
+I'd do:
+
+AlphaPC164LX motherboard, 533MHz or higher 21164(-A) microprocessor, 1MB or
+2MB cache.  Some vendors don't sell 2MB cache models, some do.
+
+512MB ECC SDRAM.  Maybe more.  1GB of ECC SDRAM, at street price, is only
+about $1600!  Even if you buy a machine from DEC, buying a little memory
+and then adding more will save you a ton.
+
+A SCSI adapter built around the Qlogic (Emulex) "ISP" chipset.  Unfortunately
+these are almost all OEM-only models, many built by DEC.  Some vendors may
+resell the DEC cards, so you may be OK there.  OR:
+
+* A cheap Symbios 810 or 825 or 875 based adapter (several manufacturers,
+  I can give you a few card names if you're going to do this from parts
+  yourself) to boot from (SRM firmware can boot *only* the ISP and 53c8xxx
+  cards) and an Adaptec 2940UW for your other disks.
+
+* Three 3.2GB 5400RPM 3.5" SCSI disks.  I personally am very fond of
+  Quantum Fireball ST drives.  If you can't find 3.2GB drives, you can
+  always go larger.  7200RPM drives suck power and run hot and therefore
+  fail often, less, slower drives is always a better answer.
+
+* An Intel EtherExpress 100baseT card.
+
+* Some PCI VGA card; the ATI or Number Nine cards are generally OK.  You
+  won't get a whole lot of use out of this until someone convinces the
+  XFree86 guys that the world isn't an AT architecture PC, so don't
+  worry about it.
+
+* A cheap PC as, essentially, an X terminal.  Just needs a Pentium
+  processor of some kind, a small IDE disk, a network card, and a good
+  PCI VGA card.  32MB of memory should do nicely.  This should, of course,
+  run NetBSD too.
+
+I'm pretty sure you can get all that for under $20,000.  I note you're at
+an RBOC, so you may have to buy from DEC... sigh.  Well, the Miata is a
+nice machine no matter what you pay for it, I guess.
+
+Isn't it astounding what $20,000 buys these days?
+
+Thor
+
+From cgd@netbsd.org  Wed Aug 26 16:13:26 1998
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: tls@rek.tjls.com
+Date: Wed, 26 Aug 1998 16:13:26 +0000
+Subject: Re: need help spec'ing out box for NetBSD/alpha
+
+Thor Lancelot Simon <tls@panix.com> writes:
+> If you hadn't guessed, NetBSD/alpha
+> has a big bias towards headless server applications because that's all
+> that A12 or NASA Ames, who fund most of the development, care about.
+
+Because .... and because users of the port haven't contributed the
+code to make X work better, etc.
+
+NetBSD is a user-supported system.  Avalon and NASA Ames are users of
+the system, and they've been bloody good about contributing to its
+development.  (CMU was also bloody good about contributing to
+NetBSD/alpha's development, especially since they never really used it
+for much, as far as I know! 8-)
+
+
+That is, of course, only my opinion, which doesn't count for much
+anymore since i'm no longer the port maintainer.  8-)
+
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+Plug: Get your official NetBSD-1.3.2 CDROM set today! http://www.netbsd.com/
+
+From pha@pdq.com  Thu Aug 27 10:52:32 1998
+From: Paul H. Anderson <pha@pdq.com>
+To: tls@rek.tjls.com
+Date: Thu, 27 Aug 1998 10:52:32 +0000
+Subject: Re: need help spec'ing out box for NetBSD/alpha
+
+On Wed, 26 Aug 1998, Thor Lancelot Simon wrote:
+
+> On Tue, Aug 25, 1998 at 10:03:49PM -0400, Christian Kuhtz wrote:
+> > 
+> > Hey gang:
+> > 
+> > I got $20K or so for a workstation and I'd like to spend it on an Alpha.
+> 
+> AlphaPC164LX motherboard, 533MHz or higher 21164(-A) microprocessor, 1MB or
+> 2MB cache.  Some vendors don't sell 2MB cache models, some do.
+
+Can't you get a 4MB cache on these MBs?  If I had that amount of $$$, I
+would.
+
+> 512MB ECC SDRAM.  Maybe more.  1GB of ECC SDRAM, at street price, is only
+> about $1600!  Even if you buy a machine from DEC, buying a little memory
+> and then adding more will save you a ton.
+
+Just get a GB and be done with it.  All of my Alphas have 1GB RAM.
+
+> * Three 3.2GB 5400RPM 3.5" SCSI disks.  I personally am very fond of
+>   Quantum Fireball ST drives.  If you can't find 3.2GB drives, you can
+>   always go larger.  7200RPM drives suck power and run hot and therefore
+>   fail often, less, slower drives is always a better answer.
+
+May I suggest Seagate Cheetah 9-LP (low power) drives?  They are fairly
+cool, and wicked fast.  You may need to tweak the WCE (set write cache
+enable to TRUE) bit on the scsi control pages (scsi command on
+x86/freebsd).  Make sure you put them in drive trays with fans, unless you
+like toasting your bread on the drives.  If heat bothers you, consider
+putting 8 Cheetah 4 drives in a raid box with drive trays with fans, and
+heat will not be a problem at all (the cheetah 4 is quite cool).
+
+> * An Intel EtherExpress 100baseT card.
+
+Are these better than de500's?  Just an idle question.
+
+> * Some PCI VGA card; the ATI or Number Nine cards are generally OK.  You
+>   won't get a whole lot of use out of this until someone convinces the
+>   XFree86 guys that the world isn't an AT architecture PC, so don't
+>   worry about it.
+
+I'd leave the graphics card out of the box.
+
+> * A cheap PC as, essentially, an X terminal.  Just needs a Pentium
+>   processor of some kind, a small IDE disk, a network card, and a good
+>   PCI VGA card.  32MB of memory should do nicely.  This should, of course,
+>   run NetBSD too.
+
+This would also be good for other adminstrative duties.
+
+> I'm pretty sure you can get all that for under $20,000.  I note you're at
+> an RBOC, so you may have to buy from DEC... sigh.  Well, the Miata is a
+> nice machine no matter what you pay for it, I guess.
+
+I'm guessing that you should be able to get this for less than $10,000.
+
+Paul
+
++------------------------------------------------------+
+| Paul Anderson           Public Data Queries, Inc.    |
+| pha@pdq.com             734-213-4964(W) 994-3734(H)  |
++------------------------------------------------------+
+
+From ross@teraflop.com  Thu Aug 27 09:38:04 1998
+From: Ross Harvey <ross@teraflop.com>
+To: pha@pdq.com, tls@rek.tjls.com
+Date: Thu, 27 Aug 1998 09:38:04 +0000
+Subject: Re: need help spec'ing out box for NetBSD/alpha
+
+I don't know if these are still sold, but the most rock-solid high performance
+system is probably the AlphaStation 500 and the AlphaStation 600/600a.
+These came in both low and high clock-rate models; the fast ones would be
+similar in speed to any of today's more common systems, and even the slower
+ones were OK.
+
+One advantage to that series of AS models was: they were not based on the
+Pyxis chipset. The Miata is a nightmare of in-line releases, wierd
+workarounds, and serious DMA bugs, partly because of Pyxis. We've had some
+good reports of NetBSD installations on these systems recently, but given
+the variations I don't know how much money I would bet on a successful go
+for any one Pyxis system picked at random. OTOH, I would be completely
+shocked if a AS 500 or 600 install bombed.
+
+Forget the graphics card for now. At the moment, you are best off using an
+i386 running NetBSD (or whatever) or perhaps a commercial workstation for
+an X server. There are side benefits to using a serial console for your
+alpha: remote administration, UPS integration, and security.
+
+  -- Ross Harvey
+
+From adisaacs@mtu.edu  Thu Aug 27 16:08:37 1998
+From: Andrew Isaacson <adisaacs@mtu.edu>
+To: port-alpha@netbsd.org
+Date: Thu, 27 Aug 1998 16:08:37 +0000
+Subject: Re: need help spec'ing out box for NetBSD/alpha
+
+On Tue, Aug 25, 1998 at 10:03:49PM -0400, Christian Kuhtz wrote:
+> I got $20K or so for a workstation and I'd like to spend it on an Alpha.
+> Catch is, I haven't dealt with DEC equipment since the (*duck*) days of the
+> 11/750s.
+> 
+> Can someone recommend a good highend platform?  What amounts of memory
+> should I be looking for?  Caveats with regards to graphics boards?
+
+Given that kind of a budget, you might want to consider one of the new
+21264-based systems.  Unfortunately,
+ - They're not available yet (release October 1998)
+ - Might not support SRM firmware (at least not on the low-end MBs)
+
+One reseller who has info on their web page is Hard Data, at
+http://www.harddata.com/alpha/alpha.html
+
+I don't know if you can buy a '264-based workstation from
+DEC^H^H^HCompaq yet.
+
+-andy
+-- 
+Andy Isaacson adisaacs@mtu.edu adi@acm.org    Fight Spam, join CAUCE:
+http://www.csl.mtu.edu/~adisaacs/              http://www.cauce.org/
+
+From cherkus@homerun.unimaster.com  Thu Aug 27 16:28:18 1998
+From: Dave Cherkus <cherkus@homerun.unimaster.com>
+To: adisaacs@mtu.edu
+Date: Thu, 27 Aug 1998 16:28:18 +0000
+Subject: Re: need help spec'ing out box for NetBSD/alpha
+
+Andrew Isaacson writes:
+|> 
+|> I don't know if you can buy a '264-based workstation from
+|> DEC^H^H^HCompaq yet.
+|> 
+
+No.  They have announced a program where you can buy a 21164A
+workstation now with a "low-cost" (ha!) upgrade to 21264 when they 
+are available.  See www.alphastation.digital.com for more info.
+
+You can also order upgrades for the 8400 servers.  Maybe our friends at
+NASA Ames have a few bucks sitting in the budget for one of these :-)
+
+-- 
+Dave Cherkus ------- UniMaster, Inc. ------ Contract Software Development
+Specialties: UNIX Internals/Kernel TCP/IP Alpha Clusters Performance ISDN
+Email: cherkus@UniMaster.COM  When the music's over, turn out the lights!
+
+From mjacob@feral.com  Thu Aug 27 13:34:22 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: cherkus@homerun.unimaster.com
+Date: Thu, 27 Aug 1998 13:34:22 +0000
+Subject: Re: need help spec'ing out box for NetBSD/alpha
+
+Right now, Digital is not 'remembering' that we were supposed to
+get 600Mhz upgrades for the processor modules.
+
+
+On Thu, 27 Aug 1998, Dave Cherkus wrote:
+
+> Andrew Isaacson writes:
+> |> 
+> |> I don't know if you can buy a '264-based workstation from
+> |> DEC^H^H^HCompaq yet.
+> |> 
+> 
+> No.  They have announced a program where you can buy a 21164A
+> workstation now with a "low-cost" (ha!) upgrade to 21264 when they 
+> are available.  See www.alphastation.digital.com for more info.
+> 
+> You can also order upgrades for the 8400 servers.  Maybe our friends at
+> NASA Ames have a few bucks sitting in the budget for one of these :-)
+> 
+> -- 
+> Dave Cherkus ------- UniMaster, Inc. ------ Contract Software Development
+> Specialties: UNIX Internals/Kernel TCP/IP Alpha Clusters Performance ISDN
+> Email: cherkus@UniMaster.COM  When the music's over, turn out the lights!
+>
+
+From thorpej@nas.nasa.gov  Thu Aug 27 13:24:23 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: cherkus@homerun.unimaster.com
+Date: Thu, 27 Aug 1998 13:24:23 +0000
+Subject: Re: need help spec'ing out box for NetBSD/alpha
+
+On Thu, 27 Aug 1998 16:28:18 -0400 (EDT) 
+ Dave Cherkus <cherkus@homerun.unimaster.com> wrote:
+
+ > You can also order upgrades for the 8400 servers.  Maybe our friends at
+ > NASA Ames have a few bucks sitting in the budget for one of these :-)
+
+I'm certainly hoping we can order a '264 board for one of our 8200s.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From stanp@storm.ca  Sat Aug 29 00:34:23 1998
+From: Stan Pietkiewicz <stanp@storm.ca>
+To: port-alpha@netbsd.org
+Date: Sat, 29 Aug 1998 00:34:23 +0000
+Subject: Changing root password
+
+And now for a potentially embarassing question:
+
+Courtesy of a few weeks vacation and the onset of CRAFT syndrome (Can't
+Remember A Fine Thing), I've forgotten the passwords for both my user
+account and root on my AXP PCI33 running Netbsd 1.3E.
+
+How can I get this thing back???
+
+TIA......
+
+Stan
+
+From mikeride@prez.buf.servtech.com  Sat Aug 29 02:23:21 1998
+From: Michael G. Schabert <mikeride@prez.buf.servtech.com>
+To: port-alpha@netbsd.org
+Date: Sat, 29 Aug 1998 02:23:21 +0000
+Subject: Batallion package
+
+Lo there,
+I D/L'ed the 8/15 pkgsrc & went to install some games. While Batallion was
+compiling, it stopped with"
+
+gcc: Internal compiler error: program cc1 got fatal signal 6
+
+As I really was just doing the games for the h*ll of it, it's not important
+to me. I was just curious if anyone knows why the compiler would have
+received an abort.
+
+
+Thanks for any help,
+Mike
+Bikers don't *DO* taglines.
+
+From ross@teraflop.com  Sat Aug 29 00:10:18 1998
+From: Ross Harvey <ross@teraflop.com>
+To: port-alpha@netbsd.org, stanp@storm.ca
+Date: Sat, 29 Aug 1998 00:10:18 +0000
+Subject: Re: Changing root password
+
+> From: Stan Pietkiewicz <stanp@storm.ca>
+> ...
+> Courtesy of a few weeks vacation and the onset of CRAFT syndrome (Can't
+> Remember A Fine Thing), I've forgotten the passwords for both my user
+> account and root on my AXP PCI33 running Netbsd 1.3E.
+>
+> How can I get this thing back???
+
+One way is to netboot from a root you can write to. Note that what you
+really need are the /etc/*.db files; passwd and master.passwd are mostly
+unused except by vipw(1).
+
+It's probably easier to just:
+
+	[ get to the SRM >>> prompt, possibly by hitting the reset button
+	and maybe by typing lots of ^C keys if AUTO_ACTION is BOOT ]
+
+	>>> b -fl s
+	...
+	$ fsck -p
+	$ halt
+	...
+	>>> b -fl s
+	...
+	$ mount -a
+	$ EDITOR=ed vipw
+	1s/:[^:]*:/::/
+	w
+	q
+	$ umount -a
+	$ exit
+
+
+  -- Ross Harvey
+
+From wulf@ping.net.au  Sat Aug 29 19:44:04 1998
+From: Berndt Josef Wulf <wulf@ping.net.au>
+To: mikeride@prez.buf.servtech.com
+Date: Sat, 29 Aug 1998 19:44:04 +0000
+Subject: Re: Batallion package
+
+Michael G. Schabert wrote
+> 
+> Lo there,
+> I D/L'ed the 8/15 pkgsrc & went to install some games. While Batallion was
+> compiling, it stopped with"
+> 
+> gcc: Internal compiler error: program cc1 got fatal signal 6
+> 
+> As I really was just doing the games for the h*ll of it, it's not important
+> to me. I was just curious if anyone knows why the compiler would have
+> received an abort.
+
+Have a look if it uses optimization flags such as -O2...
+
+If so, try it with just -O or do away with it altogether. This has
+helped me to get over this problem on a great number of occasions.
+
+cheerio Berndt
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@ping.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.3
+
+From root@garbled.net  Sat Aug 29 04:15:14 1998
+From: Tim Rightnour <root@garbled.net>
+To: mikeride@prez.buf.servtech.com
+Date: Sat, 29 Aug 1998 04:15:14 +0000
+Subject: RE: Batallion package
+
+On 29-Aug-98 Michael G. Schabert spoke unto us all:
+#  gcc: Internal compiler error: program cc1 got fatal signal 6
+#  
+
+I've seen this with our compiler on a number of pkg's.  I have about 10 that
+are currently broken with this.
+
+(I coulda sworn battalion worked though)
+
+You can work around this by manually compiling that one object file with NO
+optimization, until our compiler is fixed up.  (egcs reportedly doesn't do
+this.)
+
+---
+Tim Rightnour    -  root@garbled.net
+http://www.zynetwc.com/~garbled/garbled.html
+
+From ross@teraflop.com  Sat Aug 29 12:17:35 1998
+From: Ross Harvey <ross@teraflop.com>
+To: mikeride@prez.buf.servtech.com, port-alpha@netbsd.org
+Date: Sat, 29 Aug 1998 12:17:35 +0000
+Subject: Re: Batallion package
+
+> To: port-alpha@netbsd.org
+>
+> Lo there,
+> I D/L'ed the 8/15 pkgsrc & went to install some games. While Batallion was
+> compiling, it stopped with"
+>
+> gcc: Internal compiler error: program cc1 got fatal signal 6
+>
+> As I really was just doing the games for the h*ll of it, it's not important
+> to me. I was just curious if anyone knows why the compiler would have
+> received an abort.
+
+It sends that to itself when it gets an internal error. Not to worry, egcs
+and an in-src-tree toolchain is coming with the next snapshot. I just built
+battalion and libMesa using egcs with no compiler errors.
+
+You can work around the problem with the released toolchains by building
+without `-O'.
+
+
+  -- Ross Harvey
+
+From feyrer@rfhs8012.fh-regensburg.de  Sun Aug 30 01:08:01 1998
+From: Hubert Feyrer <feyrer@rfhs8012.fh-regensburg.de>
+To: port-alpha@netbsd.org
+Date: Sun, 30 Aug 1998 01:08:01 +0000
+Subject: state of Digital-Unix-emulation?
+
+Hi,
+
+i was wondering about what the state of the Digital-Unix-emulation of
+NetBSD/alpha is. Can it be used to run some/many/all DU-programms?
+
+
+ - Hubert
+
+-- 
+Hubert Feyrer <hubert.feyrer@rz.uni-regensburg.de>
+
+From thorpej@nas.nasa.gov  Sun Aug 30 12:05:05 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: feyrer@rfhs8012.fh-regensburg.de
+Date: Sun, 30 Aug 1998 12:05:05 +0000
+Subject: Re: state of Digital-Unix-emulation?
+
+On Sun, 30 Aug 1998 01:08:01 +0200 (MEST) 
+ Hubert Feyrer <feyrer@rfhs8012.fh-regensburg.de> wrote:
+
+ > i was wondering about what the state of the Digital-Unix-emulation of
+ > NetBSD/alpha is. Can it be used to run some/many/all DU-programms?
+
+It needs a Lot of work.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From stanp@storm.ca  Sun Aug 30 21:08:33 1998
+From: Stan Pietkiewicz <stanp@storm.ca>
+To: port-alpha@netbsd.org
+Date: Sun, 30 Aug 1998 21:08:33 +0000
+Subject: Adding Disks
+
+I have a feeling this may be a FAQ, or even an RTFD, but I've been
+trying to add a second hard drive to my AXPci33 running NetBSD 1.3e, and
+I keep running into this when I try to newfs a partition on it:
+
+newfs: /dev/(r)sd1a  open: device not configured
+
+I get this even after running /dev/MAKEDEV sd1 .
+
+Am I missing something, or is something broken??
+
+TIA......
+
+Stan
+
+From kpneal@pobox.com  Sun Aug 30 21:18:57 1998
+From: Kevin P. Neal <kpneal@pobox.com>
+To: stanp@storm.ca
+Date: Sun, 30 Aug 1998 21:18:57 +0000
+Subject: Re: Adding Disks
+
+At 09:08 PM 8/30/98 -0400, Stan Pietkiewicz wrote:
+>I have a feeling this may be a FAQ, or even an RTFD, but I've been
+>trying to add a second hard drive to my AXPci33 running NetBSD 1.3e, and
+>I keep running into this when I try to newfs a partition on it:
+>
+>newfs: /dev/(r)sd1a  open: device not configured
+>
+>I get this even after running /dev/MAKEDEV sd1 .
+>
+>Am I missing something, or is something broken??
+
+Issue #1: Does the drive show up as sd1 on boot? 
+
+I'm guessing it does, but you might want to make sure.
+
+Issue #2: Did you disklabel the disk? If the disk is labeled without a
+partition 'a' then I believe it will give the error you are seeing.
+
+Use 'disklabel' to label the disk if that's the problem. 
+--
+Kevin P. Neal                          http://www.pobox.com/~kpn/
+
+'You know, I think I can hear the machine screaming from here... \
+"help me! hellpp meeeee!"' - Heather Flanagan, 14:52:23 Wed Jun 10 1998
+
+From stanp@storm.ca  Sun Aug 30 22:42:29 1998
+From: Stan Pietkiewicz <stanp@storm.ca>
+To: port-alpha@netbsd.org
+Date: Sun, 30 Aug 1998 22:42:29 +0000
+Subject: Re: Adding Disks - SUCCESS!
+
+Kevin P. Neal wrote:
+
+> At 09:08 PM 8/30/98 -0400, Stan Pietkiewicz wrote:
+> >I have a feeling this may be a FAQ, or even an RTFD, but I've been
+> >trying to add a second hard drive to my AXPci33 running NetBSD 1.3e, and
+> >I keep running into this when I try to newfs a partition on it:
+> >
+> >newfs: /dev/(r)sd1a  open: device not configured
+> >
+> >I get this even after running /dev/MAKEDEV sd1 .
+> >
+> >Am I missing something, or is something broken??
+>
+> Issue #1: Does the drive show up as sd1 on boot?
+>
+> I'm guessing it does, but you might want to make sure.
+>
+> Issue #2: Did you disklabel the disk? If the disk is labeled without a
+> partition 'a' then I believe it will give the error you are seeing.
+
+This was the hint that led to the solution..... I had label the disk with
+disklabel, but I hadn't specified anything for the filesystem type. I set
+that to 4.2BSD (the same as sd0), tried to newfs sd1a, and  - lo and behold -
+SUCCESS!!!
+
+Hopefully we'll remember this next time someone else has a similar problem!!
+
+Thanks again......... :-})
+
+Stan
+
+
+>
+>
+> Use 'disklabel' to label the disk if that's the problem.
+> --
+> Kevin P. Neal                          http://www.pobox.com/~kpn/
+>
+> 'You know, I think I can hear the machine screaming from here... \
+> "help me! hellpp meeeee!"' - Heather Flanagan, 14:52:23 Wed Jun 10 1998
+
+From John.Schenck@infousa.com  Mon Aug 31 09:49:19 1998
+From: Schenck, John <John.Schenck@infousa.com>
+To: port-alpha@netbsd.org
+Date: Mon, 31 Aug 1998 09:49:19 +0000
+Subject: Boot image for a 4100
+
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
+
+------ =_NextPart_000_01BDD4C4.D9AC53F0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+
+Howdy,
+
+I have a 4100 and would like to install NetBSD on it. Does anyone have 
+a bootable image for this machine tha I can ftp?
+
+tnx.
+
+...John Schenck...
+
+
+------ =_NextPart_000_01BDD4C4.D9AC53F0
+Content-Type: application/ms-tnef
+Content-Transfer-Encoding: base64
+
+eJ8+IjkOAQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA5AQAAAAAAADoAAEIgAcAGAAAAElQTS5NaWNy
+b3NvZnQgTWFpbC5Ob3RlADEIAQmAAQAhAAAAQ0ZBMzEwMEVERTQwRDIxMUE4REYwMEMwNEZEMEI0
+ODMAPQcBIIADAA4AAADOBwgAHwAJADIANQABAG0BAQWAAwAOAAAAzgcIAB8ACQAxABMAAQBKAQEN
+gAQAAgAAAAIAAgABBIABABYAAABCb290IGltYWdlIGZvciBhIDQxMDAAhAYBA5AGAHwDAAAYAAAA
+AwAuAAAAAABAADkAoKy2iO7UvQEeAHAAAQAAABYAAABCb290IGltYWdlIGZvciBhIDQxMDAAAAAC
+AXEAAQAAABYAAAABvdTuiLUOEKPQQN4R0qjfAMBP0LSDAAADAAYQZ9O3/QMABxByAAAAHgAIEAEA
+AABlAAAASE9XRFksSUhBVkVBNDEwMEFORFdPVUxETElLRVRPSU5TVEFMTE5FVEJTRE9OSVRET0VT
+QU5ZT05FSEFWRUFCT09UQUJMRUlNQUdFRk9SVEhJU01BQ0hJTkVUSEFJQ0FORlRQPwAAAAADABAQ
+AAAAAAMAERADAAAAAgEJEAEAAAAsAQAAKAEAAMwBAABMWkZ1SmPpvf8ACgEPAhUCpAPkBesCgwBQ
+EwNUAgBjaArAc2V07jIGAAbDAoMyA8YHEwKDIjMPemhlbAMgRGy6ZwKAfQqACM8J2TsWb3gyNTUC
+gAqBDbELYG4wZzEwMxQgCwNsabwzNg3wC1US8gwBYwBAgCBIb3dkeSwKhQkKhUkgEcB2ZSBhFCA0
+GZAwHVBuZCBadwhgbB3wGjBrHUB0dG8gC4BzAZAVEQfAdDBCU0QgAiAe4HQu7RUwbweRAHB5AiAd
+QB0VNQbgbwGRbB1AB3BhZ6cdQAIQBcB0aAQAIADB3yLAIOEisB1gHPBjA5EBgAxwPxx2CoV0bngu
+RRwcLiZwSm9oA6BTsxGwCfBjayZxGo1wA2BedAWQBUAKhRWRACmwAwA2AAAAAAADACYAAAAAAAIB
++T8BAAAAHgAAAAAAAADcp0DIwEIQGrS5CAArL+GCAQAAAAAAAAAuAAAAHgD4PwEAAAAVAAAAU3lz
+dGVtIEFkbWluaXN0cmF0b3IAAAAAAgH7PwEAAAAeAAAAAAAAANynQMjAQhAatLkIACsv4YIBAAAA
+AAAAAC4AAAAeAPo/AQAAABUAAABTeXN0ZW0gQWRtaW5pc3RyYXRvcgAAAABAAAcwoJlJNu7UvQFA
+AAgwNsCswO7UvQEDAA00/T8AAAIBFDQBAAAAEAAAAFSUocApfxAbpYcIACsqJRceAD0AAQAAAAEA
+AAAAAAAACwApAAAAAAALACMAAAAAAAIBfwABAAAANwAAADxjPVVTJWE9XyVwPUFCSUklbD1BQkkv
+TkVCUkFTS0EvMDAxQzQ2NEJAbGVvLmFiaWkuY29tPgAAm9k=
+
+------ =_NextPart_000_01BDD4C4.D9AC53F0--
+
+From mjacob@feral.com  Mon Aug 31 08:16:01 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: John.Schenck@infousa.com
+Date: Mon, 31 Aug 1998 08:16:01 +0000
+Subject: Re: Boot image for a 4100
+
+I believe that the latest -current snapshot supports this
+(thanks to Ross- a right on dude...)
+
+See ftp.nebsd.org- pub/NetBSD/arch/alpha/snapshot/19980628.
+
+I'd be very interested in hearing experiences you have with this.
+
+At NASA/Ames we have precisely 4 identical 4100s, which isn't a
+lot to base conclusions on the port's success on.
+
+-matt
+
+On Mon, 31 Aug 1998, Schenck, John wrote:
+
+> Howdy,
+> 
+> I have a 4100 and would like to install NetBSD on it. Does anyone have 
+> a bootable image for this machine tha I can ftp?
+> 
+> tnx.
+> 
+> ...John Schenck...
+> 
+>
+
+From John.Schenck@infousa.com  Mon Aug 31 14:16:56 1998
+From: Schenck, John <John.Schenck@infousa.com>
+To: port-alpha@netbsd.org
+Date: Mon, 31 Aug 1998 14:16:56 +0000
+Subject: RE: Boot image for a 4100
+
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
+
+------ =_NextPart_000_01BDD4EA.DFB52B70
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+
+
+I tried the image from this dist. but it wont boot all the way. I can 
+give more info if someone needs/wants.
+
+I tried asking for the image from the people handling the sites email, 
+but they directed me to the newsgroup
+Here is a bit of the docs from the announcment on 6-june-98:
+
+**********************************************************************  
+
+Many new platforms
+
+      AlphaServer 4100 (Rawhide)
+      AlphaServer 1000
+...
+In some cases this support is at a rather experimental stage. We would 
+really appreciate it if people with access to any of these systems 
+would try the new snapshot,
+...
+Support for the 4100 is not on the install floppy, but if you have one 
+we will be happy to make a floppy for you.
+
+Other -current features
+...
+**********************************************************************  
+
+----------
+From: 	Matthew Jacob
+Subject: 	Re: Boot image for a 4100
+
+
+I believe that the latest -current snapshot supports this
+(thanks to Ross- a right on dude...)
+
+See ftp.nebsd.org- pub/NetBSD/arch/alpha/snapshot/19980628.
+
+I'd be very interested in hearing experiences you have with this.
+
+At NASA/Ames we have precisely 4 identical 4100s, which isn't a
+lot to base conclusions on the port's success on.
+
+-matt
+
+On Mon, 31 Aug 1998, Schenck, John wrote:
+
+> Howdy,
+>
+> I have a 4100 and would like to install NetBSD on it. Does anyone 
+have
+> a bootable image for this machine tha I can ftp?
+>
+> tnx.
+>
+> ...John Schenck...
+>
+>
+
+
+
+
+------ =_NextPart_000_01BDD4EA.DFB52B70
+Content-Type: application/ms-tnef
+Content-Transfer-Encoding: base64
+
+eJ8+IggTAQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA5AQAAAAAAADoAAEIgAcAGAAAAElQTS5NaWNy
+b3NvZnQgTWFpbC5Ob3RlADEIAQmAAQAhAAAARTJBMzEwMEVERTQwRDIxMUE4REYwMEMwNEZEMEI0
+ODMAKwcBIIADAA4AAADOBwgAHwAOABcAAwABACUBAQWAAwAOAAAAzgcIAB8ADgAQADgAAQBTAQEN
+gAQAAgAAAAIAAgABBIABABoAAABSRTogQm9vdCBpbWFnZSBmb3IgYSA0MTAwAHUHAQOQBgBIBwAA
+GAAAAAMALgAAAAAAQAA5AOAAkOsT1b0BHgBwAAEAAAAaAAAAUkU6IEJvb3QgaW1hZ2UgZm9yIGEg
+NDEwMAAAAAIBcQABAAAAFgAAAAG91RPrjA4Qo+RA3hHSqN8AwE/QtIMAAAMABhAabUZrAwAHEHcE
+AAAeAAgQAQAAAGUAAABJVFJJRURUSEVJTUFHRUZST01USElTRElTVEJVVElUV09OVEJPT1RBTExU
+SEVXQVlJQ0FOR0lWRU1PUkVJTkZPSUZTT01FT05FTkVFRFMvV0FOVFNJVFJJRURBU0tJTkdGT1JU
+AAAAAAMAEBAAAAAAAwAREAUAAAACAQkQAQAAAO4EAADqBAAAHgkAAExaRnUVs8Gf/wAKAQ8CFQKk
+A+QF6wKDAFATA1QCAGNoCsBzZXTuMgYABsMCgzIDxgcTAoMSMxMPZjQPemhlbNEDIERsZwKDNQPF
+AgDYcHJxEiATiDYXDAaw0HN0ZW0CgH0KgAjPxQnZOxrPMjU1AoAKgYMNsQtgbmcxMDMUIKsLChby
+MhLwYwBAIAqFaEkgdAiBZCAwFiAgeQdwYWcgwANSIJEEACCCZAQAdC4gYnUFQJppBUB3AiEiMG9v
+BUDHB0ADICCid2F5IiAgIOJjA5FnaXYgwARgGtCNINBuAhAg0GYgcwNwnmUCICDAJfAJgHMvI9AZ
+AjBzLgqFH65hc2u9C4BnITAFsSCvIMBwJdDHC1AgwBHAbmRsKIIpAp8AkBmgBCAZsAtwbCwiM+0p
+AXkh0RrQYxmgIIAHgM8gMCVQKQIl8HdzCcAIYHZwCo8e3EgEkCDBBCBhGyIwIoFvJYApAmRvY5cE
+ICmnAHBuCGBuYweAQyLRAiAgNi1qMvBlcC05ODounx7fNHIqrzavN784zznfKjRFTQBwPyywLgEq
+IAtgADAFsG1zxzRFJuY9Y0FscBHABmELJKAFwDQd8DAgKFLsYXchoA2wKTz/Pgc+ofs+wDRFLkHQ
+H7YDoCWiJDHXEfAEICGTcy5wcBpxMMM5IzEgcjwgFiAFwGV4/yowBRAzIgdAJZABkCEQIiD2VyOx
+CGBsIIAa0CNRLLD+YUPALPEHMBmgInIlcSo15wPwKQAjQGNjB5BDMSVQ/zuCMWQR8CWQGYMEIEaE
+IECXLLAtxSWQbkdQc2gjIPssIEFvU0O1KMY+kyGxMtB/M1MpAwCARaEDIB2gKlBw9nksJCVxeQhg
+KpEkoSXi9ndIshZBYiqCUMEtggDAfmsykVCFKLNRgSIgPJxPuUTDLWMIcBrQItFmRvD+dAhwB5BM
+3zn/WW9af1uPZzrnCvQq4DE4PrACAGnwLTE0NA3wDNBeMwtZ/jEYgBeQIyAtAVYwYFc0R9dfCwww
+X9ZGA2E6YV5f1l8MgjthAkAWIAfgSgDQb85iYP9iDU3gYmotAWM/6WRLUmVoUEIjEiDlBbHPMQA+
+kjycXTYzNl7XFCLfDAFf1h+3UtAq4GUkoSkA/0RRKQI8EQeQYDFWVkw2Q5bLQzQ0RShv0W5rSXMI
+AEUEEC1EcmlnaDNTZHZ1DbBB0Sk8nAZgISF0hHAuJfBic2QuBbAqZ3QgcGfwLwfAdEJ4U0QvCsAR
+sHggPeIvEUw2LzE5NBAwNjL2OCbWH7YnIIBS0T5RLLD/C4AZoFchLSILgCqQRvAFEP8okUUUCfBJ
+QVF4SNMhknn9AkEFQE5BU0EvQb8HglJRUcNHcxHwRyE0INC7DbACMGkkQAMgPpJzLCDnPxERsDDB
+bicjMTRFGmC7LGElUGJDASQwAiBjCkDfAJACIAQgT6VD0idDgkk0ewIgef0tAMACQFUNA6BNywIg
+LCAzH5BBdSigeXItLCBTEbB9YWssIEpvumgDoHdf4jQ2NEU+MHD4b3dkUOCMV4xXICBRw/9rZDKh
+IIBGhCrgU7EtkVAWz3fEM2IigCIgRG8HkTuB/yXiUcOMVzEBIxEBoCpxash/IZMAwSGgJfFv0SQV
+dpE/841PIDBueCbWjblB0Yszf4qlQdiNuWvPbN4S8m4fIAUZ8QCe0AAAAwA2AAAAAAADACYAAAAA
+AAIB+T8BAAAAHgAAAAAAAADcp0DIwEIQGrS5CAArL+GCAQAAAAAAAAAuAAAAHgD4PwEAAAAVAAAA
+U3lzdGVtIEFkbWluaXN0cmF0b3IAAAAAAgH7PwEAAAAeAAAAAAAAANynQMjAQhAatLkIACsv4YIB
+AAAAAAAAAC4AAAAeAPo/AQAAABUAAABTeXN0ZW0gQWRtaW5pc3RyYXRvcgAAAABAAAcwQFzQ0hLV
+vQFAAAgwEgTfxRTVvQEDAA00/T8AAAIBFDQBAAAAEAAAAFSUocApfxAbpYcIACsqJRceAD0AAQAA
+AAUAAABSRTogAAAAAAsAKQAAAAAACwAjAAAAAAACAX8AAQAAADcAAAA8Yz1VUyVhPV8lcD1BQklJ
+JWw9QUJJL05FQlJBU0tBLzAwMUM0REI0QGxlby5hYmlpLmNvbT4AACYw
+
+------ =_NextPart_000_01BDD4EA.DFB52B70--
+
+From mjacob@feral.com  Mon Aug 31 12:27:06 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: John.Schenck@infousa.com
+Date: Mon, 31 Aug 1998 12:27:06 +0000
+Subject: RE: Boot image for a 4100
+
+Yes, I'd like details please.
+
+On Mon, 31 Aug 1998, Schenck, John wrote:
+
+> 
+> I tried the image from this dist. but it wont boot all the way. I can
+> give more info if someone needs/wants.
+>  
+> I tried asking for the image from the people handling the sites email,
+> but they directed me to the newsgroup
+> Here is a bit of the docs from the announcment on 6-june-98:
+> 
+> **********************************************************************
+> Many new platforms
+> 
+>       AlphaServer 4100 (Rawhide) 
+>       AlphaServer 1000 
+> ...
+> In some cases this support is at a rather experimental stage. We would
+> really appreciate it if people with access to any of these systems would
+> try the new snapshot, 
+> ...
+> Support for the 4100 is not on the install floppy, but if you have one
+> we will be happy to make a floppy for you. 
+> 
+> Other -current features
+> ...
+> **********************************************************************
+> >----------
+> >From: 	Matthew Jacob
+> >Subject: 	Re: Boot image for a 4100
+> >
+> >
+> >I believe that the latest -current snapshot supports this
+> >(thanks to Ross- a right on dude...)
+> >
+> >See ftp.nebsd.org- pub/NetBSD/arch/alpha/snapshot/19980628.
+> >
+> >I'd be very interested in hearing experiences you have with this.
+> >
+> >At NASA/Ames we have precisely 4 identical 4100s, which isn't a
+> >lot to base conclusions on the port's success on.
+> >
+> >-matt
+> >
+> >On Mon, 31 Aug 1998, Schenck, John wrote:
+> >
+> >> Howdy,
+> >> 
+> >> I have a 4100 and would like to install NetBSD on it. Does anyone have 
+> >> a bootable image for this machine tha I can ftp?
+> >> 
+> >> tnx.
+> >> 
+> >> ...John Schenck...
+> >> 
+> >> 
+> >
+> >
+>
+
+From ross@teraflop.com  Mon Aug 31 12:53:01 1998
+From: Ross Harvey <ross@teraflop.com>
+To: John.Schenck@infousa.com, port-alpha@netbsd.org
+Date: Mon, 31 Aug 1998 12:53:01 +0000
+Subject: RE: Boot image for a 4100
+
+> I tried the image from this dist. but it wont boot all the way. I can 
+> give more info if someone needs/wants.
+...
+> ...
+> Support for the 4100 is not on the install floppy, but if you have one 
+> we will be happy to make a floppy for you.
+...
+
+Right, there wasn't space on our SSTO floppy to add the 4100. I have
+a relatively simple solution for this, but I haven't yet, well, done it.
+
+So, there are two ways to go from here:
+
+	1. You, or one of us, (someone with an already running NetBSD/alpha)
+	   needs to make a custom boot floppy that has 4100 but doesn't have
+	   some other crud...(so it still fits)
+
+	2. You could netboot. GENERIC has AlphaServer 4100 support and the
+	   boot blocks are not platform-dependent in any way.
+
+
+  -- Ross Harvey
+
+From John.Schenck@infousa.com  Mon Aug 31 14:52:19 1998
+From: Schenck, John <John.Schenck@infousa.com>
+To: port-alpha@netbsd.org
+Date: Mon, 31 Aug 1998 14:52:19 +0000
+Subject: RE: Boot image for a 4100
+
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
+
+------ =_NextPart_000_01BDD4F1.18C34860
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+
+Thanks for the resonse and help.
+I have a single CPU 4100 with pretty much out of the box H/W configuration. 
+Here is what the console says when I boot the 1.3.2f image:
+
+Entering netbsd.gz @ 0xfffffc0000300fc0
+
+Unrecognized boot flag '0'.
+
+Support for System type 22 is not present in this kernenl. 
+Please build a kernel with "options ST_DEC_4100" and reboot.
+
+Panic platform not configured.
+
+Halted
+
+-----Original Message-----
+From: Matthew Jacob 
+Subject: RE: Boot image for a 4100
+
+
+
+Yes, I'd like details please.
+
+On Mon, 31 Aug 1998, Schenck, John wrote:
+
+> 
+> I tried the image from this dist. but it wont boot all the way. I can
+> give more info if someone needs/wants.
+>  
+> I tried asking for the image from the people handling the sites email,
+> but they directed me to the newsgroup
+> Here is a bit of the docs from the announcment on 6-june-98:
+> 
+> **********************************************************************
+> Many new platforms
+> 
+>       AlphaServer 4100 (Rawhide) 
+>       AlphaServer 1000 
+> ...
+> In some cases this support is at a rather experimental stage. We would
+> really appreciate it if people with access to any of these systems would
+> try the new snapshot, 
+> ...
+> Support for the 4100 is not on the install floppy, but if you have one
+> we will be happy to make a floppy for you. 
+> 
+> Other -current features
+> ...
+> **********************************************************************
+> >----------
+> >From: 	Matthew Jacob
+> >Subject: 	Re: Boot image for a 4100
+> >
+> >
+> >I believe that the latest -current snapshot supports this
+> >(thanks to Ross- a right on dude...)
+> >
+> >See ftp.nebsd.org- pub/NetBSD/arch/alpha/snapshot/19980628.
+> >
+> >I'd be very interested in hearing experiences you have with this.
+> >
+> >At NASA/Ames we have precisely 4 identical 4100s, which isn't a
+> >lot to base conclusions on the port's success on.
+> >
+> >-matt
+> >
+> >On Mon, 31 Aug 1998, Schenck, John wrote:
+> >
+> >> Howdy,
+> >> 
+> >> I have a 4100 and would like to install NetBSD on it. Does anyone have 
+> >> a bootable image for this machine tha I can ftp?
+> >> 
+> >> tnx.
+> >> 
+> >> ...John Schenck...
+> >> 
+> >> 
+> >
+> >
+> 
+
+
+------ =_NextPart_000_01BDD4F1.18C34860
+Content-Type: application/ms-tnef
+Content-Transfer-Encoding: base64
+
+eJ8+IikUAQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA5AQAAAAAAADoAAEIgAcAGAAAAElQTS5NaWNy
+b3NvZnQgTWFpbC5Ob3RlADEIAQmAAQAhAAAAQTg2M0UzMDAwQTQxRDIxMTgwNDgwMDEwNEIzNUFG
+QzkA3gYBIIADAA4AAADOBwgAHwAPAAcAJwABADoBAQWAAwAOAAAAzgcIAB8ADgA0ABMAAQBSAQEN
+gAQAAgAAAAIAAgABBIABABoAAABSRTogQm9vdCBpbWFnZSBmb3IgYSA0MTAwAHUHAQOQBgCUCgAA
+KwAAAAsAAgABAAAACwArAAAAAAADAC4AAAAAAEAAOQCQKsrcGNW9AR4AcAABAAAAFgAAAEJvb3Qg
+aW1hZ2UgZm9yIGEgNDEwMAAAAAIBcQABAAAAFgAAAAG91RjcvwDjY6pBChHSgEgAEEs1r8kAAAMA
+BhBiG8aCAwAHEDIGAAAeAAgQAQAAAGUAAABUSEFOS1NGT1JUSEVSRVNPTlNFQU5ESEVMUElIQVZF
+QVNJTkdMRUNQVTQxMDBXSVRIUFJFVFRZTVVDSE9VVE9GVEhFQk9YSC9XQ09ORklHVVJBVElPTkhF
+UkVJU1dIQVRUSEVDAAAAAAMAEBAAAAAAAwAREA4AAAACAQkQAQAAADAGAAAsBgAAHwsAAExaRnXJ
+nosGAwAKAHJjcGcxMjXiMgNDdGV4BUEBAwH3/wqAAqQD5AcTAoAP8wBQBFY/CFUHshElDlEDAQIA
+Y2jhCsBzZXQyBgAGwxEl9jMERhO3MBIsETMI7wn3tjsYHw4wNREiDGBjAFCzCwkBZDM2FlALp2MB
+MOQgVBPgbmsEIAIQBcDQdGhlIBggcwIgFBASIABwZCAd8GxwLksKogqASR7QYXYegSARAJBuZ2we
+AENQVXAgNDEwFlAD8B3gIMZwGCACQHkgbRrQIVAzCGAFQG9mHdMG4HggEEgvVyAFoG5maaJnCHBh
+dGkCIC4K4/0KgEgEkB4ABAAhEBPgBUCPHeIjYR5AIGFzYXklEi0J8CAfkAbgbyVkMS4YMy4yIoAH
+cGFnZXY6HzQfNEUCMAZxIEAgAm4UIGJzZC5nemAgQCAweAEgKpFjOyDwIPAzIPAq0ShqVW5rGCAF
+oGcDAHoJgCb0ZmMLYCmQJzAnHyUfNFO4dXBwF8Edkwawcw6w0m0d0HlwHgAyFEAlAf5uJyEhcRQQ
+AjAk8AOgHeCtJQFrBJEJ8GwkNlAgYPJhHnFidQMQHsAgADHjcwMgISMibwUwJAEGQVSgX0RFQ18g
+0iIek/cYICcCLftQAHAN4CFgC2B/ADAFsC/QMKIjZgmALftIrwdADrALMSiILTsSTwUQ/mcLgAdA
+BdAHkCZAKDA7E/UfNEYDYToF0CPgHeEH4DJKANBvYiRFLsBiaqUFkHQ9UFJFPVBCJxK/KAMdkyAA
+INIoaihqWQeQSiwm0CcewGxpMeAgfwEAAZADEAQgC1Ay8i37T00DoE0CIEKAMzEQwHWhKZAxOTk4
+QoBTE9CJCfBja0KASm9oA6DudwNgDrAoWz4kRUgwH5B+dAiBHsAd4j/VA2ExhGTfBAA2cDMxMUEF
+QHcCISb0dwdAAyAd4ncmUCQwH5BjfwBwR9Y7kB/RBGAk0iOAb/8k8CKAHkAHgAIgHgApsAmA7HMv
+TIACMHMfJUgwSE/9MwBrKXIdpkmbHgAwEDSQ+yBhHUFkQuApgR3iAJAOsPcEIC/AQ2EsR9ZK8h3h
+IcDfSpAscTohIdAeAHROcB3i2Smwd3MJwAhgcEfWJLaNIABiSzEidWRvYx2B91L2AHAwoHVGcAeA
+MTECIPAgNi1qWzA8UEXwKFW9SDgqXY9en1+vYL8qR9bdPXBuIcBXsTenc0feZHR+QR8AE+AGYR/Q
+BcAg0yjUUmElMGkBAClj/2UI9yDhHEFH5S5pAEhXA6BOwu9M4RQQBCAxk3Mu1VkSS+H/HhAj4B3w
+BcAOwDAQBRBbYu87wS+gKCEkMFdMYQhgM3DvR9YYIEwBIcBhLuAscQcwvw6wSyJOkVN1ISMA0GM8
+Ae9XMmJyInQecXMvkyURbdofSPAhwFd1IBA7sHBzaP8nIEKAaI9IMC7KHeIg0zB1f1uxUkMAgGzh
+AyAtcDSQcO55QoBK8yKAeQhgH6RPAe1H1ndwYkwRYlPCeQFXMv8AwEMBIAB41B2TecEkNkg4ck9s
+Ay1jCHAYIDExZv0y8HQ44WN3aQlg34Jfg2/7hH9hyD47EzxphhE9FAyC7z1shbc+t4fTUihAP39A
+ifuGEYv/PibhHvAIkB/RHeD/JVU3wQeQBUB/F3RWatZqdH2FtyiOQR1iV0EIAAQQLctrsiOgaFuT
+ZHUBAGkB3imMj4lwCeAdkHQfECmwqyniBbBnkrBwPsAvB8DgdEJTRC8KwBPQlvAVZPIvdFYvRdIw
+NjL+OE/3jQlCsXuBZWEhwAuA/ylBjwEs8TFhHfAKwClybFR/RmEHkXnHISMxkpjPhiBBgQVATkFT
+QS9BB4LfewEfs28jFBBu0TQk8AEA/wIwDeA7wSDSQnFmISIBBAB8bidL4YW3F7AlYU5wYvszAiNh
+YwpAAJA00nflLvL+J2rCcOQkEZ4PhjAAwAJAfaa/PkTvRf9HC4xaWKFv/HdkeSCsaaxpH5cg0x6i
+/23DQtRXQXhWlpRboiEwJDD8RG8HkWJxTwIfs6xpWUH/JxEBoCBhivgxkwDBMaBPETeOQUzElVI/
+rX+sw3Ru/nimqK4LaQGrI6qVaQmt/Ber37z3KGp9vuAeAEIQAQAAAAEAAAAAAAAAAwCAEP////8D
+AN4/r28AAAsAOoAIIAYAAAAAAMAAAAAAAABGAAAAAAOFAAAAAAAAAwA/gAggBgAAAAAAwAAAAAAA
+AEYAAAAAEIUAAAAAAAADADuACCAGAAAAAADAAAAAAAAARgAAAABShQAA4xUAAB4APIAIIAYAAAAA
+AMAAAAAAAABGAAAAAFSFAAABAAAABAAAADguNQADAD2ACCAGAAAAAADAAAAAAAAARgAAAAABhQAA
+AAAAAAsAPoAIIAYAAAAAAMAAAAAAAABGAAAAAA6FAAAAAAAAAwBAgAggBgAAAAAAwAAAAAAAAEYA
+AAAAEYUAAAAAAAADAEGACCAGAAAAAADAAAAAAAAARgAAAAAYhQAAAAAAAAMAJgAAAAAAAwA2AAAA
+AAAeAEKACCAGAAAAAADAAAAAAAAARgAAAAA2hQAAAQAAAAEAAAAAAAAAHgBDgAggBgAAAAAAwAAA
+AAAAAEYAAAAAN4UAAAEAAAABAAAAAAAAAB4ARIAIIAYAAAAAAMAAAAAAAABGAAAAADiFAAABAAAA
+AQAAAAAAAAALAHmACyAGAAAAAADAAAAAAAAARgAAAAAAiAAAAAC/AAsAe4ALIAYAAAAAAMAAAAAA
+AABGAAAAAAWIAAAAAL8ACwARgQggBgAAAAAAwAAAAAAAAEYAAAAABoUAAAAAvwACAfk/AQAAAB4A
+AAAAAAAA3KdAyMBCEBq0uQgAKy/hggEAAAAAAAAALgAAAB4A+D8BAAAAFQAAAFN5c3RlbSBBZG1p
+bmlzdHJhdG9yAAAAAAIB+z8BAAAAHgAAAAAAAADcp0DIwEIQGrS5CAArL+GCAQAAAAAAAAAuAAAA
+HgD6PwEAAAAVAAAAU3lzdGVtIEFkbWluaXN0cmF0b3IAAAAAQAAHMJBchfoX1b0BQAAIMCgMGwEb
+1b0BAwANNP0/AAACARQ0AQAAABAAAABUlKHAKX8QG6WHCAArKiUXHgA9AAEAAAAFAAAAUkU6IAAA
+AAALACkAAAAAAAsAIwAAAAAAAgF/AAEAAAA3AAAAPGM9VVMlYT1fJXA9QUJJSSVsPUFCSS9ORUJS
+QVNLQS8wMDFDNEYyNEBsZW8uYWJpaS5jb20+AACD1g==
+
+------ =_NextPart_000_01BDD4F1.18C34860--
+
+From mjacob@feral.com  Mon Aug 31 13:14:02 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: John.Schenck@infousa.com
+Date: Mon, 31 Aug 1998 13:14:02 +0000
+Subject: RE: Boot image for a 4100
+
+Hmm. Wrong kernel. Are you sure you have the 
+latest -current snapshot's kernel? Oh- wait- the 1.3.2 kernel
+doesn't have this support. This is actually supported privately
+(for 1.3.X) at NASA/Ames, but it isn't in the main tree.
+
+Pull the 19980628 kernel from ftp.netbsd.org:
+
+ftp://ftp.netbsd.org/pub/NetBSD/arch/alpha/snapshot/19980628/binary/kernel/netbsd.gz
+
+gunzip and try that. The 1.3.X binaries ought to work (well, ps
+&& w might be broken).
+
+
+
+On Mon, 31 Aug 1998, Schenck, John wrote:
+
+> Thanks for the resonse and help.
+> I have a single CPU 4100 with pretty much out of the box H/W
+> configuration. 
+> Here is what the console says when I boot the 1.3.2f image:
+> 
+> Entering netbsd.gz @ 0xfffffc0000300fc0
+> 
+> Unrecognized boot flag '0'.
+> 
+> Support for System type 22 is not present in this kernenl. 
+> Please build a kernel with "options ST_DEC_4100" and reboot.
+> 
+> Panic platform not configured.
+> 
+> Halted
+> 
+> -----Original Message-----
+> From: Matthew Jacob 
+> Subject: RE: Boot image for a 4100
+> 
+> 
+> 
+> Yes, I'd like details please.
+> 
+> On Mon, 31 Aug 1998, Schenck, John wrote:
+> 
+> > 
+> > I tried the image from this dist. but it wont boot all the way. I can
+> > give more info if someone needs/wants.
+> >  
+> > I tried asking for the image from the people handling the sites email,
+> > but they directed me to the newsgroup
+> > Here is a bit of the docs from the announcment on 6-june-98:
+> > 
+> > **********************************************************************
+> > Many new platforms
+> > 
+> >       AlphaServer 4100 (Rawhide) 
+> >       AlphaServer 1000 
+> > ...
+> > In some cases this support is at a rather experimental stage. We would
+> > really appreciate it if people with access to any of these systems would
+> > try the new snapshot, 
+> > ...
+> > Support for the 4100 is not on the install floppy, but if you have one
+> > we will be happy to make a floppy for you. 
+> > 
+> > Other -current features
+> > ...
+> > **********************************************************************
+> > >----------
+> > >From: 	Matthew Jacob
+> > >Subject: 	Re: Boot image for a 4100
+> > >
+> > >
+> > >I believe that the latest -current snapshot supports this
+> > >(thanks to Ross- a right on dude...)
+> > >
+> > >See ftp.nebsd.org- pub/NetBSD/arch/alpha/snapshot/19980628.
+> > >
+> > >I'd be very interested in hearing experiences you have with this.
+> > >
+> > >At NASA/Ames we have precisely 4 identical 4100s, which isn't a
+> > >lot to base conclusions on the port's success on.
+> > >
+> > >-matt
+> > >
+> > >On Mon, 31 Aug 1998, Schenck, John wrote:
+> > >
+> > >> Howdy,
+> > >> 
+> > >> I have a 4100 and would like to install NetBSD on it. Does anyone have 
+> > >> a bootable image for this machine tha I can ftp?
+> > >> 
+> > >> tnx.
+> > >> 
+> > >> ...John Schenck...
+> > >> 
+> > >> 
+> > >
+> > >
+> > 
+>
+
+From mjacob@feral.com  Mon Aug 31 15:51:26 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@netbsd.org
+Date: Mon, 31 Aug 1998 15:51:26 +0000
+Subject: ISP qlogic HBA testers sought
+
+I have a kernel that now renegotiates back up to wide and sync
+and tagged mode based upon some SCSI inquiry data after
+negotiating back down to ASYNC/NARROW when first configured.
+
+If you're running a reasonably close to -current, can some
+folks volunteer to boot a kernel to see if it works for you?
+
+-matt
+
+From thorpej@nas.nasa.gov  Mon Aug 31 15:34:11 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mjacob@feral.com
+Date: Mon, 31 Aug 1998 15:34:11 +0000
+Subject: Re: ISP qlogic HBA testers sought
+
+On Mon, 31 Aug 1998 15:51:26 -0700 (PDT) 
+ Matthew Jacob <mjacob@feral.com> wrote:
+
+ > I have a kernel that now renegotiates back up to wide and sync
+ > and tagged mode based upon some SCSI inquiry data after
+ > negotiating back down to ASYNC/NARROW when first configured.
+ > 
+ > If you're running a reasonably close to -current, can some
+ > folks volunteer to boot a kernel to see if it works for you?
+
+Send one my way.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 650 940 5942
+
+From stig@alpha-processor.com  Mon Aug 31 22:03:23 1998
+From: Stig Telfer <stig@alpha-processor.com>
+To: port-alpha@netbsd.org
+Date: Mon, 31 Aug 1998 22:03:23 +0000
+Subject: NetBSD: plans for SMP implementation?
+
+I have looked through the NetBSD FAQs, but not found the info I needed.
+Can anyone tell me if it is possible to run NetBSD on multi-processor Alpha
+systems?  I noticed certain SMP Alpha systems can run NetBSD, but only on 1
+processor.
+
+Are there any initiatives underway to implement a SMP version of NetBSD?
+
+Thanks
+Stig Telfer
+--
+Any opinions expressed are my own and not those of Alpha Processor Inc.
+

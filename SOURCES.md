@@ -138,6 +138,90 @@ Not all months exist (list was low-traffic early on).
 Note: Gmane had sparse coverage before March 2002; a handful of articles
 had malformed dates (one spam with fake 1997 date — replaced with real data).
 
+## freebsd-alpha (separate list)
+
+FreeBSD's Alpha port list, `freebsd-alpha@freebsd.org`, retired in
+November 2010.
+
+### 1998-January – 2002-February (49 months, 9,986 messages)
+**Source:** marc.info, list `freebsd-alpha`
+**Script:** `fetch-marc-list.py freebsd-alpha freebsd-alpha-mbox 199801 200202`
+**Output:** `freebsd-alpha-mbox/YYYY-Month.mbox`
+**Quality:** Reconstructed — marc.info supplies no Message-ID and no
+In-Reply-To, and obfuscates addresses (`user () host ! com`). No other
+source covers these years.
+**Key detail:** marc.info month listings show thread *heads* only, so each
+thread has to be expanded (`?t=<tid>&r=N&w=2`) and both views paginate 30
+rows at a time. Collecting only the month listing's links yields roughly a
+quarter of the messages. `fetch-marc-mbox.py` (the earlier axp-redhat
+script, never used for archived data) has this bug; `fetch-marc-list.py`
+does not.
+
+### 2002-March – 2010-December (106 months, 6,278 messages)
+**Source:** Gmane (news.gmane.io), group `gmane.os.freebsd.devel.alpha`
+**Script:** `fetch-gmane-nntp.py gmane.os.freebsd.devel.alpha freebsd-alpha-mbox`
+**Output:** `freebsd-alpha-mbox/gmane-YYYY-Month.mbox`
+**Quality:** Good — full headers, including Message-ID and References.
+Every article in the group (1–6308, 30 absent server-side) was retrieved.
+
+### 2003-March – 2010-December (94 months, 3,781 messages)
+**Source:** Pipermail at `https://lists.freebsd.org/pipermail/freebsd-alpha/`
+**Script:** `fetch-freebsd-alpha-mbox.py`
+**Output:** `freebsd-alpha-mbox/YYYY-Month.mbox`
+**Quality:** Good — original Message-IDs, but Pipermail obscures addresses
+(`user at host`). Fully overlapped by the Gmane copy; both are kept because
+public-inbox deduplicates by Message-ID, and each fills small holes in the
+other.
+
+## port-alpha (NetBSD)
+
+`port-alpha@netbsd.org`, still active.
+
+### 1996-January – 2002-February (73 months, 10,587 messages)
+**Source:** mail-index.netbsd.org (NetBSD's official archive)
+**Script:** `fetch-netbsd-mailindex.py port-alpha netbsd-port-alpha-mbox 199601 200112`
+(plus a second run for `200202`, the one month Gmane skips)
+**Output:** `netbsd-port-alpha-mbox/YYYY-Month.mbox`
+**Quality:** Reconstructed — message pages carry only Subject/To/From/Date;
+no Message-ID, no In-Reply-To. Dates are UTC, `MM/DD/YYYY HH:MM:SS`.
+Every message linked from every month index parsed cleanly.
+
+### 2002-January – 2026-August (223 months, 5,491 messages)
+**Source:** Gmane (news.gmane.io), group `gmane.os.netbsd.ports.alpha`
+**Script:** `fetch-gmane-nntp.py gmane.os.netbsd.ports.alpha netbsd-port-alpha-mbox`
+**Output:** `netbsd-port-alpha-mbox/gmane-YYYY-Month.mbox`
+**Quality:** Good — full headers.
+
+marc.info also carries this list (1997-11 onwards, 13,156 messages) but was
+not used: mail-index reaches back further (1996-01), is NetBSD's own
+archive, and neither source has Message-IDs, so mixing them would produce
+undeduplicatable duplicates. Gmane is 370 messages short of marc.info
+across 46 months in 2002–2026; those gaps were left rather than filled with
+header-stripped copies that public-inbox cannot deduplicate against.
+
+## openbsd-alpha (OpenBSD)
+
+`alpha@openbsd.org`, archived officially on marc.info.
+
+### 2001-September – 2026-February (147 months, 1,061 messages)
+**Source:** marc.info, list `openbsd-alpha`
+**Script:** `fetch-marc-list.py openbsd-alpha openbsd-alpha-mbox 200109 202602`
+**Output:** `openbsd-alpha-mbox/YYYY-Month.mbox`
+**Quality:** Reconstructed — no Message-ID, obfuscated addresses.
+
+### 2026-September (1 message)
+**Source:** Gmane (news.gmane.io), group `gmane.os.openbsd.alpha`
+**Script:** `fetch-gmane-nntp.py gmane.os.openbsd.alpha openbsd-alpha-mbox`
+**Output:** `openbsd-alpha-mbox/gmane-YYYY-Month.mbox`
+
+Gmane carries 472 messages for this list with full headers, but marc.info
+has 1,061 over the same span. Since marc.info messages have no Message-ID,
+the two cannot be deduplicated against each other, so marc.info was kept
+for every month it covers and the Gmane copies of those months were
+deleted; only 2026-September, which marc.info lacks, comes from Gmane.
+The full Gmane fetch is reproducible from the script if the trade-off is
+ever revisited.
+
 ## Sources investigated, not used
 
 ### marc.info — axp-redhat list
@@ -187,3 +271,9 @@ gone unless someone retained personal copies.
 | 1999-Jan – 2001-Sep | debian-alpha | Local HTML → mbox | Good |
 | 2001-Oct – 2002-Feb | debian-alpha | lists.debian.org HTML → mbox | Reconstructed |
 | 2002-Mar – 2026-May | debian-alpha | Gmane NNTP | Good (full headers) |
+| 1998-Jan – 2002-Feb | freebsd-alpha | marc.info | Reconstructed |
+| 2002-Mar – 2010-Dec | freebsd-alpha | Gmane NNTP | Good (full headers) |
+| 2003-Mar – 2010-Dec | freebsd-alpha | lists.freebsd.org Pipermail | Good |
+| 1996-Jan – 2002-Feb | port-alpha (NetBSD) | mail-index.netbsd.org | Reconstructed |
+| 2002-Jan – 2026-Aug | port-alpha (NetBSD) | Gmane NNTP | Good (full headers) |
+| 2001-Sep – 2026-Feb | openbsd-alpha | marc.info | Reconstructed |

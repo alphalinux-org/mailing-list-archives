@@ -1,0 +1,635 @@
+From chuck@ece.cmu.edu  Fri Feb 8 21:18:46 2013
+Path: news.gmane.org!not-for-mail
+From: Chuck Cranor <chuck@ece.cmu.edu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: static link csh/tcsh dumps core
+Date: Fri, 8 Feb 2013 21:18:46 -0500
+Organization: Carnegie Mellon University
+Lines: 43
+Approved: news@gmane.org
+Message-ID: <20130209021846.GB14983@ece.cmu.edu>
+NNTP-Posting-Host: plane.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1360381127 23926 80.91.229.3 (9 Feb 2013 03:38:47 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sat, 9 Feb 2013 03:38:47 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Feb 09 04:39:08 2013
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([149.20.53.66])
+	by plane.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1U41HQ-0005DZ-1Z
+	for netbsd-port-alpha@m.gmane.org; Sat, 09 Feb 2013 04:39:08 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id E93B614A1D1; Sat,  9 Feb 2013 03:38:44 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id A2CB014A1CF
+	for <port-alpha@netbsd.org>; Sat,  9 Feb 2013 03:38:42 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id t4P_UXtVbYRY for <port-alpha@netbsd.org>;
+	Sat,  9 Feb 2013 03:38:42 +0000 (UTC)
+Original-Received: from xxx.pdl.cmu.edu (XXX.PDL.CMU.EDU [128.2.134.93])
+	by mail.netbsd.org (Postfix) with ESMTP id 0C5F614A165
+	for <port-alpha@netbsd.org>; Sat,  9 Feb 2013 03:38:42 +0000 (UTC)
+Original-Received: by xxx.pdl.cmu.edu (Postfix, from userid 393)
+	id 4007615ECB; Fri,  8 Feb 2013 21:18:46 -0500 (EST)
+Content-Disposition: inline
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4769
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4769>
+
+
+I've been updating one of our alphas here at CMU with 6.0.1
+(was running 5.1_STABLE from Feb 2011 before).
+
+The upgrade went fine, but when I started updating pkgsrc
+I noticed that my /bin/tcsh (from standalone-tcsh package)
+dumps the core.
+
+I dug into it a bit more and discovered that even csh dumps
+core if it is static linked:
+
+% uname -a
+NetBSD omega.pdl.cmu.local 6.0.1 NetBSD 6.0.1 (GENERIC-$Revision: 1.343 $) #1: Tue Feb  5 13:43:34 EST 2013  chuck@omega.pdl.cmu.local:/home/netbsd/6/src/sys/arch/alpha/compile/OMEGA alpha
+% /bin/sh
+$ exit
+% /bin/csh -f
+% exit
+% exit
+% 
+% /rescue/sh
+$ exit
+% /rescue/csh
+Segmentation fault
+% 
+
+
+Now if I run /rescue/csh from my old 5.1_STABLE system it works:
+
+% 
+% /home/netbsd/5/alpha/destdir/rescue/csh -f
+% exit
+% exit
+% 
+
+so the problem was introduced sometime in the last 12 months.
+
+is anyone else seeing this with /rescue/csh on their alpha?
+what would cause something like this?
+
+
+chuck
+
+
+
+From christos@astron.com  Sat Feb 9 15:11:58 2013
+Path: news.gmane.org!not-for-mail
+From: christos@astron.com (Christos Zoulas)
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: static link csh/tcsh dumps core
+Date: Sat, 9 Feb 2013 15:11:58 +0000 (UTC)
+Lines: 50
+Approved: news@gmane.org
+Message-ID: <kf5ovu$213$1@ger.gmane.org>
+References: <20130209021846.GB14983@ece.cmu.edu>
+NNTP-Posting-Host: plane.gmane.org
+X-Trace: ger.gmane.org 1360422741 2281 80.91.229.3 (9 Feb 2013 15:12:21 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sat, 9 Feb 2013 15:12:21 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Feb 09 16:12:43 2013
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([149.20.53.66])
+	by plane.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1U4C6c-0007Eo-IX
+	for netbsd-port-alpha@m.gmane.org; Sat, 09 Feb 2013 16:12:42 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 5024814A1FC; Sat,  9 Feb 2013 15:12:19 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 8408D14A1F8
+	for <port-alpha@netbsd.org>; Sat,  9 Feb 2013 15:12:16 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id 9T0JhaBs2oZz for <port-alpha@netbsd.org>;
+	Sat,  9 Feb 2013 15:12:16 +0000 (UTC)
+Original-Received: from plane.gmane.org (plane.gmane.org [80.91.229.3])
+	(using TLSv1 with cipher AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id B99FE14A1BC
+	for <port-alpha@netbsd.org>; Sat,  9 Feb 2013 15:12:15 +0000 (UTC)
+Original-Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <netbsd-port-alpha@m.gmane.org>)
+	id 1U4C6P-00079n-3C
+	for port-alpha@netbsd.org; Sat, 09 Feb 2013 16:12:29 +0100
+Original-Received: from rebar.astron.com ([208.77.212.97])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <port-alpha@netbsd.org>; Sat, 09 Feb 2013 16:12:29 +0100
+Original-Received: from christos by rebar.astron.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <port-alpha@netbsd.org>; Sat, 09 Feb 2013 16:12:29 +0100
+X-Injected-Via-Gmane: http://gmane.org/
+Original-Lines: 48
+Original-X-Complaints-To: usenet@ger.gmane.org
+X-Gmane-NNTP-Posting-Host: rebar.astron.com
+X-Newsreader: trn 4.0-test76 (Apr 2, 2001)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4770
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4770>
+
+In article <20130209021846.GB14983@ece.cmu.edu>,
+Chuck Cranor  <chuck@ece.cmu.edu> wrote:
+>
+>I've been updating one of our alphas here at CMU with 6.0.1
+>(was running 5.1_STABLE from Feb 2011 before).
+>
+>The upgrade went fine, but when I started updating pkgsrc
+>I noticed that my /bin/tcsh (from standalone-tcsh package)
+>dumps the core.
+>
+>I dug into it a bit more and discovered that even csh dumps
+>core if it is static linked:
+>
+>% uname -a
+>NetBSD omega.pdl.cmu.local 6.0.1 NetBSD 6.0.1 (GENERIC-$Revision: 1.343
+>$) #1: Tue Feb  5 13:43:34 EST 2013 
+>chuck@omega.pdl.cmu.local:/home/netbsd/6/src/sys/arch/alpha/compile/OMEGA
+>alpha
+>% /bin/sh
+>$ exit
+>% /bin/csh -f
+>% exit
+>% exit
+>% 
+>% /rescue/sh
+>$ exit
+>% /rescue/csh
+>Segmentation fault
+>% 
+>
+>
+>Now if I run /rescue/csh from my old 5.1_STABLE system it works:
+>
+>% 
+>% /home/netbsd/5/alpha/destdir/rescue/csh -f
+>% exit
+>% exit
+>% 
+>
+>so the problem was introduced sometime in the last 12 months.
+>
+>is anyone else seeing this with /rescue/csh on their alpha?
+>what would cause something like this?
+>
+
+gdb stacktrace?
+
+christos
+
+
+
+From martin@duskware.de  Sun Feb 10 09:07:31 2013
+Path: news.gmane.org!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: static link csh/tcsh dumps core
+Date: Sun, 10 Feb 2013 09:07:31 +0100
+Lines: 8
+Approved: news@gmane.org
+Message-ID: <20130210080731.GA339@mail.duskware.de>
+References: <20130209021846.GB14983@ece.cmu.edu>
+NNTP-Posting-Host: plane.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1360483660 7509 80.91.229.3 (10 Feb 2013 08:07:40 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sun, 10 Feb 2013 08:07:40 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Chuck Cranor <chuck@ece.cmu.edu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Feb 10 09:08:01 2013
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([149.20.53.66])
+	by plane.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1U4Rx7-0001JP-9t
+	for netbsd-port-alpha@m.gmane.org; Sun, 10 Feb 2013 09:07:57 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 37AB114A273; Sun, 10 Feb 2013 08:07:34 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 3F96D14A271
+	for <port-alpha@netbsd.org>; Sun, 10 Feb 2013 08:07:33 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id iEdNpnNnOWrz for <port-alpha@netbsd.org>;
+	Sun, 10 Feb 2013 08:07:32 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [IPv6:2001:16e0:101:291::144])
+	by mail.netbsd.org (Postfix) with ESMTP id 9BDF414A26F
+	for <port-alpha@netbsd.org>; Sun, 10 Feb 2013 08:07:31 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id 34693A8061; Sun, 10 Feb 2013 09:07:31 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20130209021846.GB14983@ece.cmu.edu>
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4771
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4771>
+
+On Fri, Feb 08, 2013 at 09:18:46PM -0500, Chuck Cranor wrote:
+> is anyone else seeing this with /rescue/csh on their alpha?
+> what would cause something like this?
+
+I can reproduce it in -current, looking into it...
+
+Martin
+
+
+From martin@duskware.de  Sun Feb 10 20:05:07 2013
+Path: news.gmane.org!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: static link csh/tcsh dumps core
+Date: Sun, 10 Feb 2013 20:05:07 +0100
+Lines: 46
+Approved: news@gmane.org
+Message-ID: <20130210190507.GB16496@mail.duskware.de>
+References: <20130209021846.GB14983@ece.cmu.edu> <20130210080731.GA339@mail.duskware.de>
+NNTP-Posting-Host: plane.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1360523114 29054 80.91.229.3 (10 Feb 2013 19:05:14 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sun, 10 Feb 2013 19:05:14 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Chuck Cranor <chuck@ece.cmu.edu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Feb 10 20:05:35 2013
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([149.20.53.66])
+	by plane.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1U4cDX-0004J7-4n
+	for netbsd-port-alpha@m.gmane.org; Sun, 10 Feb 2013 20:05:35 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 5A9A814A2A7; Sun, 10 Feb 2013 19:05:12 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id E247814A2A5
+	for <port-alpha@netbsd.org>; Sun, 10 Feb 2013 19:05:09 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id JSvpcbP-N0j0 for <port-alpha@netbsd.org>;
+	Sun, 10 Feb 2013 19:05:09 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [IPv6:2001:16e0:101:291::144])
+	by mail.netbsd.org (Postfix) with ESMTP id B8D6114A2A3
+	for <port-alpha@netbsd.org>; Sun, 10 Feb 2013 19:05:07 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id 1BE9EA8061; Sun, 10 Feb 2013 20:05:07 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20130210080731.GA339@mail.duskware.de>
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4772
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4772>
+
+Disclaimer: I know ~nothing about alpha asm nor the ABI.
+
+It looks like a bug in setjmp/longjmp to me, but it is subtle as it clobbers
+the "gp" register, which seems to fall neither in the caller-saved nor the
+callee-saved group, but required to be stable for local function calls.
+
+Gcc source says:
+
+/* Define this macro if the register defined by `PIC_OFFSET_TABLE_REGNUM'
+   is clobbered by calls.  */
+/* ??? It is and it isn't.  It's required to be valid for a given
+   function when the function returns.  It isn't clobbered by
+   current_file functions.  Moreover, we do not expose the ldgp
+   until after reload, so we're probably safe.  */
+/* #define PIC_OFFSET_TABLE_REG_CALL_CLOBBERED */
+
+
+Now in our __setjmp14 implementation we do not store gp in the jump buffer.
+Worse, in __longjmp14 we create a sigcontext from the jump buffer and
+use partially unintialized stack memory for this, including the storage
+area for uc.uc_mcontext.__gregs[_REG_GP].
+
+Then we do a setcontext() and *BOOM* end up back here with an unaligned 
+(and probably completely bogus) gp:
+
+Program received signal SIGSEGV, Segmentation fault.
+process (catch=<optimized out>) at csh.c:1004
+1004            justpr = enterhist;     /* execute if not entering history */
+(gdb) bt
+#0  process (catch=<optimized out>) at csh.c:1004
+#1  0x0000000120001f78 in srcunit (unit=<optimized out>, 
+    onlyown=<optimized out>, hflg=<optimized out>) at csh.c:749
+#2  0x0000000120002090 in srcfile (f=<optimized out>, onlyown=<optimized out>, 
+    flag=<optimized out>) at csh.c:658
+#3  0x0000000120003658 in main (argc=<optimized out>, argv=<optimized out>)
+    at csh.c:525
+
+Sounds like gcc will reload the gp register after non-local function calls
+(whatever that exactly is) and so probably hide the effect in the shared
+version.
+
+Does this make sense? If yes, it is easy to fix (but I won't mind someone
+with alpha knowledge to beat me to it).
+
+Martin
+
+
+From martin@duskware.de  Sun Feb 10 20:09:01 2013
+Path: news.gmane.org!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: static link csh/tcsh dumps core
+Date: Sun, 10 Feb 2013 20:09:01 +0100
+Lines: 18
+Approved: news@gmane.org
+Message-ID: <20130210190901.GC16496@mail.duskware.de>
+References: <20130209021846.GB14983@ece.cmu.edu> <20130210080731.GA339@mail.duskware.de> <20130210190507.GB16496@mail.duskware.de>
+NNTP-Posting-Host: plane.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1360523358 31340 80.91.229.3 (10 Feb 2013 19:09:18 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sun, 10 Feb 2013 19:09:18 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Chuck Cranor <chuck@ece.cmu.edu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Feb 10 20:09:31 2013
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([149.20.53.66])
+	by plane.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1U4cHG-0006Yy-SV
+	for netbsd-port-alpha@m.gmane.org; Sun, 10 Feb 2013 20:09:27 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 83EB614A2B8; Sun, 10 Feb 2013 19:09:04 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 39F0014A2A8
+	for <port-alpha@netbsd.org>; Sun, 10 Feb 2013 19:09:03 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id pNq3CnhgS3fT for <port-alpha@netbsd.org>;
+	Sun, 10 Feb 2013 19:09:02 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [IPv6:2001:16e0:101:291::144])
+	by mail.netbsd.org (Postfix) with ESMTP id 96D7414A2A5
+	for <port-alpha@netbsd.org>; Sun, 10 Feb 2013 19:09:02 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id D8CD3A8061; Sun, 10 Feb 2013 20:09:01 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20130210190507.GB16496@mail.duskware.de>
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4773
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4773>
+
+On Sun, Feb 10, 2013 at 08:05:07PM +0100, Martin Husemann wrote:
+> Does this make sense? If yes, it is easy to fix (but I won't mind someone
+> with alpha knowledge to beat me to it).
+
+Actually it is easy to fix in two different ways, depending on the ABI/
+consensus:
+
+ 1) store gp in the jmp_buf in __setjmp14 and copy it to the sigcontext
+    in __longjmp14
+
+or:
+
+ 2) define the mentioned macro in the gcc spec, causing the compiler to
+    generate reload code after setjmp() calls
+
+
+Martin
+
+
+From christos@astron.com  Mon Feb 11 04:21:15 2013
+Path: news.gmane.org!not-for-mail
+From: christos@astron.com (Christos Zoulas)
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: static link csh/tcsh dumps core
+Date: Mon, 11 Feb 2013 04:21:15 +0000 (UTC)
+Lines: 23
+Approved: news@gmane.org
+Message-ID: <kf9rjq$tdn$1@ger.gmane.org>
+References: <20130209021846.GB14983@ece.cmu.edu> <20130210080731.GA339@mail.duskware.de> <20130210190507.GB16496@mail.duskware.de> <20130210190901.GC16496@mail.duskware.de>
+NNTP-Posting-Host: plane.gmane.org
+X-Trace: ger.gmane.org 1360556500 30295 80.91.229.3 (11 Feb 2013 04:21:40 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Mon, 11 Feb 2013 04:21:40 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Feb 11 05:22:02 2013
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([149.20.53.66])
+	by plane.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1U4ku0-0005WO-4M
+	for netbsd-port-alpha@m.gmane.org; Mon, 11 Feb 2013 05:22:00 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id B85FC14A2EF; Mon, 11 Feb 2013 04:21:37 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 0A29F14A2E9
+	for <port-alpha@netbsd.org>; Mon, 11 Feb 2013 04:21:36 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id SlPIu8YVevoo for <port-alpha@netbsd.org>;
+	Mon, 11 Feb 2013 04:21:35 +0000 (UTC)
+Original-Received: from plane.gmane.org (plane.gmane.org [80.91.229.3])
+	(using TLSv1 with cipher AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 4645714A2A1
+	for <port-alpha@netbsd.org>; Mon, 11 Feb 2013 04:21:34 +0000 (UTC)
+Original-Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <netbsd-port-alpha@m.gmane.org>)
+	id 1U4ktp-0005Rm-Bb
+	for port-alpha@netbsd.org; Mon, 11 Feb 2013 05:21:49 +0100
+Original-Received: from rebar.astron.com ([208.77.212.97])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <port-alpha@netbsd.org>; Mon, 11 Feb 2013 05:21:49 +0100
+Original-Received: from christos by rebar.astron.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <port-alpha@netbsd.org>; Mon, 11 Feb 2013 05:21:49 +0100
+X-Injected-Via-Gmane: http://gmane.org/
+Original-Lines: 21
+Original-X-Complaints-To: usenet@ger.gmane.org
+X-Gmane-NNTP-Posting-Host: rebar.astron.com
+X-Newsreader: trn 4.0-test76 (Apr 2, 2001)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4774
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4774>
+
+In article <20130210190901.GC16496@mail.duskware.de>,
+Martin Husemann  <martin@duskware.de> wrote:
+>On Sun, Feb 10, 2013 at 08:05:07PM +0100, Martin Husemann wrote:
+>> Does this make sense? If yes, it is easy to fix (but I won't mind someone
+>> with alpha knowledge to beat me to it).
+>
+>Actually it is easy to fix in two different ways, depending on the ABI/
+>consensus:
+>
+> 1) store gp in the jmp_buf in __setjmp14 and copy it to the sigcontext
+>    in __longjmp14
+>
+>or:
+>
+> 2) define the mentioned macro in the gcc spec, causing the compiler to
+>    generate reload code after setjmp() calls
+
+It depends what the ABI requires. I would think that it would be best to
+do 1, then the compiler could reload or not reload and it will still work...
+
+christos
+
+
+
+From martin@duskware.de  Mon Feb 11 11:21:12 2013
+Path: news.gmane.org!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: static link csh/tcsh dumps core
+Date: Mon, 11 Feb 2013 11:21:12 +0100
+Lines: 65
+Approved: news@gmane.org
+Message-ID: <20130211102112.GB20424@mail.duskware.de>
+References: <20130209021846.GB14983@ece.cmu.edu> <20130210080731.GA339@mail.duskware.de> <20130210190507.GB16496@mail.duskware.de> <20130210190901.GC16496@mail.duskware.de> <kf9rjq$tdn$1@ger.gmane.org>
+NNTP-Posting-Host: plane.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="5mCyUwZo2JvN/JJP"
+X-Trace: ger.gmane.org 1360578088 4540 80.91.229.3 (11 Feb 2013 10:21:28 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Mon, 11 Feb 2013 10:21:28 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Christos Zoulas <christos@astron.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Feb 11 11:21:44 2013
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([149.20.53.66])
+	by plane.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1U4qW6-000483-CO
+	for netbsd-port-alpha@m.gmane.org; Mon, 11 Feb 2013 11:21:42 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 5DCD314A11F; Mon, 11 Feb 2013 10:21:18 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 31C1914A11D
+	for <port-alpha@netbsd.org>; Mon, 11 Feb 2013 10:21:15 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id zOJo9EBJIqoZ for <port-alpha@netbsd.org>;
+	Mon, 11 Feb 2013 10:21:14 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [IPv6:2001:16e0:101:291::144])
+	by mail.netbsd.org (Postfix) with ESMTP id 3004314A118
+	for <port-alpha@netbsd.org>; Mon, 11 Feb 2013 10:21:13 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id D2D37A806D; Mon, 11 Feb 2013 11:21:12 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <kf9rjq$tdn$1@ger.gmane.org>
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4775
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4775>
+
+
+--5mCyUwZo2JvN/JJP
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Mon, Feb 11, 2013 at 04:21:15AM +0000, Christos Zoulas wrote:
+> It depends what the ABI requires. I would think that it would be best to
+> do 1, then the compiler could reload or not reload and it will still work...
+
+Yes, and attached patch does that (and seems to fix the problem for me).
+However, I'd like to get comments from someone who actually knows the ABI
+(or have a look at the ABI, anoyne got a pointer?) before commiting this.
+
+The patch includes an unrelated change: memset the whole context to zero,
+since we do not fully initialize it. Sounds saner to me and should be of
+negligable cost, since we do a syscall later.
+
+Martin
+
+--5mCyUwZo2JvN/JJP
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="alpha.patch"
+
+Index: __longjmp14.c
+===================================================================
+RCS file: /cvsroot/src/lib/libc/arch/alpha/gen/__longjmp14.c,v
+retrieving revision 1.5
+diff -c -u -p -r1.5 __longjmp14.c
+--- __longjmp14.c	28 Apr 2008 20:22:55 -0000	1.5
++++ __longjmp14.c	11 Feb 2013 10:14:14 -0000
+@@ -56,6 +56,8 @@ __longjmp14(jmp_buf env, int val)
+ 	if (val == 0)
+ 		val = -1;
+ 
++	memset(&uc, 0, sizeof uc);
++
+ 	/* Set _UC_SIGMASK and _UC_CPU */
+ 	uc.uc_flags = _UC_SIGMASK | _UC_CPU;
+ 
+@@ -74,6 +76,7 @@ __longjmp14(jmp_buf env, int val)
+ 	uc.uc_mcontext.__gregs[_REG_S5] = sc->sc_regs[R_S5];
+ 	uc.uc_mcontext.__gregs[_REG_S6] = sc->sc_regs[R_S6];
+ 	uc.uc_mcontext.__gregs[_REG_RA] = sc->sc_regs[R_RA];
++	uc.uc_mcontext.__gregs[_REG_GP] = sc->sc_regs[R_GP];
+ 	uc.uc_mcontext.__gregs[_REG_SP] = sc->sc_sp;
+ 	uc.uc_mcontext.__gregs[_REG_PC] = sc->sc_pc;
+ 	uc.uc_mcontext.__gregs[_REG_PS] =
+Index: __setjmp14.S
+===================================================================
+RCS file: /cvsroot/src/lib/libc/arch/alpha/gen/__setjmp14.S,v
+retrieving revision 1.5
+diff -c -u -p -r1.5 __setjmp14.S
+--- __setjmp14.S	12 Jun 2011 05:44:36 -0000	1.5
++++ __setjmp14.S	11 Feb 2013 10:14:14 -0000
+@@ -55,6 +55,7 @@ LEAF(__setjmp14, 1)
+ 	stq	s6, (SC_REGS+_REG_S6)(a0)
+ 	stq	ra, (SC_REGS+_REG_RA)(a0)
+ 	stq	sp, (SC_REGS+_REG_SP)(a0)
++	stq	gp, (SC_REGS+_REG_GP)(a0)
+ 
+ 	/*
+ 	 * get signal information
+
+--5mCyUwZo2JvN/JJP--
+
+

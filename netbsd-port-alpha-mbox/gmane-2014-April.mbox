@@ -1,0 +1,273 @@
+From martin@duskware.de  Wed Apr 9 15:28:33 2014
+Path: news.gmane.org!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: libm tests vs. alpha
+Date: Wed, 9 Apr 2014 15:28:33 +0200
+Lines: 48
+Approved: news@gmane.org
+Message-ID: <20140409132833.GB13718@mail.duskware.de>
+NNTP-Posting-Host: plane.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1397050134 24014 80.91.229.3 (9 Apr 2014 13:28:54 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Wed, 9 Apr 2014 13:28:54 +0000 (UTC)
+To: port-alpha@NetBSD.org, dsl@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Apr 09 15:28:47 2014
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([149.20.53.66])
+	by plane.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1WXsYZ-0004mj-5J
+	for netbsd-port-alpha@m.gmane.org; Wed, 09 Apr 2014 15:28:47 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 5818214A236; Wed,  9 Apr 2014 13:28:42 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 5B7F414A22D;
+	Wed,  9 Apr 2014 13:28:37 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id dBfIdntG1oCZ; Wed,  9 Apr 2014 13:28:36 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [91.199.88.144])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 9748514A1F2;
+	Wed,  9 Apr 2014 13:28:35 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id 465F8A7E51; Wed,  9 Apr 2014 15:28:33 +0200 (CEST)
+Content-Disposition: inline
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4855
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4855>
+
+Currently many libm tests are failing on alpha.
+
+This is mostly due to constructs like:
+
+	const double x = -1.0f / 0.0;
+
+and then some using the resulting -inf as input to some libm function.
+
+Here is a small sample to reproduce it:
+
+--8<--
+#include <stdio.h>
+#include <math.h>
+
+int main(int argc, char **argv)
+{
+        const double x = -1.0L / 0.0L;
+        int inf = isinf(x);
+        int sign = signbit(x);
+
+        printf("inf: %d, sign: %d\n", inf, sign);
+
+        return 0;
+}
+-->8--
+
+However, it seems on alpha you can not disable the "div by zero" traps,
+so we always die with a SIGFPE. Do I understand this correctly?
+What should we do about it?
+
+While looking at it, it occured to me that setregs() maybe should
+init fpcr of a new fpu context with all exception traps disabled (in
+the "not inheriting" case) - like:
+
+       if (__predict_true((l->l_md.md_flags & IEEE_INHERIT) == 0)) {
+                l->l_md.md_flags &= ~MDLWP_FP_C;
+                pcb->pcb_fp.fpr_cr = FPCR_DYN(FP_RN);
+// or in FPCR_INED, FPCR_UNFD, FPCR_UNDZ, FPCR_OVFD, FPCR_DZED....
+        }
+
+
+or should this be controlled by the compilers -mfp-trap-mode= settings?
+
+And a last question: should we compile the libm tests on alpha
+with some flags like -mieee-with-inexact and maybe -mtrap-precision=i ?
+
+Martin
+
+
+From david@l8s.co.uk  Wed Apr 9 20:43:25 2014
+Path: news.gmane.org!not-for-mail
+From: David Laight <david@l8s.co.uk>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: libm tests vs. alpha
+Date: Wed, 9 Apr 2014 20:43:25 +0100
+Lines: 55
+Approved: news@gmane.org
+Message-ID: <20140409194325.GC20347@snowdrop.l8s.co.uk>
+References: <20140409132833.GB13718@mail.duskware.de>
+NNTP-Posting-Host: plane.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1397071145 13933 80.91.229.3 (9 Apr 2014 19:19:05 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Wed, 9 Apr 2014 19:19:05 +0000 (UTC)
+Cc: port-alpha@NetBSD.org, dsl@NetBSD.org
+To: Martin Husemann <martin@duskware.de>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Apr 09 21:18:54 2014
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([149.20.53.66])
+	by plane.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1WXy1N-0000R5-Th
+	for netbsd-port-alpha@m.gmane.org; Wed, 09 Apr 2014 21:18:54 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 9C4D614A2ED; Wed,  9 Apr 2014 19:18:50 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 16C1214A2EC;
+	Wed,  9 Apr 2014 19:18:47 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id k18i6OQSwfVp; Wed,  9 Apr 2014 19:18:46 +0000 (UTC)
+Original-Received: from gateway.l8s.co.uk (82-69-66-36.dsl.in-addr.zen.co.uk [82.69.66.36])
+	(using TLSv1 with cipher EDH-RSA-DES-CBC3-SHA (168/168 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 2E6A214A2EA;
+	Wed,  9 Apr 2014 19:18:45 +0000 (UTC)
+Original-Received: from dsl by gateway.l8s.co.uk with local (Exim 4.22)
+	id 1WXyP7-0006Gu-1J; Wed, 09 Apr 2014 20:43:25 +0100
+Content-Disposition: inline
+In-Reply-To: <20140409132833.GB13718@mail.duskware.de>
+User-Agent: Mutt/1.4.2.1i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4856
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4856>
+
+On Wed, Apr 09, 2014 at 03:28:33PM +0200, Martin Husemann wrote:
+> Currently many libm tests are failing on alpha.
+> 
+> This is mostly due to constructs like:
+> 
+> 	const double x = -1.0f / 0.0;
+> 
+> and then some using the resulting -inf as input to some libm function.
+> 
+...
+> 
+> However, it seems on alpha you can not disable the "div by zero" traps,
+> so we always die with a SIGFPE. Do I understand this correctly?
+> What should we do about it?
+
+I've not looked into these tests much - except to realise that the
+'test to noise' raitio is very low.
+
+For the exp2() tests I just used compile time initialiers for
+infinity and nan - seemed to work fine.
+
+An associated problem is generating signalling under/overflow
+within libm itself.
+Some MD helper routines would help.
+
+> While looking at it, it occured to me that setregs() maybe should
+> init fpcr of a new fpu context with all exception traps disabled (in
+> the "not inheriting" case) - like:
+> 
+>        if (__predict_true((l->l_md.md_flags & IEEE_INHERIT) == 0)) {
+>                 l->l_md.md_flags &= ~MDLWP_FP_C;
+>                 pcb->pcb_fp.fpr_cr = FPCR_DYN(FP_RN);
+> // or in FPCR_INED, FPCR_UNFD, FPCR_UNDZ, FPCR_OVFD, FPCR_DZED....
+>         }
+> 
+> 
+> or should this be controlled by the compilers -mfp-trap-mode= settings?
+
+I've not seen anything equivalent in i386.
+fork() just copies the parent's state, exec sets up the fixed defaults
+('no traps enabled' and standard rounding modes).
+
+> And a last question: should we compile the libm tests on alpha
+> with some flags like -mieee-with-inexact and maybe -mtrap-precision=i ?
+
+NFI.
+I've not written any code that did a significant amount of FP since the
+1970s!
+joerg will have a strong opinion about FP.
+
+	David
+
+-- 
+David Laight: david@l8s.co.uk
+
+
+From martin@duskware.de  Sat Apr 12 23:36:35 2014
+Path: news.gmane.org!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: libm tests vs. alpha
+Date: Sat, 12 Apr 2014 23:36:35 +0200
+Lines: 15
+Approved: news@gmane.org
+Message-ID: <20140412213635.GA28593@mail.duskware.de>
+References: <20140409132833.GB13718@mail.duskware.de>
+NNTP-Posting-Host: plane.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1397338614 31896 80.91.229.3 (12 Apr 2014 21:36:54 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sat, 12 Apr 2014 21:36:54 +0000 (UTC)
+To: port-alpha@NetBSD.org, dsl@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Apr 12 23:36:45 2014
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([149.20.53.66])
+	by plane.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1WZ5bQ-0002I7-KJ
+	for netbsd-port-alpha@m.gmane.org; Sat, 12 Apr 2014 23:36:44 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id CD13D14A297; Sat, 12 Apr 2014 21:36:40 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 6497814A2A7;
+	Sat, 12 Apr 2014 21:36:39 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id UM96Orua6-KV; Sat, 12 Apr 2014 21:36:39 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [91.199.88.144])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id AFF5414A297;
+	Sat, 12 Apr 2014 21:36:37 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id 63AEEA7E51; Sat, 12 Apr 2014 23:36:35 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20140409132833.GB13718@mail.duskware.de>
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4857
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4857>
+
+On Wed, Apr 09, 2014 at 03:28:33PM +0200, Martin Husemann wrote:
+> Do I understand this correctly?
+
+I did not - I missed at least fp_c and the software fp completition stuff.
+And most importantly: fp_c has exception enable bits (which we clear in
+setregs) instead of the optional hardware trap *D disable bits (which
+we update from fp_c if needed).
+
+And I also did not really understand the trap mode modifiers and the compiler
+switches controlling their generation.
+
+But there is more fallout - I'll dig deeper.
+
+Martin
+
+

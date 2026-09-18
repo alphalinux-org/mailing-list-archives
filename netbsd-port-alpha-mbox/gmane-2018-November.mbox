@@ -1,0 +1,410 @@
+From john@ziaspace.com  Fri Nov 2 06:11:13 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: John Klos <john@ziaspace.com>
+Newsgroups: gmane.os.netbsd.general,gmane.os.netbsd.ports.alpha
+Subject: Areca RAID controllers on non-amd64
+Date: Fri, 2 Nov 2018 06:11:13 +0000 (UTC)
+Lines: 65
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.1811020558550.7010@hlin.zia.io>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: blaine.gmane.org 1541138968 28485 195.159.176.226 (2 Nov 2018 06:09:28 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Fri, 2 Nov 2018 06:09:28 +0000 (UTC)
+To: port-alpha@netbsd.org, netbsd-users@netbsd.org
+Original-X-From: bounces-netbsd-users-owner-netbsd-netbsd-users=m.gmane.org@NetBSD.org Fri Nov 02 07:09:24 2018
+Return-path: <bounces-netbsd-users-owner-netbsd-netbsd-users=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-netbsd-users@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-netbsd-users-owner-netbsd-netbsd-users=m.gmane.org@NetBSD.org>)
+	id 1gISe4-0007Kb-5g
+	for netbsd-netbsd-users@m.gmane.org; Fri, 02 Nov 2018 07:09:24 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id AA64D84DAC; Fri,  2 Nov 2018 06:11:27 +0000 (UTC)
+Delivered-To: netbsd-users@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id F16FD84D74
+	for <netbsd-users@netbsd.org>; Fri,  2 Nov 2018 06:11:20 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id uCQzsupRo9lD for <netbsd-users@netbsd.org>;
+	Fri,  2 Nov 2018 06:11:20 +0000 (UTC)
+Original-Received: from hlin.zia.io (hlin.zia.io [82.221.135.73])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 8829984C78
+	for <netbsd-users@netbsd.org>; Fri,  2 Nov 2018 06:11:18 +0000 (UTC)
+Original-Received: from hlin.zia.io (localhost [127.0.0.1])
+	by hlin.zia.io (8.15.2/8.15.2) with ESMTPS id wA26BEDR024316
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT);
+	Fri, 2 Nov 2018 06:11:17 GMT
+Original-Received: from localhost (john@localhost)
+	by hlin.zia.io (8.15.2/8.15.2/Submit) with ESMTP id wA26BDeA010366;
+	Fri, 2 Nov 2018 06:11:14 GMT
+X-Authentication-Warning: hlin.zia.io: john owned process doing -bs
+X-X-Sender: john@hlin.zia.io
+X-Greylist: Sender passed SPF test, not delayed by milter-greylist-4.4.3 (hlin.zia.io [127.0.0.1]); Fri, 02 Nov 2018 06:11:17 +0000 (UTC)
+Original-Sender: netbsd-users-owner@NetBSD.org
+List-Id: netbsd-users.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20netbsd-users&body=unsubscribe%20netbsd-users>
+Xref: news.gmane.org gmane.os.netbsd.general:44062 gmane.os.netbsd.ports.alpha:5053
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.general/44062>
+
+Hello,
+
+I have two Areca RAID controllers which I'd like to use with non-x86 
+systems. One is an ARC-1110, the other an ARC-1160ML. I've been testing 
+the ARC-1110 on NetBSD 8 on an amd64 system and on an Alpha.
+
+The card shows up fine on both systems:
+
+arcmsr0 at pci6 dev 14 function 0
+arcmsr0: interrupting at ioapic0 pin 16
+arcmsr0: Areca ARC-1110 Host Adapter RAID controller
+arcmsr0: 4 ports, 256MB SDRAM, firmware <V1.49 2010-12-02>
+scsibus0 at arcmsr0: 16 targets, 8 luns per target
+
+arcmsr0 at pci1 dev 14 function 0
+arcmsr0: interrupting at dec 6600 irq 26
+arcmsr0: Areca ARC-1110 Host Adapter RAID controller
+arcmsr0: 4 ports, 256MB SDRAM, firmware <V1.49 2010-12-02>
+scsibus1 at arcmsr0: 16 targets, 8 luns per target
+
+
+First, I tried to use bioctl to configure a RAID set and volume. However, 
+that apparently doesn't work:
+
+bioctl arcmsr0 show disks
+  Disk Model/Serial                   Status       Size       Location
+=====================================================================
+bioctl: BIOCDISK_NOVOL: Input/output error
+
+
+I then used the amd64 system so that I could configure the RAID by 
+accessing the card's x86 BIOS. It's just a two drive RAID-1. It shows up 
+just fine on amd64:
+
+sd0 at scsibus0 target 0 lun 0: <Areca, ARC-1110-VOL#00, R001> disk fixed
+sd0: 931 GB, 59838 cyl, 68 head, 480 sec, 512 bytes/sect x 1953124864 sectors
+
+
+However, on alpha, I get a different volume and a few extra lines about 
+the volume:
+
+sd0 at scsibus1 target 0 lun 0: <Areca, ARC-1110-VOL#00, R001> disk fixed
+sd0: 512, 59838 cyl, 68 head, 0 sec, 512 bytes/sect x 1 sectors
+...
+arcmsr0: normal state on 'RAID 1 volume0 (sd0)' (online)
+arcmsr0: state changed on 'disk0 volume0 (sd0)' to 'offline'
+arcmsr0: state changed on 'disk1 volume0 (sd0)' to 'offline'
+
+bioctl arcmsr0 show volumes
+Volume Status       Size         Device/Label    Level Stripe
+=============================================================
+      0 Online       931G  sd0 ARC-1110-VOL#00   RAID 1    N/A
+
+However, sd0 still says it's one sector, and:
+
+scsictl /dev/scsibus1 scan any any
+
+returns instantly without any change in the volumes.
+
+
+Has anyone used arcmsr devices on non-x86? Thoughts about how this might 
+be correctable?
+
+John
+
+
+From john@ziaspace.com  Sat Nov 10 23:54:48 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: John Klos <john@ziaspace.com>
+Newsgroups: gmane.os.netbsd.general,gmane.os.netbsd.ports.alpha
+Subject: LSI RAID controllers on non-amd64
+Date: Sat, 10 Nov 2018 23:54:48 +0000 (UTC)
+Lines: 39
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.1811102339210.13806@hlin.zia.io>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: blaine.gmane.org 1541893981 6567 195.159.176.226 (10 Nov 2018 23:53:01 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Sat, 10 Nov 2018 23:53:01 +0000 (UTC)
+To: port-alpha@netbsd.org, netbsd-users@netbsd.org
+Original-X-From: bounces-netbsd-users-owner-netbsd-netbsd-users=m.gmane.org@NetBSD.org Sun Nov 11 00:52:57 2018
+Return-path: <bounces-netbsd-users-owner-netbsd-netbsd-users=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-netbsd-users@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-netbsd-users-owner-netbsd-netbsd-users=m.gmane.org@NetBSD.org>)
+	id 1gLd3g-0001aC-BF
+	for netbsd-netbsd-users@m.gmane.org; Sun, 11 Nov 2018 00:52:56 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 2105084E07; Sat, 10 Nov 2018 23:54:58 +0000 (UTC)
+Delivered-To: netbsd-users@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 6339684D69
+	for <netbsd-users@netbsd.org>; Sat, 10 Nov 2018 23:54:53 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id MvLA6oxklChJ for <netbsd-users@netbsd.org>;
+	Sat, 10 Nov 2018 23:54:52 +0000 (UTC)
+Original-Received: from hlin.zia.io (hlin.zia.io [82.221.135.73])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 0C0C584CDC
+	for <netbsd-users@netbsd.org>; Sat, 10 Nov 2018 23:54:51 +0000 (UTC)
+Original-Received: from hlin.zia.io (localhost [127.0.0.1])
+	by hlin.zia.io (8.15.2/8.15.2) with ESMTPS id wAANsmBo016352
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT);
+	Sat, 10 Nov 2018 23:54:49 GMT
+Original-Received: from localhost (john@localhost)
+	by hlin.zia.io (8.15.2/8.15.2/Submit) with ESMTP id wAANsmEe002646;
+	Sat, 10 Nov 2018 23:54:48 GMT
+X-Authentication-Warning: hlin.zia.io: john owned process doing -bs
+X-X-Sender: john@hlin.zia.io
+Original-Sender: netbsd-users-owner@NetBSD.org
+List-Id: netbsd-users.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20netbsd-users&body=unsubscribe%20netbsd-users>
+Xref: news.gmane.org gmane.os.netbsd.general:44075 gmane.os.netbsd.ports.alpha:5054
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.general/44075>
+
+After failing to get Areca RAID controllers working properly on an Alpha 
+system:
+
+http://mail-index.netbsd.org/port-alpha/2018/11/02/msg000900.html
+
+I tried an LSI controller, which works well under amd64:
+
+mfi0 at pci2 dev 0 function 0: vendor 0x1000 product 0x9276
+mfi0: interrupting at ioapic1 pin 8
+mfi0: LSI MegaRAID SAS 9271-4i version 23.33.0-0023
+mfi0: logical drives 1, 1024MB RAM, BBU not present
+scsibus0 at mfi0: 64 targets, 8 luns per target
+...
+sd0 at scsibus0 target 0 lun 0: <LSI, MR9271-4i, 3.45> disk fixed
+
+
+On an Alpha system running NetBSD 8, though, the card isn't recognized 
+properly:
+
+ppb1 at pci2 dev 4 function 0: vendor 10b5 product 8112 (rev. 0xaa)
+ppb1: PCI Express capability version 1 <PCI/PCI-X to PCI-E Bridge> x1 @ 2.5GT/s
+pci3 at ppb1 bus 2
+mfi0 at pci3 dev 0 function 0: vendor 0x1000 product 0x9276
+mfi0: interrupting at dec 6600 irq 36
+mfi0:  version
+mfi0: logical drives 0, 0MB RAM, BBU not present
+scsibus1 at mfi0: 64 targets, 8 luns per target
+
+Shortly after this, the console spits out 3000+ messages:
+
+stray 6600 irq 36
+
+The kernel eventually finishes booting and the messages stop, but nothing 
+can be found on scsibus1 and a scsictl scan doesn't find anything, either.
+
+Is anyone using a hardware RAID controller on Alpha, and if so, what kind?
+
+John Klos
+
+
+From john@ziaspace.com  Wed Nov 14 18:38:16 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: John Klos <john@ziaspace.com>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.general
+Subject: Re: Areca RAID controllers on non-amd64
+Date: Wed, 14 Nov 2018 18:38:16 +0000 (UTC)
+Lines: 22
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.1811141752400.22396@hlin.zia.io>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: blaine.gmane.org 1542220583 9458 195.159.176.226 (14 Nov 2018 18:36:23 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 14 Nov 2018 18:36:23 +0000 (UTC)
+To: netbsd-users@netbsd.org, port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Nov 14 19:36:18 2018
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1gN01S-0002Lz-Fj
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Nov 2018 19:36:18 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 3743984DA1; Wed, 14 Nov 2018 18:38:25 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id D369784D74
+	for <port-alpha@netbsd.org>; Wed, 14 Nov 2018 18:38:21 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id whYzpO4OTssm for <port-alpha@netbsd.org>;
+	Wed, 14 Nov 2018 18:38:21 +0000 (UTC)
+Original-Received: from hlin.zia.io (hlin.zia.io [82.221.135.73])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id CF56984D04
+	for <port-alpha@netbsd.org>; Wed, 14 Nov 2018 18:38:19 +0000 (UTC)
+Original-Received: from hlin.zia.io (localhost [127.0.0.1])
+	by hlin.zia.io (8.15.2/8.15.2) with ESMTPS id wAEIcHlM009806
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT);
+	Wed, 14 Nov 2018 18:38:17 GMT
+Original-Received: from localhost (john@localhost)
+	by hlin.zia.io (8.15.2/8.15.2/Submit) with ESMTP id wAEIcGKc020782;
+	Wed, 14 Nov 2018 18:38:17 GMT
+X-Authentication-Warning: hlin.zia.io: john owned process doing -bs
+X-X-Sender: john@hlin.zia.io
+X-Greylist: Sender passed SPF test, not delayed by milter-greylist-4.4.3 (hlin.zia.io [127.0.0.1]); Wed, 14 Nov 2018 18:38:18 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5055 gmane.os.netbsd.general:44101
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5055>
+
+> No idea what's wrong with arcmsr, but
+> 
+> >However, sd0 still says it's one sector, and:
+> >scsictl /dev/scsibus1 scan any any
+> >returns instantly without any change in the volumes.
+> 
+> Scan attaches new devices, you probably need to detach sd0 first.
+
+That works as expected on an amd64 system - I get the full 1 TB volume - 
+but on the Alpha:
+
+scsictl /dev/scsibus1 detach 0 0
+sd0: detached
+...
+scsictl /dev/scsibus1 scan any any
+sd0 at scsibus1 target 0 lun 0: <Areca, ARC-1110-VOL#00, R001> disk fixed
+sd0: 512, 59838 cyl, 68 head, 0 sec, 512 bytes/sect x 1 sectors
+
+Still just one sector :(
+
+John
+
+
+From thorpej@me.com  Wed Nov 14 10:46:20 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.general
+Subject: Re: LSI RAID controllers on non-amd64
+Date: Wed, 14 Nov 2018 10:46:20 -0800
+Lines: 33
+Approved: news@gmane.org
+Message-ID: <2D61AB8E-87DE-4B65-AF6D-B466005E9F8D@me.com>
+References: <Pine.NEB.4.64.1811102339210.13806@hlin.zia.io>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0 (Mac OS X Mail 12.2 \(3445.102.3\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+X-Trace: blaine.gmane.org 1542221092 17155 195.159.176.226 (14 Nov 2018 18:44:52 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 14 Nov 2018 18:44:52 +0000 (UTC)
+Cc: port-alpha@netbsd.org, netbsd-users@netbsd.org
+To: John Klos <john@ziaspace.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Nov 14 19:44:48 2018
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1gN09f-0004K2-B1
+	for netbsd-port-alpha@m.gmane.org; Wed, 14 Nov 2018 19:44:47 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 7434184DA4; Wed, 14 Nov 2018 18:46:54 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 6788984D9D;
+	Wed, 14 Nov 2018 18:46:50 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id ct4ZVoO3C6GB; Wed, 14 Nov 2018 18:46:49 +0000 (UTC)
+Original-Received: from pv34p98im-ztdg02172101.me.com (pv34p98im-ztdg02172101.me.com [17.143.234.142])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 917E484D04;
+	Wed, 14 Nov 2018 18:46:48 +0000 (UTC)
+Original-Received: from process-dkim-sign-daemon.pv34p98im-ztdg02172101.me.com by
+ pv34p98im-ztdg02172101.me.com
+ (Oracle Communications Messaging Server 8.0.2.2.20180531 64bit (built May 31
+ 2018)) id <0PI7002001V0KF00@pv34p98im-ztdg02172101.me.com>; Wed,
+ 14 Nov 2018 18:46:48 +0000 (GMT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=04042017;
+	t=1542221207; bh=+Q0JtsAA0BxkFWXAGqWTiLjq6AotPfWidsxsL2llipQ=;
+	h=Content-type:MIME-version:Subject:From:Date:Message-id:To;
+	b=WUkWDaYdlz8lrBP89w/xTA8sW8P6liQj1PYKF7NTJGl5Q2NqkgpEI/bHEXlLsEx+h
+ oQtZY+8mdMbSk4WOABM1CXqdZK/YkhHzi1SY6pw020A5GldEYCLWkzd/Z7P3xxJzWU
+ 3vK+4dJdtkIlYm+zcz5ETUFdqGrU7yb2Bt7FiFEIYA2JTlJKFY+fic6qB8+GRusBNi
+ NiNeuS3o/kXDY1x75UvvD1QZskLYfcD+sFNN23nsmkRQAclkuduokMLTHKqRS3TT8w
+ ISMW18IPzeAgA7Iewv/cPXZ0etBFpI0Qu3HIGyMlkof5AYPU9KliMNJBBPslKwzbFw
+ xS5e92Ew1UnbQ==
+Original-Received: from icloud.com ([127.0.0.1]) by pv34p98im-ztdg02172101.me.com
+ (Oracle Communications Messaging Server 8.0.2.2.20180531 64bit (built May 31
+ 2018)) with ESMTPSA id <0PI700LUM5HCGK00@pv34p98im-ztdg02172101.me.com>; Wed,
+ 14 Nov 2018 18:46:47 +0000 (GMT)
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 suspectscore=0
+ malwarescore=0 phishscore=0 bulkscore=0 spamscore=0 clxscore=1011 mlxscore=0
+ mlxlogscore=681 adultscore=0 classifier=spam adjust=0 reason=mlx scancount=1
+ engine=8.0.1-1807170000 definitions=main-1811140167
+X-Proofpoint-Virus-Version: vendor=fsecure engine=2.50.10434:,,
+ definitions=2018-11-14_14:,, signatures=0
+In-reply-to: <Pine.NEB.4.64.1811102339210.13806@hlin.zia.io>
+X-Mailer: Apple Mail (2.3445.102.3)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5056 gmane.os.netbsd.general:44102
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5056>
+
+
+
+> On Nov 10, 2018, at 3:54 PM, John Klos <john@ziaspace.com> wrote:
+>=20
+> On an Alpha system running NetBSD 8, though, the card isn't recognized =
+properly:
+>=20
+> ppb1 at pci2 dev 4 function 0: vendor 10b5 product 8112 (rev. 0xaa)
+> ppb1: PCI Express capability version 1 <PCI/PCI-X to PCI-E Bridge> x1 =
+@ 2.5GT/s
+> pci3 at ppb1 bus 2
+> mfi0 at pci3 dev 0 function 0: vendor 0x1000 product 0x9276
+> mfi0: interrupting at dec 6600 irq 36
+> mfi0:  version
+> mfi0: logical drives 0, 0MB RAM, BBU not present
+> scsibus1 at mfi0: 64 targets, 8 luns per target
+>=20
+> Shortly after this, the console spits out 3000+ messages:
+>=20
+> stray 6600 irq 36
+
+This is almost always due to the driver not correctly using the bus_dma =
+API ... probably one or more missing bus_dmamap_sync() calls -- these =
+would not matter on amd64 because it (by default, anyway) has a =
+fully-coherent memory model, but on Alpha, which has relaxed memory =
+ordering, a memory barrier needs to be issued in the right places to =
+make sure that, for example, a host-memory-resident mailbox is really =
+up-to-date before ringing the device's doorbell.  bus_dmamap_sync() is =
+the mechanism by which this is accomplished.
+
+-- thorpej
+
+
+

@@ -1,0 +1,3571 @@
+From kenh@cmf.nrl.navy.mil  Thu May 1 02:52:41 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 01 May 1997 02:52:41 +0000
+Subject: dmesg and DEBUG
+
+Well, I've been trying to figure out why I can't use dmesg after I build
+a custom kernel.  I finally tracked it down to this code
+
+#ifndef DEBUG
+                        /* allow reads only in RAM (except for DEBUG) */
+                        if (v < ctob(firstusablepage) ||
+                            v >= ctob(lastusablepage + 1)) {
+				return (EFAULT);
+#endif
+
+Is DEBUG supposed to be turned on for all alpha kernels?  If not, should
+this code be changed?  (or perhaps relaxed a bit).
+
+--Ken
+
+From cjs@portal.ca  Thu May 1 12:50:21 1997
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 01 May 1997 12:50:21 +0000
+Subject: Reboot Command and Firmware Settings
+
+My firmware is set to boot from dka0 by default, and this works
+fine. However, I've noticed that if I boot of my emergency root on
+dka100 and then use NetBSD `reboot' rather than NetBSD `halt' and
+firmware `boot', the reboot happens from dka100 rather than dka0.
+Should this really be happening? I personally would find it more
+convenient to use the firmware defaults for the reboot command.
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite myst, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From cgd@pa.dec.com  Thu May 1 13:26:57 1997
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: cjs@portal.ca
+Date: Thu, 01 May 1997 13:26:57 +0000
+Subject: Re: Reboot Command and Firmware Settings
+
+> My firmware is set to boot from dka0 by default, and this works
+> fine. However, I've noticed that if I boot of my emergency root on
+> dka100 and then use NetBSD `reboot' rather than NetBSD `halt' and
+> firmware `boot', the reboot happens from dka100 rather than dka0.
+> Should this really be happening? I personally would find it more
+> convenient to use the firmware defaults for the reboot command.
+
+"Tell that to the firmware engineers."
+
+The reboot process is something like:
+
+	The running kernel tells the firmware that's it's time to
+	reboot.
+
+	The firmware loads the boot blocks, and tells it which
+	device, kernel, flags, etc. to load.
+
+	The boot blocks load whatever the firmware said.
+
+Note that the running kernel, or anything else other than previous use
+of the firmware, does not communicate which device to boot from, etc.,
+to the firmware.
+
+There's specific wording that states how this is all supposed to work
+in the Green Book.  It actually varies from system to system, because
+of firmware bugs/problems/whatever.
+
+But, in a nutshell, there's nothing that the running kernel does to
+tell the firmware what to boot from, and little that it _can_ do; the
+firmware decides for itself, based on the existing firmware
+environment variables and the previously-booted device/kernel.
+
+
+cgd
+
+From joda@pdc.kth.se  Thu May 1 23:04:07 1997
+From: Johan Danielsson <joda@pdc.kth.se>
+To: cgd@pa.dec.com
+Date: Thu, 01 May 1997 23:04:07 +0000
+Subject: Re: Reboot Command and Firmware Settings
+
+"Chris G. Demetriou" <cgd@pa.dec.com> writes:
+
+> But, in a nutshell, there's nothing that the running kernel does to
+> tell the firmware what to boot from, and little that it _can_ do;
+> the firmware decides for itself, based on the existing firmware
+> environment variables and the previously-booted device/kernel.
+
+Right. And in some sense I think this is the correct behaviour (that
+rebooting gives me the same operating system, not that it isn't
+possible to control from "user space"). I only wish it would keep the
+boot flags also.
+
+/Johan
+
+From cgd@pa.dec.com  Thu May 1 16:46:09 1997
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: oster@cs.usask.ca
+Date: Thu, 01 May 1997 16:46:09 +0000
+Subject: Re: Another one (Multia) bites the dust....
+
+> Does anyone know of *anything* the 1.2D kernel might have done to 
+> cause this strange behavior?  My guess is that this is just a very unhappy 
+> coincidence that the machine died shortly after installing a 
+> 1.2D kernel.... :-( :-( :-(  (No, I don't blame the 1.2D kernel at all...)
+
+I don't...  One of my multias died not long (~a week) after i updated
+it to the 1.2C(?) snapshot, and software bugs were my first thought,
+as well.  However, I down-rev'd the software, reinstalled the
+firmware, FSL'd the thing, did everything I could to make it go, with
+no luck.
+
+
+> Might it be worth it to install newer firmware? (I'm running 3.5-72 right now, 
+> and it's a '94 vintage...)  I'd do that, but I don't want whatever it is 
+> that's wrong to fail part-way through the installation, and leave the system 
+> completely hosed (like it's not scrambled badly enough already)...
+
+I never had the system die while doing a firmware upgrade (actually,
+now that I think about it, maybe i did, once), but even if it does you
+can use the Fail-safe loader floppy to fix it up.
+
+While i'd love to say that reinstalling or installing new firmware
+will help, I doubt that it will.
+
+
+> I suspect the poor machine just overheated, and that there is nothing
+> I can do to fix it...
+
+That's what my guess is.
+
+
+The thing that makes/made me skeptical about that notion was the fact
+that when mine died, it was a cold day and the window was open, and
+the room's fan was on -- the room containing the machine was bloody
+cold, to the point that i had to wear a sweatshirt, etc., to be
+remotely comfortable.
+
+I seem to recall somebody mentioning that they used
+thermistor-controlled fans, so perhaps the thermistor was/is situated
+in a place that makes it susceptible to being controlled by the case's
+external, rather than internal, temperature, or something...  Could be
+that if it's cold, it doesn't make the fan go, and if it doesn't make
+the fan go then it stays cold (since it has little/no air flowing over
+it), but that seems unlikely.  That would seem to me to be an obvious
+design pitfall, that could be easily avoided.
+
+
+
+chris
+
+From thorpej@nas.nasa.gov  Thu May 1 18:16:35 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: ross@teraflop.com
+Date: Thu, 01 May 1997 18:16:35 +0000
+Subject: Re: The ifconfig(8) unaligned access bug
+
+On Wed, 30 Apr 1997 19:06:49 -0700 (PDT) 
+ Ross Harvey <ross@teraflop.com> wrote:
+
+ > I can answer (2) but not (1). Addreq _is_ aligned properly. Its alignment
+ > requirement will depend on the maximum alignment of any field in it.
+ > Well, they are all chars or u_char fields.
+
+...thanks for pointing this out... I didn't even think about that.. :-)
+
+ > There is a bug, but it is in the struct sockaddr definition itself!
+ > With 20-20 hindsight we could travel back in time and make sure all
+ > the typecasting that the sockaddr gets hammered with goes in the direction
+ > of strict alignment to loose alignment.
+
+Well, unfortunately, we don't have a time machine.  However, we do
+have gcc and <sys/cdefs.h>.  So, I've corrected the problem by
+explicitly directing the compile to align the beginning of a
+struct sockaddr to sizeof(long).  All is now well with ifconfig(8).
+
+The fix will appear in tomorrow's SUP.
+
+Ciao.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From mjacob@feral.com  Fri May 2 07:48:05 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 02 May 1997 07:48:05 +0000
+Subject: anyone seen a crash in pmap_emulate_reference?
+
+I've had my multia crash a couple of times in pmap_emulate_reference.
+Kernel's of last week or so origin.
+
+Anyone else?
+
+-matt
+
+From thorpej@nas.nasa.gov  Fri May 2 11:07:09 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mjacob@feral.com
+Date: Fri, 02 May 1997 11:07:09 +0000
+Subject: Re: anyone seen a crash in pmap_emulate_reference?
+
+On Fri, 2 May 97 07:48:05 PDT 
+ mjacob@feral.com (Matthew Jacob) wrote:
+
+ > I've had my multia crash a couple of times in pmap_emulate_reference.
+ > Kernel's of last week or so origin.
+ > 
+ > Anyone else?
+
+I have not seen this on the DEC 3000 in our lab... How much memory does
+your multia have?  nostromo has 32M.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From mjacob@feral.com  Fri May 2 12:25:43 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: mjacob@feral.com, thorpej@nas.nasa.gov
+Date: Fri, 02 May 1997 12:25:43 +0000
+Subject: Re: anyone seen a crash in pmap_emulate_reference?
+
+>How much memory does your multia have? 
+
+80MB
+
+From mjacob@feral.com  Sat May 3 09:33:13 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 03 May 1997 09:33:13 +0000
+Subject: Maddog's talk in Dallas
+
+Resent-Sender: axp-list-request@redhat.com
+Content-Length: 1332
+
+Maddog's talk in Dallas on Thursday was quite good, by the way.  
+
+The most interesting commentary was concerning the real economic value to 
+Digital of Alpha Linux.  Some of it is decidedly not intuitively obvious:
+
+a) Alpha Linux sells more *new* boxes with Digital Unix than it does with 
+Linux.
+
+b) The ideal target (from the Digital perspective) for Linux is in the 
+aftermarket, allowing "obsolete" hardware to stay in use.  Systems that get 
+redeployed using Linux are more valuable than systems that get crushed, which 
+*reduces the cost of ownership* of the Digital UNIX systems.  Best of all, 
+this takes place without Digital losing any sales dollars or profit margin.  
+Making the hardware cheaper to the customers without cutting prices is "a good 
+thing."
+
+c) People have come to Digital having heard that Alpha was a good place to run 
+Linux, and come away concluding they really want DU.  That's what you call 
+"unsolicited sales," that are worth a mint.
+--
+Christopher B. Browne, cbbrowne@unicomp.net, chris_browne@sdt.com 
+Web: http://www.conline.com/~cbbrowne/  SAP Basis Consultant, UNIX Guy 
+Windows NT - How to make a 100 MIPS Linux workstation perform like an 8 MHz 286
+
+
+--
+To unsubscribe: send e-mail to axp-list-request@redhat.com with
+'unsubscribe' as the subject.  Do not send it to axp-list@redhat.com
+
+
+
+----- End Included Message -----
+
+From mjacob@feral.com  Sat May 3 10:42:16 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 03 May 1997 10:42:16 +0000
+Subject: panics && kvm_read: Bad Address...
+
+arch/alpha/alpha/mem.c doesn't want to read out of the range
+of 'usable' pages when DEBUG isn't defined. Unfortunately,
+this excludes the message buffer. Update to source later today.
+
+I'm getting quite a few panics, but I haven't been able to start
+telling what they are yet 'coz dmesg wasn't working yet....
+
+From mjacob@feral.com  Sat May 3 12:19:23 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 03 May 1997 12:19:23 +0000
+Subject: ahah, the plot thickens...
+
+The 'pmap_emulate_reference' panic I had comes from:
+
+WARNING: pmap_emulate_reference(0xfffffe008a766400, 0xfffffe00935a6000, 0, 1): pa 0x4f14000 not managed
+
+
+Hey, guess what. The message buffer ain't mapped. So, probably uiomove
+is a bad thing to call for copying it out, eh?
+
+From cjs@portal.ca  Sat May 3 15:07:28 1997
+From: Curt Sampson <cjs@portal.ca>
+To: mjacob@feral.com
+Date: Sat, 03 May 1997 15:07:28 +0000
+Subject: Re: anyone seen a crash in pmap_emulate_reference?
+
+On Fri, 2 May 1997, Matthew Jacob wrote:
+
+> I've had my multia crash a couple of times in pmap_emulate_reference.
+> Kernel's of last week or so origin.
+
+I'm seeing lots of crashes, almost all VM or pmap related. I'm
+working on further analysis of the problem, but it's slow going.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+
+From mjacob@feral.com  Sat May 3 19:20:54 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: cjs@portal.ca
+Date: Sat, 03 May 1997 19:20:54 +0000
+Subject: Re: anyone seen a crash in pmap_emulate_reference?
+
+>
+>On Fri, 2 May 1997, Matthew Jacob wrote:
+>
+>> I've had my multia crash a couple of times in pmap_emulate_reference.
+>> Kernel's of last week or so origin.
+>
+>I'm seeing lots of crashes, almost all VM or pmap related. I'm
+>working on further analysis of the problem, but it's slow going.
+>
+
+
+On alpha alone, or other architectures?
+
+Also, odd other things are happening. I got at least one pmap_emulate_reference
+whine when doing a *copyout* from msgbuf to user space today. Why it
+would get a fault on the K0SEG address is a puzzlement to me- it's
+mapped by the prom, not 'managed' by VM, so how could there be  fault
+there?
+
+I got one 'pmap_page_protect' panic back on 4/18.
+
+Also, we have a variety of cc1 core dumps. I've now had it happen
+twice, but I have no clue from the cc1 core files why- it isn't
+an unresolved stack fault.
+
+I've done a bit of modifying of alpha/trap.c to print out info
+about a process killed of with SIGSEGV- I may commit this sooner
+or later as it's useful (IMHO), and only on for DIAGNOSTIC. I just
+tested it with a little 'eatstack' program.
+
+-matt
+
+From mjacob@feral.com  Sun May 4 13:51:14 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 04 May 1997 13:51:14 +0000
+Subject: cc1 core dumps
+
+I finally got cc1/alpha to 'fess up:
+
+fatal user trap:
+
+    trap entry = 0x2 (memory management fault)
+    a0         = 0xa80f4a10
+    a1         = 0x1
+    a2         = 0xffffffffffffffff
+    pc         = 0xa80f4a10
+    ra         = 0x1200f4a1c
+    curproc    = 0xfffffe008a74b200
+        pid = 15396, comm = cc1
+
+
+Note that the faulting address && pc is nonsense, so either cc1
+jumped off into the wild blue yonder or it's PC got trashed
+another way. I'll think some more on this one...
+
+-matt
+
+From kenh@cmf.nrl.navy.mil  Sun May 4 23:12:48 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: mjacob@feral.com
+Date: Sun, 04 May 1997 23:12:48 +0000
+Subject: Re: panics && kvm_read: Bad Address...
+
+>arch/alpha/alpha/mem.c doesn't want to read out of the range
+>of 'usable' pages when DEBUG isn't defined. Unfortunately,
+>this excludes the message buffer. Update to source later today.
+
+Ummm ... didn't I post about this last week?
+
+--Ken
+
+From kenh@cmf.nrl.navy.mil  Sun May 4 23:21:40 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 04 May 1997 23:21:40 +0000
+Subject: Re: panics && kvm_read: Bad Address...
+
+>>arch/alpha/alpha/mem.c doesn't want to read out of the range
+>>of 'usable' pages when DEBUG isn't defined. Unfortunately,
+>>this excludes the message buffer. Update to source later today.
+>
+>Ummm ... didn't I post about this last week?
+
+Sigh, that was supposed to be private.  Sorry!
+
+--Ken
+
+From mjacob@feral.com  Sun May 4 20:27:30 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: kenh@cmf.nrl.navy.mil
+Date: Sun, 04 May 1997 20:27:30 +0000
+Subject: Re: panics && kvm_read: Bad Address...
+
+>>
+>>arch/alpha/alpha/mem.c doesn't want to read out of the range
+>>of 'usable' pages when DEBUG isn't defined. Unfortunately,
+>>this excludes the message buffer. Update to source later today.
+>
+>Ummm ... didn't I post about this last week?
+>
+>--Ken
+>
+
+Did I miss something on the alias? If so, what'd you fix?
+
+So far, I've got a fix, but I'm still testing it. I had one
+very strange occurrence of a continous readout of the message
+buffer *wiping* the magic number header.
+
+From cgd@pa.dec.com  Mon May 5 09:37:32 1997
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: mjacob@feral.com
+Date: Mon, 05 May 1997 09:37:32 +0000
+Subject: Re: ahah, the plot thickens...
+
+> 
+> The 'pmap_emulate_reference' panic I had comes from:
+> 
+> WARNING: pmap_emulate_reference(0xfffffe008a766400, 0xfffffe00935a6000, 0, 1): pa 0x4f14000 not managed
+> 
+> Hey, guess what. The message buffer ain't mapped. So, probably uiomove
+> is a bad thing to call for copying it out, eh?
+
+There's a difference between mapped and managed.
+
+The message buffer is mapped -- via the superpage mapping.  However,
+it is not managed.
+
+
+cgd
+
+From mjacob@feral.com  Mon May 5 09:58:07 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: cgd@pa.dec.com
+Date: Mon, 05 May 1997 09:58:07 +0000
+Subject: Re: ahah, the plot thickens...
+
+>
+>> 
+>> The 'pmap_emulate_reference' panic I had comes from:
+>> 
+>> WARNING: pmap_emulate_reference(0xfffffe008a766400, 0xfffffe00935a6000, 0, 1): pa 0x4f14000 not managed
+>> 
+>> Hey, guess what. The message buffer ain't mapped. So, probably uiomove
+>> is a bad thing to call for copying it out, eh?
+>
+>There's a difference between mapped and managed.
+>
+>The message buffer is mapped -- via the superpage mapping.  However,
+>it is not managed.
+>
+
+Which is all fine unless you get a fault (which can't be 'managed') :-)
+You're right tho- it was 'mapped' in the superpage.
+
+I haven't been able to reproduce this. On another front, I *have*
+been able to get reproducible cc1 core dumps by continuous recompiling
+of the kernel on my UDB. Here's my latest logs... I'm *almost* seeing
+a pattern, but not quite yet.
+
+The messages are kinda duplicated since I'm trying to trap (in trap,
+heh, although I really should look at any of the mcheck entry points)
+the place where the PC goes out into the ozone for cc1.
+
+May  4 17:15:48 nobble /netbsd: PC Out of Whack
+May  4 17:15:49 nobble /netbsd: 
+May  4 17:15:49 nobble /netbsd: fatal user trap:
+May  4 17:15:49 nobble /netbsd: 
+May  4 17:15:49 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  4 17:15:49 nobble /netbsd:     a0         = 0xa80f4a10
+May  4 17:15:49 nobble /netbsd:     a1         = 0x1
+May  4 17:15:49 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  4 17:15:49 nobble /netbsd:     pc         = 0xa80f4a10
+May  4 17:15:49 nobble /netbsd:     ra         = 0x1200f4cb8
+May  4 17:15:49 nobble /netbsd:     curproc    = 0xfffffe008a726400
+May  4 17:15:49 nobble /netbsd:         pid = 6555, comm = cc1
+May  4 17:15:49 nobble /netbsd: 
+May  4 17:15:49 nobble /netbsd: 
+May  4 17:15:49 nobble /netbsd: fatal user trap:
+May  4 17:15:49 nobble /netbsd: 
+May  4 17:15:49 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  4 17:15:49 nobble /netbsd:     a0         = 0xa80f4a10
+May  4 17:15:49 nobble /netbsd:     a1         = 0x1
+May  4 17:15:49 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  4 17:15:49 nobble /netbsd:     pc         = 0xa80f4a10
+May  4 17:15:49 nobble /netbsd:     ra         = 0x1200f4cb8
+May  4 17:15:49 nobble /netbsd:     curproc    = 0xfffffe008a726400
+May  4 17:15:50 nobble /netbsd:         pid = 6555, comm = cc1
+May  4 17:15:50 nobble /netbsd: 
+May  4 17:21:50 nobble /netbsd: PC Out of Whack
+May  4 17:21:51 nobble /netbsd: 
+May  4 17:21:51 nobble /netbsd: fatal user trap:
+May  4 17:21:51 nobble /netbsd: 
+May  4 17:21:51 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  4 17:21:51 nobble /netbsd:     a0         = 0x280f4a10
+May  4 17:21:51 nobble /netbsd:     a1         = 0x1
+May  4 17:21:51 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  4 17:21:51 nobble /netbsd:     pc         = 0x280f4a10
+May  4 17:21:51 nobble /netbsd:     ra         = 0x1200f4cb8
+May  4 17:21:51 nobble /netbsd:     curproc    = 0xfffffe008a759a00
+May  4 17:21:51 nobble /netbsd:         pid = 6768, comm = cc1
+May  4 17:21:51 nobble /netbsd: 
+May  4 17:21:51 nobble /netbsd: 
+May  4 17:21:51 nobble /netbsd: fatal user trap:
+May  4 17:21:51 nobble /netbsd: 
+May  4 17:21:51 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  4 17:21:51 nobble /netbsd:     a0         = 0x280f4a10
+May  4 17:21:52 nobble /netbsd:     a1         = 0x1
+May  4 17:21:52 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  4 17:21:52 nobble /netbsd:     pc         = 0x280f4a10
+May  4 17:21:52 nobble /netbsd:     ra         = 0x1200f4cb8
+May  4 17:21:52 nobble /netbsd:     curproc    = 0xfffffe008a759a00
+May  4 17:21:52 nobble /netbsd:         pid = 6768, comm = cc1
+May  4 17:21:52 nobble /netbsd: 
+May  4 20:08:09 nobble /netbsd: PC Out of Whack
+May  4 20:08:10 nobble /netbsd: 
+May  4 20:08:10 nobble /netbsd: fatal user trap:
+May  4 20:08:10 nobble /netbsd: 
+May  4 20:08:10 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  4 20:08:10 nobble /netbsd:     a0         = 0x280f4c10
+May  4 20:08:10 nobble /netbsd:     a1         = 0x1
+May  4 20:08:10 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  4 20:08:10 nobble /netbsd:     pc         = 0x280f4c10
+May  4 20:08:10 nobble /netbsd:     ra         = 0x1200f45d8
+May  4 20:08:10 nobble /netbsd:     curproc    = 0xfffffe008a775800
+May  4 20:08:10 nobble /netbsd:         pid = 13237, comm = cc1
+May  4 20:08:10 nobble /netbsd: 
+May  4 20:08:10 nobble /netbsd: 
+May  4 20:08:10 nobble /netbsd: fatal user trap:
+May  4 20:08:10 nobble /netbsd: 
+May  4 20:08:10 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  4 20:08:11 nobble /netbsd:     a0         = 0x280f4c10
+May  4 20:08:11 nobble /netbsd:     a1         = 0x1
+May  4 20:08:11 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  4 20:08:11 nobble /netbsd:     pc         = 0x280f4c10
+May  4 20:08:11 nobble /netbsd:     ra         = 0x1200f45d8
+May  4 20:08:11 nobble /netbsd:     curproc    = 0xfffffe008a775800
+May  4 20:08:11 nobble /netbsd:         pid = 13237, comm = cc1
+May  4 20:08:11 nobble /netbsd: 
+May  4 20:26:24 nobble /netbsd: PC Out of Whack
+May  4 20:26:25 nobble /netbsd: 
+May  4 20:26:25 nobble /netbsd: fatal user trap:
+May  4 20:26:25 nobble /netbsd: 
+May  4 20:26:25 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  4 20:26:25 nobble /netbsd:     a0         = 0x1080f44a0
+May  4 20:26:25 nobble /netbsd:     a1         = 0x1
+May  4 20:26:25 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  4 20:26:25 nobble /netbsd:     pc         = 0x1080f44a0
+May  4 20:26:25 nobble /netbsd:     ra         = 0x1200f4a1c
+May  4 20:26:25 nobble /netbsd:     curproc    = 0xfffffe008a785e00
+May  4 20:26:25 nobble /netbsd:         pid = 13808, comm = cc1
+May  4 20:26:25 nobble /netbsd: 
+May  4 20:26:25 nobble /netbsd: 
+May  4 20:26:25 nobble /netbsd: fatal user trap:
+May  4 20:26:25 nobble /netbsd: 
+May  4 20:26:25 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  4 20:26:25 nobble /netbsd:     a0         = 0x1080f44a0
+May  4 20:26:25 nobble /netbsd:     a1         = 0x1
+May  4 20:26:25 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  4 20:26:25 nobble /netbsd:     pc         = 0x1080f44a0
+May  4 20:26:25 nobble /netbsd:     ra         = 0x1200f4a1c
+May  4 20:26:26 nobble /netbsd:     curproc    = 0xfffffe008a785e00
+May  4 20:26:26 nobble /netbsd:         pid = 13808, comm = cc1
+May  4 20:26:26 nobble /netbsd: 
+May  5 00:00:01 nobble syslogd: restart
+May  5 00:00:02 nobble syslogd: restart
+May  5 00:03:10 nobble /netbsd: PC Out of Whack
+May  5 00:03:10 nobble /netbsd: 
+May  5 00:03:11 nobble /netbsd: fatal user trap:
+May  5 00:03:11 nobble /netbsd: 
+May  5 00:03:11 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  5 00:03:11 nobble /netbsd:     a0         = 0x280f4a10
+May  5 00:03:11 nobble /netbsd:     a1         = 0x1
+May  5 00:03:11 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  5 00:03:11 nobble /netbsd:     pc         = 0x280f4a10
+May  5 00:03:11 nobble /netbsd:     ra         = 0x1200f45d8
+May  5 00:03:11 nobble /netbsd:     curproc    = 0xfffffe008a726000
+May  5 00:03:11 nobble /netbsd:         pid = 22321, comm = cc1
+May  5 00:03:11 nobble /netbsd: 
+May  5 00:03:11 nobble /netbsd: 
+May  5 00:03:11 nobble /netbsd: fatal user trap:
+May  5 00:03:11 nobble /netbsd: 
+May  5 00:03:11 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  5 00:03:11 nobble /netbsd:     a0         = 0x280f4a10
+May  5 00:03:11 nobble /netbsd:     a1         = 0x1
+May  5 00:03:11 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  5 00:03:11 nobble /netbsd:     pc         = 0x280f4a10
+May  5 00:03:11 nobble /netbsd:     ra         = 0x1200f45d8
+May  5 00:03:11 nobble /netbsd:     curproc    = 0xfffffe008a726000
+May  5 00:03:11 nobble /netbsd:         pid = 22321, comm = cc1
+May  5 00:03:11 nobble /netbsd: 
+May  5 01:17:22 nobble /netbsd: PC Out of Whack
+May  5 01:17:23 nobble /netbsd: 
+May  5 01:17:23 nobble /netbsd: fatal user trap:
+May  5 01:17:23 nobble /netbsd: 
+May  5 01:17:23 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  5 01:17:23 nobble /netbsd:     a0         = 0xa80f4c10
+May  5 01:17:23 nobble /netbsd:     a1         = 0x1
+May  5 01:17:23 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  5 01:17:24 nobble /netbsd:     pc         = 0xa80f4c10
+May  5 01:17:24 nobble /netbsd:     ra         = 0x1200f4d40
+May  5 01:17:24 nobble /netbsd:     curproc    = 0xfffffe008a785e00
+May  5 01:17:24 nobble /netbsd:         pid = 24953, comm = cc1
+May  5 01:17:24 nobble /netbsd: 
+May  5 01:17:24 nobble /netbsd: 
+May  5 01:17:24 nobble /netbsd: fatal user trap:
+May  5 01:17:24 nobble /netbsd: 
+May  5 01:17:24 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  5 01:17:24 nobble /netbsd:     a0         = 0xa80f4c10
+May  5 01:17:24 nobble /netbsd:     a1         = 0x1
+May  5 01:17:24 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  5 01:17:24 nobble /netbsd:     pc         = 0xa80f4c10
+May  5 01:17:24 nobble /netbsd:     ra         = 0x1200f4d40
+May  5 01:17:24 nobble /netbsd:     curproc    = 0xfffffe008a785e00
+May  5 01:17:24 nobble /netbsd:         pid = 24953, comm = cc1
+May  5 01:17:24 nobble /netbsd: 
+May  5 03:00:02 nobble syslogd: restart
+May  5 04:28:10 nobble /netbsd: PC Out of Whack
+May  5 04:28:11 nobble /netbsd: 
+May  5 04:28:11 nobble /netbsd: fatal user trap:
+May  5 04:28:11 nobble /netbsd: 
+May  5 04:28:11 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  5 04:28:12 nobble /netbsd:     a0         = 0x1080f4c10
+May  5 04:28:12 nobble /netbsd:     a1         = 0x1
+May  5 04:28:12 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  5 04:28:12 nobble /netbsd:     pc         = 0x1080f4c10
+May  5 04:28:12 nobble /netbsd:     ra         = 0x1200f4a2c
+May  5 04:28:12 nobble /netbsd:     curproc    = 0xfffffe008a749800
+May  5 04:28:12 nobble /netbsd:         pid = 3877, comm = cc1
+May  5 04:28:12 nobble /netbsd: 
+May  5 04:28:12 nobble /netbsd: 
+May  5 04:28:12 nobble /netbsd: fatal user trap:
+May  5 04:28:12 nobble /netbsd: 
+May  5 04:28:12 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  5 04:28:12 nobble /netbsd:     a0         = 0x1080f4c10
+May  5 04:28:12 nobble /netbsd:     a1         = 0x1
+May  5 04:28:12 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  5 04:28:12 nobble /netbsd:     pc         = 0x1080f4c10
+May  5 04:28:12 nobble /netbsd:     ra         = 0x1200f4a2c
+May  5 04:28:12 nobble /netbsd:     curproc    = 0xfffffe008a749800
+May  5 04:28:12 nobble /netbsd:         pid = 3877, comm = cc1
+May  5 04:28:12 nobble /netbsd: 
+May  5 07:14:01 nobble /netbsd: PC Out of Whack
+May  5 07:14:02 nobble /netbsd: 
+May  5 07:14:02 nobble /netbsd: fatal user trap:
+May  5 07:14:02 nobble /netbsd: 
+May  5 07:14:02 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  5 07:14:03 nobble /netbsd:     a0         = 0xc80f44a0
+May  5 07:14:03 nobble /netbsd:     a1         = 0x1
+May  5 07:14:03 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  5 07:14:03 nobble /netbsd:     pc         = 0xc80f44a0
+May  5 07:14:03 nobble /netbsd:     ra         = 0x1200f4cb8
+May  5 07:14:03 nobble /netbsd:     curproc    = 0xfffffe008a7aa800
+May  5 07:14:03 nobble /netbsd:         pid = 10437, comm = cc1
+May  5 07:14:03 nobble /netbsd: 
+May  5 07:14:03 nobble /netbsd: 
+May  5 07:14:03 nobble /netbsd: fatal user trap:
+May  5 07:14:03 nobble /netbsd: 
+May  5 07:14:03 nobble /netbsd:     trap entry = 0x2 (memory management fault)
+May  5 07:14:03 nobble /netbsd:     a0         = 0xc80f44a0
+May  5 07:14:03 nobble /netbsd:     a1         = 0x1
+May  5 07:14:03 nobble /netbsd:     a2         = 0xffffffffffffffff
+May  5 07:14:03 nobble /netbsd:     pc         = 0xc80f44a0
+May  5 07:14:03 nobble /netbsd:     ra         = 0x1200f4cb8
+May  5 07:14:03 nobble /netbsd:     curproc    = 0xfffffe008a7aa800
+May  5 07:14:03 nobble /netbsd:         pid = 10437, comm = cc1
+May  5 07:14:03 nobble /netbsd:
+
+From cjs@portal.ca  Mon May 5 13:54:25 1997
+From: Curt Sampson <cjs@portal.ca>
+To: mjacob@feral.com
+Date: Mon, 05 May 1997 13:54:25 +0000
+Subject: Re: anyone seen a crash in pmap_emulate_reference?
+
+On Sat, 3 May 1997, Curt Sampson wrote:
+
+> I'm seeing lots of crashes, almost all VM or pmap related. I'm
+> working on further analysis of the problem, but it's slow going.
+
+Well, I finally found out the source of my problem: my 15 ns cache
+chips cannot be run at 15 ns. Switching the jumper to 20 ns solved
+the problem for me. *Sigh*.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+
+From mjacob@feral.com  Mon May 5 18:35:05 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: cjs@portal.ca, mjacob@feral.com
+Date: Mon, 05 May 1997 18:35:05 +0000
+Subject: Re: anyone seen a crash in pmap_emulate_reference?
+
+>Well, I finally found out the source of my problem: my 15 ns cache
+>chips cannot be run at 15 ns. Switching the jumper to 20 ns solved
+>the problem for me. *Sigh*.
+
+
+On the multia? Which jumper is this?
+
+From cjs@portal.ca  Mon May 5 18:47:36 1997
+From: Curt Sampson <cjs@portal.ca>
+To: mjacob@feral.com
+Date: Mon, 05 May 1997 18:47:36 +0000
+Subject: Re: anyone seen a crash in pmap_emulate_reference?
+
+On Mon, 5 May 1997, Matthew Jacob wrote:
+
+> >Well, I finally found out the source of my problem: my 15 ns cache
+> >chips cannot be run at 15 ns. Switching the jumper to 20 ns solved
+> >the problem for me. *Sigh*.
+> 
+> On the multia? Which jumper is this?
+
+No, on the AXPpci33 motherboard. I finally got my Multia up and
+running again, after various problems with it, and the fact that
+it did fine on the same kernel was what clued me in.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+
+From mjacob@feral.com  Mon May 5 19:01:36 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: cjs@portal.ca, mjacob@feral.com
+Date: Mon, 05 May 1997 19:01:36 +0000
+Subject: Re: anyone seen a crash in pmap_emulate_reference?
+
+>No, on the AXPpci33 motherboard. I finally got my Multia up and
+>running again, after various problems with it, and the fact that
+>it did fine on the same kernel was what clued me in.
+
+
+Hmm. I wonder why my multia has all these cc1 core dumps?
+
+I'll check to see if the CPU wasn't restrapped for > 166MHZ...
+
+From wulf@ping.net.au  Tue May 6 17:28:51 1997
+From: Berndt Josef Wulf <wulf@ping.net.au>
+To: cjs@portal.ca
+Date: Tue, 06 May 1997 17:28:51 +0000
+Subject: Re: anyone seen a crash in pmap_emulate_reference?
+
+Curt Sampson wrote
+> 
+> On Sat, 3 May 1997, Curt Sampson wrote:
+> 
+> > I'm seeing lots of crashes, almost all VM or pmap related. I'm
+> > working on further analysis of the problem, but it's slow going.
+> 
+> Well, I finally found out the source of my problem: my 15 ns cache
+> chips cannot be run at 15 ns. Switching the jumper to 20 ns solved
+> the problem for me. *Sigh*.
+
+This is exactly what happened to a lot of other users I know using the
+AXPpci33 and 1MB-15ns RAM. This why I am so reluctant to purchase some.
+
+Anyone running 1MB-15ns on a AXPpci? If so, I would like to get to
+know the brandname and type of those chips.
+
+cheerio Berndt
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@ping.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.2
+
+From veraldi@sunvlsi2.bo.infn.it  Tue May 6 10:47:37 1997
+From: Riccardo Veraldi <veraldi@sunvlsi2.bo.infn.it>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 06 May 1997 10:47:37 +0000
+Subject: HELP!!
+
+Please I Would need some kindperson to help me on installing the NetBSD
+on a Multia, just I need some few instructions.
+Could someone halp me telling me all the thing step by step that I have 
+to do please?
+I Already got the rz25 image disk
+I have a rz29 disk it is external SCSI disk and a internal disk on the multia
+a 300Mb TOSHIBA but it is not a rz type disk.
+Right now I have digital unix but I must to switch to NetBSD since I 
+cannot use that unix anymore.
+Could please someone help me about telling me the dd and disklabel 
+stuff I have to do?
+thanks
+
+Rick
+
+From cjs@portal.ca  Tue May 6 08:34:51 1997
+From: Curt Sampson <cjs@portal.ca>
+To: veraldi@sunvlsi2.bo.infn.it
+Date: Tue, 06 May 1997 08:34:51 +0000
+Subject: Re: HELP!!
+
+On Tue, 6 May 1997, Riccardo Veraldi wrote:
+
+> Please I Would need some kindperson to help me on installing the NetBSD
+> on a Multia, just I need some few instructions.
+> I Already got the rz25 image disk
+> I have a rz29 disk it is external SCSI disk and a internal disk on the multia
+> a 300Mb TOSHIBA but it is not a rz type disk.
+
+You don't actually need an `rz' type disk, but you do need a disk
+that's at least as large as an rz25, which is somewhere around 450
+MB, if I recall correctly.
+
+I assume that your rz29 disk is at least as big as an rz25 disk.
+You just have to plug the rz29 into your unix machine that has the
+image, and dd the image to it. If, for example, you plug it into
+a machine and it comes up as sd5, you'd type something like
+
+    dd if=image of=/dev/rsd5c bs=1m
+
+In this case, `image' is the name of the image file, `/dev/rsd0c'
+is the `raw' partition of the disk and a character (not a block)
+device, and the `bs=1m' sets the block size to one megabyte, which
+isn't necessary but should speed things up a bit.
+
+BE VERY CAREFUL WHEN DOING THIS! You can quite easily overwrite
+your currently running OS with this sort of procedure, so make sure
+you understand the device naming scheme of the OS you're using for
+this.
+
+Once you've done that, you now have a disk you can plug into your
+multia and boot directly, with the command
+
+    boot dka100 -file netbsd -flags ''
+
+where `dka100' is that disk. The number will be different if that
+disk is not SCSI ID 1. (The internal disk will be dka0.)
+
+Once you've booted that disk, you'll have access to the disklabel
+man page and program. Read the man page carefully, and then disklabel
+sd0, which is your internal disk, to some appropriate sizes and
+copy over whatever bits of the OS will fit.
+
+If you're not sure what I'm talking about in the above paragraph,
+get to the point where you can boot the rz29 disk on the multia,
+read the disklabel manpage carefully, and post again and I'll
+clarify things further.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+
+From kenh@cmf.nrl.navy.mil  Wed May 7 16:43:47 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 07 May 1997 16:43:47 +0000
+Subject: crash dump analysys with and without symbols
+
+So, I've been trying to debug this kernel module on the alpha, and maybe I'm
+not doing something right ... but gdb isn't behaving like I would expect
+it to.
+
+Here's what I get when I look at the crash dump:
+
+% gdb -k /usr/crash/netbsd.2 /usr/crash/netbsd.2.core
+GDB is free software and you are welcome to distribute copies of it
+ under certain conditions; type "show copying" to see the conditions.
+There is absolutely no warranty for GDB; type "show warranty" for details.
+GDB 4.16 (alpha-unknown-netbsd1.2D
+Copyright 1996 Free Software Foundation, Inc...(no debugging symbols found)...
+panic: trap
+#0  0xfffffc00003fad90 in dumpsys ()
+(kgdb) where
+#0  0xfffffc00003fad90 in dumpsys ()
+#1  0xfffffc00003fab3c in cpu_reboot ()
+#2  0xfffffc0000322a74 in panic ()
+#3  0xfffffc000040011c in trap ()
+#4  0xfffffc0000300354 in XentIF ()
+#5  0xfffffc0000400360 in syscall ()
+
+Not that useful without symbols, so I figure I'll use netbsd.gdb ....
+
+% gdb -k /sys/arch/alpha/compile/PRISCILLA/netbsd.gdb /usr/crash/netbsd.2.core
+GDB is free software and you are welcome to distribute copies of it
+ under certain conditions; type "show copying" to see the conditions.
+There is absolutely no warranty for GDB; type "show warranty" for details.
+GDB 4.16 (alpha-unknown-netbsd1.2D), 
+Copyright 1996 Free Software Foundation, Inc...
+panic: trap
+#0  0xfffffc00003fad90 in dumpsys ()
+    at ../../../../arch/alpha/alpha/machdep.c:924
+924             savectx(&dumppcb);
+(kgdb) where
+#0  0xfffffc00003fad90 in dumpsys ()
+    at ../../../../arch/alpha/alpha/machdep.c:924
+#1  0xfffffc00003fab3c in cpu_reboot ()
+    at ../../../../arch/alpha/alpha/machdep.c:789
+#2  0xfffffc0000322a74 in panic () at ../../../../kern/subr_prf.c:149
+#3  0xfffffc000040011c in trap () at ../../../../arch/alpha/alpha/trap.c:454
+
+This is all fine .... but where are the last two stack frames, which
+has the info that I _really_ want?  Do I need to do something else to make
+this work?
+
+--Ken
+
+From mjacob@feral.com  Wed May 7 14:31:00 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: kenh@cmf.nrl.navy.mil, port-alpha@NetBSD.ORG
+Date: Wed, 07 May 1997 14:31:00 +0000
+Subject: Re:  crash dump analysys with and without symbols
+
+Well, you've gotten further than *I* ever had... 
+
+I'm about ready to commit some slight changes to trap.c that
+will make things a bit more chatty (printouts) about why one is
+dying. That may help you find out why you're getting an instruction
+fault- although if you aren't seeing any printout at all
+in the current code you took an instruction fault in kernel mode-
+very bad.
+
+What h/w do you have again?
+
+From cjs@portal.ca  Wed May 7 14:30:35 1997
+From: Curt Sampson <cjs@portal.ca>
+To: kenh@cmf.nrl.navy.mil
+Date: Wed, 07 May 1997 14:30:35 +0000
+Subject: Re: crash dump analysys with and without symbols
+
+On Wed, 7 May 1997, Ken Hornstein wrote:
+
+> #2  0xfffffc0000322a74 in panic () at ../../../../kern/subr_prf.c:149
+> #3  0xfffffc000040011c in trap () at ../../../../arch/alpha/alpha/trap.c:454
+> 
+> This is all fine .... but where are the last two stack frames, which
+> has the info that I _really_ want?  Do I need to do something else to make
+> this work?
+
+Usually trap() prints the address of the pc near where the trap
+occurred when it takes the machine down. Something like
+0xffffff0012345678. So I just do a `l *(0xffffff0012345678)' to
+get it to list that area, and go from there.
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite myst, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From kenh@cmf.nrl.navy.mil  Wed May 7 17:42:29 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: mjacob@feral.com
+Date: Wed, 07 May 1997 17:42:29 +0000
+Subject: Re: crash dump analysys with and without symbols
+
+>I'm about ready to commit some slight changes to trap.c that
+>will make things a bit more chatty (printouts) about why one is
+>dying. That may help you find out why you're getting an instruction
+>fault- although if you aren't seeing any printout at all
+>in the current code you took an instruction fault in kernel mode-
+>very bad.
+
+Well, not surprising ... since this is a kernel module I'm debugging :-)
+
+>What h/w do you have again?
+
+It's an AXPpci33.  BTW, this isn't a O/S problem at all ... this is
+a problem with what I'm trying to add.
+
+--Ken
+
+From kenh@cmf.nrl.navy.mil  Wed May 7 17:43:04 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: cjs@portal.ca
+Date: Wed, 07 May 1997 17:43:04 +0000
+Subject: Re: crash dump analysys with and without symbols
+
+>Usually trap() prints the address of the pc near where the trap
+>occurred when it takes the machine down. Something like
+>0xffffff0012345678. So I just do a `l *(0xffffff0012345678)' to
+>get it to list that area, and go from there.
+
+Aha!  That works great.  Thanks!
+
+--Ken
+
+From mjacob@feral.com  Wed May 7 15:02:10 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: kenh@cmf.nrl.navy.mil
+Date: Wed, 07 May 1997 15:02:10 +0000
+Subject: Re: crash dump analysys with and without symbols
+
+>From kenh@ginger.cmf.nrl.navy.mil Wed May  7 14:58:10 1997
+>
+>>I'm about ready to commit some slight changes to trap.c that
+>>will make things a bit more chatty (printouts) about why one is
+>>dying. That may help you find out why you're getting an instruction
+>>fault- although if you aren't seeing any printout at all
+>>in the current code you took an instruction fault in kernel mode-
+>>very bad.
+>
+>Well, not surprising ... since this is a kernel module I'm debugging :-)
+>
+>>What h/w do you have again?
+>
+>It's an AXPpci33.  BTW, this isn't a O/S problem at all ... this is
+>a problem with what I'm trying to add.
+>
+
+Oh- what're you trying to add?
+
+-matt
+
+From kenh@cmf.nrl.navy.mil  Wed May 7 18:05:20 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: mjacob@feral.com
+Date: Wed, 07 May 1997 18:05:20 +0000
+Subject: Re: crash dump analysys with and without symbols
+
+>Oh- what're you trying to add?
+
+AFS (which is further complicated by the fact that the NetBSD AFS patches
+are for AFS 3.3, and AFS wasn't 64-bit clean until 3.4.  Sigh :-) ).
+
+--Ken
+
+From thorpej@nas.nasa.gov  Wed May 7 14:57:41 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: kenh@cmf.nrl.navy.mil
+Date: Wed, 07 May 1997 14:57:41 +0000
+Subject: Re: crash dump analysys with and without symbols
+
+On Wed, 07 May 1997 18:05:20 -0400 
+ Ken Hornstein <kenh@cmf.nrl.navy.mil> wrote:
+
+ > AFS (which is further complicated by the fact that the NetBSD AFS patches
+ > are for AFS 3.3, and AFS wasn't 64-bit clean until 3.4.  Sigh :-) ).
+
+Ugh, my sympathies... IIRC, Chris even punted on AFS :-)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From kenh@cmf.nrl.navy.mil  Wed May 7 18:13:36 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 07 May 1997 18:13:36 +0000
+Subject: Re: crash dump analysys with and without symbols
+
+>On Wed, 07 May 1997 18:05:20 -0400 
+> Ken Hornstein <kenh@cmf.nrl.navy.mil> wrote:
+>
+> > AFS (which is further complicated by the fact that the NetBSD AFS patches
+> > are for AFS 3.3, and AFS wasn't 64-bit clean until 3.4.  Sigh :-) ).
+>
+>Ugh, my sympathies... IIRC, Chris even punted on AFS :-)
+
+Well, things got a lot better once I figured out that I needed to use
+-mno-fp-regs to compile the dang thing :-)  Now if I could only figure
+out what the problem is with gdb ...
+
+--Ken
+
+From gallatin@cs.duke.edu  Wed May 7 19:59:27 1997
+From: Andrew Gallatin <gallatin@cs.duke.edu>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 07 May 1997 19:59:27 +0000
+Subject: how to allocate physically contiguous memory?
+
+I'm porting a device driver to NetBSD (and starting with NetBSD/alpha)
+I would like to be able to allocate a large chunk (512k or so) of
+physically contiguous memory in the driver. 
+
+Other systems (OSF/1, BSDI) have something like contig_malloc() or
+vm_page_alloc_contig() for this purpose.  Is there a way to do this in
+NetBSD/alpha?
+
+Thanks,
+
+Drew
+------------------------------------------------------------------------------
+Andrew Gallatin				http://www.cs.duke.edu/~gallatin
+Duke University				Email:		gallatin@cs.duke.edu
+Department of Computer Science		Phone:		(919) 660-6590
+
+From thorpej@nas.nasa.gov  Wed May 7 16:59:50 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: gallatin@cs.duke.edu
+Date: Wed, 07 May 1997 16:59:50 +0000
+Subject: Re: how to allocate physically contiguous memory?
+
+On Wed, 7 May 1997 19:59:27 -0400 (EDT) 
+ Andrew Gallatin <gallatin@cs.duke.edu> wrote:
+
+ > I'm porting a device driver to NetBSD (and starting with NetBSD/alpha)
+ > I would like to be able to allocate a large chunk (512k or so) of
+ > physically contiguous memory in the driver. 
+ > 
+ > Other systems (OSF/1, BSDI) have something like contig_malloc() or
+ > vm_page_alloc_contig() for this purpose.  Is there a way to do this in
+ > NetBSD/alpha?
+
+I have a sneaking suspicion I know what you want this for :-)
+
+I'm working on the bus dma subsystem, and need this as part of it.  I
+will send you, out of band, the diffs I have that implment more-or-less
+what you want (the memory that is allocated is not mapped, and that's
+a feature :-)  (I'm not ready to distribute them publicly yet.)
+
+Eventually, you will call bus_dmamem_alloc() with the appropriate
+constraints, and then bus_dmamem_map() to map it into kva space
+(or allow the driver's mmap entry point to call bus_dmamem_mmap() to
+map it into user space :-)
+
+...but for now, you'll be calling vm_page_alloc_memory() and then
+a loop around pmap_enter() (note, I don't call it contig anything,
+since the API allows the caller to specifiy a maximum segment
+count...)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From templin@nas.nasa.gov  Wed May 7 17:19:38 1997
+From: Fred L. Templin <templin@nas.nasa.gov>
+To: gallatin@cs.duke.edu
+Date: Wed, 07 May 1997 17:19:38 +0000
+Subject: Re:  how to allocate physically contiguous memory?
+
+Drew,
+
+If you find out, please let me know because I'm currently in a similar
+situation (porting a driver; would be nice to be able to allocate phys.
+contiguous buffers). However, I have written a DMA mapping facility which
+will create a "scatter/gather" vector given a kernel virtual address and
+byte count. The scatter/gather vector gives the physical addresses and
+lengths of all physically dis-contiguous segments of the buffer, and
+most hardware is smart enough to do scatter/gather (i.e. accept a list
+of segments which comprise the larger buffer) if you map the segments
+onto the hardware properly. Let me know if something like this would be
+helpful to you...
+
+Regards,
+
+Fred
+templin@nas.nasa.gov
+
+From templin@nas.nasa.gov  Wed May 7 17:22:49 1997
+From: Fred L. Templin <templin@nas.nasa.gov>
+To: thorpej@nas.nasa.gov
+Date: Wed, 07 May 1997 17:22:49 +0000
+Subject: Re: how to allocate physically contiguous memory?
+
+Andrew,
+
+I should have known Jason would be chiming in on this subject. I'd
+recommend working through him, because Jason is already aware of the
+stuff I'm working on...
+
+Regards,
+
+Fred
+templin@nas.nasa.gov
+
+From ross@teraflop.com  Wed May 7 17:33:48 1997
+From: Ross Harvey <ross@teraflop.com>
+To: gallatin@cs.duke.edu, port-alpha@NetBSD.ORG
+Date: Wed, 07 May 1997 17:33:48 +0000
+Subject: Re:  how to allocate physically contiguous memory?
+
+> Andrew Gallatin writes:
+ > 
+ > ...allocating physically contiguous memory
+ >
+ >> Jason R. Thorpe writes:
+ >>
+ >> Eventually, you will call bus_dmamem_alloc() with the appropriate
+ >> constraints, and then bus_dmamem_map() to map it into kva space
+ >> (or allow the driver's mmap entry point to call bus_dmamem_mmap() to
+ >> map it into user space :-)
+ >> 
+ >> ...but for now, you'll be calling vm_page_alloc_memory() and then
+ >> a loop around pmap_enter() (note, I don't call it contig anything,
+ >> since the API allows the caller to specifiy a maximum segment
+ >> count...)
+
+
+Yes, you really do want the coming bus_dmamem_alloc() and other busdma
+stuff. But given that you use a "but for now" technique in the present,
+you could just grab it off the top of ram using an alpha-specific
+procedure and take advantage of the kernel superpage. It takes about
+three lines of code and uses no system (pmap) resources. Go see:
+
+	arch/alpha/alpha/machdep.c		file
+		alpha_init()			function
+			valloc()		macro
+
+And put a couple of goto's in while you are at it to annoy the purists. :)
+------------------------------
+Ross Harvey		Avalon Computer Systems, Inc.
+ross@teraflop.com
+
+From thorpej@nas.nasa.gov  Wed May 7 18:24:37 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 07 May 1997 18:24:37 +0000
+Subject: DMA target selection in 53c9x driver
+
+I just got a chance to test using DMA target selection on the 53c9x
+driver used on DEC 3000s.  It works Just Great on my 3000/400.
+
+I have committed the necessary change to tcds_dma.c, which will appear
+in tomorrow's SUP.
+
+Anyone who wants to test this on their DEC 3000s, set the:
+
+	ncr53c9x_dmaselect
+
+variable on line 410 of sys/dev/ic/ncr53c9x.c to "1".
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From kpneal@pobox.com  Thu May 8 02:29:09 1997
+From: Kevin P. Neal <kpneal@pobox.com>
+To: thorpej@nas.nasa.gov
+Date: Thu, 08 May 1997 02:29:09 +0000
+Subject: Re: crash dump analysys with and without symbols
+
+At 02:57 PM 5/7/97 -0700, Jason Thorpe wrote:
+>On Wed, 07 May 1997 18:05:20 -0400 
+> Ken Hornstein <kenh@cmf.nrl.navy.mil> wrote:
+>
+> > AFS (which is further complicated by the fact that the NetBSD AFS patches
+> > are for AFS 3.3, and AFS wasn't 64-bit clean until 3.4.  Sigh :-) ).
+>
+>Ugh, my sympathies... IIRC, Chris even punted on AFS :-)
+
+Multiple people named Chris punted on AFS.
+
+*everybody wave at Mattingly* 
+--
+XCOMM Kevin P. Neal, Junior, Comp. Sci.     -   House of Retrocomputing
+XCOMM  mailto:kpneal@pobox.com              -   http://www.pobox.com/~kpn/
+XCOMM  kpneal@eos.ncsu.edu              Spoken by Keir Finlow-Bates:
+XCOMM "Good grief, I've just noticed I've typed in a rant. Sorry chaps!"
+
+From veraldi@sunvlsi2.bo.infn.it  Thu May 8 08:36:04 1997
+From: Riccardo Veraldi <veraldi@sunvlsi2.bo.infn.it>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 08 May 1997 08:36:04 +0000
+Subject: JDK
+
+Hello everyone.
+I would like to know if do exisit a Java DEvelopment Kit for 
+NetBSD and eventually where I can find it out?
+thanks a lot
+
+Rick
+
+From jeremy@broder.com  Thu May 8 14:06:38 1997
+From: Jeremy Cooper <jeremy@broder.com>
+To: thorpej@nas.nasa.gov
+Date: Thu, 08 May 1997 14:06:38 +0000
+Subject: Re: DMA target selection in 53c9x driver (sun3x)
+
+Even when I merged the latest DMA changes I got the same problem.  I
+expected this and that's why I didn't merge in the first place =)
+This time however, I recorded what happened:
+
+EEPROM boot device...Boot: sd(0,10,0) 
+>> NetBSD ufsboot [$Revision: 1.2 $]
+756044+36688+64212+[57960+56619]=0xed307
+Starting program at 0x4000
+console is ttya
+[ preserving 114583 bytes of netbsd symbol table ]
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+    The Regents of the University of California.  All rights reserved.
+
+NetBSD 1.2D (GENERIC) #7: Thu May  8 11:49:42 PDT 1997
+    jeremy@mobeius:/usr/home/netbsd/src/sys/arch/sun3x/compile/GENERIC
+Model: Sun 3/80 (hostid 42006034)
+fpu: mc68882
+real mem = 16777216
+avail mem = 14442496
+using 115 buffers containing 942080 bytes of memory
+mainbus0 (root)
+obio0 at mainbus0
+memerr0 at obio0 addr 0x61001000 ipl 7: (Parity memory)
+intreg0 at obio0 addr 0x61001400
+zsc0 at obio0 addr 0x62000000 ipl 6: (softpri 3)
+kbd0 at zsc0 channel 0
+ms0 at zsc0 channel 1
+zsc1 at obio0 addr 0x62002000 ipl 6: (softpri 3)
+zstty0 at zsc1 channel 0 (console)
+zstty1 at zsc1 channel 1
+zsc1: enabling zs interrupts
+eeprom0 at obio0 addr 0x64000000
+idprom0 at obio0 addr 0x640007d8
+clock0 at obio0 addr 0x640007f8 ipl 5
+iommu0 at obio0 addr 0x60000000: range 16MB
+le0 at obio0 addr 0x65002000 ipl 3: address 08:00:20:08:25:03
+le0: 8 receive buffers, 2 transmit buffers
+esp0 at obio0 addr 0x66000000 ipl 2: ESP100, 20MHz, SCSI ID 7
+scsibus0 at esp0: 8 targets
+esp0: !TC [intr 20, stat 0, step 0] prevphase 101, resid 0
+esp0: !TC [intr 20, stat 0, step 0] prevphase 101, resid 2c
+esp0: !TC [intr 20, stat 0, step 0] prevphase 101, resid 0
+esp0: !TC [intr 20, stat 0, step 0] prevphase 101, resid 2c
+probe(esp0:2:0): error code 0
+probe(esp0:3:0): error code 0
+probe(esp0:3:0): error code 0
+probe(esp0:6:0): error code 0
+probe(esp0:6:0): error code 0
+fdc0 at obio0 addr 0x6e000000 ipl 6 vect 0x40: (softpri 2) chip 82072
+fd0 at fdc0 drive 0: 1.44MB 80 cyl, 2 head, 18 sec
+obmem0 at mainbus0
+bwtwo0 at obmem0 addr 0x50400000 ipl 4 (1152x900)
+enabling interrupts
+boot device: <unknown>
+root device: 
+
+I'll try to decipher what's going on.  In the meantime does anyone have
+any hints?
+
+-J
+
+From abs@anim.dreamworks.com  Thu May 8 14:28:18 1997
+From: David Brownlee <abs@anim.dreamworks.com>
+To: veraldi@sunvlsi2.bo.infn.it
+Date: Thu, 08 May 1997 14:28:18 +0000
+Subject: Re: JDK
+
+-----BEGIN PGP SIGNED MESSAGE-----
+
+	You might want to look at Kaffe  - http://www.kaffe.org/
+	Its not a full development kit, but it may help:
+
+	       "Kaffe is a virtual machine design to execute Java
+		bytecode.  Unlike other virtual machines available,
+		this machine performs "just-in-time" code conversion
+		from the abstract code to the host machine's native
+		code."
+
+                David/abs               abs@anim.dreamworks.com
+
+    		       - Oakwood apartments -
+     - $1300 a month and people steal your laundry - What a place -
+
+On Thu, 8 May 1997, Riccardo Veraldi wrote:
+
+> Hello everyone.
+> I would like to know if do exisit a Java DEvelopment Kit for 
+> NetBSD and eventually where I can find it out?
+> thanks a lot
+> 
+> Rick
+> 
+
+-----BEGIN PGP SIGNATURE-----
+Version: 2.6.2i
+
+iQCVAwUBM3JFdvVDrdqCH8ZRAQHLcQP/cFIDTHRvG4R1k7bMQREHwkHTbxpC+UaR
+sJ+Qe5gUfYorfJdFjaLde6sxPTPH3akKbV80/9b1JjM6+T6yMV3KSVZLFQgJ1x2m
+v4eWVgG/o6RR+mPxHrqVpiBCDRLl4XAzq+90Mqe9zzTVWSR6bQQkwcL24Tqw5TfU
+PO4XZOwqCEk=
+=Ae1R
+-----END PGP SIGNATURE-----
+
+From manar@ivision.co.uk  Fri May 9 13:16:43 1997
+From: Manar Hussain <manar@ivision.co.uk>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 09 May 1997 13:16:43 +0000
+Subject: Alpha Server2000
+
+I can't seem to find definitive info on the level of support NetBSD/Alpha
+has for the Alpha Server2000 - can anyone give me a summary as to how
+viable it is to run NetBSD on this model?
+
+Many thanks,
+
+Manar
+
+From matt@3am-software.com  Fri May 9 09:29:34 1997
+From: Matt Thomas <matt@3am-software.com>
+To: manar@ivision.co.uk
+Date: Fri, 09 May 1997 09:29:34 +0000
+Subject: Re: Alpha Server2000
+
+At 01:16 PM 5/9/97 +0100, Manar Hussain wrote:
+>I can't seem to find definitive info on the level of support NetBSD/Alpha
+>has for the Alpha Server2000 - can anyone give me a summary as to how
+>viable it is to run NetBSD on this model?
+
+None of the AlphaServes 1000, 2x00, 4x00 are supported by NetBSD/alpha.
+-- 
+Matt Thomas               Internet:   matt@3am-software.com
+3am Software Foundry      WWW URL:    http://www.3am-software.com/bio/matt.html
+Westford, MA              Disclaimer: I disavow all knowledge of this message
+
+From mjacob@feral.com  Fri May 9 08:32:10 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: manar@ivision.co.uk, matt@3am-software.com
+Date: Fri, 09 May 1997 08:32:10 +0000
+Subject: Re: Alpha Server2000
+
+>
+>At 01:16 PM 5/9/97 +0100, Manar Hussain wrote:
+>>I can't seem to find definitive info on the level of support NetBSD/Alpha
+>>has for the Alpha Server2000 - can anyone give me a summary as to how
+>>viable it is to run NetBSD on this model?
+>
+>None of the AlphaServes 1000, 2x00, 4x00 are supported by NetBSD/alpha.
+
+Ah, but Alan Poston is buying me a 4000 at NASA and I'll be porting to it.
+
+So- Matt- I can't figure out from the low tech content web pages- is
+the 4000 more like a 8X00 (i.e., with a TurboLaser bus) than a AlphaStation600
+(with a CIA chip set)? The pictures make it look like the latter, the
+numbers make it look like the former.
+
+
+-matt
+
+From thorpej@nas.nasa.gov  Fri May 9 09:47:55 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: manar@ivision.co.uk
+Date: Fri, 09 May 1997 09:47:55 +0000
+Subject: Re: Alpha Server2000
+
+On Fri, 9 May 1997 13:16:43 +0100 (BST) 
+ Manar Hussain <manar@ivision.co.uk> wrote:
+
+ > I can't seem to find definitive info on the level of support NetBSD/Alpha
+ > has for the Alpha Server2000 - can anyone give me a summary as to how
+ > viable it is to run NetBSD on this model?
+
+I don't believe NetBSD yet runs on the AlphaServer 2000 ... do you have
+any hardware documentation that may give an idea about how hard it would
+be to add support for it?
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From matt@3am-software.com  Fri May 9 20:17:25 1997
+From: Matt Thomas <matt@3am-software.com>
+To: mjacob@feral.com
+Date: Fri, 09 May 1997 20:17:25 +0000
+Subject: Re: Alpha Server2000
+
+>Ah, but Alan Poston is buying me a 4000 at NASA and I'll be porting to it.
+
+Lucky guy.
+
+>So- Matt- I can't figure out from the low tech content web pages- is
+>the 4000 more like a 8X00 (i.e., with a TurboLaser bus) than a AlphaStation600
+>(with a CIA chip set)? The pictures make it look like the latter, the
+>numbers make it look like the former.
+
+Want some high tech-content web pages?  See http://www.digital.com/dtj/
+It's primary focus is on the 4100.
+-- 
+Matt Thomas               Internet:   matt@3am-software.com
+3am Software Foundry      WWW URL:    http://www.3am-software.com/bio/matt.html
+Westford, MA              Disclaimer: I disavow all knowledge of this message
+
+From kenh@cmf.nrl.navy.mil  Fri May 9 23:31:48 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 09 May 1997 23:31:48 +0000
+Subject: Gdb on crash dumps with symbols
+
+------- =_aaaaaaaaaa0
+Content-Type: text/plain; charset="us-ascii"
+Content-ID: <28583.863235087.1@cmf.nrl.navy.mil>
+
+Well, I did a little more digging into my gdb problem.
+
+I'm not sure if the new toolchain stuff is completely alpha core-dump
+savvy.  When using the symbols out of the kernel, it ends up making the
+wrong decisions about when the stack frame ends.  Also, I think that since
+in this case I'm getting a kernel trap, it doesn't quite know what the
+saved state of a kernel trap is, since (when I use it) it's actually missing
+a frame.  But after banging on it a bit, it gives me as much of a traceback
+as it did without symbols, so I call that an improvement :-)
+
+In case anyone's interested, a patch is appended.
+
+A lot of people asked me about AFS for NetBSD/Alpha.  If I get it working,
+then I'll make an announcement.  Otherwise, assume that I've crashed and
+burned like better people before me :-)
+
+(Current status -- creates local disk cache, mounts /afs, but cannot talk
+to vldb servers.  Simple pioctls (like setpag) work).
+
+--Ken
+
+------- =_aaaaaaaaaa0
+Content-Type: text/plain; charset="us-ascii"
+Content-ID: <28583.863235087.2@cmf.nrl.navy.mil>
+Content-Description: Patch for Alpha toolchain sources
+
+*** ./config/alpha/nm-nbsd.h.orig	Thu May  8 01:14:45 1997
+--- ./config/alpha/nm-nbsd.h	Wed May  7 18:36:07 1997
+***************
+*** 63,69 ****
+  	  kernel_debugging = 1; \
+  	  break;
+  
+! #define	ADDITION_OPTION_HELP \
+  	"  --kernel           Set kernel debugging mode.\n"
+  
+  #define	DEFAULT_PROMPT \
+--- 63,69 ----
+  	  kernel_debugging = 1; \
+  	  break;
+  
+! #define	ADDITIONAL_OPTION_HELP \
+  	"  --kernel           Set kernel debugging mode.\n"
+  
+  #define	DEFAULT_PROMPT \
+*** ./config/alpha/tm-alphanbsd.h.orig	Thu May  8 01:17:40 1997
+--- ./config/alpha/tm-alphanbsd.h	Fri May  9 16:33:37 1997
+***************
+*** 10,12 ****
+--- 10,18 ----
+  #undef CANNOT_STEP_BREAKPOINT 
+  
+  #define	SOLIB_BKPT_NAME		"__start"
++ 
++ #define FRAME_CHAIN_VALID(chain, thisframe)	\
++ 	((chain) != 0 &&			\
++ 	 (kernel_debugging ? (!inside_main_func ((thisframe) -> pc)	\
++ 			&& !inside_entry_func ((thisframe) -> pc)) :	\
++ 		(!inside_entry_file (FRAME_SAVED_PC (thisframe)))))
+*** ./alpha-tdep.c.orig	Fri May  9 16:20:42 1997
+--- ./alpha-tdep.c	Fri May  9 23:13:57 1997
+***************
+*** 661,667 ****
+      sym = NULL;
+    else
+      {
+!       if (startaddr > BLOCK_START (b))
+  	/* This is the "pathological" case referred to in a comment in
+  	   print_frame_info.  It might be better to move this check into
+  	   symbol reading.  */
+--- 661,667 ----
+      sym = NULL;
+    else
+      {
+!       if (kernel_debugging || startaddr > BLOCK_START (b))
+  	/* This is the "pathological" case referred to in a comment in
+  	   print_frame_info.  It might be better to move this check into
+  	   symbol reading.  */
+***************
+*** 741,747 ****
+      alpha_extra_func_info_t proc_desc;
+      CORE_ADDR saved_pc = FRAME_SAVED_PC(frame);
+  
+!     if (saved_pc == 0 || inside_entry_file (saved_pc))
+        return 0;
+  
+      proc_desc = find_proc_desc(saved_pc, frame);
+--- 741,747 ----
+      alpha_extra_func_info_t proc_desc;
+      CORE_ADDR saved_pc = FRAME_SAVED_PC(frame);
+  
+!     if (saved_pc == 0 || (!kernel_debugging && inside_entry_file (saved_pc)))
+        return 0;
+  
+      proc_desc = find_proc_desc(saved_pc, frame);
+***************
+*** 762,768 ****
+  	&& PROC_FRAME_OFFSET (proc_desc) == 0
+  	/* The previous frame from a sigtramp frame might be frameless
+  	   and have frame size zero.  */
+! 	&& !frame->signal_handler_caller)
+        return FRAME_PAST_SIGTRAMP_FRAME (frame, saved_pc);
+      else
+        return read_next_frame_reg(frame, PROC_FRAME_REG(proc_desc))
+--- 762,768 ----
+  	&& PROC_FRAME_OFFSET (proc_desc) == 0
+  	/* The previous frame from a sigtramp frame might be frameless
+  	   and have frame size zero.  */
+! 	&& !frame->signal_handler_caller && !kernel_debugging)
+        return FRAME_PAST_SIGTRAMP_FRAME (frame, saved_pc);
+      else
+        return read_next_frame_reg(frame, PROC_FRAME_REG(proc_desc))
+
+------- =_aaaaaaaaaa0--
+
+From mjacob@feral.com  Sat May 10 11:55:08 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: matt@3am-software.com, mjacob@feral.com
+Date: Sat, 10 May 1997 11:55:08 +0000
+Subject: Re: Alpha Server2000
+
+>Want some high tech-content web pages?  See http://www.digital.com/dtj/
+>It's primary focus is on the 4100.
+
+Thanks- very good and detailed theory of operation papers.... Not enough
+to write code to but very good hints.
+
+From stanp@storm.ca  Sat May 10 19:56:46 1997
+From: Stan Pietkiewicz <stanp@storm.ca>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 10 May 1997 19:56:46 +0000
+Subject: DEC AXPpci 33 motherboards
+
+Does anyone know if the console firmware on these motherboards can be 
+"upgraded" from one flavor (ARC to SRM) by use of the firmware update?  
+I've got one of these, and I would like to change from the ARC to the SRM 
+console firmware. 
+
+On a slight tangent, can a blank NVRAM chip be programmed with the 
+firmware update? This way you could have both consoles available, even 
+though you would have to switch chips....
+
+And now a slightly related topic: will NetBSD support IDE drives with 
+this motherboard??
+
+TIA
+
+Stan
+
+From thorpej@nas.nasa.gov  Sat May 10 17:20:38 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: stanp@storm.ca
+Date: Sat, 10 May 1997 17:20:38 +0000
+Subject: Re: DEC AXPpci 33 motherboards
+
+On Sat, 10 May 1997 19:56:46 -0400 
+ Stan Pietkiewicz <stanp@storm.ca> wrote:
+
+ > And now a slightly related topic: will NetBSD support IDE drives with 
+ > this motherboard??
+
+NetBSD-current should work with the ISA IDE... I don't know if SRM will
+boot from it, though.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From kenh@cmf.nrl.navy.mil  Sat May 10 21:58:01 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: stanp@storm.ca
+Date: Sat, 10 May 1997 21:58:01 +0000
+Subject: Re: DEC AXPpci 33 motherboards
+
+>Does anyone know if the console firmware on these motherboards can be 
+>"upgraded" from one flavor (ARC to SRM) by use of the firmware update?  
+>I've got one of these, and I would like to change from the ARC to the SRM 
+>console firmware. 
+
+Yup, I did the same myself.  Works like a champ.  There's even a
+floppy image on ftp.digital.come somewhere that you can use for
+this.
+
+--Ken
+
+From s100962@student.uq.edu.au  Sun May 11 05:56:44 1997
+From: Emanuele John Gelsi <s100962@student.uq.edu.au>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 11 May 1997 05:56:44 +0000
+Subject: UDB questions
+
+Hi,
+	I have a UDB in which the floppy has died.. Can anyone tell me the
+model/make of the floppy drive and any third party vendors that might make
+a laptop type replacement..
+
+Thanks
+
+From veraldi@sunvlsi4.bo.infn.it  Sun May 11 17:16:36 1997
+From: Riccardo Veraldi <veraldi@sunvlsi4.bo.infn.it>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 11 May 1997 17:16:36 +0000
+Subject: Multia: installing new SRM
+
+Hi Everyone,
+thanks for helping me (in particular Berndt Josef Wulf and Curt Sampson)
+for the first stage of installation of NetBSD on Multia.
+Well for some unlucky reason I couldn't gunzip the rz25 image yet,
+I had the file image damaged so I have to retry getting it again.
+Now this is the situation on my system.
+I have a TOSHIBA 300Mb internal disk and a rz29b 4.3Gb external disk,
+so of course I would do dd to my rz29 disk.
+Now after the dd procedure when I reboot the system I guess I have to use the
+disklabel utility, but I have not really undrstood how to use it.
+I looked at the disklabel man page on Digital Unix but I guess if it is
+different from the one of NetBSD.
+So I would appreciate very much if someone could help me with disklabel.
+After dd the rz25 image I would like to set up my system in this way:
+/ and /var on the sd0 device this means on the internal disk
+and /usr /home and swap on the external disk rz29.
+Actually I have this configuration on digital unix:
+root /usr swap1 on external rz29 disk
+/var and swap2 on the internet disk.
+Well after I had done dd how I have to do to set up my partitions?
+I simply have to modify the fstab file??
+In what way I can choose the various partition sizes I need??
+I have always installed systems like FreeBSD or Linux in which these things
+are done automatically by the installation program, but here I think
+I have to do it by hand.
+Could someone help me please telling me how to use disklabel and how to do to
+set up properly the disk space for my various partitions??
+I hope I am not asking too much.
+
+then an other thing...where to find the Netscae for NetBSD for Alpha?
+
+then the LAST question :)
+
+I would like to update the firmware for my srm console.
+I am unable to do it because the internal jumper is set in a way that it
+prevents the ROM to being written so I cannot update.
+How I have to set up the jumpers on my mainboard and where to find them
+inside?
+I have bougth the multia 1 month ago and I have not opened it since I do not
+know how and where to start looking for the jumpers.
+Could someone help me also with this issue??
+Thanks a lot really, I Really need help.
+
+BYE
+
+Rick
+
+From cgd@pa.dec.com  Sun May 11 13:31:14 1997
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: thorpej@nas.nasa.gov
+Date: Sun, 11 May 1997 13:31:14 +0000
+Subject: Re: DEC AXPpci 33 motherboards
+
+> NetBSD-current should work with the ISA IDE... I don't know if SRM will
+> boot from it, though.
+
+Last I heard, SRM can't boot from IDE on any platform.
+
+
+chris
+
+From gallatin@cs.duke.edu  Mon May 12 09:56:04 1997
+From: Andrew Gallatin <gallatin@cs.duke.edu>
+To: cgd@pa.dec.com
+Date: Mon, 12 May 1997 09:56:04 +0000
+Subject: Re: DEC AXPpci 33 motherboards
+
+Chris G. Demetriou writes:
+ > > NetBSD-current should work with the ISA IDE... I don't know if SRM will
+ > > boot from it, though.
+ > 
+ > Last I heard, SRM can't boot from IDE on any platform.
+
+This is pure speculation, but I noticed that the new Personal
+Workstation 500au & 433au are listed as shipping with an ATAPI CD-ROM
+drive (http://www.workstation.digital.com/products/auseries/auspec.html)
+>From this I assume that these machines might be able to use that
+CD-ROM as boot device with the SRM console.
+
+Drew
+
+From cgd@pa.dec.com  Mon May 12 08:28:15 1997
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: gallatin@cs.duke.edu
+Date: Mon, 12 May 1997 08:28:15 +0000
+Subject: Re: DEC AXPpci 33 motherboards
+
+> This is pure speculation, but I noticed that the new Personal
+> Workstation 500au & 433au are listed as shipping with an ATAPI CD-ROM
+> drive (http://www.workstation.digital.com/products/auseries/auspec.html)
+> >From this I assume that these machines might be able to use that
+> CD-ROM as boot device with the SRM console.
+
+Note that:
+
+http://www.workstation.digital.com/products/auseries/auspec.html
+
+(The au-Series Technical Specifications page) says:
+
+Disk controller                 Q-Logic Ultra Wide SCSI, EIDE 
+                                integrated on MLB (for CD-ROM only)
+
+So, it sounds like the _only_ thing hanging off the IDE controller
+that you can boot from is an ATAPI CD-ROM.  That's not surprising;
+normal IDE and ATAPI are ... very different, and from what I
+understand ATAPI disks are rare (though at least in some cases
+becoming more common).
+
+
+chris
+
+From mgrommet@ns.insolwwb.net  Mon May 12 10:53:30 1997
+From: Mike Grommet <mgrommet@ns.insolwwb.net>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 12 May 1997 10:53:30 +0000
+Subject: Hrm... Can you help?
+
+I have a dec alpha easy webserver, which has been updated
+to a alpha 166 AXP chip on a service call.  We want to run
+netbsd on this sytem.  It comes with a 1 gig hard drive, but
+no cdrom (we might be able to scrounge up an external
+scsi drive).    We have a copy of netbsd 1.2 that was
+supplied on the BSDisc, however
+as is mentioned in the readme, the documenation is sketchy
+at best.  We are currently running on two other servers, 
+BSDI 2.1, and FreeBSD, so I am not foriegn to the bsd platform.
+
+This machine origionally had windows NT on it, but
+we figure to hell with NT, we can do much more with this machine
+running unix anyway.  
+What do you suggest for installing netbsd on this system since
+this thing doesnt already have unix on it?
+
+If I took the hard drive out of the alpha box and put it in one of my
+other two, dd'ed the files to it, placed it back into the alpha box
+and booted it, would that work?
+
+I apologize in advance, I am simply not very versed in the
+alpha platform.  This machine was literally just lying around
+and not doing anything and we decided to put it to work.
+
+Thanks for any help you can provide!
+
+Mike Grommet
+Internet Solutions, Inc.
+System Admin & Web Page Designer
+mgrommet@insolwwb.net
+http://www.insolwwb.net
+
+From unknown  Mon May 12 21:04:21 1997
+From: None <>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 12 May 1997 21:04:21 +0000
+Subject: Weather Database
+
+Curious about the weather?
+Come visit at:
+
+http://www.netjava.com/~tempest/index.htm
+
+From cjs@portal.ca  Mon May 12 16:16:21 1997
+From: Curt Sampson <cjs@portal.ca>
+To: mgrommet@insolwwb.net
+Date: Mon, 12 May 1997 16:16:21 +0000
+Subject: Re: Hrm... Can you help?
+
+On Mon, 12 May 1997, Mike Grommet wrote:
+
+> If I took the hard drive out of the alpha box and put it in one of my
+> other two, dd'ed the files to it, placed it back into the alpha box
+> and booted it, would that work?
+
+You bet. That's the standard install procedure for NetBSD 1.2 on
+an Alpha at the moment, actually. :-)
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+
+From cjs@portal.ca  Mon May 12 16:22:23 1997
+From: Curt Sampson <cjs@portal.ca>
+To: veraldi@sunvlsi4.bo.infn.it
+Date: Mon, 12 May 1997 16:22:23 +0000
+Subject: Re: Multia: installing new SRM
+
+On Sun, 11 May 1997, Riccardo Veraldi wrote:
+
+> Now after the dd procedure when I reboot the system I guess I have to use the
+> disklabel utility, but I have not really undrstood how to use it.
+> I looked at the disklabel man page on Digital Unix but I guess if it is
+> different from the one of NetBSD.
+
+Did you read the NetBSD man page? It should be on that rz29 image
+that you booted from.
+
+I generally find that the easiest way to label a disk is to dump
+a copy of the label to a file with `disklabel sd7 >file', edit the
+file, and then relabel from the file with `disklabel -R -r sd7
+file'.
+
+> So I would appreciate very much if someone could help me with disklabel.
+> After dd the rz25 image I would like to set up my system in this way:
+> / and /var on the sd0 device this means on the internal disk
+> and /usr /home and swap on the external disk rz29.
+> Actually I have this configuration on digital unix:
+> root /usr swap1 on external rz29 disk
+> /var and swap2 on the internet disk.
+
+You would be much better off keeping root and swap on the same
+disk. I recommend you bootstrap yourself by making the internal
+drive one large root partition plus swap and installing on that.
+Then when you've got a basic system booting from that, you can set
+up the external drive as you like and make it bootable. Then you
+boot from the external drive and do what you will with the internal
+one.
+
+> then an other thing...where to find the Netscae for NetBSD for Alpha?
+
+It's not available, unfortuantely.
+
+> I would like to update the firmware for my srm console.
+> I am unable to do it because the internal jumper is set in a way that it
+> prevents the ROM to being written so I cannot update.
+> How I have to set up the jumpers on my mainboard and where to find them
+> inside?
+
+There should be a Multia manual kicking around on Chris's DEC
+documentation page. Go to www.netbsd.org, choose `ports' then
+`alpha', and look for Chris's DEC docs page from there.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+
+From Phungte.Ha@eng.efi.com  Tue May 13 17:44:57 1997
+From: Phungte Ha <Phungte.Ha@eng.efi.com>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 13 May 1997 17:44:57 +0000
+Subject: X / EB164-tga
+
+Hi,
+
+The GENERIC kernel was running great on my EB164. Next I would like to
+run the X server. The machine has a TGA board and the kernel seems have
+the driver for this configured in.
+
+But when I try to run X server, here's what I get:
+
+OsVendorInit
+alphaKbdPriv.fd = 0 (0)
+alphaPtrPriv.fd = 1 (0)
+Getting interface configuration (4): Device not configured
+unable to get frame buffer type: Inappropriate ioctl for device
+
+Fatal server error:
+no screens found
+
+Someone has an idea for me. Thanks.
+
+Phungte
+
+From mjacob@feral.com  Wed May 14 09:30:18 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 14 May 1997 09:30:18 +0000
+Subject: fyi, Qlogic Cards
+
+The only current source for the Qlogic SCSI cards that I can find, who's
+central chip (Qlogic ISP) is really all (except some random NCR cards) that
+the SRM understands right now for disk booting, is a company called EBV
+Electronics. Qlogic no longer sells the cards retail.
+
+EBV Electronics in Sunnyvale, CA (talk to Annette @ 408 522 9599)
+will sell the ISP 1040 for about 205$, which is a definite bargain against
+the Adaptec 2940UW (which is over 300$ for the equivalent Ultra Wide
+functionality).
+
+I'll report back about my experiences with the card, but my take on
+it is that it's really too bad they dropped out of the retail market.
+
+From brad@anduin.eldar.org  Thu May 15 20:22:40 1997
+From: Brad Spencer <brad@anduin.eldar.org>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 15 May 1997 20:22:40 +0000
+Subject: How to cause a melt down on a Multia
+
+This appears to be a sure fire method of nailing a Multia.  It is
+perhaps not all that suprising, however.
+
+What you will need:
+
+1) A Multia with 24MB of ram, 1.3GB disk, 150MB swap
+
+2) NetBSD-alpha as of 4/19 or so
+
+3) Majordomo 1.94 installed on the Multia
+
+4) An over zealous brother who shot around a dozen separate messages
+to a 'digest' type LIST on the Multia all AT THE SAME TIME
+
+
+What you will see:
+
+As the messages come into the Multia, and perl [btw, an older ECOFF
+binary on a ELF system] is forked over and over to process the digest
+and then sendmail likewise, the use of memory will rise greatly,
+consuming around 70MB or so of swap.  Thrash.  Thrash.  Thrash.
+
+In addition, the load of the machine will rise to between 35 and 45.
+
+[rwhod kept running and reporting to the other machines on the ether]
+
+The Multia ran with this load for around 2.5 hours before throwing
+these messages many many many many times out to the console:
+
+rmfree: map 'swap' loses space (32)
+rmfree: map 'swap' loses space (64)
+
+
+In a very short time the Multia panics with:
+
+panic: rmfree swap
+
+
+Thunk...
+
+
+
+
+Brad Spencer - brad@anduin.eldar.org   http://anduin.eldar.org
+
+From mjacob@feral.com  Thu May 15 17:25:28 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: brad@anduin.eldar.org, port-alpha@NetBSD.ORG
+Date: Thu, 15 May 1997 17:25:28 +0000
+Subject: Re:  How to cause a melt down on a Multia
+
+Okay, now try the same experiment on a i386 with 4MB memory,
+30MB swap. Betcha it does the same.
+
+From brad@anduin.eldar.org  Thu May 15 20:26:44 1997
+From: Brad Spencer <brad@anduin.eldar.org>
+To: mjacob@feral.com
+Date: Thu, 15 May 1997 20:26:44 +0000
+Subject: Re: How to cause a melt down on a Multia
+
+Okay, now try the same experiment on a i386 with 4MB memory,
+   30MB swap. Betcha it does the same.
+
+
+I would suspect....  I was more amazed that it didn't melt sooner.
+
+
+Brad Spencer - brad@anduin.eldar.org   http://anduin.eldar.org
+
+From thorpej@nas.nasa.gov  Mon May 19 22:01:38 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 19 May 1997 22:01:38 +0000
+Subject: README: test kernel for new DMA framework available
+
+Hi folks...
+
+I have placed a GENERIC alpha kernel at:
+
+  ftp://ftp.netbsd.org/pub/incoming/thorpej/hide/DMA/netbsd-alpha-generic.gz
+
+...and am looking for some brave testers.  This kernel has the new bus
+dma framework, _including_ SGMAP support for APECS, CIA, and LCA chipsets
+(DWLPx probably on Wednesday).  In addition to the standard NetBSD/alpha
+device drivers, this kernel also includes:
+
+	- Adaptec, BusLogic, and UltraStor SCSI on ISA
+	- Adaptec, BusLogic, and UltraStor SCSI on EISA
+	- Support for the on-board ISA DMA controller (although nothing
+	  that uses it has been ported yet).
+
+Note!  I have not yet converted the ISP, ahc, de, etc. drivers to the
+new framework.  However, I would like to know if I've broken anything
+that used to work, at least :-)  I have booted this kernel on an
+AlphaServer 8200, and it works fine.
+
+If you have an Adaptec 1542, and an Alpha with ISA slots, I would really
+appreciate it if you could try this out.
+
+Soon, I plan on making the floppy driver work on the Alpha port... a
+project for next week, I think...
+
+I'll be out of town, and away from my mail all day tomorrow, and part
+of Wednesday... so, if I don't get back to you right away, that's why.
+However, don't let that stop you from sending reports of failure or,
+with any luck, success!  :-)
+
+Thanks!
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From mjacob@nas.nasa.gov  Tue May 20 16:16:58 1997
+From: Matthew P. Jacob <mjacob@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 20 May 1997 16:16:58 +0000
+Subject: ISP 1040 boards update...
+
+I mentioned in this alias recently that the only commerical source
+of ISP chip PCI boards was via EBV electronics, and that I was going
+to order a oouple and report back.......
+
+Okay- the boards came- they use the 1040B chip. They were *much* happier
+in my PC164 system. That was the good news.
+
+The not so good news is that the SRM for the AlphaServer 8X00 (and this
+is the most recent) can't boot through these fellows.... It mau be some
+NVRAM settings that need to set, but the take home lesson is that for
+the AlphaServer, they're not 'plug-n-play' (cough). Too bad.
+
+Still, 205$+tax for a wide ultra or wide differential ultra isn't bad
+at all.
+
+From mjacob@feral.com  Tue May 20 21:27:23 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG, yba@polytronics.com
+Date: Tue, 20 May 1997 21:27:23 +0000
+Subject: Re:  questions about XalphaNetBSD and ddb
+
+Body of article empty.
+
+From yba@polytronics.com  Wed May 21 00:17:39 1997
+From: Mark H. Levine <yba@polytronics.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 21 May 1997 00:17:39 +0000
+Subject: questions about XalphaNetBSD and ddb
+
+(New to this list, please redirect me if need be...)
+
+I just grabbed NetBSD/alpha for the first time, and cannot locate
+the  X11 diffs mentioned in the README.files.  Only the toolchain
+diffs appear to be on ftp.netbsd.org.
+
+Can someone tell me what the XalphaNetBSD server is?  The  readme
+suggests  it  is  XFree86,  but  the  binaries  don't  include an
+XF86Config or more than the one server,  which  doesn't  seem  to
+understand  a TGA-2 (I believe Digital UNIX 4.0a..c is supporting
+only TGA-2 and the S3-Trio, so there are going to  be  a  lot  of
+them  out there...).  I believe the Digital Linux group put out a
+server for each  of  TGA-1  and  TGA-2  boards  for  Linux  using
+XFree86, but is there anything for NetBSD? 
+
+Is  ddb something likely to appear on the Alpha port (or a kernel
+debugger of any sort for EB164, PC164)?
+
+From cjs@portal.ca  Wed May 21 03:42:28 1997
+From: Curt Sampson <cjs@portal.ca>
+To: yba@polytronics.com
+Date: Wed, 21 May 1997 03:42:28 +0000
+Subject: Re: questions about XalphaNetBSD and ddb
+
+On Wed, 21 May 1997, Mark H. Levine wrote:
+
+> Is  ddb something likely to appear on the Alpha port (or a kernel
+> debugger of any sort for EB164, PC164)? 
+
+Chris has stated that he's not terribly interested in ddb. On the
+other hand, I have heard some noises about kgdb, which is a rather
+nicer debugger, anyway. :-) I don't know the status of that, however.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+
+From veraldi@sunvlsi2.bo.infn.it  Wed May 21 17:00:57 1997
+From: Riccardo Veraldi <veraldi@sunvlsi2.bo.infn.it>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 21 May 1997 17:00:57 +0000
+Subject: Multia, help
+
+Hello people,
+I know that it is not properly a NetBSD peoblem,
+but I dunno who I can ask help to, and when one is desperate he tries to do
+everything, so I hope someone of us who has a kind heart to help me.
+Well I gave up with NetBSD 'cos I could configure the Digital Unix 4.0B on my
+Multia with a SRM console 3.7 that is up to date than required for Digital
+Unix 3.8, but I was not able to install the New SRM firmware.
+It does not Install, I dunno why.
+During the update srm session it writes me "Jumper on ?"
+and then it come back to the apu-> prompt without upgrading the firmware srm
+console.
+Anyway I have installed the New Digital Unix and it works very good.
+The only thing  is that if I view an image with the image loader from the
+Digital Unix application  or XV or whatever else it displays to me images
+24bit in a so bad way, that I can see them in a better way only if I translate
+them to 8bit.
+Anyway I have a DEC ZLXp-E video board with 4MB RAM, so I shouldn't have
+these problem, I guess it is due 'cos I have a old srm firmware, but I have
+seen this behaviour on all ALHPAs with Digital Unix I have at university.
+My problem is also that my X server starts with 1024x768 configuration.
+I would like to switch to 1280x1024 but there are a lot of jumpers on the
+mainboard and I dunno what is to be set and in which way to select the
+1280x1024 that is the highest resolution for my hardware.
+I guess this Multia is high configurable but noone knows how to do it,
+not ever the Digital Equipmen of Milan can help me, they said they
+cannot give informations about the MainBoard layout because it is property
+of Digital Equipment and Digital Unix is not officially supported from
+DEC on the Multia 'cos of commercial reasons, the Multia was a too much cheap
+computer that a lot of people could allow theirself to buy it and this was
+not a good thing for Digital so that they declared not supported the Multia
+by digital unix, so they does not help me.
+Anyway the Digital unix run quite fine really, rather it runs very good,
+I only have this problem about X server graphic display resolution
+set up to 1024x768, while I would like it to be 1280x1024.
+
+Now...the real problem is that I read all the papers about the Multia I found
+at ftp.netbsd.org site.
+Kindly Chris Demetrius told me to find those papers there.
+Bye the way, Thank Chris!!
+In one of these manuals called "Multia Multiclien Desktop Services Informations"
+I found out that there is a LED in the back of the computer, a diagnostic LED
+between the serial port and Twisted pair.
+When I power on the Multia it blinks about 5 times with a very slow blinking
+rate and this is normal I think because it should perform the various check
+tests. THe thing is that after these 5 blinking slow rate it blinks faster
+for still 5 times, and I Guess this really means something of bad.
+I guess the number of blinks gives a HEX code.
+In my case this is 5 and the number 5 correspond to a testing PCI data
+path using SIO, I dunno what it means.
+I only remember that when the unix kernel starts it says that it is unable to
+configure some PCI option because not in option table, but then the
+operative system works really very good, I can compile and do everything.
+THe only thing is that the DEC Multimedia services does not work,
+the audio board does not work I am not able to make it work, I installed
+the software for a Microsoft compatibile audio board and it does not work,
+anyway I do not care of the audio board at all.
+
+I only would like to know finally what does those blinking codes mean
+and if there is something to fix what I have to do.
+I hope there is someone who can help me, thanks
+...just an other thing.
+Actually my Multia is not on the Network and perhaps it will never be.
+THe Ehernet board I have is autosensing and it enables the THickWire 10Base5
+port. Do this mean that if I connect the ethernet cable
+in the ThinWire 10Base2 port it will not work?
+OR if I connect the 10Base2 port it will automatically being enabled??
+
+
+Riccardo
+
+From cgd@pa.dec.com  Wed May 21 09:42:59 1997
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: cjs@portal.ca
+Date: Wed, 21 May 1997 09:42:59 +0000
+Subject: Re: questions about XalphaNetBSD and ddb
+
+> On Wed, 21 May 1997, Mark H. Levine wrote:
+> 
+> > Is  ddb something likely to appear on the Alpha port (or a kernel
+> > debugger of any sort for EB164, PC164)? 
+> 
+> Chris has stated that he's not terribly interested in ddb. On the
+> other hand, I have heard some noises about kgdb, which is a rather
+> nicer debugger, anyway. :-) I don't know the status of that, however.
+
+I'd much rather have kgdb working than ddb, yes.  However, at one
+point not too long ago i _did_ make a start on ddb.  That work has
+been on the shelf since I left CMU; I was going to try to hand it off
+to Jason Thorpe before i left, but I seem to recall that it slipped
+through the cracks.  Anyway, I should be able to do that soon.
+
+
+
+chris
+
+From mjacob@feral.com  Wed May 21 09:50:36 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: cjs@portal.ca, cgd@pa.dec.com
+Date: Wed, 21 May 1997 09:50:36 +0000
+Subject: Re: questions about XalphaNetBSD and ddb
+
+>
+>> On Wed, 21 May 1997, Mark H. Levine wrote:
+>> 
+>> > Is  ddb something likely to appear on the Alpha port (or a kernel
+>> > debugger of any sort for EB164, PC164)? 
+>> 
+>> Chris has stated that he's not terribly interested in ddb. On the
+>> other hand, I have heard some noises about kgdb, which is a rather
+>> nicer debugger, anyway. :-) I don't know the status of that, however.
+>
+>I'd much rather have kgdb working than ddb, yes.  However, at one
+>point not too long ago i _did_ make a start on ddb.  That work has
+>been on the shelf since I left CMU; I was going to try to hand it off
+>to Jason Thorpe before i left, but I seem to recall that it slipped
+>through the cracks.  Anyway, I should be able to do that soon.
+>
+
+I did see Jason working on something like this the other day....
+but on an i386...
+
+From cgd@pa.dec.com  Wed May 21 09:56:37 1997
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: yba@polytronics.com
+Date: Wed, 21 May 1997 09:56:37 +0000
+Subject: Re: questions about XalphaNetBSD and ddb
+
+> I just grabbed NetBSD/alpha for the first time, and cannot locate
+> the  X11 diffs mentioned in the README.files.  Only the toolchain
+> diffs appear to be on ftp.netbsd.org.
+
+There are no X11 diffs on the FTP site, for the current version of the
+X server.  The X server is based on XFree86 3.2A, which limits what I
+can do with the sources.  Without the base XFree86 3.2A sources, which
+are not widely available, my diffs would be useless to you anyway.
+(They wouldn't drop into 3.2, both because of "other" changes in
+XFree86 and because I sent in a lot of changes for NetBSD/alpha
+support between 3.2 and 3.2A.)
+
+
+> Can someone tell me what the XalphaNetBSD server is?  The  readme
+> suggests  it  is  XFree86,  but  the  binaries  don't  include an
+> XF86Config or more than the one server,  which  doesn't  seem  to
+> understand  a TGA-2 (I believe Digital UNIX 4.0a..c is supporting
+> only TGA-2 and the S3-Trio, so there are going to  be  a  lot  of
+> them  out there...).
+
+It's derived from the non-ddx XFree86 sources, but it has a different
+DDX.  That DDX supports only the TGA (not the TGA2) frame buffer.
+
+
+I have to admit that much of the fault for X problems on NetBSD/alpha
+is my fault.
+
+When I did the initial X development work, the goal was to make
+something, anything, work in a short period of time.  Since then, i've
+been trying to refine various interfaces (e.g. the console interface)
+in order to better support X.  Existing X support in the various
+NetBSD/alpha frame buffer drivers ... suboptimal.  I need to throw a
+few days at the console interface problem before it's "done," and can
+be used.  Unfortunately, it's hard for me to find any time to throw at
+the problem, especially since I don't even have any way to access the
+NetBSD master CVS tree (where my development sources are) right now...
+
+I've also asked for people to take on X development, but have been
+horrible at supporting them when they've asked (even basic) questions.
+
+
+Anyway, as far as I'm concerned, three things need to happen before X
+support can be 'better' under NetBSD/alpha:
+
+	(1) i've gotta finish up the new console interfaces,
+
+	(2) somebody has to implement some code to do sane bus space
+	    accesses from user-land, and
+
+	(3) somebody has to make the X server use (2).  (I've already
+	    got mods in my X server tree to do (1).)
+
+I'm really all on my own with (1), and just need to find the time to
+work on it.
+
+I'm going to write up a spec for (2), and send it to a few people who
+I think should see it, who might implement it.
+
+(3) should be easier after the next public release of XFree86.  Once
+that's out, I can merge my changes into it, and give away the diffs
+and/or sources without concern.
+
+
+
+> Is  ddb something likely to appear on the Alpha port (or a kernel
+> debugger of any sort for EB164, PC164)? 
+
+I already answered this one, in a reply to a reply.  8-)
+
+
+
+chris
+
+From mgrommet@ns.insolwwb.net  Wed May 21 09:47:28 1997
+From: Mike Grommet <mgrommet@ns.insolwwb.net>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 21 May 1997 09:47:28 +0000
+Subject: Help with dd'ing alpha port
+
+hiya... I am trying to install the alpha port on
+a conner scsi drive model #cfp1080S
+
+I have hooked the drive up to a freebsd system
+in order to dd the distribution files to the drive.  I've been running
+freebsd and BSDI for quite a bit but have never had to do this
+before...
+
+The freebsd system sees the scsi drive mentioned above
+and it is designated sd1
+
+I tried to dd the file RZ_25IMA (the rz_25 image file) to the disk by
+doing this: dd if=RZ_25IMA of=/dev/sd1
+
+and it gives me an error mesg:
+
+sd1:  invalid primary partition table: no magic
+
+
+What am I missing here?
+
+
+Mike Grommet
+Internet Solutions, Inc.
+System Admin & Web Page Designer
+mgrommet@insolwwb.net
+http://www.insolwwb.net
+
+From cjs@portal.ca  Wed May 21 10:57:30 1997
+From: Curt Sampson <cjs@portal.ca>
+To: mgrommet@insolwwb.net
+Date: Wed, 21 May 1997 10:57:30 +0000
+Subject: Re: Help with dd'ing alpha port
+
+On Wed, 21 May 1997, Mike Grommet wrote:
+
+> I tried to dd the file RZ_25IMA (the rz_25 image file) to the disk by
+> doing this: dd if=RZ_25IMA of=/dev/sd1
+> 
+> and it gives me an error mesg:
+> 
+> sd1:  invalid primary partition table: no magic
+
+You probably need to use the raw device, with the minor number that
+designates the full disk. Under NetBSD/i386 this would be:
+
+    dd if=RZ_25IMA of=/dev/rsd1d
+
+Under FreeBSD you might have to use rsd1c instead. An experienced
+FreeBSD user could tell you exactly what you need to do if you tell
+him what you're attempting to do (dd a raw image directly on to a
+disk).
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+
+From thorpej@nas.nasa.gov  Thu May 22 08:55:35 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: cjs@portal.ca
+Date: Thu, 22 May 1997 08:55:35 +0000
+Subject: Re: questions about XalphaNetBSD and ddb
+
+On Wed, 21 May 1997 03:42:28 -0700 (PDT) 
+ Curt Sampson <cjs@portal.ca> wrote:
+
+ > > Is  ddb something likely to appear on the Alpha port (or a kernel
+ > > debugger of any sort for EB164, PC164)? 
+ > 
+ > Chris has stated that he's not terribly interested in ddb. On the
+ > other hand, I have heard some noises about kgdb, which is a rather
+ > nicer debugger, anyway. :-) I don't know the status of that, however.
+
+...however, I am, and making it work is on my TODO list.  I've written
+Elf symbol handling stuff for ddb, and modified the boot program to load
+the symbols, etc.  I'm waiting to get a chance to get some ddb-related
+diffs from Chris, then I'll be finishing it up and committing it.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From thorpej@nas.nasa.gov  Thu May 22 12:54:00 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mjacob@feral.com
+Date: Thu, 22 May 1997 12:54:00 +0000
+Subject: Re: questions about XalphaNetBSD and ddb
+
+On Wed, 21 May 97 09:50:36 PDT 
+ mjacob@feral.com (Matthew Jacob) wrote:
+
+ > I did see Jason working on something like this the other day....
+ > but on an i386...
+
+Once ddb is working on the alpha, I plan on making kgdb work, as well.
+(By then, the MI 8530 driver will probably be used, making the task
+a bit easier :-)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From thorpej@nas.nasa.gov  Thu May 22 13:05:46 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mgrommet@insolwwb.net
+Date: Thu, 22 May 1997 13:05:46 +0000
+Subject: Re: Help with dd'ing alpha port
+
+On Wed, 21 May 1997 09:47:28 +0000 
+ "Mike Grommet" <mgrommet@ns.insolwwb.net> wrote:
+
+ > I have hooked the drive up to a freebsd system
+ > in order to dd the distribution files to the drive.  I've been running
+ > freebsd and BSDI for quite a bit but have never had to do this
+ > before...
+
+...well, hopefully the NetBSD/alpha installation procedure will see some
+improvement soon... esp. now that we can install NetBSD/alpha boot blocks
+onto CD-ROMs.
+
+ > I tried to dd the file RZ_25IMA (the rz_25 image file) to the disk by
+ > doing this: dd if=RZ_25IMA of=/dev/sd1
+ > 
+ > and it gives me an error mesg:
+ > 
+ > sd1:  invalid primary partition table: no magic
+ > 
+ > 
+ > What am I missing here?
+
+Looks like you've discovered a neat little "feature" in FreeBSD.  They
+sort of require that disks have a DOS MBR partition table on the disk
+to define the disk's "slices".  You'll probably need to fdisk (or whatever
+the FreeBSD equivalent is) the disk to define the MBR... although I 
+don't know what NetBSD/alpha is going to think of that :-)
+
+Do you have another system from which to dd the image?  Alternatively,
+any FreeBSD folks who might read this know how to work around this lossage?
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From cjs@portal.ca  Thu May 22 22:18:39 1997
+From: Curt Sampson <cjs@portal.ca>
+To: thorpej@nas.nasa.gov
+Date: Thu, 22 May 1997 22:18:39 +0000
+Subject: Re: README: test kernel for new DMA framework available
+
+On Mon, 19 May 1997, Jason Thorpe wrote:
+
+> If you have an Adaptec 1542, and an Alpha with ISA slots, I would really
+> appreciate it if you could try this out.
+
+I've tried it, and it appears to work just fine excepting that
+during the boot it doesn't manage to read the geometry properly.
+It does read it properly when I do a disklabel without -r (on a
+disk with no diskabel on it.) I copied 40 MB of files on to the
+disk (an old Quantum 105; it gave me about 600 K/sec) and they all
+compared just fine.
+
+    isa0 at sio0
+    aha0 at isa0 port 0x334-0x337 irq 15 drq 7
+    aha0: model AHA-1542CF, firmware B.0
+    aha0: unlocking mailbox interface
+    aha0: async, parity
+    scsibus1 at aha0: 8 targets
+    sd2 at scsibus1 targ 0 lun 0: <, , > SCSI0 0/direct fixed
+    sd2: sd2: mode sense (4) returned nonsense; using fictitious geometry
+    16384MB, 16384 cyl, 64 head, 32 sec, 512 bytes/sec
+
+Yay!
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+
+From kenh@cmf.nrl.navy.mil  Fri May 23 11:05:44 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: thorpej@nas.nasa.gov
+Date: Fri, 23 May 1997 11:05:44 +0000
+Subject: Re: questions about XalphaNetBSD and ddb
+
+>Once ddb is working on the alpha, I plan on making kgdb work, as well.
+>(By then, the MI 8530 driver will probably be used, making the task
+>a bit easier :-)
+
+Okay, okay, I get the hint :-)
+
+I just wanted to say that work on this hasn't stopped ... I've been on
+travel for the last two days, I'm only here a half-day today because
+I'm sick, my in-laws are coming this weekend so I can't work on it
+then, and then that one burned down, fell over, and THEN sank into the
+swamp!
+
+But I _do_ want to make progress on it ... once things calm down, it
+shouldn't take too long to finish it up.
+
+--Ken
+
+From thorpej@nas.nasa.gov  Fri May 23 10:36:34 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: kenh@cmf.nrl.navy.mil
+Date: Fri, 23 May 1997 10:36:34 +0000
+Subject: Re: questions about XalphaNetBSD and ddb
+
+On Fri, 23 May 1997 11:05:44 -0400 
+ Ken Hornstein <kenh@cmf.nrl.navy.mil> wrote:
+
+ > I just wanted to say that work on this hasn't stopped ... I've been on
+ > travel for the last two days, I'm only here a half-day today because
+ > I'm sick, my in-laws are coming this weekend so I can't work on it
+ > then, and then that one burned down, fell over, and THEN sank into the
+ > swamp!
+
+...I completely understand... Tuesday, I was on the BEACH LISA
+"UNIX on Intel Platforms" panel discussion... Had headache that morning...
+by the time I got into San Diego, I was sicker than a dog with flu
+symptoms :-/ ... Had to cancel my long-weekend camping trip... *grumble*
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From yba@polytronics.com  Fri May 23 14:08:29 1997
+From: Mark H. Levine <yba@polytronics.com>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 23 May 1997 14:08:29 +0000
+Subject: Re: README: test kernel for new DMA framework available
+
+Is there anyone working on an Adaptec 2940UW driver port for NetBSD/Alpha?
+
+(We're interested in having a PC164 system that uses this scsi3 board;
+I'd be interested in knowing how hard it is to port the i386 driver
+to Alpha if Jason or someone else who has tried something similar has
+any advice.  I'm not sure if the AHA driver implies the AHC driver is
+on someone's queue....)
+
+From mjacob@feral.com  Fri May 23 11:09:02 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG, yba@polytronics.com
+Date: Fri, 23 May 1997 11:09:02 +0000
+Subject: Re: README: test kernel for new DMA framework available
+
+>Is there anyone working on an Adaptec 2940UW driver port for NetBSD/Alpha?
+
+It works already, at least tested on an Alpha 8200.
+
+I haven't tried it in my PC164 system at home, but I would
+expect it to work.
+
+From cgd@pa.dec.com  Fri May 23 11:16:38 1997
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: thorpej@nas.nasa.gov
+Date: Fri, 23 May 1997 11:16:38 +0000
+Subject: Re: questions about XalphaNetBSD and ddb
+
+> On Fri, 23 May 1997 11:05:44 -0400 
+>  Ken Hornstein <kenh@cmf.nrl.navy.mil> wrote:
+> 
+>  > I just wanted to say that work on this hasn't stopped ... I've been on
+>  > travel for the last two days, I'm only here a half-day today because
+>  > I'm sick, my in-laws are coming this weekend so I can't work on it
+>  > then, and then that one burned down, fell over, and THEN sank into the
+>  > swamp!
+> 
+> ...I completely understand... Tuesday, I was on the BEACH LISA
+> "UNIX on Intel Platforms" panel discussion... Had headache that morning...
+> by the time I got into San Diego, I was sicker than a dog with flu
+> symptoms :-/ ... Had to cancel my long-weekend camping trip... *grumble*
+
+So, instead of wasting a weekend, you're going to spend the time
+improving NetBSD, right?  8-)
+
+
+chris
+
+From cgd@pa.dec.com  Fri May 23 11:17:14 1997
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: yba@polytronics.com
+Date: Fri, 23 May 1997 11:17:14 +0000
+Subject: Re: README: test kernel for new DMA framework available
+
+> Is there anyone working on an Adaptec 2940UW driver port for NetBSD/Alpha?
+> 
+> (We're interested in having a PC164 system that uses this scsi3 board;
+> I'd be interested in knowing how hard it is to port the i386 driver
+> to Alpha if Jason or someone else who has tried something similar has
+> any advice.  I'm not sure if the AHA driver implies the AHC driver is
+> on someone's queue....)
+
+IT's the ahc driver.
+
+I'm pretty sure that it should Just Work in the latest snapshot.
+
+
+
+chris
+
+From perry@piermont.com  Fri May 23 14:36:15 1997
+From: Perry E. Metzger <perry@piermont.com>
+To: yba@polytronics.com
+Date: Fri, 23 May 1997 14:36:15 +0000
+Subject: Re: README: test kernel for new DMA framework available
+
+"Mark H. Levine" writes:
+> 
+> Is there anyone working on an Adaptec 2940UW driver port for NetBSD/Alpha?
+
+Its a PCI driver, and I thought it was therefore MI. Isn't it MI
+already?
+
+.pm
+
+> 
+> (We're interested in having a PC164 system that uses this scsi3 board;
+> I'd be interested in knowing how hard it is to port the i386 driver
+> to Alpha if Jason or someone else who has tried something similar has
+> any advice.  I'm not sure if the AHA driver implies the AHC driver is
+> on someone's queue....)
+>
+
+From mjacob@feral.com  Fri May 23 11:41:13 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: perry@piermont.com, yba@polytronics.com
+Date: Fri, 23 May 1997 11:41:13 +0000
+Subject: Re: README: test kernel for new DMA framework available
+
+>Its a PCI driver, and I thought it was therefore MI. Isn't it MI
+>already?
+
+Yes. I'll also be taking the lastest from Justin and porting it into
+NetBSD (he's swamped), so we'll be getting a lot of bug fixes soon
+too.
+
+From cgd@pa.dec.com  Fri May 23 11:47:40 1997
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: perry@piermont.com
+Date: Fri, 23 May 1997 11:47:40 +0000
+Subject: Re: README: test kernel for new DMA framework available
+
+> 
+> "Mark H. Levine" writes:
+> > 
+> > Is there anyone working on an Adaptec 2940UW driver port for NetBSD/Alpha?
+> 
+> Its a PCI driver, and I thought it was therefore MI. Isn't it MI
+> already?
+
+It is one of the few "machine-independent" drivers which are actually
+known to run on the Alpha, yes.  8-)
+
+
+cgd
+
+From mjacob@feral.com  Fri May 23 11:56:43 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: cgd@pa.dec.com, perry@piermont.com
+Date: Fri, 23 May 1997 11:56:43 +0000
+Subject: Re: README: test kernel for new DMA framework available
+
+>It is one of the few "machine-independent" drivers which are actually
+>known to run on the Alpha, yes.  8-)
+
+Hey, I thought I did the right thing with the ISP driver .....
+
+From cgd@pa.dec.com  Fri May 23 12:04:41 1997
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: mjacob@feral.com
+Date: Fri, 23 May 1997 12:04:41 +0000
+Subject: Re: README: test kernel for new DMA framework available
+
+> >It is one of the few "machine-independent" drivers which are actually
+> >known to run on the Alpha, yes.  8-)
+> 
+> Hey, I thought I did the right thing with the ISP driver .....
+
+Oh, you did.
+
+However, even if you add 1 or 2 or 5 drivers, there are still a lot
+which don't work.  (See /sys/dev/isa.  How many of them even compile
+on the alpha?  vs. how many are theoretically machine-independent?)
+
+
+
+chris
+
+From thorpej@nas.nasa.gov  Fri May 23 12:12:47 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: yba@polytronics.com
+Date: Fri, 23 May 1997 12:12:47 +0000
+Subject: Re: README: test kernel for new DMA framework available
+
+On Fri, 23 May 1997 14:08:29 -0400 
+ "Mark H. Levine" <yba@polytronics.com> wrote:
+
+ > Is there anyone working on an Adaptec 2940UW driver port for NetBSD/Alpha?
+
+...actaully, Matt Jacob made the ahc driver work under NetBSD/alpha
+while he was doing the AlphaServer support code ... the ahc worked
+before the isp driver was written :-)
+
+ > (We're interested in having a PC164 system that uses this scsi3 board;
+ > I'd be interested in knowing how hard it is to port the i386 driver
+ > to Alpha if Jason or someone else who has tried something similar has
+ > any advice.  I'm not sure if the AHA driver implies the AHC driver is
+ > on someone's queue....)
+
+...ah, that's the beauty of how we try to do things under NetBSD... it's
+not an i386 driver... it's a PCI driver, or an ISA driver, etc... :-)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From thorpej@nas.nasa.gov  Fri May 23 12:17:16 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: cgd@pa.dec.com
+Date: Fri, 23 May 1997 12:17:16 +0000
+Subject: Re: questions about XalphaNetBSD and ddb
+
+On Fri, 23 May 97 11:16:38 -0700 
+ "Chris G. Demetriou" <cgd@pa.dec.com> wrote:
+
+ > So, instead of wasting a weekend, you're going to spend the time
+ > improving NetBSD, right?  8-)
+
+....for some definition of "improve", maybe :-)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From thorpej@nas.nasa.gov  Fri May 23 12:19:51 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: perry@piermont.com
+Date: Fri, 23 May 1997 12:19:51 +0000
+Subject: Re: README: test kernel for new DMA framework available
+
+On Fri, 23 May 1997 14:36:15 -0400 
+ "Perry E. Metzger" <perry@piermont.com> wrote:
+
+ > > Is there anyone working on an Adaptec 2940UW driver port for NetBSD/Alpha?
+ > 
+ > Its a PCI driver, and I thought it was therefore MI. Isn't it MI
+ > already?
+
+Well, it required a little frobbing before it worked on the alpha... but
+just a little...
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From thorpej@nas.nasa.gov  Fri May 23 12:21:42 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mjacob@feral.com
+Date: Fri, 23 May 1997 12:21:42 +0000
+Subject: Re: README: test kernel for new DMA framework available
+
+On Fri, 23 May 97 11:56:43 PDT 
+ mjacob@feral.com (Matthew Jacob) wrote:
+
+ > >It is one of the few "machine-independent" drivers which are actually
+ > >known to run on the Alpha, yes.  8-)
+ > 
+ > Hey, I thought I did the right thing with the ISP driver .....
+
+Oh, you did... but, have you looked at some of the "machine-independent"
+drivers in sys/dev/isa?  :-)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From ulrich@un486ix.nepustil.net  Mon May 26 09:37:22 1997
+From: Dr. Ulrich Nepustil <ulrich@un486ix.nepustil.net>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 26 May 1997 09:37:22 +0000
+Subject: AXP 150
+
+Hi!
+
+
+I am running a DEC AXP150 (DEC 2000-300) currently with OSF/1 and think
+about a switch to netbsd. The system has the AXP EISA-Board with 
+an EISA SVGA and a DE422-SA Ethernetboard.
+
+Is this system supported ? 
+
+U.Nepustil
+
+From veraldi@sunvlsi2.bo.infn.it  Mon May 26 11:35:44 1997
+From: Riccardo Veraldi <veraldi@sunvlsi2.bo.infn.it>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 26 May 1997 11:35:44 +0000
+Subject: 24 bit jpegs
+
+Sorry people once again for my message not really for NetBSD problems.
+I ask this to one of you who may have some experience on working with Digital
+Unix.
+I Cannot view 24-bit jpegs with the imageviewer program in the digital 
+unix distribution as well as I CAnnot with XV.
+But of course I can change the colour of borders and windows 
+and it displays to me really 24 bit colors.
+
+So what could be the problem.
+If I try to view a 24 bit image it is bad showed and I have to convert 
+it to 8-bit, as well when it is converted to 8-bit the screen blinks to 
+strange colors when I click on the image to view it at 8-bits.
+seems like my palette does nto support 24-bit.
+Anyway I have a DEC Zxlp-E 4Megs RAM graphic accelerator,
+so I shouldn't have this behaviour.
+THe thing is that I installed Digital Unix on the srm console 3.7,
+could this be a reason?
+I should have installed it on the 3.8 firmware update, but on MY multia
+the jumprs are set iun a way that they prevent any write action on the ROM
+and I do not know what are the jumpers and how to set them.
+I Hope someone for God could help me.
+
+thanx
+
+Rick
+
+From matt@3am-software.com  Mon May 26 11:20:54 1997
+From: Matt Thomas <matt@3am-software.com>
+To: ulrich@un486ix.nepustil.net
+Date: Mon, 26 May 1997 11:20:54 +0000
+Subject: Re: AXP 150
+
+At 09:37 AM 5/26/97 +0200, Dr. Ulrich Nepustil wrote:
+>Hi!
+>
+>
+>I am running a DEC AXP150 (DEC 2000-300) currently with OSF/1 and think
+>about a switch to netbsd. The system has the AXP EISA-Board with 
+>an EISA SVGA and a DE422-SA Ethernetboard.
+>
+>Is this system supported ? 
+
+No.  The Jensen is architecturally quite different from other Alpha
+systems and support for it has not been written.
+-- 
+Matt Thomas               Internet:   matt@3am-software.com
+3am Software Foundry      WWW URL:    http://www.3am-software.com/bio/matt.html
+Westford, MA              Disclaimer: I disavow all knowledge of this message
+
+From mellon@hoffman.vix.com  Mon May 26 12:59:34 1997
+From: Ted Lemon <mellon@hoffman.vix.com>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 26 May 1997 12:59:34 +0000
+Subject: Trouble booting an AlphaPC 164...
+
+I'm trying to get NetBSD running on an AlphaPC 164, and not having
+much luck.   I'm trying to boot the April snapshot kernel that's
+sitting on ftp.netbsd.org.   What I get is:
+
+>>>boot ewa0
+(boot ewa0.0.0.5.0 -flags 0)
+
+Trying BOOTP boot.
+
+Broadcasting BOOTP Request...
+Received BOOTP Packet File Name is: /var/tftp/netbsd.alpha
+local inet address: 192.5.5.18
+remote inet address: 192.5.5.1
+TFTP Read File Name: /var/tftp/netbsd.alpha
+...............................
+bootstrap code read in
+base = 17e000, image_start = 0, image_bytes = 1e4000
+initializing HWRPB at 2000
+initializing page table at 170000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+halted CPU 0
+
+halt code = 2
+kernel stack not valid halt
+PC = 0               
+
+Does anybody have any ideas as to why this is happening?   Do I need a
+more recent kernel?
+
+			       _MelloN_
+
+From mjacob@feral.com  Mon May 26 13:03:56 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: mellon@hoffman.vix.com, port-alpha@NetBSD.ORG
+Date: Mon, 26 May 1997 13:03:56 +0000
+Subject: Re:  Trouble booting an AlphaPC 164...
+
+I don't know what's happening, but nobble.feral.com is a
+AlphaPC 164 and it runs with kernels of recent vintage.
+
+From thorpej@nas.nasa.gov  Mon May 26 13:25:39 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mellon@hoffman.vix.com
+Date: Mon, 26 May 1997 13:25:39 +0000
+Subject: Re: Trouble booting an AlphaPC 164...
+
+On Mon, 26 May 1997 12:59:34 -0700 
+ Ted Lemon <mellon@hoffman.vix.com> wrote:
+
+ > TFTP Read File Name: /var/tftp/netbsd.alpha
+
+...is that the boot program or the kernel?  I needs to be the boot program,
+which then also does a bootp, nfs mounts the root file system, and
+loads the kernel.
+
+Here's by bootptab entry for my alpha:
+
+# The Alpha in the computer room.
+methamphetamine:\
+	:tc=.ognet:\
+	:ht=ethernet:\
+	:ha=08002BE2C5AC:\
+	:ip=methamphetamine.OG.ORG:\
+	:bf=netboot.alpha:\
+	:rp=/local/diskless/meth/root:
+
+The netboot program is located on the server at /tftpboot/netboot.alpha,
+and my tftpd chroot's to /tftpboot.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From mellon@hoffman.vix.com  Mon May 26 14:29:17 1997
+From: Ted Lemon <mellon@hoffman.vix.com>
+To: thorpej@nas.nasa.gov
+Date: Mon, 26 May 1997 14:29:17 +0000
+Subject: Re: Trouble booting an AlphaPC 164...
+
+Yeah, I thought there was some kind of boot program, but I didn't see
+it in the snapshot distribution.   Is there a copy on ftp.netbsd.org
+somewhere?
+
+			       _MelloN_
+
+From mjacob@feral.com  Mon May 26 14:36:39 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: mellon@hoffman.vix.com, thorpej@nas.nasa.gov
+Date: Mon, 26 May 1997 14:36:39 +0000
+Subject: Re: Trouble booting an AlphaPC 164...
+
+>Yeah, I thought there was some kind of boot program, but I didn't see
+>it in the snapshot distribution.   Is there a copy on ftp.netbsd.org
+>somewhere?
+
+That'd be /usr/mdec/netboot- sorry for missing that.
+Try unpacking mdec-ECOFF-970305.tar.gz ....
+
+From thorpej@nas.nasa.gov  Mon May 26 14:29:24 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mellon@hoffman.vix.com
+Date: Mon, 26 May 1997 14:29:24 +0000
+Subject: Re: Trouble booting an AlphaPC 164...
+
+On Mon, 26 May 1997 14:29:17 -0700 
+ Ted Lemon <mellon@hoffman.vix.com> wrote:
+
+ > Yeah, I thought there was some kind of boot program, but I didn't see
+ > it in the snapshot distribution.   Is there a copy on ftp.netbsd.org
+ > somewhere?
+
+...err, I just grabbed my copy out of bin.tar.gz:
+
+-r--r--r-- bin/bin       85504 Mar  5 10:38 1997 ./usr/mdec/netboot
+-r-xr-xr-x bin/bin      105376 Mar  5 10:38 1997 ./usr/mdec/setnetbootinfo
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From xsong@bbn.com  Tue May 27 10:42:52 1997
+From: Xiyong Song <xsong@bbn.com>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 27 May 1997 10:42:52 +0000
+Subject: kernel debugger
+
+I have two questions:
+
+1. Is there a NetBSD kernel debugger for alpha?
+
+2. If the answer for Question 1 is no, could you please
+   tell me how to port one?
+
+Thanks.
+
+Xiyong Song
+
+From mellon@hoffman.vix.com  Tue May 27 12:19:55 1997
+From: Ted Lemon <mellon@hoffman.vix.com>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 27 May 1997 12:19:55 +0000
+Subject: How does one install boot blocks on NetBSD/alpha?
+
+I was able to install the latest snapshot on a SCSI disk, but when I
+try to boot it, it tells me there are no valid boot blocks.   But when
+I try to install boot blocks with disklabel, disklabel doesn't
+recognize the -B flag.   Does anybody know what I'm doing wrong?
+
+			       _MelloN_
+
+>>>show config
+                        Digital AlphaPC 164 466 MHz
+
+SRM Console V4.5-14             VMS PALcode V1.18-8, OSF PALcode V1.21-8
+DECchip (tm) 21164A-1
+DECchip (tm) 21171 CIA ASIC Pass 3
+
+MEMORY
+128 Meg of system memory
+
+
+PCI Bus 
+     Bus 00  Slot 05: DECchip 21140 Network Controller
+                                   ewa0.0.0.5.0          00-00-F8-02-79-50   
+     Bus 00  Slot 07: DECchip 21140 Network Controller
+                                   ewb0.0.0.7.0          00-00-F8-00-7F-03   
+     Bus 00  Slot 08: Intel 82378IB PCI to ISA Bridge
+     Bus 00  Slot 09: NCR 53C810 Scsi Controller
+                                   pka0.7.0.9.0          SCSI Bus ID 7       
+                                   dka0.0.0.9.0           SEAGATE ST32155N    
+
+ISA
+Slot    Device  Name            Type         Enabled  BaseAddr  IRQ     DMA
+0
+        0       MOUSE           Embedded        Yes     60      12
+        1       KBD             Embedded        Yes     60      1
+        2       COM1            Embedded        Yes     3f8     4
+        3       COM2            Embedded        Yes     2f8     3
+        4       LPT1            Embedded        Yes     3bc     7
+        5       FLOPPY          Embedded        Yes     3f0     6       2
+
+>>>boot dka0
+(boot dka0.0.0.9.0 -flags 0)
+block 0 of dka0.0.0.9.0 is not a valid boot block
+bootstrap failure
+>>>
+
+From thorpej@nas.nasa.gov  Tue May 27 12:11:58 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mellon@hoffman.vix.com
+Date: Tue, 27 May 1997 12:11:58 +0000
+Subject: Re: How does one install boot blocks on NetBSD/alpha?
+
+On Tue, 27 May 1997 12:19:55 -0700 
+ Ted Lemon <mellon@hoffman.vix.com> wrote:
+
+ > I was able to install the latest snapshot on a SCSI disk, but when I
+ > try to boot it, it tells me there are no valid boot blocks.   But when
+ > I try to install boot blocks with disklabel, disklabel doesn't
+ > recognize the -B flag.   Does anybody know what I'm doing wrong?
+
+...Sun-style, actually...
+
+cd /usr/mdec
+cp boot /boot
+./installboot -v /boot bootxx /dev/rsd0c
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From mjacob@feral.com  Tue May 27 12:28:17 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: mellon@hoffman.vix.com, port-alpha@NetBSD.ORG
+Date: Tue, 27 May 1997 12:28:17 +0000
+Subject: Re:  How does one install boot blocks on NetBSD/alpha?
+
+Body of article empty.
+
+From perry@piermont.com  Tue May 27 15:31:06 1997
+From: Perry E. Metzger <perry@piermont.com>
+To: mellon@hoffman.vix.com
+Date: Tue, 27 May 1997 15:31:06 +0000
+Subject: Re: How does one install boot blocks on NetBSD/alpha?
+
+Ted Lemon writes:
+> I was able to install the latest snapshot on a SCSI disk, but when I
+> try to boot it, it tells me there are no valid boot blocks.   But when
+> I try to install boot blocks with disklabel, disklabel doesn't
+> recognize the -B flag.   Does anybody know what I'm doing wrong?
+
+Disklabel only does -B on selected architectures. Other architectures
+use installboot -- alpha is one of them. i386 is about to become one,
+btw.
+
+.pm
+
+> 
+> 			       _MelloN_
+> 
+> >>>show config
+>                         Digital AlphaPC 164 466 MHz
+> 
+> SRM Console V4.5-14             VMS PALcode V1.18-8, OSF PALcode V1.21-8
+> DECchip (tm) 21164A-1
+> DECchip (tm) 21171 CIA ASIC Pass 3
+> 
+> MEMORY
+> 128 Meg of system memory
+> 
+> 
+> PCI Bus 
+>      Bus 00  Slot 05: DECchip 21140 Network Controller
+>                                    ewa0.0.0.5.0          00-00-F8-02-79-50   
+>      Bus 00  Slot 07: DECchip 21140 Network Controller
+>                                    ewb0.0.0.7.0          00-00-F8-00-7F-03   
+>      Bus 00  Slot 08: Intel 82378IB PCI to ISA Bridge
+>      Bus 00  Slot 09: NCR 53C810 Scsi Controller
+>                                    pka0.7.0.9.0          SCSI Bus ID 7       
+>                                    dka0.0.0.9.0           SEAGATE ST32155N   
+ 
+> 
+> ISA
+> Slot    Device  Name            Type         Enabled  BaseAddr  IRQ     DMA
+> 0
+>         0       MOUSE           Embedded        Yes     60      12
+>         1       KBD             Embedded        Yes     60      1
+>         2       COM1            Embedded        Yes     3f8     4
+>         3       COM2            Embedded        Yes     2f8     3
+>         4       LPT1            Embedded        Yes     3bc     7
+>         5       FLOPPY          Embedded        Yes     3f0     6       2
+> 
+> >>>boot dka0
+> (boot dka0.0.0.9.0 -flags 0)
+> block 0 of dka0.0.0.9.0 is not a valid boot block
+> bootstrap failure
+> >>>
+
+From mellon@hoffman.vix.com  Tue May 27 20:53:11 1997
+From: Ted Lemon <mellon@hoffman.vix.com>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 27 May 1997 20:53:11 +0000
+Subject: Trouble with TCP connections in -current today?
+
+I'm noticing a problem with NetBSD-alpha using the DEC ethernet
+driver.   The problem, which seems to happen pretty consistently with
+my xterms, is that I'll be hacking along merrily and suddenly my
+connection will freeze.   If I log in on the console and run netstat,
+I see a large amount of data waiting to be transmitted.
+
+This problem doesn't seem to be present in the April snapshot kernel -
+just in a kernel built from sources I updated today.
+
+			       _MelloN_
+
+From thorpej@nas.nasa.gov  Tue May 27 20:50:52 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mellon@hoffman.vix.com
+Date: Tue, 27 May 1997 20:50:52 +0000
+Subject: Re: Trouble with TCP connections in -current today?
+
+On Tue, 27 May 1997 20:53:11 -0700 
+ Ted Lemon <mellon@hoffman.vix.com> wrote:
+
+ > I'm noticing a problem with NetBSD-alpha using the DEC ethernet
+ > driver.   The problem, which seems to happen pretty consistently with
+ > my xterms, is that I'll be hacking along merrily and suddenly my
+ > connection will freeze.   If I log in on the console and run netstat,
+ > I see a large amount of data waiting to be transmitted.
+ > 
+ > This problem doesn't seem to be present in the April snapshot kernel -
+ > just in a kernel built from sources I updated today.
+
+I'm running an alpha kernel of this vintage:
+
+NetBSD 1.2D (NOSY) #38: Wed May  7 13:42:19 PDT 1997
+
+...and haven't seen said problem... I planned on updating it soon,
+however.  I'm using DEC ethernet cards on i386 systems, and am not
+seeing any trouble, either... I will keep my eyes open, though.
+
+(Note, however, that nosy is a TurboChannel system, and uses the
+LANCE driver, so I might miss it if it's an alpha/tulip combo
+screw...)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From mjacob@feral.com  Tue May 27 22:29:02 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG, mellon@hoffman.vix.com
+Date: Tue, 27 May 1997 22:29:02 +0000
+Subject: Re: Trouble with TCP connections in -current today?
+
+Haven't seen this particular problem.
+
+What vintage?
+
+From mellon@hoffman.vix.com  Tue May 27 22:39:34 1997
+From: Ted Lemon <mellon@hoffman.vix.com>
+To: mjacob@feral.com
+Date: Tue, 27 May 1997 22:39:34 +0000
+Subject: Re: Trouble with TCP connections in -current today?
+
+> What vintage?
+
+Today.
+
+			       _MelloN_
+
+From mellon@hoffman.vix.com  Tue May 27 22:40:30 1997
+From: Ted Lemon <mellon@hoffman.vix.com>
+To: thorpej@nas.nasa.gov
+Date: Tue, 27 May 1997 22:40:30 +0000
+Subject: Re: Trouble with TCP connections in -current today?
+
+> (Note, however, that nosy is a TurboChannel system, and uses the
+> LANCE driver, so I might miss it if it's an alpha/tulip combo
+> screw...)
+
+Actually, it would help to isolate where the problem is if somebody
+with a Turbochannel Lance ethernet could try today's kernel.
+
+			       _MelloN_
+
+From mjacob@feral.com  Tue May 27 22:43:39 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: thorpej@nas.nasa.gov, mellon@hoffman.vix.com
+Date: Tue, 27 May 1997 22:43:39 +0000
+Subject: Re: Trouble with TCP connections in -current today?
+
+Body of article empty.
+
+From mjacob@feral.com  Tue May 27 23:04:32 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG, mellon@hoffman.vix.com
+Date: Tue, 27 May 1997 23:04:32 +0000
+Subject: Re: Trouble with TCP connections in -current today?
+
+Well, I've built a kernel with today's stuff, and I can't make
+it freeze- or no more so than it usually does- I'm remote right
+now, and with a 14.4KB ppp connection plus about 10 hops with
+an approximate 200ms delay, I *always* get hangs of some kind or
+another.
+
+I did try a blast (a nightly net dump) out a tcp port locally-
+but that happily went along at ~800KB/S for the 60-70MB or so.....
+
+I'll keep an eye on it...
+
+-matt
+
+From thorpej@nas.nasa.gov  Tue May 27 22:58:19 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mellon@hoffman.vix.com
+Date: Tue, 27 May 1997 22:58:19 +0000
+Subject: Re: Trouble with TCP connections in -current today?
+
+On Tue, 27 May 1997 22:40:30 -0700 
+ Ted Lemon <mellon@hoffman.vix.com> wrote:
+
+ > Actually, it would help to isolate where the problem is if somebody
+ > with a Turbochannel Lance ethernet could try today's kernel.
+
+Ok, well... will tomorrow's kernel do?  I'll need to build one :-)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From thorpej@nas.nasa.gov  Tue May 27 23:01:02 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mjacob@feral.com
+Date: Tue, 27 May 1997 23:01:02 +0000
+Subject: Re: Trouble with TCP connections in -current today?
+
+Ted...
+
+I thought about this in the car on the way home... is it just TCP that
+loses, or is it all network traffic on that interface?  If the latter,
+I could guess that you're missing transmit interrupts.  If you are
+missing transmit interrupts, are you also missing receive interrupts?
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From mellon@hoffman.vix.com  Wed May 28 08:41:02 1997
+From: Ted Lemon <mellon@hoffman.vix.com>
+To: thorpej@nas.nasa.gov
+Date: Wed, 28 May 1997 08:41:02 +0000
+Subject: Re: Trouble with TCP connections in -current today?
+
+> I thought about this in the car on the way home... is it just TCP that
+> loses, or is it all network traffic on that interface?  If the latter,
+> I could guess that you're missing transmit interrupts.  If you are
+> missing transmit interrupts, are you also missing receive interrupts?
+
+No, just tcp, and just some connections.   Other connections continue
+to operate, and udp always works.   If I do ``netstat'', it
+successfully looks up all the names.
+
+			       _MelloN_
+
+From mellon@hoffman.vix.com  Wed May 28 08:42:11 1997
+From: Ted Lemon <mellon@hoffman.vix.com>
+To: mjacob@feral.com
+Date: Wed, 28 May 1997 08:42:11 +0000
+Subject: Re: Trouble with TCP connections in -current today?
+
+Thanks for trying a new kernel!  Are you operating directly through a
+PPP connection, or across an ethernet?  If the latter, what card are
+you using?
+
+			       _MelloN_
+
+From mjacob@feral.com  Wed May 28 09:52:42 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: mellon@hoffman.vix.com
+Date: Wed, 28 May 1997 09:52:42 +0000
+Subject: Re: Trouble with TCP connections in -current today?
+
+>From mellon@andare.fugue.com Wed May 28 08:43:25 1997
+>Thanks for trying a new kernel!  Are you operating directly through a
+>PPP connection, or across an ethernet?  If the latter, what card are
+>you using?
+
+For mother.nas.nasa.gov, when I'm not at NASA/Ames, it's
+
+traceroute to mother.nas.nasa.gov (129.99.223.14), 30 hops max, 40 byte packets
+ 1  feral-gw.feral.com (204.188.66.1)  2 ms  2 ms  2 ms	
+PPP direct conntect
+ 2  ts0-ms.tlg.net (140.174.77.10)  143 ms  126 ms  140 ms
+ 3  gw1-ms-tlg.tlg.net (140.174.77.5)  130 ms  135 ms  130 ms
+ 4  ln1_gw0-sf-tlg_ms.tlg.net (140.174.178.1)  129 ms  136 ms  160 ms
+ 5  140.174.60.2 (140.174.60.2)  139 ms  126 ms  130 ms
+ 6  198.32.136.43 (198.32.136.43)  159 ms  156 ms  150 ms
+ 7  NAS-ARC-GW.NSN.NASA.GOV (192.203.230.4)  149 ms  155 ms  150 ms
+ 8  192.92.167.236 (192.92.167.236)  139 ms  146 ms  160 ms
+ 9  �� (129.99.144.253)  139 ms  152 ms  150 ms
+(onboard to KFTIA DecCHIP 21040)
+10  rtr-223.nas.nasa.gov (129.99.223.14)  169 ms  146 ms  160 ms
+
+At feral, I also have an AlphaPC164 with a Znyx312 as de0 (21040) and some
+21140 based 100BaseT card for the 100BT net at feral.
+
+From aroberts@WOLFENET.com  Wed May 28 11:01:34 1997
+From: Aron T. Roberts <aroberts@WOLFENET.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 28 May 1997 11:01:34 +0000
+Subject: system identification
+
+from the 4-23 STATUS file
+
+At this time none of the following systems are supported:
+        DECpc AXP 150 systems (EISA-bus PC-like systems)
+        Alpha "server" systems (other than perhaps the
+            AlphaServer 400, which might be an AlphaStation 400
+            in disguise).
+
+
+
+I have a machine which is labeled (on the case) as an 
+"AlphaServer 400 4/166" what are the defining characteristics of "an
+AlphaStation 400 in disguise" ??
+
+
+thanks
+
+aron roberts
+atr@pobox.com
+
+From mellon@hoffman.vix.com  Wed May 28 11:03:30 1997
+From: Ted Lemon <mellon@hoffman.vix.com>
+To: mjacob@feral.com
+Date: Wed, 28 May 1997 11:03:30 +0000
+Subject: Re: Trouble with TCP connections in -current today?
+
+> At feral, I also have an AlphaPC164 with a Znyx312 as de0 (21040) and some
+> 21140 based 100BaseT card for the 100BT net at feral.
+
+Hm.   That's pretty much what I have, except that my serial link is a
+bit faster.   The time that I see the tcp stalls is when the
+connection is off the local network - I didn't see them when I was
+attached locally.   I wonder if that's coincidence or real.
+
+			       _MelloN_
+
+From bound@zk3.dec.com  Wed May 28 21:43:52 1997
+From: None <bound@zk3.dec.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 28 May 1997 21:43:52 +0000
+Subject: Getting off this Dist List
+
+Sorry to trouble all but I have tried several methods.  I need to get
+off this list for a little while due to my work load.  Can someone tell
+me how to do this.
+
+thanks
+/jim
+
+From cgd@pa.dec.com  Thu May 29 16:53:41 1997
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: atr@pobox.com
+Date: Thu, 29 May 1997 16:53:41 +0000
+Subject: Re: system identification
+
+[ I tried sending this a day or two ago, but it failed for some
+  reason.  here we go again! ]
+
+> I have a machine which is labeled (on the case) as an 
+> "AlphaServer 400 4/166" what are the defining characteristics of "an
+> AlphaStation 400 in disguise" ??
+
+"Walks liks an AlphaStation 400, quacks like an AlphaStation 400..."
+
+do you have Digital UNIX (formerly DEC OSF/1) running on the box,
+currently?  If so, what does 'sizer -c' say?
+
+
+chris
+
+From mgrommet@insolwwb.net  Fri May 30 09:12:03 1997
+From: None <mgrommet@insolwwb.net>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 30 May 1997 09:12:03 +0000
+Subject: Ok... Os is installed, but questions and errors
+
+I am feeling quite accomplished now :)
+I got my little multia to boot, and its even on the net on
+boot up now.
+
+On bootup however, I get a message that the
+drive has a bad magic number... but the system still
+boots and seems to work fine otherwise... what causes
+this and how can I fix it?
+
+Also, the drive in this machine is 1.03 gig, much larger than
+the rz25 image.  Any one with examples on how
+to make another partition to utilize the rest of the space here?
+
+Thirdly, is there an adduser command?  I couldnt seem to find it
+anywhere.  
+
+Mike Grommet
+System Admin
+Internet Solutions, Inc.
+

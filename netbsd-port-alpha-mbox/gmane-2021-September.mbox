@@ -1,0 +1,1092 @@
+From beebe@math.utah.edu  Tue Sep 14 11:23:51 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: "Nelson H. F. Beebe" <beebe@math.utah.edu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: NetBSD 9.2 Alpha: error in handling of IEEE 754 binary 32-bit
+        subnormals
+Date: Tue, 14 Sep 2021 11:23:51 -0600
+Approved: news@gmane.org
+Message-ID: <CMM.0.95.0.1631640231.beebe@gamma.math.utah.edu>
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="33223"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: beebe@math.utah.edu
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Tue Sep 14 20:34:29 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1mQDGG-0008R6-MH
+	for netbsd-port-alpha@m.gmane-mx.org; Tue, 14 Sep 2021 20:34:29 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 81C8A84E5C; Tue, 14 Sep 2021 18:34:23 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id DB95384D3C
+	for <port-alpha@netbsd.org>; Tue, 14 Sep 2021 18:34:14 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=utah.edu
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id kGTWQaPxvYpg for <port-alpha@netbsd.org>;
+	Tue, 14 Sep 2021 18:34:14 +0000 (UTC)
+Original-Received: from ipo11.cc.utah.edu (ipo11.cc.utah.edu [155.97.144.10])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id B6B9584D31
+	for <port-alpha@netbsd.org>; Tue, 14 Sep 2021 18:34:12 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple;
+  d=utah.edu; i=@utah.edu; q=dns/txt; s=UniversityOfUtah;
+  t=1631644453; x=1663180453;
+  h=date:from:to:cc:subject:message-id;
+  bh=ZuMqD3U+uKLzI31FNLKowq9Peoq5J/aznUcIDDSa5NE=;
+  b=UdAdfallOtGcdb6RQaAT/c5tYqW8+UMKKb6Z12xdor0dR8oW4RTwMpzm
+   Ty3q1bWvxI57yqfwVjhlBpV56xiYkRbDvYk+tCgZE3g+qTTrVlM6y/iPg
+   r/4kr11ubhNqt9++jRIvJMGzzMaXIH/UNga/3mWRV4vTdJF8Jcg+QDqCl
+   ZqvxOwMH9QdD4DSGu7Mg6Swn65UFsvJsCly8tdDmR7nIPZ18KzrPLrobM
+   GECxAuQHLFjcY3pyKzP/kVCgvT5mXeN+RSaHEiAIl2ORiDSQw2nuQNDwS
+   WbcEA1ei/VIqu3i6N3dyxNIJMObaDlnoChQXzw8L7hUL2F3tL7vOSSEmI
+   w==;
+IronPort-SDR: nIvd7n3dxC9C3TY1vZv2iF2POnGrK8mqCWMJDOneJK3dvpspWn5aFyv9O8To2qyLfgxhwcds8r
+ b9Wfr3GYHlwQ7RtHjMeEAn+FHQn9AIEkGUZHM0JYG18bptFBRmCsGOK6H056bIJh+wgeTjPE2B
+ G/6lnwFSRO4K3HFbQUZ/EodGzc/m/poCA29AgjGIcmn3t2WEJBxk0dICN3o75/O7fbro9ZDt3A
+ GCEz2a0aToYYA1rlqa6KvUH7+d/q5rz8qpXvm8BYYuhfQ2UBgKN1R2YhNAUsm02xnx1yojtwe4
+ DhU=
+X-IronPort-AV: E=Sophos;i="5.85,292,1624341600"; 
+   d="scan'208";a="125157012"
+Original-Received: from mail.math.utah.edu ([155.101.98.135])
+  by ipo11smtp.cc.utah.edu with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 14 Sep 2021 11:23:53 -0600
+Original-Received: from gamma.math.utah.edu (gamma.math.utah.edu [155.101.96.20])
+	by mail.math.utah.edu (8.16.1/8.16.1) with ESMTP id 18EHNpPF003137;
+	Tue, 14 Sep 2021 11:23:51 -0600 (MDT)
+Original-Received: from gamma.math.utah.edu (localhost [127.0.0.1])
+	by gamma.math.utah.edu (8.15.1/8.15.1) with ESMTP id 18EHNp1R005474;
+	Tue, 14 Sep 2021 11:23:51 -0600
+Original-Received: (from beebe@localhost)
+	by gamma.math.utah.edu (8.15.1/8.15.1/Submit) id 18EHNpVX005473;
+	Tue, 14 Sep 2021 11:23:51 -0600
+X-US-Mail: "Department of Mathematics, 110 LCB, University of Utah, 155 S
+        1400 E RM 233, Salt Lake City, UT 84112-0090, USA"
+X-Telephone: +1 801 581 5254
+X-FAX: +1 801 581 4148
+X-URL: http://www.math.utah.edu/~beebe
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.3.8 (mail.math.utah.edu [155.101.98.135]); Tue, 14 Sep 2021 11:23:51 -0600 (MDT)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5376
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5376>
+
+The latest episode of the BSDNow podcast at
+
+	https://www.bsdnow.tv/419
+
+contains a story on Remy van Elst's report at
+
+	https://raymii.org/s/articles/NetBSD_on_QEMU_Alpha.html
+
+of creating a virtual machine for NetBSD 9.2 (really, 9.99.88, but
+packages are still pulled from the 9.2 repository, which is currently
+identical to the 9.0 repository).
+
+Remy reported that NetBSD on Alpha requires a patch to QEMU, and I was
+independently able to verify that on the latest QEMU release, 6.1.0,
+which appeared on 24 August 2021.  With the patch, the VM startup hangs at the
+same point that Remy reported. 
+
+I applied Remy's proposed patch, successfully built qemu-system-alpha
+for that release, and got the NetBSD installer to run to completion.
+
+I now have an apparently stable running NetBSD on Alpha, with a few
+irregularities: emacs seems to hang on startup, and the PostgreSQL
+package collection is incomplete.  MySQL is installed: Ver 15.1
+Distrib 10.3.31-MariaDB.
+
+I've now begun testing on NetBSD Alpha a large mathematical library
+that I'm developing, and already have running successfully on numerous
+operating systems and CPU architectures (AMD64 (x86_64), ARM32, ARM64,
+Alpha, HPPA (PA-RISC), M68K, MIPS32, MIPS64, RISC-V64, S390x, SPARC64,
+and x86) in various physical and virtual machines in our large test
+farm of more than 500 O/S--CPU pairs.
+
+The Debian 11 Alpha port of my library passes all of its tests, and
+test output matches satisfactorily with that from other CPU types.
+
+However, for NetBSD Alpha, I quickly found an anomaly: IEEE 754 binary
+32-bit subnormals are printed incorrectly.  The small Web site at
+
+	http://www.math.utah.edu/~beebe/netbsd-alpha/
+
+currently contains these files:
+
+	-rw-rw-r-- 1 1591 Jul 23 15:39 show-float32.c
+	-r--r--r-- 1 1526 Sep 14 10:35 show-float32.lst-Linux-alpha
+	-r--r--r-- 1 1523 Jul 23 11:48 show-float32.lst-Linux-sparc64
+	-r--r--r-- 1 1526 Sep 14 10:16 show-float32.lst-Linux-x86_64
+	-r--r--r-- 1 1544 Sep 13 07:19 show-float32.lst-NetBSD-alpha
+	-r--r--r-- 1 1526 Sep 14 10:54 show-float32.lst-NetBSD-alpha-mieee
+
+	-rw-rw-r-- 1  803 Sep 11 09:20 ufl32.c
+	-r--r--r-- 1 1493 Sep 14 10:33 ufl32.lst-Linux-alpha
+	-r--r--r-- 1 1493 Sep 14 10:58 ufl32.lst-Linux-alpha-mieee
+	-r--r--r-- 1 1493 Sep 14 10:31 ufl32.lst-Linux-sparc64
+	-r--r--r-- 1 1493 Sep 14 10:29 ufl32.lst-Linux-x86_64
+	-r--r--r-- 1 1399 Sep 14 10:30 ufl32.lst-NetBSD-alpha
+	-r--r--r-- 1 1491 Sep 14 10:53 ufl32.lst-NetBSD-alpha-mieee
+
+The test programs are run like this:
+
+	cc show-float32.c -lm && ./a.out
+	cc ufl32.c        -lm && ./a.out
+
+The memory contents for the subnormals from show-float32.c are correct
+and consistent with other platforms, but the decimal and hexadecimal
+values are completely wrong: they far exceed the 32-bit exponent
+range, and are near the underflow limits of the 64-bit format.
+
+The test code is straightforward and short, and simply uses scalbnf()
+to create the powers of two that are printed.  The memory patterns
+exonerate scalbnf(): its returned values are correct.  However, the
+printf() output is completely wrong.
+
+The C compiler versions are gcc 10.2.1 on Debian, and 10.3.0 on
+NetBSD.
+
+Another anomaly is shown by the ufl32.c program: it reports the status
+of the IEEE 754 floating-point underflow and inexact flags, and
+whether the result is subnormal or not.  The SPARC64 flag settings are
+as expected, and the AMD64 flags differ because of the different
+rounding behavior of those two architectures. There is a discussion
+and explanation here in the section that begins on page 10:
+
+	http://www.math.utah.edu/~beebe/ufl/pages-13-21.pdf
+
+However, the Linux and NetBSD outputs of ufl32.c show that the Linux
+Alpha test shows correct expected exception flags, but the NetBSD
+Alpha demonstrates that underflow is abrupt: subnormals are computed
+as zero.
+
+Adding the compiler flag -mieee to the tests produces the output in
+the *.lst-*-mieee files.  For the ufl32.c test, that flag produces no
+changes in the Linux output, but the NetBSD output now has nonzero
+subnormals, and the exception flags are all unexpectedly zero.  The
+NetBSD is consistent with what DEC did on our physical Alpha systems
+(all now retired) on OSF/1 and Tru64: default to abrupt underflow, but
+restore it with gcc's -mieee, or its equivalent, but differently
+named, flag for DEC's native compilers.
+
+Because both Debian and NetBSD VMs are running on QEMU (6.0.0 and
+6.1.0, respectively), the Alpha architecture is almost 30 years old,
+and QEMU is generally a solid and reliable emulation of numerous
+architectures, the different flag behavior for subnormals is
+unexpected, and it seems that NetBSD is wrong here too.
+
+
+-------------------------------------------------------------------------------
+- Nelson H. F. Beebe                    Tel: +1 801 581 5254                  -
+- University of Utah                    FAX: +1 801 581 4148                  -
+- Department of Mathematics, 110 LCB    Internet e-mail: beebe@math.utah.edu  -
+- 155 S 1400 E RM 233                       beebe@acm.org  beebe@computer.org -
+- Salt Lake City, UT 84112-0090, USA    URL: http://www.math.utah.edu/~beebe/ -
+-------------------------------------------------------------------------------
+
+
+From beebe@math.utah.edu  Tue Sep 14 14:26:20 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: "Nelson H. F. Beebe" <beebe@math.utah.edu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: NetBSD 9.2 Alpha: error in conversion of int64_t to long double
+Date: Tue, 14 Sep 2021 14:26:20 -0600
+Approved: news@gmane.org
+Message-ID: <CMM.0.95.0.1631651180.beebe@gamma.math.utah.edu>
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="24832"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: beebe@math.utah.edu
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Wed Sep 15 00:05:02 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1mQGY1-00065y-Q9
+	for netbsd-port-alpha@m.gmane-mx.org; Wed, 15 Sep 2021 00:05:02 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 97CBA84E75; Tue, 14 Sep 2021 22:04:58 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 7EEB684CE3
+	for <port-alpha@netbsd.org>; Tue, 14 Sep 2021 22:04:54 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=utah.edu
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id 2WKJy0wHQ9M5 for <port-alpha@netbsd.org>;
+	Tue, 14 Sep 2021 22:04:53 +0000 (UTC)
+Original-Received: from ipo8.cc.utah.edu (ipo8.cc.utah.edu [155.97.144.47])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id AB52684C71
+	for <port-alpha@netbsd.org>; Tue, 14 Sep 2021 22:04:53 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple;
+  d=utah.edu; i=@utah.edu; q=dns/txt; s=UniversityOfUtah;
+  t=1631657094; x=1663193094;
+  h=date:from:to:cc:subject:message-id;
+  bh=K0kRizgbxKKiZFPNzRNEajTZObg7s8Ndy1zaTNPRK5E=;
+  b=TiWNYdIA+vJcTEOJjjvXCHdz2gsF48zRTBk7l3g6rh7AZ2csxVQgImmV
+   TwMWPYw3JILZkoqRseC602COdlTbeEWGvUwjeJPoV9QjJpRAz6Pzx35FU
+   3u9lO1gs8mGrNfXUT8TotvrXI297SuzbEDkAyvt5CC69OnJ9BU5nDmZUS
+   44RN/nP1J2UFduHYdUQLkiYnoSUe3stINYd/ut2x+XJoXd2CWxFfxYyyO
+   E1qIFkTUYJN3hbsbt+nk91nCYrwm3CbqgTnuEf5JOiu3UowptQXPBnCFo
+   OxoZKcmtGFWY0tsp0o3plPwfea5RKpP+xbaD85RqOnz/v+2uFjvecoZzP
+   Q==;
+IronPort-SDR: lfStzhhR/NgxKqXX1Alh0iNiKMiUe06g23AOJybbridpVzLbKTT7WGPnmAhxL8HQAFhaqBUCKr
+ he23IQWXRiM7YeM0UNcUTztU2JcDDDuLA/QRVs9UIjtwXK691vCPcBakIQOlx7wVLM8RCtI41e
+ RGEdHPjpy/OP4KapqE7m+UZIcyglq4nAQd3FfwtkoaxX7WcMSfI5vTwEiQI2tznNAGr9BMYazO
+ HorfTMOnHE5oueJJ/wSMbeOqnbJrrRpU80VEqZtJBZiKrJtKTT6KK+qxEUQkFapMf5W31pEYpz
+ 0js=
+X-IronPort-AV: E=Sophos;i="5.85,292,1624341600"; 
+   d="scan'208";a="320807668"
+Original-Received: from mail.math.utah.edu ([155.101.98.135])
+  by ipo8smtp.cc.utah.edu with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 14 Sep 2021 14:26:21 -0600
+Original-Received: from gamma.math.utah.edu (gamma.math.utah.edu [155.101.96.20])
+	by mail.math.utah.edu (8.16.1/8.16.1) with ESMTP id 18EKQKcx002889;
+	Tue, 14 Sep 2021 14:26:20 -0600 (MDT)
+Original-Received: from gamma.math.utah.edu (localhost [127.0.0.1])
+	by gamma.math.utah.edu (8.15.1/8.15.1) with ESMTP id 18EKQKQP005212;
+	Tue, 14 Sep 2021 14:26:20 -0600
+Original-Received: (from beebe@localhost)
+	by gamma.math.utah.edu (8.15.1/8.15.1/Submit) id 18EKQKGT005210;
+	Tue, 14 Sep 2021 14:26:20 -0600
+X-US-Mail: "Department of Mathematics, 110 LCB, University of Utah, 155 S
+        1400 E RM 233, Salt Lake City, UT 84112-0090, USA"
+X-Telephone: +1 801 581 5254
+X-FAX: +1 801 581 4148
+X-URL: http://www.math.utah.edu/~beebe
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.3.8 (mail.math.utah.edu [155.101.98.135]); Tue, 14 Sep 2021 14:26:20 -0600 (MDT)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5377
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5377>
+
+The small Web site 
+
+	http://www.math.utah.edu/~beebe/netbsd-alpha/
+
+contains these new files:
+
+	-rw-rw-r-- 1 1046 Sep 14 14:08 netbsd-alpha-bug001.c
+	-r--r--r-- 1  196 Sep 14 14:12 netbsd-alpha-bug001.lst-Linux-alpha
+	-r--r--r-- 1  196 Sep 14 14:11 netbsd-alpha-bug001.lst-Linux-x86_64
+	-r--r--r-- 1  192 Sep 14 14:09 netbsd-alpha-bug001.lst-NetBSD-alpha
+
+They demonstrate incorrect conversion of int64_t to long double on
+NetBSD 9.2 Alpha, and are modeled on test software for cube roots, but
+reduced to minimal code to exhibit the conversion error.
+
+The C compiler versions are gcc 10.2.1 on Debian, 10.3.0 on NetBSD,
+and 4.8.5 on the CentOS 7 system that produced the *.lst-Linux-x86_64
+output.
+
+On NetBSD Alpha, long double is a synonym for double, both a 64-bit
+IEEE 754 binary type.
+
+By contrast, on Debian 11 Alpha, long double corresponds to the
+128-bit IEEE 754 binary type, and that system exhibits expected output
+in the extensive environmental tests in features-1.2.3, available at
+
+	http://www.math.utah.edu/pub/features/
+
+A more probing version, features-1.2.4, is in development, and may
+appear in the next few weeks at that site.
+
+-------------------------------------------------------------------------------
+- Nelson H. F. Beebe                    Tel: +1 801 581 5254                  -
+- University of Utah                    FAX: +1 801 581 4148                  -
+- Department of Mathematics, 110 LCB    Internet e-mail: beebe@math.utah.edu  -
+- 155 S 1400 E RM 233                       beebe@acm.org  beebe@computer.org -
+- Salt Lake City, UT 84112-0090, USA    URL: http://www.math.utah.edu/~beebe/ -
+-------------------------------------------------------------------------------
+
+
+From john@ziaspace.com  Wed Sep 15 01:06:32 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: John Klos <john@ziaspace.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: NetBSD 9.2 Alpha: error in handling of IEEE 754 binary 32-bit 
+       subnormals
+Date: Wed, 15 Sep 2021 01:06:32 +0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.2109150042590.9913@athena.zia.io>
+References: <CMM.0.95.0.1631640231.beebe@gamma.math.utah.edu>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="20880"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org
+To: "Nelson H. F. Beebe" <beebe@math.utah.edu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Wed Sep 15 03:06:50 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1mQJNx-00055Y-24
+	for netbsd-port-alpha@m.gmane-mx.org; Wed, 15 Sep 2021 03:06:50 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id ABB4E84E7A; Wed, 15 Sep 2021 01:06:43 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id C69AE84D04
+	for <port-alpha@netbsd.org>; Wed, 15 Sep 2021 01:06:39 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (1024-bit key) header.d=ziaspace.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id xKISdr-yuK8k for <port-alpha@netbsd.org>;
+	Wed, 15 Sep 2021 01:06:39 +0000 (UTC)
+Original-Received: from athena.zia.io (athena.zia.io [IPv6:2602:fe6b:1012:1::1])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 05CC584C71
+	for <port-alpha@netbsd.org>; Wed, 15 Sep 2021 01:06:37 +0000 (UTC)
+Original-Received: from athena.zia.io (localhost [127.0.0.1])
+	by athena.zia.io (8.16.1/8.15.2) with ESMTPS id 18F16XYg021080
+	(version=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 bits=256 verify=NOT);
+	Wed, 15 Sep 2021 01:06:33 GMT
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=ziaspace.com;
+	s=selector; t=1631667993;
+	bh=oNlqNwh5b3q3Z8OVogNuz4p2w39jThUgt6Xduk9ShJE=;
+	h=Date:From:To:cc:Subject:In-Reply-To:References;
+	b=JzRyF/3dP0zfkSlZ0gQg64lN7ctrDzd0iQ4KJivrKnhmzH+8QXzr+s4/Ayb0ec0US
+	 T7z/OEvQ9qxKWMklmvzhAUYpv4TJUXJ2Sp6GWzjnFcXPXxlfZtDC11OUX1YOXJrfv6
+	 ziLQpFsJg1NHV9hQ7YKvbUq87QE6Cxxrvm+RYC1c=
+Original-Received: from localhost (john@localhost)
+	by athena.zia.io (8.16.1/8.15.2/Submit) with ESMTP id 18F16WLo023872;
+	Wed, 15 Sep 2021 01:06:32 GMT
+X-Authentication-Warning: athena.zia.io: john owned process doing -bs
+X-X-Sender: john@athena.zia.io
+In-Reply-To: <CMM.0.95.0.1631640231.beebe@gamma.math.utah.edu>
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.4.3 (athena.zia.io [0.0.0.0]); Wed, 15 Sep 2021 01:06:33 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5378
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5378>
+
+> of creating a virtual machine for NetBSD 9.2 (really, 9.99.88, but
+> packages are still pulled from the 9.2 repository, which is currently
+> identical to the 9.0 repository).
+
+They're all symlinked and therefore the same, yes.
+
+> I now have an apparently stable running NetBSD on Alpha, with a few
+> irregularities: emacs seems to hang on startup, and the PostgreSQL
+> package collection is incomplete.  MySQL is installed: Ver 15.1
+> Distrib 10.3.31-MariaDB.
+
+I'll check out emacs. The lack of complete PostgreSQL is because they 
+preferred to unsupport Alpha instead of just switching it to using common 
+code. That can be fixed, if you have a use for PostgreSQL.
+
+> Another anomaly is shown by the ufl32.c program: it reports the status
+> of the IEEE 754 floating-point underflow and inexact flags, and
+> whether the result is subnormal or not.  The SPARC64 flag settings are
+> as expected, and the AMD64 flags differ because of the different
+> rounding behavior of those two architectures. There is a discussion
+> and explanation here in the section that begins on page 10:
+>
+> 	http://www.math.utah.edu/~beebe/ufl/pages-13-21.pdf
+> 
+> Because both Debian and NetBSD VMs are running on QEMU (6.0.0 and
+> 6.1.0, respectively), the Alpha architecture is almost 30 years old,
+> and QEMU is generally a solid and reliable emulation of numerous
+> architectures, the different flag behavior for subnormals is
+> unexpected, and it seems that NetBSD is wrong here too.
+
+Real hardware gives MINNORMAL = 0x1.0p-126, but is otherwise the same.
+Real hardware also gives the same results as Linux-Alpha for
+netbsd-alpha-bug001.c
+
+Everything else I've looked at so far shows that qemu matches hardware,
+but it'll be helpful to note where an issue is because of NetBSD versus
+where it's a qemu issue.
+
+I believe there was a similar set of issues with m68k, no?
+
+John
+
+
+From thorpej@me.com  Tue Sep 14 18:54:48 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: NetBSD 9.2 Alpha: error in handling of IEEE 754 binary 32-bit
+ subnormals
+Date: Tue, 14 Sep 2021 18:54:48 -0700
+Approved: news@gmane.org
+Message-ID: <58D08B82-547F-4E0F-AE78-260CA565193C@me.com>
+References: <CMM.0.95.0.1631640231.beebe@gamma.math.utah.edu>
+Mime-Version: 1.0 (Mac OS X Mail 14.0 \(3654.120.0.1.13\))
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="4327"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org
+To: "Nelson H. F. Beebe" <beebe@math.utah.edu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Wed Sep 15 03:55:02 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1mQK8b-0000sT-R9
+	for netbsd-port-alpha@m.gmane-mx.org; Wed, 15 Sep 2021 03:55:02 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 3D7FE84E7E; Wed, 15 Sep 2021 01:54:57 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id BAB1184D04
+	for <port-alpha@netbsd.org>; Wed, 15 Sep 2021 01:54:51 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id H6oaD1dQRXSU for <port-alpha@netbsd.org>;
+	Wed, 15 Sep 2021 01:54:51 +0000 (UTC)
+Original-Received: from pv34p98im-ztdg02162201.me.com (pv34p98im-ztdg02162201.me.com [17.143.234.141])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id CAC1A84C71
+	for <port-alpha@netbsd.org>; Wed, 15 Sep 2021 01:54:50 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=1a1hai;
+	t=1631670890; bh=i+j7+yX1Wh8ApN5cbcu1FuK6XvDeK6nYFwJq6d58Olk=;
+	h=Content-Type:Mime-Version:Subject:From:Date:Message-Id:To;
+	b=QohCieMIYYVyANfoG/WTczP9qB4Tib/ZNpx4gE5hLeMg21vxngMCrKYN49rTh8fve
+	 Cmx4fshrfroD3AgFubQ2uYJ5ZikijZMmBTof2aPKLPv0heFXodqch+zio++3Hs31Bz
+	 YqC5wWYXlpGT8gKfWloVwss5FXwK5MvZ+k8grBfj8ZDOCRTYmYCTRDjtuZlBKPcan+
+	 lT1IwbpOgs/pOVcj9DfPAPKmPyW/McDX7RYSUGGVHCD76Lpaq6P9aVytxTkqtnefEi
+	 TmkiJfP21QOTz+xM4sBWm2fFnd7dilk4nmsNU9WcUNnf+KQQuo5uv8iQ/Mw2PV5HWG
+	 OYbDIjwAZ7znA==
+Original-Received: from smtpclient.apple (unknown [17.234.93.220])
+	by pv34p98im-ztdg02162201.me.com (Postfix) with ESMTPSA id 05F7A1C0050;
+	Wed, 15 Sep 2021 01:54:49 +0000 (UTC)
+In-Reply-To: <CMM.0.95.0.1631640231.beebe@gamma.math.utah.edu>
+X-Mailer: Apple Mail (2.3654.120.0.1.13)
+X-Proofpoint-Virus-Version: vendor=fsecure engine=2.50.10434:6.0.391,18.0.790
+ definitions=2021-09-14_10:2021-09-14,2021-09-14 signatures=0
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 suspectscore=0 malwarescore=0
+ phishscore=0 bulkscore=0 spamscore=0 clxscore=1011 mlxscore=0
+ mlxlogscore=999 adultscore=0 classifier=spam adjust=0 reason=mlx
+ scancount=1 engine=8.0.1-2009150000 definitions=main-2109150010
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5379
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5379>
+
+
+
+> On Sep 14, 2021, at 10:23 AM, Nelson H. F. Beebe <beebe@math.utah.edu> =
+wrote:
+>=20
+> I've now begun testing on NetBSD Alpha a large mathematical library
+> that I'm developing, and already have running successfully on numerous
+> operating systems and CPU architectures (AMD64 (x86_64), ARM32, ARM64,
+> Alpha, HPPA (PA-RISC), M68K, MIPS32, MIPS64, RISC-V64, S390x, SPARC64,
+> and x86) in various physical and virtual machines in our large test
+> farm of more than 500 O/S--CPU pairs.
+>=20
+> The Debian 11 Alpha port of my library passes all of its tests, and
+> test output matches satisfactorily with that from other CPU types.
+>=20
+> However, for NetBSD Alpha, I quickly found an anomaly: IEEE 754 binary
+> 32-bit subnormals are printed incorrectly.
+
+As you might be aware, the FP situation on the Alpha is kind of =
+complicated.  It's possible that this is a bug in the kernel's FP =
+completion code (certainly wouldn't be the first time).
+
+>=20
+> The C compiler versions are gcc 10.2.1 on Debian, and 10.3.0 on
+> NetBSD.
+>=20
+> Another anomaly is shown by the ufl32.c program: it reports the status
+> of the IEEE 754 floating-point underflow and inexact flags, and
+> whether the result is subnormal or not.  The SPARC64 flag settings are
+> as expected, and the AMD64 flags differ because of the different
+> rounding behavior of those two architectures. There is a discussion
+> and explanation here in the section that begins on page 10:
+>=20
+> 	http://www.math.utah.edu/~beebe/ufl/pages-13-21.pdf
+>=20
+> However, the Linux and NetBSD outputs of ufl32.c show that the Linux
+> Alpha test shows correct expected exception flags, but the NetBSD
+> Alpha demonstrates that underflow is abrupt: subnormals are computed
+> as zero.
+
+Yes, there some bugs in the this area in NetBSD/alpha at the moment.
+
+> Adding the compiler flag -mieee to the tests produces the output in
+> the *.lst-*-mieee files.  For the ufl32.c test, that flag produces no
+> changes in the Linux output, but the NetBSD output now has nonzero
+> subnormals, and the exception flags are all unexpectedly zero.  The
+> NetBSD is consistent with what DEC did on our physical Alpha systems
+> (all now retired) on OSF/1 and Tru64: default to abrupt underflow, but
+> restore it with gcc's -mieee, or its equivalent, but differently
+> named, flag for DEC's native compilers.
+>=20
+> Because both Debian and NetBSD VMs are running on QEMU (6.0.0 and
+> 6.1.0, respectively), the Alpha architecture is almost 30 years old,
+> and QEMU is generally a solid and reliable emulation of numerous
+> architectures, the different flag behavior for subnormals is
+> unexpected, and it seems that NetBSD is wrong here too.
+
+I do have some changes sitting in the Project Queue that should improve =
+some of this stuff, but I haven't had time / motivation to get around to =
+finishing them.  I'll try to bubble this up in priority and I will =
+definitely take a look at your math library to glean additional test =
+cases.
+
+-- thorpej
+
+
+
+From thorpej@me.com  Tue Sep 14 19:01:20 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: NetBSD 9.2 Alpha: error in conversion of int64_t to long double
+Date: Tue, 14 Sep 2021 19:01:20 -0700
+Approved: news@gmane.org
+Message-ID: <DA2BAEE6-2D3F-44BC-88CA-B5656833A8D8@me.com>
+References: <CMM.0.95.0.1631651180.beebe@gamma.math.utah.edu>
+Mime-Version: 1.0 (Mac OS X Mail 14.0 \(3654.120.0.1.13\))
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="33880"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org
+To: "Nelson H. F. Beebe" <beebe@math.utah.edu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Wed Sep 15 04:01:31 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1mQKEs-0008dI-2c
+	for netbsd-port-alpha@m.gmane-mx.org; Wed, 15 Sep 2021 04:01:30 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 15BAE84F04; Wed, 15 Sep 2021 02:01:26 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id C21FF84D04
+	for <port-alpha@netbsd.org>; Wed, 15 Sep 2021 02:01:22 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id Qwttk-LAZdcs for <port-alpha@netbsd.org>;
+	Wed, 15 Sep 2021 02:01:22 +0000 (UTC)
+Original-Received: from pv34p98im-ztdg02162201.me.com (pv34p98im-ztdg02162201.me.com [17.143.234.141])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 2972C84C71
+	for <port-alpha@netbsd.org>; Wed, 15 Sep 2021 02:01:22 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=1a1hai;
+	t=1631671281; bh=ErMXyz2HyVlhP5iSiJeW/Bk2ftst1rNkR49c9eY+hbY=;
+	h=Content-Type:Mime-Version:Subject:From:Date:Message-Id:To;
+	b=r43uqixqj12/URAh6xFlEVn7fzjop6/coF6K8rh9K5qKiqSRRS1i1v7HS9te0EdWK
+	 cr9CUbg7mHQNmLyND2SHlkBsO6xIMlY3zLjbA8pvI2BS7t6l5Bwkga5I/T2vh1t+cl
+	 6PE0WQ8IPLuzvWRk8Tgd1ApKNMX/aO/5HQ40egoyp0cf5p1s3vOymTfesy88/OoDxZ
+	 b1JxGTcj0bP2I91FHG2JOXZaEXqITjS66jyKnkXjO2/zilYsHWiUQqarUmTBe8G+el
+	 vRz5CJOHQYtrB8Qxq8MmnucosSG1yWeP0l4xyDF8t41JfMgCjpg85hgffZJCU0GaKP
+	 CIyRzYroPqaFA==
+Original-Received: from smtpclient.apple (unknown [17.234.93.220])
+	by pv34p98im-ztdg02162201.me.com (Postfix) with ESMTPSA id 706721C0050;
+	Wed, 15 Sep 2021 02:01:21 +0000 (UTC)
+In-Reply-To: <CMM.0.95.0.1631651180.beebe@gamma.math.utah.edu>
+X-Mailer: Apple Mail (2.3654.120.0.1.13)
+X-Proofpoint-Virus-Version: vendor=fsecure engine=2.50.10434:6.0.391,18.0.790
+ definitions=2021-09-14_10:2021-09-14,2021-09-14 signatures=0
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 suspectscore=0 malwarescore=0
+ phishscore=0 bulkscore=0 spamscore=0 clxscore=1015 mlxscore=0
+ mlxlogscore=999 adultscore=0 classifier=spam adjust=0 reason=mlx
+ scancount=1 engine=8.0.1-2009150000 definitions=main-2109150011
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5380
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5380>
+
+
+> On Sep 14, 2021, at 1:26 PM, Nelson H. F. Beebe <beebe@math.utah.edu> =
+wrote:
+>=20
+> On NetBSD Alpha, long double is a synonym for double, both a 64-bit
+> IEEE 754 binary type.
+>=20
+> By contrast, on Debian 11 Alpha, long double corresponds to the
+> 128-bit IEEE 754 binary type, and that system exhibits expected output
+> in the extensive environmental tests in features-1.2.3, available at
+
+Unfortunately, I don't recall what Digital UNIX used for "long double" =
+(T_float or X_float), but as far as I'm aware, no Alpha hardware ever =
+shipped with support for X_float; as of the 4th Edition (2002), the =
+Alpha Architecture Manual states:
+
+<quote>
+Support for 128-bit IEEE extended-precision (X_float) floating-point is =
+initially provided entirely through software. This section is included =
+to preserve the intended consistency of implementation with other IEEE =
+floating-point data types, should the X_float data type be sup- ported =
+in future hardware.
+</quote>
+
+...and there are no X_float instructions to emulate, so fixing this is =
+going to require adding a considerable amount of softfloat to the Alpha =
+libc.
+
+-- thorpej
+
+
+
+From beebe@math.utah.edu  Wed Sep 15 08:19:36 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: "Nelson H. F. Beebe" <beebe@math.utah.edu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: NetBSD 9.2 Alpha: gdb failure
+Date: Wed, 15 Sep 2021 08:19:36 -0600
+Approved: news@gmane.org
+Message-ID: <CMM.0.95.0.1631715576.beebe@gamma.math.utah.edu>
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="17866"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: beebe@math.utah.edu
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Wed Sep 15 17:58:17 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1mQXId-0004PN-RX
+	for netbsd-port-alpha@m.gmane-mx.org; Wed, 15 Sep 2021 17:58:16 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 82A9684E8D; Wed, 15 Sep 2021 15:58:11 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 3E43384D35
+	for <port-alpha@netbsd.org>; Wed, 15 Sep 2021 15:58:06 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=utah.edu
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id 3aJJ6r7ZO3qs for <port-alpha@netbsd.org>;
+	Wed, 15 Sep 2021 15:58:05 +0000 (UTC)
+Original-Received: from ipo12.cc.utah.edu (ipo12.cc.utah.edu [155.97.144.22])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 6A48384D25
+	for <port-alpha@netbsd.org>; Wed, 15 Sep 2021 15:58:05 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple;
+  d=utah.edu; i=@utah.edu; q=dns/txt; s=UniversityOfUtah;
+  t=1631721486; x=1663257486;
+  h=date:from:to:cc:subject:message-id;
+  bh=Q2WpnxV7cuCM5/u5zUzhxkIGIBDWiihbs0xulCRu1EU=;
+  b=i/hIIeiONGdwxN9Wo2IabOkq6psBmTRoVBn89oem2WkS8av01V+MCGLF
+   RNaykZMAxCr8PFfeKbmTgKLT22Dn6VSm2B0G8YwIL7NrnwuKiJFW1kwyF
+   cSDojhWahvMIs7fle6o4C/Jd4zd4XJsVd+tjaLuRr9l3PaVpS+erM4aEf
+   VfWyhta/7jKV8sJ2KXt3CFrVPnHWsNkN/j5IA9W8dptKLXfGfN1E83y7d
+   U9ngcJ1x1+lTFhNMlKQSaV+8bqV7rLRHZ6UDj3tJaHQEl1Vho8QCfhDPA
+   OX0pZ8HNt/e6YLsFM5trcWaHSpb8vm8QV0ad7/pn1879ymU2AF4FjrhPM
+   g==;
+IronPort-SDR: sZWhIjuH6d0h2GelkwT0OiNQyjex3VFLdaPpr32BAvuHBQshoF1VjgrL5oZNjzshBXH6lIneOp
+ 3fkXNSoUaSKQ9Xn6BRwjJxFnsMJx1eelRNMz5yfYnXZq5wxIFM0Jd2D3N7Hy9xaIlwM5YoBtMP
+ NVZIGpYEwvVbFQ5zZd8QtsYhzctE0J//PxoRdn9izJzghq2TmuMyG4xToMcFuw365iWYgnZ1mQ
+ u+z3VRuOYcjAS0e8Oi4VeIGMXcFNPdu92RuD49O2+/QJCBrz4ru9YkTafqQNmlmB58p+xdo8RH
+ Gbs=
+X-IronPort-AV: E=Sophos;i="5.85,295,1624341600"; 
+   d="scan'208";a="124451962"
+Original-Received: from mail.math.utah.edu ([155.101.98.135])
+  by ipo12smtp.cc.utah.edu with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 15 Sep 2021 08:19:39 -0600
+Original-Received: from gamma.math.utah.edu (gamma.math.utah.edu [155.101.96.20])
+	by mail.math.utah.edu (8.16.1/8.16.1) with ESMTP id 18FEJbHn008051;
+	Wed, 15 Sep 2021 08:19:37 -0600 (MDT)
+Original-Received: from gamma.math.utah.edu (localhost [127.0.0.1])
+	by gamma.math.utah.edu (8.15.1/8.15.1) with ESMTP id 18FEJbXX021437;
+	Wed, 15 Sep 2021 08:19:37 -0600
+Original-Received: (from beebe@localhost)
+	by gamma.math.utah.edu (8.15.1/8.15.1/Submit) id 18FEJarM021436;
+	Wed, 15 Sep 2021 08:19:36 -0600
+X-US-Mail: "Department of Mathematics, 110 LCB, University of Utah, 155 S
+        1400 E RM 233, Salt Lake City, UT 84112-0090, USA"
+X-Telephone: +1 801 581 5254
+X-FAX: +1 801 581 4148
+X-URL: http://www.math.utah.edu/~beebe
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.3.8 (mail.math.utah.edu [155.101.98.135]); Wed, 15 Sep 2021 08:19:37 -0600 (MDT)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5381
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5381>
+
+In attempting to debug the data conversion and floating-point issues
+that I reported on this list yesterday, I found that gdb is unusable,
+even for a trivial program that just prints a greeting:
+
+	% cat hello.c
+	#include <stdio.h>
+
+	int
+	main(void)
+	{
+	    printf("hello, world\n");
+	    return 0;
+	}
+
+	% cc -g -g3 hello.c
+
+	% gdb a.out
+	GNU gdb (GDB) 11.0.50.20200914-git
+	...
+	(gdb) b main
+	Breakpoint 1 at 0x1200008c8: file /u/sy/beebe/c/hello.c, line 6.
+	(gdb) run
+	Starting program: /local/build/cc/fx-0.0.40/a.out 
+	limit: stacksize: Can't set limit (Operation not permitted)
+	terminate called without an active exception
+	[ 176884.2498815] sorry, pid 12842 was killed: orphaned traced process
+	Abort (core dumped)
+
+My QEMU hardware configuration is:
+
+	% sysctl -a | grep ncpu
+	hw.ncpu = 2
+	hw.ncpuonline = 2
+
+	% sysctl -a | grep hw.phy
+	hw.physmem = -122880
+	hw.physmem64 = 4294844416
+
+That is, 2 CPUs and 4GB DRAM.
+
+	% limit stacksize
+	stacksize    28672 kbytes
+
+Even as root, I cannot increase the stacksize, and a hello-world
+program needs only a few bytes on the stack.
+
+On Debian 11 Linux with gdb 10.1.90, I can successfully single step
+programs, set breakpoints, and examine variables.
+
+Is gdb known to work on NetBSD 9.2 on a real physical Alpha system?
+
+-------------------------------------------------------------------------------
+- Nelson H. F. Beebe                    Tel: +1 801 581 5254                  -
+- University of Utah                    FAX: +1 801 581 4148                  -
+- Department of Mathematics, 110 LCB    Internet e-mail: beebe@math.utah.edu  -
+- 155 S 1400 E RM 233                       beebe@acm.org  beebe@computer.org -
+- Salt Lake City, UT 84112-0090, USA    URL: http://www.math.utah.edu/~beebe/ -
+-------------------------------------------------------------------------------
+
+
+From christos@astron.com  Fri Sep 17 00:12:26 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: christos@astron.com (Christos Zoulas)
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: NetBSD 9.2 Alpha: gdb failure
+Date: Fri, 17 Sep 2021 00:12:26 -0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <si0mha$5qq$1@ciao.gmane.io>
+References: <CMM.0.95.0.1631715576.beebe@gamma.math.utah.edu>
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="7877"; mail-complaints-to="usenet@ciao.gmane.io"
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Fri Sep 17 02:12:41 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1mR1Ue-0001rE-BH
+	for netbsd-port-alpha@m.gmane-mx.org; Fri, 17 Sep 2021 02:12:40 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id C761184F5E; Fri, 17 Sep 2021 00:12:37 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 48E1C84E8E
+	for <port-alpha@netbsd.org>; Fri, 17 Sep 2021 00:12:33 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id pYNZ5qYeg-Gm for <port-alpha@netbsd.org>;
+	Fri, 17 Sep 2021 00:12:32 +0000 (UTC)
+Original-Received: from ciao.gmane.io (ciao.gmane.io [116.202.254.214])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 9F15384CEF
+	for <port-alpha@netbsd.org>; Fri, 17 Sep 2021 00:12:32 +0000 (UTC)
+Original-Received: from list by ciao.gmane.io with local (Exim 4.92)
+	(envelope-from <netbsd-port-alpha@m.gmane-mx.org>)
+	id 1mR1UU-0001fe-Vo
+	for port-alpha@netbsd.org; Fri, 17 Sep 2021 02:12:30 +0200
+X-Injected-Via-Gmane: http://gmane.org/
+X-Newsreader: trn 4.0-test77 (Sep 1, 2010)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5382
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5382>
+
+In article <CMM.0.95.0.1631715576.beebe@gamma.math.utah.edu>,
+Nelson H. F. Beebe <beebe@math.utah.edu> wrote:
+>In attempting to debug the data conversion and floating-point issues
+>that I reported on this list yesterday, I found that gdb is unusable,
+>even for a trivial program that just prints a greeting:
+>
+>	% cat hello.c
+>	#include <stdio.h>
+>
+>	int
+>	main(void)
+>	{
+>	    printf("hello, world\n");
+>	    return 0;
+>	}
+>
+>	% cc -g -g3 hello.c
+>
+>	% gdb a.out
+>	GNU gdb (GDB) 11.0.50.20200914-git
+>	...
+>	(gdb) b main
+>	Breakpoint 1 at 0x1200008c8: file /u/sy/beebe/c/hello.c, line 6.
+>	(gdb) run
+>	Starting program: /local/build/cc/fx-0.0.40/a.out 
+>	limit: stacksize: Can't set limit (Operation not permitted)
+>	terminate called without an active exception
+>	[ 176884.2498815] sorry, pid 12842 was killed: orphaned traced process
+>	Abort (core dumped)
+>
+>My QEMU hardware configuration is:
+>
+>	% sysctl -a | grep ncpu
+>	hw.ncpu = 2
+>	hw.ncpuonline = 2
+>
+>	% sysctl -a | grep hw.phy
+>	hw.physmem = -122880
+>	hw.physmem64 = 4294844416
+>
+>That is, 2 CPUs and 4GB DRAM.
+>
+>	% limit stacksize
+>	stacksize    28672 kbytes
+>
+>Even as root, I cannot increase the stacksize, and a hello-world
+>program needs only a few bytes on the stack.
+>
+>On Debian 11 Linux with gdb 10.1.90, I can successfully single step
+>programs, set breakpoints, and examine variables.
+>
+>Is gdb known to work on NetBSD 9.2 on a real physical Alpha system?
+
+I my alpha is currently dead :-(
+
+christos
+
+
+
+From rokuyama.rk@gmail.com  Fri Sep 17 12:45:59 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Rin Okuyama <rokuyama.rk@gmail.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: NetBSD 9.2 Alpha: gdb failure
+Date: Fri, 17 Sep 2021 12:45:59 +0900
+Approved: news@gmane.org
+Message-ID: <215ae546-ac33-5eb9-438f-1e16c2697911@gmail.com>
+References: <CMM.0.95.0.1631715576.beebe@gamma.math.utah.edu>
+ <si0mha$5qq$1@ciao.gmane.io>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="24672"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:78.0)
+ Gecko/20100101 Thunderbird/78.14.0
+To: Christos Zoulas <christos@astron.com>, port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Fri Sep 17 05:46:15 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1mR4pK-0006Cb-VL
+	for netbsd-port-alpha@m.gmane-mx.org; Fri, 17 Sep 2021 05:46:15 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 5F88684D37; Fri, 17 Sep 2021 03:46:10 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id A3F0884D2E
+	for <port-alpha@netbsd.org>; Fri, 17 Sep 2021 03:46:03 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=gmail.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id XQpn1BH_uHap for <port-alpha@netbsd.org>;
+	Fri, 17 Sep 2021 03:46:03 +0000 (UTC)
+Original-Received: from mail-pg1-x52c.google.com (mail-pg1-x52c.google.com [IPv6:2607:f8b0:4864:20::52c])
+	(using TLSv1.3 with cipher TLS_AES_128_GCM_SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id B3A5384CEF
+	for <port-alpha@netbsd.org>; Fri, 17 Sep 2021 03:46:02 +0000 (UTC)
+Original-Received: by mail-pg1-x52c.google.com with SMTP id q68so8278295pga.9
+        for <port-alpha@netbsd.org>; Thu, 16 Sep 2021 20:46:02 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20210112;
+        h=subject:to:references:from:message-id:date:user-agent:mime-version
+         :in-reply-to:content-language:content-transfer-encoding;
+        bh=C5mqXESeFnThjJ+Gz+GLvhJXHVkc37Dxviq+IQttPFs=;
+        b=Y+lu3wKJYdRmUH7SoItT/ViYTTAQRcxdI3AqOyy+oe0IcyJ7stbGcpTSaKXuJp7HAs
+         nRHUYbltyUbswTWCyygbUm38b72gnreCwa4tQWNZqjAIJ0/ii3gEHuq5+xhQJYqwcQ19
+         +p3/bdaP52ZUrFA8P/GeSgcS4It6sPlz33hYCTako0XboTvU23HRaZScoAWvPWV6n7bY
+         K2YlHiKn6OZ9kRQUx9EQivwYfhuC3vG2lgiHbR3fapWVh5i94zgjzD3Qq806CYgVNzJE
+         8UeOvv0WjruIKHSq1FRFKlW2XEnt2FUckQCD7cQjWSpxr2d4j4FmZMjQfPfdRD0abaHN
+         FQSA==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20210112;
+        h=x-gm-message-state:subject:to:references:from:message-id:date
+         :user-agent:mime-version:in-reply-to:content-language
+         :content-transfer-encoding;
+        bh=C5mqXESeFnThjJ+Gz+GLvhJXHVkc37Dxviq+IQttPFs=;
+        b=dYCnrBlCj6Wz+x0aZiwew7SJqEcIJnnjuignBqJoOusIlDhnvh68GH6h5fJDkHYFGF
+         XztybvJLu1MXa/OV1pE1N68bjiY7U3L0O98RVQj6fEWE4rDbMiXFuQZhWEa4g7PIqd5q
+         XbdpgSJMt/EjeyrRyINfMDCxgc1QlPe/Wn+H477/2eydkgkNvHt8qIEyUTZBj2dMD6mn
+         /MRypx9bg6XTZPNcF4a1j8et6OQ6zkxQPXh4qxcfDLk3wceRzsgAfQDq6MhyiCs2ciYV
+         yE0SXq0g17WNCfS3WOmxoKqWT7xZ6pfgrCgQlclq0kIXTNMKMFx2Gcky0UAJbjBnB3lO
+         9L9A==
+X-Gm-Message-State: AOAM5318emkc2Sl/y4+d9AXr3qKNOCJ4oi3H5BxBfqnVegi1o7c9vN7V
+	C+4TmNSU03C7FuPhBbPt3wAkFGE4Qro=
+X-Google-Smtp-Source: ABdhPJxby2fg1lU7QxXCXP1AfOWq1SNmD4B5YCRpJhIsSr/duDEpPOGTONHAqsJtoErLRoZIf3YfSw==
+X-Received: by 2002:a63:4b5a:: with SMTP id k26mr7945128pgl.241.1631850362012;
+        Thu, 16 Sep 2021 20:46:02 -0700 (PDT)
+Original-Received: from mbp13.local (p1708102-ipngn13501hodogaya.kanagawa.ocn.ne.jp. [153.216.92.102])
+        by smtp.gmail.com with ESMTPSA id e11sm4398508pfn.49.2021.09.16.20.46.00
+        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
+        Thu, 16 Sep 2021 20:46:01 -0700 (PDT)
+In-Reply-To: <si0mha$5qq$1@ciao.gmane.io>
+Content-Language: en-US
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5383
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5383>
+
+On 2021/09/17 9:12, Christos Zoulas wrote:
+> In article <CMM.0.95.0.1631715576.beebe@gamma.math.utah.edu>,
+> Nelson H. F. Beebe <beebe@math.utah.edu> wrote:
+>> In attempting to debug the data conversion and floating-point issues
+>> that I reported on this list yesterday, I found that gdb is unusable,
+>> even for a trivial program that just prints a greeting:
+>>
+>> 	% cat hello.c
+>> 	#include <stdio.h>
+>>
+>> 	int
+>> 	main(void)
+>> 	{
+>> 	    printf("hello, world\n");
+>> 	    return 0;
+>> 	}
+>>
+>> 	% cc -g -g3 hello.c
+>>
+>> 	% gdb a.out
+>> 	GNU gdb (GDB) 11.0.50.20200914-git
+>> 	...
+>> 	(gdb) b main
+>> 	Breakpoint 1 at 0x1200008c8: file /u/sy/beebe/c/hello.c, line 6.
+>> 	(gdb) run
+>> 	Starting program: /local/build/cc/fx-0.0.40/a.out
+>> 	limit: stacksize: Can't set limit (Operation not permitted)
+>> 	terminate called without an active exception
+>> 	[ 176884.2498815] sorry, pid 12842 was killed: orphaned traced process
+>> 	Abort (core dumped)
+>>
+>> My QEMU hardware configuration is:
+>>
+>> 	% sysctl -a | grep ncpu
+>> 	hw.ncpu = 2
+>> 	hw.ncpuonline = 2
+>>
+>> 	% sysctl -a | grep hw.phy
+>> 	hw.physmem = -122880
+>> 	hw.physmem64 = 4294844416
+>>
+>> That is, 2 CPUs and 4GB DRAM.
+>>
+>> 	% limit stacksize
+>> 	stacksize    28672 kbytes
+>>
+>> Even as root, I cannot increase the stacksize, and a hello-world
+>> program needs only a few bytes on the stack.
+>>
+>> On Debian 11 Linux with gdb 10.1.90, I can successfully single step
+>> programs, set breakpoints, and examine variables.
+>>
+>> Is gdb known to work on NetBSD 9.2 on a real physical Alpha system?
+
+GDB shipped with 9.2 is older one. Do you use kernel and base from -current?
+(You cannot use -current userland on 9.2 kernel, whereas 9.2 userland on
+-current kernel is possible.)
+
+Anyway, it works just fine on real HW (DS10, 21264):
+
+----
+$ uname -a
+NetBSD ds10 9.99.88 NetBSD 9.99.88 (GENERIC-$Revision: 1.414 $) #71: Fri Sep 17 12:19:24 JST 2021  rin@latipes:/sys/arch/alpha/compile/DS10 alpha
+$ cc -g -g3 hello.c
+$ gdb a.out
+GNU gdb (GDB) 11.0.50.20200914-git
+...
+(gdb) b main
+Breakpoint 1 at 0x1200008c8: file hello.c, line 6.
+(gdb) r
+Starting program: /home/rin/a.out
+
+Breakpoint 1, main () at hello.c:6
+6                   printf("hello, world\n");
+(gdb)
+----
+
+Thanks,
+rin
+
+

@@ -1,0 +1,667 @@
+From john@klos.com  Tue Aug 26 23:29:06 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: John Klos <john@klos.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: All processes run on only one CPU
+Date: Tue, 26 Aug 2025 23:29:06 +0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <ef86e6da-e23a-f3f1-f81c-ccf811718276@daisy.zia.io>
+Mime-Version: 1.0
+Content-Type: text/plain; format=flowed; charset=US-ASCII
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="40031"; mail-complaints-to="usenet@ciao.gmane.io"
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Wed Aug 27 01:29:30 2025
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1ur36W-000AJ7-Vy
+	for netbsd-port-alpha@m.gmane-mx.org; Wed, 27 Aug 2025 01:29:29 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 4E32385A6F; Tue, 26 Aug 2025 23:29:24 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 2AE2F85A68
+	for <port-alpha@netbsd.org>; Tue, 26 Aug 2025 23:29:21 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id cJAvx8PvtADa for <port-alpha@netbsd.org>;
+	Tue, 26 Aug 2025 23:29:20 +0000 (UTC)
+Original-Received: from anath.zia.io (anath.zia.io [IPv6:2604:7c00:23:5:ff71:c3ae:58d8:ecb8])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 0E799855B8
+	for <port-alpha@netbsd.org>; Tue, 26 Aug 2025 23:29:19 +0000 (UTC)
+Original-Received: from daisy.zia.io (daisy.zia.io [IPv6:2001:1890:1bb7:b400:0:da:15:4])
+	by anath.zia.io (8.18.1/8.16.1) with ESMTPS id 57QNTDpV016092
+	(version=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 bits=256 verify=NOT)
+	for <port-alpha@netbsd.org>; Tue, 26 Aug 2025 23:29:19 GMT
+Original-Received: from daisy.zia.io (localhost [127.0.0.1])
+	by daisy.zia.io (8.18.1/8.18.1) with ESMTPS id 57QNT60v000602
+	(version=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 bits=256 verify=NOT)
+	for <port-alpha@netbsd.org>; Tue, 26 Aug 2025 23:29:07 GMT
+Original-Received: from localhost (john@localhost)
+	by daisy.zia.io (8.18.1/8.18.1/Submit) with ESMTP id 57QNT6Qn014131
+	for <port-alpha@netbsd.org>; Tue, 26 Aug 2025 23:29:06 GMT
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.6.4 (anath.zia.io [IPv6:2604:7c00:23:5:ff71:c3ae:58d8:ecb8]); Tue, 26 Aug 2025 23:29:19 +0000 (UTC)
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.6.4 (daisy.zia.io [0.0.0.0]); Tue, 26 Aug 2025 23:29:07 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5526
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5526>
+
+Hi,
+
+I've noticed this behavior happening sometimes in the past, where 
+processes and their children sometimes don't use both CPUs in a dual 
+processor AlphaServer DS25. Both processors could be used by running 
+multiple different things, usually.
+
+On 10.1_STABLE from mid June 2025, it seems there is no occasional stuff 
+on both CPUs. Running two totally separate sets of tasks, I see:
+
+load averages:  5.99,  5.94,  5.89;               up 66+08:59:48   23:19:
+78 processes: 6 runnable, 54 sleeping, 17 stopped, 1 on CPU
+CPU:  0.0% user, 47.0% nice,  3.0% system,  0.1% interrupt, 49.8% idle
+Memory: 5276M Act, 3033M Inact, 14M Wired, 184M Exec, 7003M File, 941M Fr
+Swap: 24G Total, 16M Used, 24G Free / Pools: 2774M Used / Network: 20K In
+
+   PID USERNAME PRI NICE   SIZE   RES STATE       TIME   WCPU    CPU COMMA
+   446 root      23    4   111M   92M RUN/0       0:23 16.27% 16.26% cc1pl
+  1325 root      23    4   122M   97M RUN/0       0:22 14.90% 14.89% cc1pl
+  2260 root      23    4   137M  120M RUN/0       1:37 14.84% 14.84% cc1pl
+  9123 root      24    4   170M  153M RUN/0       0:12 15.10% 14.79% cc1pl
+28331 root      23    4   148M  129M RUN/0       0:08 15.12% 14.16% cc1pl
+21158 root      24    4   118M   96M RUN/0       0:05 15.17% 12.11% cc1pl
+     0 root     124    0     0K 1693M syncer/0   71.1H  0.00%  0.00% [syst
+  2386 john      85    0    12M 6096K kqueue/1   89:14  0.00%  0.00% tmux
+
+
+I can force everything to the other CPU with cpuctl offline 0. I can force 
+them back. I can move everything to processor 1, then psrset -u one of the 
+processes, and it will run on processor 0 to completion, but I have no 
+idea why processes won't run on both processors automatically.
+
+Anyone?
+
+Thanks,
+John
+
+
+From thorpej@me.com  Tue Aug 26 17:26:43 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.devel.kernel
+Subject: Re: All processes run on only one CPU
+Date: Tue, 26 Aug 2025 17:26:43 -0700
+Approved: news@gmane.org
+Message-ID: <61B52F53-9194-4CA9-B43B-1E41387AD5EE@me.com>
+References: <ef86e6da-e23a-f3f1-f81c-ccf811718276@daisy.zia.io>
+Mime-Version: 1.0 (Mac OS X Mail 16.0 \(3826.600.51.1.1\))
+Content-Type: text/plain;
+	charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="34238"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org,
+ NetBSD Kernel Technical Discussion List <tech-kern@NetBSD.org>
+To: John Klos <john@klos.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Wed Aug 27 02:27:11 2025
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1ur40M-0008kR-OU
+	for netbsd-port-alpha@m.gmane-mx.org; Wed, 27 Aug 2025 02:27:11 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id DA9D48569A; Wed, 27 Aug 2025 00:27:05 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 80C7985A85
+	for <port-alpha@netbsd.org>; Wed, 27 Aug 2025 00:27:00 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id VznLl_z1WkvX for <port-alpha@netbsd.org>;
+	Wed, 27 Aug 2025 00:27:00 +0000 (UTC)
+Original-Received: from outbound.pv.icloud.com (p-west1-cluster5-host9-snip4-10.eps.apple.com [57.103.66.201])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 95F2B85A83
+	for <port-alpha@netbsd.org>; Wed, 27 Aug 2025 00:26:59 +0000 (UTC)
+Original-Received: from outbound.pv.icloud.com (unknown [127.0.0.2])
+	by p00-icloudmta-asmtp-us-west-1a-1 (Postfix) with ESMTPS id C3BC2C0009D;
+	Wed, 27 Aug 2025 00:26:57 +0000 (UTC)
+Dkim-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=1a1hai; bh=eyMdzJFC/Pc6ajhPzX93IqrnsOX8AhxKDjNTjK2PfQc=; h=Content-Type:Mime-Version:Subject:From:Date:Message-Id:To:x-icloud-hme; b=n2baeA70AhtOR9hcRHrax7p3GjEUXrkVAjgc3YRjebRZ09TXDzynMsmNqQ5C7uW2/cDQqYMyifIwAskmhHQ5P/rOQ5Eha7scDhKFb8H9H5dTjnt1SJpjNI4KJ3BudWGvmAafS3aBluhKvRXhiUMHfqnpKhIsiMnPpcxEfmm1HqxrRajaWA2X5vUvtmWDPsbgOZJObhUecWhCW40MZ5B5F69675ZWw1mVD9mpZwRaRbiOEMgmlybASZ76KTiy/j006Uh81fVfmjYYubyDJRRDdwGqY23D3tgyv5xhsn+v14tsnTxqWzb1e1WlyvMB6HNWxuAAbNdtf91K3ybmJsy95g==
+Original-Received: from smtpclient.apple (asmtp-me-k8s.p98.prod.me.com [17.56.9.34])
+	by p00-icloudmta-asmtp-us-west-1a-1 (Postfix) with ESMTPSA id 3D502C00092;
+	Wed, 27 Aug 2025 00:26:57 +0000 (UTC)
+In-Reply-To: <ef86e6da-e23a-f3f1-f81c-ccf811718276@daisy.zia.io>
+X-Mailer: Apple Mail (2.3826.600.51.1.1)
+X-Proofpoint-GUID: w-8TmQA9XFerg9jqha0tRSqtIASKYYAi
+X-Proofpoint-Spam-Details-Enc: AW1haW4tMjUwODI3MDAwMiBTYWx0ZWRfX8bkEKiEEIQsY
+ W2yB1p7BRS5M7pTWDYElFTs9e7F7btDZlTaOqA1SVO/a3URZCvGwwHDONLQqc59J/9n1oEOBV7R
+ y7J7Qe18uMOlmUW6f759hivyTCmmMZXcmkUlxdu4WbgjaDtSh0OKy7kTYmUOsnBUo+rA2czG6I0
+ ZMIuMpCP3O7G7qi81Y/o1TRbQVMvbNt4zTu9qEotpO6S1vvt/J39UzB0H1TfBdKC1eGRW1rYqdp
+ gjbhF2XLG2TBwKmnzZNilwIFF0JK4fKv6BfwrkhKb4wbI+m4NjT76Z/OpM5FZKvTZtrMypxh0=
+X-Proofpoint-ORIG-GUID: w-8TmQA9XFerg9jqha0tRSqtIASKYYAi
+X-Proofpoint-Virus-Version: vendor=baseguard
+ engine=ICAP:2.0.293,Aquarius:18.0.1099,Hydra:6.1.9,FMLib:17.12.80.40
+ definitions=2025-08-26_02,2025-08-26_01,2025-03-28_01
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 phishscore=0
+ spamscore=0 adultscore=0 clxscore=1015 suspectscore=0 mlxscore=0
+ mlxlogscore=758 malwarescore=0 bulkscore=0 classifier=spam adjust=0
+ reason=mlx scancount=1 engine=8.22.0-2506270000 definitions=main-2508270002
+X-JNJ: AAAAAAABYsa+hExTWpCJHtEfCJf2UJvfIU/Ik36xO+QkVo38cTMaPR5S2l3pJ30I8CJI7n171TQOZWcIwg0zQn40uDOD9P27ThRsJExzBvC6UoscpMmBi2JFpEjyiloEky92+DTOdG2F3hoYSY79xHR8i3lDoKjZQ9wlx6ZPErYmAoOKgj9XCmuGmbT9iY/1DaCaEm4/9x0+Uc1bWcLMDLuBumWA+lIeR1kuntyDfT3Bu+KFzjur+DHd83saPDqZ+NPKfNlFFB4kn5Y61j3As3UmXlJSUjvAvJDfezps58UFniUFyobM+qgOCIuzx6oVGx8FoALGF/yx8USaAjQnPfCXl4YQKr33bEEu33gSljN9jtjuWavgjgCTqJqwCpYUs7fHsDdcvjHmBxd+Cv5wPdunWhH9
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5527 gmane.os.netbsd.devel.kernel:59623
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5527>
+
++tech-kern
+
+> On Aug 26, 2025, at 4:29=E2=80=AFPM, John Klos <john@klos.com> wrote:
+>=20
+> Hi,
+>=20
+> I've noticed this behavior happening sometimes in the past, where =
+processes and their children sometimes don't use both CPUs in a dual =
+processor AlphaServer DS25. Both processors could be used by running =
+multiple different things, usually.
+>=20
+> On 10.1_STABLE from mid June 2025, it seems there is no occasional =
+stuff on both CPUs. Running two totally separate sets of tasks, I see:
+>=20
+> load averages:  5.99,  5.94,  5.89;               up 66+08:59:48   =
+23:19:
+> 78 processes: 6 runnable, 54 sleeping, 17 stopped, 1 on CPU
+> CPU:  0.0% user, 47.0% nice,  3.0% system,  0.1% interrupt, 49.8% idle
+> Memory: 5276M Act, 3033M Inact, 14M Wired, 184M Exec, 7003M File, 941M =
+Fr
+> Swap: 24G Total, 16M Used, 24G Free / Pools: 2774M Used / Network: 20K =
+In
+>=20
+>  PID USERNAME PRI NICE   SIZE   RES STATE       TIME   WCPU    CPU =
+COMMA
+>  446 root      23    4   111M   92M RUN/0       0:23 16.27% 16.26% =
+cc1pl
+> 1325 root      23    4   122M   97M RUN/0       0:22 14.90% 14.89% =
+cc1pl
+> 2260 root      23    4   137M  120M RUN/0       1:37 14.84% 14.84% =
+cc1pl
+> 9123 root      24    4   170M  153M RUN/0       0:12 15.10% 14.79% =
+cc1pl
+> 28331 root      23    4   148M  129M RUN/0       0:08 15.12% 14.16% =
+cc1pl
+> 21158 root      24    4   118M   96M RUN/0       0:05 15.17% 12.11% =
+cc1pl
+>    0 root     124    0     0K 1693M syncer/0   71.1H  0.00%  0.00% =
+[syst
+> 2386 john      85    0    12M 6096K kqueue/1   89:14  0.00%  0.00% =
+tmux
+>=20
+>=20
+> I can force everything to the other CPU with cpuctl offline 0. I can =
+force them back. I can move everything to processor 1, then psrset -u =
+one of the processes, and it will run on processor 0 to completion, but =
+I have no idea why processes won't run on both processors automatically.
+>=20
+> Anyone?
+>=20
+> Thanks,
+> John
+
+-- thorpej
+
+
+
+From mrg@eterna23.net  Wed Aug 27 15:58:51 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: matthew green <mrg@eterna23.net>
+Newsgroups: gmane.os.netbsd.devel.kernel,gmane.os.netbsd.ports.alpha
+Subject: re: All processes run on only one CPU
+Date: Wed, 27 Aug 2025 15:58:51 +1000
+Approved: news@gmane.org
+Message-ID: <10567.1756274331@splode.eterna23.net>
+References: <61B52F53-9194-4CA9-B43B-1E41387AD5EE@me.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="16580"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org,
+    NetBSD Kernel Technical Discussion List <tech-kern@NetBSD.org>
+To: John Klos <john@klos.com>
+Original-X-From: bounces-tech-kern-owner-netbsd-tech-kern=m.gmane-mx.org@NetBSD.org Wed Aug 27 07:59:02 2025
+Return-path: <bounces-tech-kern-owner-netbsd-tech-kern=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-tech-kern@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-tech-kern-owner-netbsd-tech-kern=m.gmane-mx.org@NetBSD.org>)
+	id 1ur9BW-00049d-CI
+	for netbsd-tech-kern@m.gmane-mx.org; Wed, 27 Aug 2025 07:59:02 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 6643B85C75; Wed, 27 Aug 2025 05:58:56 +0000 (UTC)
+Delivered-To: tech-kern@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 100B085B1D;
+	Wed, 27 Aug 2025 05:58:55 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id zZxL7bBKsWVT; Wed, 27 Aug 2025 05:58:54 +0000 (UTC)
+Original-Received: from splode.eterna23.net (unknown [203.15.111.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 5D60C85B19;
+	Wed, 27 Aug 2025 05:58:52 +0000 (UTC)
+Original-Received: from splode.eterna23.net (localhost [127.0.0.1])
+	by splode.eterna23.net (Postfix) with ESMTP id 8B37C1590B5;
+	Wed, 27 Aug 2025 15:58:51 +1000 (AEST)
+in-reply-to: <61B52F53-9194-4CA9-B43B-1E41387AD5EE@me.com>
+organisation: people's front against (bozotic) www (softwar foundation)
+x-other-organisation: The NetBSD Foundation.
+x-message: step back from the shadows of war!  seek out the ways of peace
+Content-ID: <17377.1756274331.1@splode.eterna23.net>
+Original-Sender: tech-kern-owner@NetBSD.org
+List-Id: <tech-kern.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20tech-kern&body=unsubscribe%20tech-kern>
+Xref: news.gmane.io gmane.os.netbsd.devel.kernel:59625 gmane.os.netbsd.ports.alpha:5528
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.devel.kernel/59625>
+
+> > CPU:  0.0% user, 47.0% nice,  3.0% system,  0.1% interrupt, 49.8% idle
+
+can you press 't' at top screen, so it shows both cpus separately?
+
+ie, monitor if it is one cpu stuck, or moves between, etc.?
+
+
+.mrg.
+
+
+From thorpej@me.com  Wed Aug 27 06:52:02 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.devel.kernel,gmane.os.netbsd.ports.alpha
+Subject: Re: All processes run on only one CPU
+Date: Wed, 27 Aug 2025 06:52:02 -0700
+Approved: news@gmane.org
+Message-ID: <90806090-98B8-43B3-9CC3-5EDA8852036B@me.com>
+References: <10567.1756274331@splode.eterna23.net>
+Mime-Version: 1.0 (Mac OS X Mail 16.0 \(3826.500.181.1.5\))
+Content-Type: text/plain;
+	charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="24529"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: John Klos <john@klos.com>,
+ port-alpha@netbsd.org,
+ NetBSD Kernel Technical Discussion List <tech-kern@NetBSD.org>
+To: matthew green <mrg@eterna23.net>
+Original-X-From: bounces-tech-kern-owner-netbsd-tech-kern=m.gmane-mx.org@NetBSD.org Wed Aug 27 15:52:34 2025
+Return-path: <bounces-tech-kern-owner-netbsd-tech-kern=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-tech-kern@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-tech-kern-owner-netbsd-tech-kern=m.gmane-mx.org@NetBSD.org>)
+	id 1urGZl-0006BC-59
+	for netbsd-tech-kern@m.gmane-mx.org; Wed, 27 Aug 2025 15:52:33 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id A3EAC85B06; Wed, 27 Aug 2025 13:52:21 +0000 (UTC)
+Delivered-To: tech-kern@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id E6E6485B04
+	for <tech-kern@netbsd.org>; Wed, 27 Aug 2025 13:52:17 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id rxTVDHFRmynU for <tech-kern@netbsd.org>;
+	Wed, 27 Aug 2025 13:52:17 +0000 (UTC)
+Original-Received: from outbound.pv.icloud.com (p-west1-cluster4-host2-snip4-1.eps.apple.com [57.103.65.142])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 0CBD084D31
+	for <tech-kern@netbsd.org>; Wed, 27 Aug 2025 13:52:17 +0000 (UTC)
+Original-Received: from outbound.pv.icloud.com (unknown [127.0.0.2])
+	by p00-icloudmta-asmtp-us-west-1a-1 (Postfix) with ESMTPS id 8599DC0009D;
+	Wed, 27 Aug 2025 13:52:14 +0000 (UTC)
+Dkim-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=1a1hai; bh=IxQJ2RU6C6OByZbnS3RcxG55Stk/Sv8enhHE+hyH9AM=; h=Content-Type:Mime-Version:Subject:From:Date:Message-Id:To:x-icloud-hme; b=xbmtnNpFyelq+M2ToF1fIR722qAG9B4U9IX8eykXVVpcrOCUcwOJrJ5s/LMaed/MsIjBG29y9IEX2oR5s8ULmobILuJahuW/wiM9yMjFpZL5gXt1TJt/Zuoo/6fq08g24WxfJUcgZjWCSJJll+7TlgvbjcPdQxMC4FlY6/4bwu8HnLFYEVN4QdnNBKSP94uxSmeZldXK0qawtvkbHrTTVyn/h4Jn+3mHNb0MtY37Z/Uib5aXQjb1OEsNVO1n0T42of/LCx4mtzthavCciOiA2V13/ktHlr9xaYCRdvxE3nvqAZkE7xfrNRGICKq9ETL9Te/ht+zHjV9lxU+D74bNfg==
+Original-Received: from smtpclient.apple (asmtp-me-k8s.p98.prod.me.com [17.56.9.34])
+	by p00-icloudmta-asmtp-us-west-1a-1 (Postfix) with ESMTPSA id 6859FC00092;
+	Wed, 27 Aug 2025 13:52:13 +0000 (UTC)
+In-Reply-To: <10567.1756274331@splode.eterna23.net>
+X-Mailer: Apple Mail (2.3826.500.181.1.5)
+X-Proofpoint-GUID: PI4MNx-Llh1rcq_PHEY6nLmFhgQIF68O
+X-Proofpoint-ORIG-GUID: PI4MNx-Llh1rcq_PHEY6nLmFhgQIF68O
+X-Proofpoint-Spam-Details-Enc: AW1haW4tMjUwODI3MDExOCBTYWx0ZWRfX7P7fwjwXcGj6
+ l1zsW7TvdhNtA5kuZmzC5x2s7Kods8QdLeZf/Y6V7pIDDVig2CZFSUMrmu+/BQ1MTTIGplXJJTQ
+ 32w7JocCdwQ2VWzfsVC/jplfA9L/hVw+Q/rU44Dtj4giZnJY8GWClw6E0xaH1j+zBvo6Vjj/B7j
+ J5DJGz7tttRf557ibTRhBFIVlLItelYcO6mNDJ7ZHr6rgSUnN2VO220M1ZotdJ0HS/WCNZWi7BO
+ HziA6I7ByUaVJpKg+YKT2e3OnVOoyXkm50hlcgMO1uagtLme9tK/4bQhzwvnodIHAdCSsDDsg=
+X-Proofpoint-Virus-Version: vendor=baseguard
+ engine=ICAP:2.0.293,Aquarius:18.0.1099,Hydra:6.1.9,FMLib:17.12.80.40
+ definitions=2025-08-27_03,2025-08-26_01,2025-03-28_01
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 bulkscore=0
+ spamscore=0 clxscore=1015 adultscore=0 suspectscore=0 phishscore=0
+ malwarescore=0 mlxlogscore=999 mlxscore=0 classifier=spam adjust=0 reason=mlx
+ scancount=1 engine=8.22.0-2506270000 definitions=main-2508270118
+X-JNJ: AAAAAAABlghTBTGzf+CIE7hOfm1Vwc4Z5Jdah/VN1bIIHwM0ZE1GFRj5lL0AdqP2MqNT1bTbKc3n0983tQss4m87IaULW5TzLoSWJTws+aaUhUUUAdNhNCd9k03CpzYaqXXne93arlhEa7+ZzbhVJc1e8nQ1+L5Yts2vG7++OFD75wGkrtZPgFkJ4zVSBrCTyZH20YbgnfHBPKmaQ5jhiCJOcz0uQYDzJDo01x/dM1/jWt5o560/falHNL9njE1shzQOc5Slo9dHTu3gXLTirtaCWHP2dn22r9G8vgBcwYlpryqgw8BycR7IPuEWLIXyhXTwNkb8NebBJcWFd/Qk2bm04FxSMLz3+iFREDC9Wi4CN1BmPcuv3dK8E79kdAkX3bzWjMK3mtWZei0AdqIetkoSDSX083gCXoS3L+5qelf0aw==
+Original-Sender: tech-kern-owner@NetBSD.org
+List-Id: <tech-kern.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20tech-kern&body=unsubscribe%20tech-kern>
+Xref: news.gmane.io gmane.os.netbsd.devel.kernel:59626 gmane.os.netbsd.ports.alpha:5529
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.devel.kernel/59626>
+
+
+
+> On Aug 26, 2025, at 10:58=E2=80=AFPM, matthew green <mrg@eterna23.net> =
+wrote:
+>=20
+>>> CPU:  0.0% user, 47.0% nice,  3.0% system,  0.1% interrupt, 49.8% =
+idle
+>=20
+> can you press 't' at top screen, so it shows both cpus separately?
+>=20
+> ie, monitor if it is one cpu stuck, or moves between, etc.?
+
+In his original post, John said he was able to force processes to =
+migrate using cpuctl, so I doubt one of the CPUs is =E2=80=9Cstuck=E2=80=9D=
+.
+
+It=E2=80=99s been a while since I inspected the scheduler code (my =
+recollection predates when the =E2=80=9C1st class=E2=80=9D / SMT logic =
+was added), so I refreshed my memory over my morning coffee today.
+
+Generally, the scheduler tries to keep an LWP on the CPU it last ran on, =
+because that improves cache locality.  Obviously, under duress, the =
+scheduler will decide to migrate to another CPU, but I don=E2=80=99t =
+remember the criteria (guess I'll need another cup of coffee).
+
+My wild-a** guess is that the initial CPU selection for the new LWP is =
+not working as expected.  There seems to be some logic specifically =
+around getting a newly-spawned-by-the-shell process off onto a different =
+CPU (sched_vforkexec() / LP_TELEPORT).  I=E2=80=99m concerned that this =
+is insufficient; wouldn=E2=80=99t you want the same logic to apply to a =
+new process created by posix_spawn()?  I don=E2=80=99t know that=E2=80=99s=
+ what the issue is here, but I=E2=80=99m hoping to provoke a discussion =
+so that people who=E2=80=99ve been in this code more recently than me =
+can explain how it=E2=80=99s supposed to work so we can reason about =
+what going wrong for John.
+
+-- thorpej
+
+
+
+From adr@sdf.org  Wed Aug 27 15:28:11 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: adr <adr@sdf.org>
+Newsgroups: gmane.os.netbsd.devel.kernel,gmane.os.netbsd.ports.alpha
+Subject: Re: All processes run on only one CPU
+Date: Wed, 27 Aug 2025 15:28:11 +0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <165be112-d186-1580-597f-8df8520df556@sdf.org>
+References: <10567.1756274331@splode.eterna23.net> <90806090-98B8-43B3-9CC3-5EDA8852036B@me.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="0-1243921512-1756308491=:21794"
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="32273"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: matthew green <mrg@eterna23.net>, John Klos <john@klos.com>,
+        port-alpha@netbsd.org,
+        NetBSD Kernel Technical Discussion List <tech-kern@NetBSD.org>
+To: Jason Thorpe <thorpej@me.com>
+Original-X-From: bounces-tech-kern-owner-netbsd-tech-kern=m.gmane-mx.org@NetBSD.org Wed Aug 27 17:28:45 2025
+Return-path: <bounces-tech-kern-owner-netbsd-tech-kern=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-tech-kern@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-tech-kern-owner-netbsd-tech-kern=m.gmane-mx.org@NetBSD.org>)
+	id 1urI4q-00085N-Rf
+	for netbsd-tech-kern@m.gmane-mx.org; Wed, 27 Aug 2025 17:28:45 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id EE7F885B04; Wed, 27 Aug 2025 15:28:38 +0000 (UTC)
+Delivered-To: tech-kern@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 9D38285A0D;
+	Wed, 27 Aug 2025 15:28:36 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new); dkim=neutral
+	reason="invalid (public key: not available)" header.d=sdf.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id oMo9NF79HJoN; Wed, 27 Aug 2025 15:28:36 +0000 (UTC)
+Original-Received: from mx.sdf.org (mx.sdf.org [205.166.94.24])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 9DAD48579B;
+	Wed, 27 Aug 2025 15:28:35 +0000 (UTC)
+Original-Received: from sdf.org (sdf.org [205.166.94.16])
+	by mx.sdf.org (8.18.1/8.14.3) with ESMTPS id 57RFSBVt023872
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256 bits) verified NO);
+	Wed, 27 Aug 2025 15:28:12 GMT
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple; d=sdf.org; s=default;
+	t=1756308493; bh=V6hAV5ibmf91oRtrfdHbTQXQNM/JLASQ25bqDjK8uXc=;
+	h=Date:From:To:cc:Subject:In-Reply-To:References;
+	b=gr3DGNBI1oBum6YeR/fDggf/Q0LQUWOJ1uCI+mYhDGQHywhf7o5CjARjeXpgGydhI
+	 ciqjYB8UJg81ps65IomgBn9HZlAg3D+xlWi5GNtmpMEUDxRTVz8t4S9/MVAfDsuxrU
+	 e3gwRzxm/VszVvJXPkZkO9e1AohkrE/ZQiNNGcAI=
+Original-Received: from localhost (adr@localhost)
+	by sdf.org (8.18.1/8.12.8/Submit) with ESMTP id 57RFSBvr025821;
+	Wed, 27 Aug 2025 15:28:11 GMT
+In-Reply-To: <90806090-98B8-43B3-9CC3-5EDA8852036B@me.com>
+Original-Sender: tech-kern-owner@NetBSD.org
+List-Id: <tech-kern.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20tech-kern&body=unsubscribe%20tech-kern>
+Xref: news.gmane.io gmane.os.netbsd.devel.kernel:59627 gmane.os.netbsd.ports.alpha:5530
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.devel.kernel/59627>
+
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+--0-1243921512-1756308491=:21794
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8BIT
+
+>> On Aug 26, 2025, at 10:58 PM, matthew green <mrg@eterna23.net> wrote:
+>>
+>>>> CPU:  0.0% user, 47.0% nice,  3.0% system,  0.1% interrupt, 49.8% idle
+>>
+>> can you press 't' at top screen, so it shows both cpus separately?
+
+That is for threads, isn't? I think you meant '1', or -1.
+
+Just in case people get confused.
+
+adr
+--0-1243921512-1756308491=:21794--
+
+
+From john@klos.com  Wed Aug 27 15:48:12 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: John Klos <john@klos.com>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.devel.kernel
+Subject: Re: All processes run on only one CPU
+Date: Wed, 27 Aug 2025 15:48:12 +0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <98d74f73-2667-6617-50bd-44ea219b7a52@daisy.zia.io>
+References: <10567.1756274331@splode.eterna23.net> <90806090-98B8-43B3-9CC3-5EDA8852036B@me.com> <165be112-d186-1580-597f-8df8520df556@sdf.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="28474"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org
+To: NetBSD Kernel Technical Discussion List <tech-kern@NetBSD.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Wed Aug 27 17:48:34 2025
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1urIO1-0007GN-RT
+	for netbsd-port-alpha@m.gmane-mx.org; Wed, 27 Aug 2025 17:48:34 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 0E59684D89; Wed, 27 Aug 2025 15:48:28 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 4C28685B1E
+	for <port-alpha@netbsd.org>; Wed, 27 Aug 2025 15:48:26 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id 4gBfS955TRzR for <port-alpha@netbsd.org>;
+	Wed, 27 Aug 2025 15:48:25 +0000 (UTC)
+Original-Received: from anath.zia.io (anath.zia.io [IPv6:2604:7c00:23:5:ff71:c3ae:58d8:ecb8])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 4926A84D4A
+	for <port-alpha@netbsd.org>; Wed, 27 Aug 2025 15:48:25 +0000 (UTC)
+Original-Received: from daisy.zia.io (daisy.zia.io [IPv6:2001:1890:1bb7:b400:0:da:15:4])
+	by anath.zia.io (8.18.1/8.16.1) with ESMTPS id 57RFmHE5018798
+	(version=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 bits=256 verify=NOT)
+	for <port-alpha@netbsd.org>; Wed, 27 Aug 2025 15:48:23 GMT
+Original-Received: from daisy.zia.io (localhost [127.0.0.1])
+	by daisy.zia.io (8.18.1/8.18.1) with ESMTPS id 57RFmCux007014
+	(version=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 bits=256 verify=NOT);
+	Wed, 27 Aug 2025 15:48:12 GMT
+Original-Received: from localhost (john@localhost)
+	by daisy.zia.io (8.18.1/8.18.1/Submit) with ESMTP id 57RFmCUF029734;
+	Wed, 27 Aug 2025 15:48:12 GMT
+In-Reply-To: <165be112-d186-1580-597f-8df8520df556@sdf.org>
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.6.4 (anath.zia.io [IPv6:2604:7c00:23:5:ff71:c3ae:58d8:ecb8]); Wed, 27 Aug 2025 15:48:24 +0000 (UTC)
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.6.4 (daisy.zia.io [0.0.0.0]); Wed, 27 Aug 2025 15:48:12 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5531 gmane.os.netbsd.devel.kernel:59628
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5531>
+
+>>>>>  CPU:  0.0% user, 47.0% nice,  3.0% system,  0.1% interrupt, 49.8% idle
+>>>
+>>>  can you press 't' at top screen, so it shows both cpus separately?
+>
+> That is for threads, isn't? I think you meant '1', or -1.
+
+Sure:
+
+load averages:  6.17,  6.09,  5.94;               up 67+01:27:45   15:47:04
+65 processes: 6 runnable, 58 sleeping, 1 on CPU
+CPU0: 54.8% user, 41.3% nice,  3.9% system,  0.0% interrupt,  0.0% idle
+CPU1:  0.0% user,  0.1% nice,  7.3% system,  0.3% interrupt, 92.3% idle
+Memory: 6131M Act, 3062M Inact, 14M Wired, 186M Exec, 8428M File, 269M Free
+Swap: 24G Total, 16M Used, 24G Free / Pools: 2564M Used / Network: 1K Out
+
+   PID USERNAME PRI NICE   SIZE   RES STATE       TIME   WCPU    CPU COMMAND
+22787 pbulk     27    0   128M  111M RUN/0       1:40 20.80% 20.80% cc1plus
+  9945 pbulk     27    0   126M  110M RUN/0       1:26 20.51% 20.51% cc1plus
+26088 pbulk     25    0    83M   57M RUN/0       0:06 21.18% 15.97% cc1plus
+18956 root      26    4   171M  164M RUN/0       4:41 12.16% 12.16% miniper
+  1370 root      26    4    49M   31M RUN/0       0:00 11.23%  3.32% cc1
+...
+
+John
+
+
+From mrg@eterna23.net  Thu Aug 28 14:49:45 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: matthew green <mrg@eterna23.net>
+Newsgroups: gmane.os.netbsd.devel.kernel,gmane.os.netbsd.ports.alpha
+Subject: re: All processes run on only one CPU
+Date: Thu, 28 Aug 2025 14:49:45 +1000
+Approved: news@gmane.org
+Message-ID: <6878.1756356585@splode.eterna23.net>
+References: <98d74f73-2667-6617-50bd-44ea219b7a52@daisy.zia.io>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="37850"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org,
+    NetBSD Kernel Technical Discussion List <tech-kern@NetBSD.org>
+To: John Klos <john@klos.com>
+Original-X-From: bounces-tech-kern-owner-netbsd-tech-kern=m.gmane-mx.org@NetBSD.org Thu Aug 28 06:50:01 2025
+Return-path: <bounces-tech-kern-owner-netbsd-tech-kern=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-tech-kern@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-tech-kern-owner-netbsd-tech-kern=m.gmane-mx.org@NetBSD.org>)
+	id 1urUaH-0009eR-DI
+	for netbsd-tech-kern@m.gmane-mx.org; Thu, 28 Aug 2025 06:50:01 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id C57F385D52; Thu, 28 Aug 2025 04:49:51 +0000 (UTC)
+Delivered-To: tech-kern@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 65E8B85D0A;
+	Thu, 28 Aug 2025 04:49:49 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id Qs2nfa3jYa9n; Thu, 28 Aug 2025 04:49:49 +0000 (UTC)
+Original-Received: from splode.eterna23.net (unknown [203.15.111.1])
+	by mail.netbsd.org (Postfix) with ESMTP id A113E84DD6;
+	Thu, 28 Aug 2025 04:49:46 +0000 (UTC)
+Original-Received: from splode.eterna23.net (localhost [127.0.0.1])
+	by splode.eterna23.net (Postfix) with ESMTP id 5E6641590B5;
+	Thu, 28 Aug 2025 14:49:45 +1000 (AEST)
+in-reply-to: <98d74f73-2667-6617-50bd-44ea219b7a52@daisy.zia.io>
+organisation: people's front against (bozotic) www (softwar foundation)
+x-other-organisation: The NetBSD Foundation.
+x-message: step back from the shadows of war!  seek out the ways of peace
+Content-ID: <28794.1756356585.1@splode.eterna23.net>
+Original-Sender: tech-kern-owner@NetBSD.org
+List-Id: <tech-kern.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20tech-kern&body=unsubscribe%20tech-kern>
+Xref: news.gmane.io gmane.os.netbsd.devel.kernel:59629 gmane.os.netbsd.ports.alpha:5532
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.devel.kernel/59629>
+
+> > That is for threads, isn't? I think you meant '1', or -1.
+
+thanks adr :)
+
+> Sure:
+>
+> load averages:  6.17,  6.09,  5.94;               up 67+01:27:45   15:47:04
+> 65 processes: 6 runnable, 58 sleeping, 1 on CPU
+> CPU0: 54.8% user, 41.3% nice,  3.9% system,  0.0% interrupt,  0.0% idle
+> CPU1:  0.0% user,  0.1% nice,  7.3% system,  0.3% interrupt, 92.3% idle
+
+if you monitor this, does it change often?  ie, we see that CPU0 is doing
+almost all the work in this snapshot, but over time, what's the trend?
+
+there's something weird going on with sched here.
+
+is hardclock() happening on all cpus properly (at hz rate)?  i've seen
+very bad scheduler perf if that didn't happen many years ago (some change
+ad@ made in the netbsd-5 timeframe, IIRC), but it mostly lead to hangs.
+maybe since then it's turned into working less poorly not hangs :)
+
+i am not sure what sort of info we have about sched decisions in the
+recent time, but maybe there's something we can dump out.
+
+
+.mrg.
+
+

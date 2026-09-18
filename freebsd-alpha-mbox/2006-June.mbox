@@ -1,0 +1,1340 @@
+From wb at freebie.xs4all.nl  Thu Jun  1 14:27:44 2006
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Thu Jun  1 14:27:57 2006
+Subject: 6.1-RELEASE panic / lockmgr?
+Message-ID: <20060601212736.GA3380@freebie.xs4all.nl>
+
+My dual-CPU DS20 Alpha box can more or less consistently be 
+forced into a panic like:
+
+FreeBSD/alpha (goldrush.wbnet) (ttyd0)^
+
+login: panic: lockmgr: thread 0xfffffc007d9d4a80, not exclusive lock holder
+0xfffffc006052d260 unlocking
+cpuid = 1
+KDB: enter: panic
+
+Trigger is a "make -j2 release".  j2 seems to be needed, not seen it with
+-j1
+
+Unfortunately after printing the line with "KDB" the whole thing appears
+to become completely catatonic :(
+
+Ideas?
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From rwatson at FreeBSD.org  Thu Jun  1 15:01:22 2006
+From: rwatson at FreeBSD.org (Robert Watson)
+Date: Thu Jun  1 15:01:56 2006
+Subject: 6.1-RELEASE panic / lockmgr?
+In-Reply-To: <20060601212736.GA3380@freebie.xs4all.nl>
+References: <20060601212736.GA3380@freebie.xs4all.nl>
+Message-ID: <20060601230007.C69345@fledge.watson.org>
+
+
+On Thu, 1 Jun 2006, Wilko Bulte wrote:
+
+> My dual-CPU DS20 Alpha box can more or less consistently be
+> forced into a panic like:
+>
+> FreeBSD/alpha (goldrush.wbnet) (ttyd0)^
+>
+> login: panic: lockmgr: thread 0xfffffc007d9d4a80, not exclusive lock holder
+> 0xfffffc006052d260 unlocking
+> cpuid = 1
+> KDB: enter: panic
+>
+> Trigger is a "make -j2 release".  j2 seems to be needed, not seen it with
+> -j1
+>
+> Unfortunately after printing the line with "KDB" the whole thing appears to 
+> become completely catatonic :(
+
+Try putting a call to critical_enter() towards the beginning of panic(). 
+Sometimes this increases the reliability of entering the debugger by avoiding 
+interrupt delivery during the process of entering.  If you want to be able to 
+continue out, you'll need a critical_exit() at the end, but that generally 
+isn't helpful for panic().
+
+Robert N M Watson
+From kris at obsecurity.org  Thu Jun  1 18:06:01 2006
+From: kris at obsecurity.org (Kris Kennaway)
+Date: Thu Jun  1 18:06:04 2006
+Subject: 6.1-RELEASE panic / lockmgr?
+In-Reply-To: <20060601230007.C69345@fledge.watson.org>
+References: <20060601212736.GA3380@freebie.xs4all.nl>
+	<20060601230007.C69345@fledge.watson.org>
+Message-ID: <20060602010600.GB40143@xor.obsecurity.org>
+
+On Thu, Jun 01, 2006 at 11:01:07PM +0100, Robert Watson wrote:
+> 
+> On Thu, 1 Jun 2006, Wilko Bulte wrote:
+> 
+> >My dual-CPU DS20 Alpha box can more or less consistently be
+> >forced into a panic like:
+> >
+> >FreeBSD/alpha (goldrush.wbnet) (ttyd0)^
+> >
+> >login: panic: lockmgr: thread 0xfffffc007d9d4a80, not exclusive lock holder
+> >0xfffffc006052d260 unlocking
+> >cpuid = 1
+> >KDB: enter: panic
+> >
+> >Trigger is a "make -j2 release".  j2 seems to be needed, not seen it with
+> >-j1
+> >
+> >Unfortunately after printing the line with "KDB" the whole thing appears 
+> >to become completely catatonic :(
+> 
+> Try putting a call to critical_enter() towards the beginning of panic(). 
+> Sometimes this increases the reliability of entering the debugger by 
+> avoiding interrupt delivery during the process of entering.  If you want to 
+> be able to continue out, you'll need a critical_exit() at the end, but that 
+> generally isn't helpful for panic().
+
+Also turn off debug.kdb.stop_other_cpus or whatever it is.  Without
+this I usually get lockups on sparc64 SMP machines.
+
+Kris
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: not available
+Type: application/pgp-signature
+Size: 187 bytes
+Desc: not available
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20060602/53003d74/attachment.pgp
+From wb at freebie.xs4all.nl  Fri Jun  2 00:08:11 2006
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Fri Jun  2 00:08:17 2006
+Subject: 6.1-RELEASE panic / lockmgr?
+In-Reply-To: <20060601230007.C69345@fledge.watson.org>
+References: <20060601212736.GA3380@freebie.xs4all.nl>
+	<20060601230007.C69345@fledge.watson.org>
+Message-ID: <20060602070807.GB3779@freebie.xs4all.nl>
+
+On Thu, Jun 01, 2006 at 11:01:07PM +0100, Robert Watson wrote..
+> 
+> On Thu, 1 Jun 2006, Wilko Bulte wrote:
+> 
+> >My dual-CPU DS20 Alpha box can more or less consistently be
+> >forced into a panic like:
+> >
+> >FreeBSD/alpha (goldrush.wbnet) (ttyd0)^
+> >
+> >login: panic: lockmgr: thread 0xfffffc007d9d4a80, not exclusive lock holder
+> >0xfffffc006052d260 unlocking
+> >cpuid = 1
+> >KDB: enter: panic
+> >
+> >Trigger is a "make -j2 release".  j2 seems to be needed, not seen it with
+> >-j1
+> >
+> >Unfortunately after printing the line with "KDB" the whole thing appears 
+> >to become completely catatonic :(
+> 
+> Try putting a call to critical_enter() towards the beginning of panic(). 
+> Sometimes this increases the reliability of entering the debugger by 
+> avoiding interrupt delivery during the process of entering.  If you want to 
+> be able to continue out, you'll need a critical_exit() at the end, but that 
+> generally isn't helpful for panic().
+
+Yesterday night I set debug.trace_on_panic=1 which sometime during
+the night gave me:
+
+[root@goldrush ~]# ./make-snap.sh 
+\1
+panic: lockmgr: thread 0xfffffc007d9d4fc0, not exclusive lock holder
+0xfffffc007d950a80 unlocking
+cpuid = 1
+KDB: stack backtrace:
+db_trace_self() at db_trace_self+0x18
+kdb_backtrace() at kdb_backtrace+0x48
+panic() at panic+0x1f0
+lockmgr() at lockmgr+0x798
+bqrelse() at bqrelse+0x598
+bdwrite() at bdwrite+0x4fc
+ffs_update() at ffs_update+0x3c8
+ufs_inactive() at ufs_inactive+0x468
+VOP_INACTIVE_APV() at VOP_INACTIVE_APV+0x60
+vinactive() at vinactive+0xa0
+vput() at vput+0x210
+handle_workitem_remove() at handle_workitem_remove+0x23c
+process_worklist_item() at process_worklist_item+0x2b8
+softdep_process_worklist() at softdep_process_worklist+0xbc
+softdep_flush() at softdep_flush+0x2a0
+fork_exit() at fork_exit+0xc0
+exception_return() at exception_return
+--- root of call graph ---
+KDB: enter: panic
+
+I'll try your suggestion with critical_enter() tonight, thanks.
+
+Wilko
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From wb at freebie.xs4all.nl  Fri Jun  2 00:11:49 2006
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Fri Jun  2 00:11:53 2006
+Subject: 6.1-RELEASE panic / lockmgr?
+In-Reply-To: <20060602010600.GB40143@xor.obsecurity.org>
+References: <20060601212736.GA3380@freebie.xs4all.nl>
+	<20060601230007.C69345@fledge.watson.org>
+	<20060602010600.GB40143@xor.obsecurity.org>
+Message-ID: <20060602071146.GA5925@freebie.xs4all.nl>
+
+On Thu, Jun 01, 2006 at 09:06:00PM -0400, Kris Kennaway wrote..
+> On Thu, Jun 01, 2006 at 11:01:07PM +0100, Robert Watson wrote:
+> > 
+> > On Thu, 1 Jun 2006, Wilko Bulte wrote:
+> > 
+> > >My dual-CPU DS20 Alpha box can more or less consistently be
+> > >forced into a panic like:
+> > >
+> > >FreeBSD/alpha (goldrush.wbnet) (ttyd0)^
+> > >
+> > >login: panic: lockmgr: thread 0xfffffc007d9d4a80, not exclusive lock holder
+> > >0xfffffc006052d260 unlocking
+> > >cpuid = 1
+> > >KDB: enter: panic
+> > >
+> > >Trigger is a "make -j2 release".  j2 seems to be needed, not seen it with
+> > >-j1
+> > >
+> > >Unfortunately after printing the line with "KDB" the whole thing appears 
+> > >to become completely catatonic :(
+> > 
+> > Try putting a call to critical_enter() towards the beginning of panic(). 
+> > Sometimes this increases the reliability of entering the debugger by 
+> > avoiding interrupt delivery during the process of entering.  If you want to 
+> > be able to continue out, you'll need a critical_exit() at the end, but that 
+> > generally isn't helpful for panic().
+> 
+> Also turn off debug.kdb.stop_other_cpus or whatever it is.  Without
+> this I usually get lockups on sparc64 SMP machines.
+
+debug.kdb.stop_cpus=0 seems to be it.  Will try that.
+
+thanks,
+Wilko
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From wb at freebie.xs4all.nl  Fri Jun  2 09:41:38 2006
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Fri Jun  2 09:41:49 2006
+Subject: 6.1-RELEASE panic / lockmgr?
+In-Reply-To: <20060601230007.C69345@fledge.watson.org>
+References: <20060601212736.GA3380@freebie.xs4all.nl>
+	<20060601230007.C69345@fledge.watson.org>
+Message-ID: <20060602164132.GA8376@freebie.xs4all.nl>
+
+On Thu, Jun 01, 2006 at 11:01:07PM +0100, Robert Watson wrote..
+> 
+> On Thu, 1 Jun 2006, Wilko Bulte wrote:
+> 
+> >My dual-CPU DS20 Alpha box can more or less consistently be
+> >forced into a panic like:
+> >
+> >FreeBSD/alpha (goldrush.wbnet) (ttyd0)^
+> >
+> >login: panic: lockmgr: thread 0xfffffc007d9d4a80, not exclusive lock holder
+> >0xfffffc006052d260 unlocking
+> >cpuid = 1
+> >KDB: enter: panic
+> >
+> >Trigger is a "make -j2 release".  j2 seems to be needed, not seen it with
+> >-j1
+> >
+> >Unfortunately after printing the line with "KDB" the whole thing appears 
+> >to become completely catatonic :(
+> 
+> Try putting a call to critical_enter() towards the beginning of panic(). 
+> Sometimes this increases the reliability of entering the debugger by 
+> avoiding interrupt delivery during the process of entering.  If you want to 
+> be able to continue out, you'll need a critical_exit() at the end, but that 
+> generally isn't helpful for panic().
+
+Jay! ANother one, and this one entered the debugger alright:
+
+racing pid 25497 tid 100147 td 0xfffffc004df56000
+kdb_enter() at kdb_enter+0x48
+panic() at panic+0x210
+lockmgr() at lockmgr+0x798
+vop_stdunlock() at vop_stdunlock+0x34
+VOP_UNLOCK_APV() at VOP_UNLOCK_APV+0x84
+vput() at vput+0xb4
+lookup() at lookup+0xd38
+namei() at namei+0x554
+do_execve() at do_execve+0x17c
+kern_execve() at kern_execve+0x160
+execve() at execve+0x60
+syscall() at syscall+0x438
+XentSys() at XentSys+0x64
+--- syscall (59, FreeBSD ELF64, execve) ---
+--- user mode ---
+db> 
+
+How to proceed here?  I have 0 clue on lockmgr & friends :)
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From kris at obsecurity.org  Fri Jun  2 09:50:54 2006
+From: kris at obsecurity.org (Kris Kennaway)
+Date: Fri Jun  2 09:50:57 2006
+Subject: 6.1-RELEASE panic / lockmgr?
+In-Reply-To: <20060602164132.GA8376@freebie.xs4all.nl>
+References: <20060601212736.GA3380@freebie.xs4all.nl>
+	<20060601230007.C69345@fledge.watson.org>
+	<20060602164132.GA8376@freebie.xs4all.nl>
+Message-ID: <20060602165035.GA67889@xor.obsecurity.org>
+
+On Fri, Jun 02, 2006 at 06:41:32PM +0200, Wilko Bulte wrote:
+> On Thu, Jun 01, 2006 at 11:01:07PM +0100, Robert Watson wrote..
+> > 
+> > On Thu, 1 Jun 2006, Wilko Bulte wrote:
+> > 
+> > >My dual-CPU DS20 Alpha box can more or less consistently be
+> > >forced into a panic like:
+> > >
+> > >FreeBSD/alpha (goldrush.wbnet) (ttyd0)^
+> > >
+> > >login: panic: lockmgr: thread 0xfffffc007d9d4a80, not exclusive lock holder
+> > >0xfffffc006052d260 unlocking
+> > >cpuid = 1
+> > >KDB: enter: panic
+> > >
+> > >Trigger is a "make -j2 release".  j2 seems to be needed, not seen it with
+> > >-j1
+> > >
+> > >Unfortunately after printing the line with "KDB" the whole thing appears 
+> > >to become completely catatonic :(
+> > 
+> > Try putting a call to critical_enter() towards the beginning of panic(). 
+> > Sometimes this increases the reliability of entering the debugger by 
+> > avoiding interrupt delivery during the process of entering.  If you want to 
+> > be able to continue out, you'll need a critical_exit() at the end, but that 
+> > generally isn't helpful for panic().
+> 
+> Jay! ANother one, and this one entered the debugger alright:
+> 
+> racing pid 25497 tid 100147 td 0xfffffc004df56000
+> kdb_enter() at kdb_enter+0x48
+> panic() at panic+0x210
+> lockmgr() at lockmgr+0x798
+> vop_stdunlock() at vop_stdunlock+0x34
+> VOP_UNLOCK_APV() at VOP_UNLOCK_APV+0x84
+> vput() at vput+0xb4
+> lookup() at lookup+0xd38
+> namei() at namei+0x554
+> do_execve() at do_execve+0x17c
+> kern_execve() at kern_execve+0x160
+> execve() at execve+0x60
+> syscall() at syscall+0x438
+> XentSys() at XentSys+0x64
+> --- syscall (59, FreeBSD ELF64, execve) ---
+> --- user mode ---
+> db> 
+> 
+> How to proceed here?  I have 0 clue on lockmgr & friends :)
+
+Enable DEBUG_VFS_LOCKS and DEBUG_LOCKS, then use 'show lockedvnods' to
+find what other thread(s) is holding locks, and also trace them with
+'tr <pid/tid>'
+
+Kris
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: not available
+Type: application/pgp-signature
+Size: 187 bytes
+Desc: not available
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20060602/5e8cc820/attachment.pgp
+From bugmaster at freebsd.org  Mon Jun  5 04:02:49 2006
+From: bugmaster at freebsd.org (FreeBSD bugmaster)
+Date: Mon Jun  5 04:03:00 2006
+Subject: Current problem reports assigned to you
+Message-ID: <200606051102.k55B2j5Z010147@freefall.freebsd.org>
+
+Current FreeBSD problem reports
+Critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2004/12/20] alpha/75317 alpha       [ata] [busdma] ATA DMA broken on PCalpha
+
+1 problem total.
+
+Serious problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2003/02/05] alpha/47952 alpha       DEFPA causes machine check with V5.0-rele
+o [2003/11/10] alpha/59116 alpha       [ntfs] mount_ntfs of a Windows 2000-forma
+o [2004/01/26] alpha/61940 alpha       Can't disklabel new disk from FreeBSD/alp
+o [2004/01/27] alpha/61973 alpha       Machine Check on boot-up of AlphaServer 2
+s [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+o [2005/08/27] alpha/85346 alpha       PREEMPTION causes unstability in Alpha400
+
+6 problems total.
+
+Non-critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2001/02/22] alpha/25284 alpha       PC164 won't reboot with graphics console
+o [2002/05/13] alpha/38031 alpha       osf1.ko not loaded during boot-time of li
+o [2003/02/25] alpha/48676 alpha       Changing the baud rate of serial consoles
+o [2003/04/12] alpha/50868 alpha       fd0 floppy device is not mapped into /dev
+o [2004/05/10] alpha/66478 alpha       unexpected machine check: panic for 4.9, 
+o [2004/06/13] alpha/67903 alpha       hw.chipset.memory: 1099511627776 - thats 
+
+6 problems total.
+
+From tinderbox at freebsd.org  Thu Jun  8 22:44:58 2006
+From: tinderbox at freebsd.org (FreeBSD Tinderbox)
+Date: Thu Jun  8 23:03:35 2006
+Subject: [releng_5 tinderbox] failure on alpha/alpha
+Message-ID: <20060608213220.8F990241A2@freebsd-stable.sentex.ca>
+
+TB --- 2006-06-08 20:34:26 - tinderbox 2.3 running on freebsd-stable.sentex.ca
+TB --- 2006-06-08 20:34:26 - starting RELENG_5 tinderbox run for alpha/alpha
+TB --- 2006-06-08 20:34:26 - cleaning the object tree
+TB --- 2006-06-08 20:34:53 - checking out the source tree
+TB --- 2006-06-08 20:34:53 - cd /tinderbox/RELENG_5/alpha/alpha
+TB --- 2006-06-08 20:34:53 - /usr/bin/cvs -f -R -q -d/home/ncvs update -Pd -rRELENG_5 src
+TB --- 2006-06-08 20:44:05 - building world (CFLAGS=-O -pipe)
+TB --- 2006-06-08 20:44:05 - cd /src
+TB --- 2006-06-08 20:44:05 - /usr/bin/make -B buildworld
+>>> Rebuilding the temporary build tree
+>>> stage 1.1: legacy release compatibility shims
+>>> stage 1.2: bootstrap tools
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3: cross tools
+>>> stage 4.1: building includes
+>>> stage 4.2: building libraries
+>>> stage 4.3: make dependencies
+>>> stage 4.4: building everything
+TB --- 2006-06-08 21:30:50 - generating LINT kernel config
+TB --- 2006-06-08 21:30:50 - cd /src/sys/alpha/conf
+TB --- 2006-06-08 21:30:50 - /usr/bin/make -B LINT
+TB --- 2006-06-08 21:30:50 - building LINT kernel (COPTFLAGS=-O -pipe)
+TB --- 2006-06-08 21:30:50 - cd /src
+TB --- 2006-06-08 21:30:50 - /usr/bin/make buildkernel KERNCONF=LINT
+>>> Kernel build for LINT started on Thu Jun  8 21:30:50 UTC 2006
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+[...]
+@ -> /src/sys
+machine -> /src/sys/alpha/include
+awk -f @/tools/makeobjops.awk @/kern/bus_if.m -h
+awk -f @/tools/makeobjops.awk @/kern/device_if.m -h
+awk -f @/tools/makeobjops.awk @/dev/pci/pci_if.m -h
+ln -s /obj/alpha/src/sys/LINT/opt_cam.h opt_cam.h
+ln -s /obj/alpha/src/sys/LINT/opt_ddb.h opt_ddb.h
+make: don't know how to make mpt_freebsd.c. Stop
+*** Error code 2
+
+Stop in /src/sys/modules.
+*** Error code 1
+
+Stop in /obj/alpha/src/sys/LINT.
+*** Error code 1
+
+Stop in /src.
+*** Error code 1
+
+Stop in /src.
+TB --- 2006-06-08 21:32:20 - WARNING: /usr/bin/make returned exit code  1 
+TB --- 2006-06-08 21:32:20 - ERROR: failed to build lint kernel
+TB --- 2006-06-08 21:32:20 - tinderbox aborted
+TB --- 1.11 user 3.40 system 3473.77 real
+
+From post at schmixfilm.de  Sat Jun 10 20:35:39 2006
+From: post at schmixfilm.de (schmix_film)
+Date: Sat Jun 10 20:47:16 2006
+Subject: Weltmeister [schmix_film feat. Lax Alex Contrax]
+Message-ID: <0ML29c-1Fp0aW3FWJ-0001PB@mrelayeu.kundenserver.de>
+
+
+                         Leckomio, liebe Wartenden!
+
+                                      
+
+   Die Heiopeis vom Niederrhein haben es mit viel Ramba-Zamba wieder mal
+                     auf den letzten Drücker geschafft:
+
+    Nach zahlreichen Nächten im Atelier der Alberei kommt nun doch noch
+                 pünktlich der schmix_film-Beitrag zur WM.
+
+
+      Unsere zwei frechen Himmelhunde spielen diesmal acht (in Worten:
+                             acht!) Charaktere
+
+      im Clip zum brandneuen "Weltmeister"-Song von Lax Alex Contrax.
+
+
+    Klemmi aus "Stille Wasser" ist wieder dabei, aber auch Jochen, Zecki
+                und Herr Berg bekommen ihre 3 Minuten Ruhm.
+   Für knisternde Erotik sorgen zwei hemmungslose Trikot-Luder mit tollen
+                                  Tröten.
+
+
+      Doch der großen Worte seien genug gewechselt - Ball frei für die
+             spielerisch wohl beste deutsche Acht aller Zeiten
+
+
+                        Vorführung im Online-Kino ->
+          [1]http://www.schmixfilm.de/kino_weltmeister_start.html
+
+                         Direkt-Link zum Clip -> :
+               [2]http://62.75.215.190/schmix/weltmeister.mpg
+
+
+          [3]http://www.schmixfilm.de/kino_weltmeister_start.html
+           http://www.schmixfilm.de/kino_weltmeister_start.html 
+
+
+
+                             Dear waiting ones!
+
+
+      After numerous nights in their creepy laboratories those german
+              semi-nerds from schmixfilm finally did it again
+
+    and right on time we are now proud to present you their contribution
+                           to the World Cup 2006.
+
+
+     This time they shake their hips to the inofficial World Cup-anthem
+               Weltmeister from Germanys Ska-heroes Lax Alex!
+
+
+     Enough of the boring blabla: Kick it with probably the best German
+                            eight of all times!
+
+
+                      online presentaion in cinema ->
+          [4]http://www.schmixfilm.de/kino_weltmeister_start.html
+
+                          direct link to clip -> :
+               [5]http://62.75.215.190/schmix/weltmeister.mpg
+
+References
+
+   1. http://www.schmixfilm.de/kino_weltmeister_start.html
+   2. http://62.75.215.190/schmix/weltmeister.mpg
+   3. http://www.schmixfilm.de/kino_weltmeister_start.html
+   4. http://www.schmixfilm.de/kino_weltmeister_start.html
+   5. http://62.75.215.190/schmix/weltmeister.mpg
+From bugmaster at freebsd.org  Mon Jun 12 11:02:49 2006
+From: bugmaster at freebsd.org (FreeBSD bugmaster)
+Date: Mon Jun 12 11:02:58 2006
+Subject: Current problem reports assigned to you
+Message-ID: <200606121102.k5CB2lPG098789@freefall.freebsd.org>
+
+Current FreeBSD problem reports
+Critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2004/12/20] alpha/75317 alpha       [ata] [busdma] ATA DMA broken on PCalpha
+
+1 problem total.
+
+Serious problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2003/02/05] alpha/47952 alpha       DEFPA causes machine check with V5.0-rele
+o [2003/11/10] alpha/59116 alpha       [ntfs] mount_ntfs of a Windows 2000-forma
+o [2004/01/26] alpha/61940 alpha       Can't disklabel new disk from FreeBSD/alp
+o [2004/01/27] alpha/61973 alpha       Machine Check on boot-up of AlphaServer 2
+s [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+o [2005/08/27] alpha/85346 alpha       PREEMPTION causes unstability in Alpha400
+
+6 problems total.
+
+Non-critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2001/02/22] alpha/25284 alpha       PC164 won't reboot with graphics console
+o [2002/05/13] alpha/38031 alpha       osf1.ko not loaded during boot-time of li
+o [2003/02/25] alpha/48676 alpha       Changing the baud rate of serial consoles
+o [2003/04/12] alpha/50868 alpha       fd0 floppy device is not mapped into /dev
+o [2004/05/10] alpha/66478 alpha       unexpected machine check: panic for 4.9, 
+o [2004/06/13] alpha/67903 alpha       hw.chipset.memory: 1099511627776 - thats 
+
+6 problems total.
+
+From dezwarte at xs4all.nl  Mon Jun 12 20:26:38 2006
+From: dezwarte at xs4all.nl (dezwarte)
+Date: Mon Jun 12 22:35:36 2006
+Subject: (no subject)
+Message-ID: <000001c68e5e$70bc3390$0c00000a@xpworkstation>
+
+Dear,
+
+ 
+
+I have buy last a alphaserver800 5/400 so I like to learn freebsd and how
+it works. 
+
+But it is all new for me so I want to instaal it on my new machine.
+
+Is there enyody who can give me some examples "how to install" it on a
+alphaserver800
+
+ 
+
+ I have try the bootonly cd and this iis all what I can get.....;-((
+
+(boot dka300.3.0.5.0 -flags 0
+
+Block 0 of dka300.3.0.5.0 is a valid boot block Reading 407 blocks from
+dka300.3.0.5.0 Bootstrap code read in Building FRU tableFRU tablesize =0xd7b
+Base =1d6000 image_start =0, image_bytes =32e00 Initializing HWRPB 2000
+Initializing page table at ffce000 Initializing machine state Setting
+affinity to the primary CPU jumping to bootstrap code
+
+ 
+
+After this my machine stops and reboot automaticly after a few
+
+
+
+
+
+Thanks
+
+erwin
+
+From rjv at weblinkmo.com  Mon Jun 12 22:40:34 2006
+From: rjv at weblinkmo.com (Richard J. Valenta)
+Date: Mon Jun 12 22:40:41 2006
+Subject: (no subject)
+In-Reply-To: <000001c68e5e$70bc3390$0c00000a@xpworkstation>
+Message-ID: <8F8C8CFE62002A4EB82EE1CE9F2ED7D40642A4@depot.AxxisCorp.local>
+
+
+I am no expert... but I believe you may need to tell it to boot from the
+CD.  Someone more familiar will have to explain if they agree.
+
+I think I initially figured it out via 'help'... but I also had a
+manual.. wish I knew where it was now.
+
+
+
+Richard J. Valenta 
+Note:  The information contained in this e-mail message, including any
+attachments, is legally privileged and confidential.  If you are not the
+intended recipient, you are hereby notified that any reading, use or
+dissemination of this message is strictly prohibited.  If you have
+received this message in error, please immediately, notify us by
+telephone and delete this message from your system.
+--This message is NOT or NOLONGER ENCRYPTED 
+
+
+-----Original Message-----
+From: owner-freebsd-alpha@freebsd.org
+[mailto:owner-freebsd-alpha@freebsd.org] On Behalf Of dezwarte
+Sent: Monday, June 12, 2006 3:26 PM
+To: freebsd-alpha@freebsd.org
+Subject: (no subject)
+
+Dear,
+
+ 
+
+I have buy last a alphaserver800 5/400 so I like to learn freebsd and
+how
+it works. 
+
+But it is all new for me so I want to instaal it on my new machine.
+
+Is there enyody who can give me some examples "how to install" it on a
+alphaserver800
+
+ 
+
+ I have try the bootonly cd and this iis all what I can get.....;-((
+
+(boot dka300.3.0.5.0 -flags 0
+
+Block 0 of dka300.3.0.5.0 is a valid boot block Reading 407 blocks from
+dka300.3.0.5.0 Bootstrap code read in Building FRU tableFRU tablesize
+=0xd7b
+Base =1d6000 image_start =0, image_bytes =32e00 Initializing HWRPB 2000
+Initializing page table at ffce000 Initializing machine state Setting
+affinity to the primary CPU jumping to bootstrap code
+
+ 
+
+After this my machine stops and reboot automaticly after a few
+
+
+
+
+
+Thanks
+
+erwin
+
+_______________________________________________
+freebsd-alpha@freebsd.org mailing list
+http://lists.freebsd.org/mailman/listinfo/freebsd-alpha
+To unsubscribe, send any mail to "freebsd-alpha-unsubscribe@freebsd.org"
+From bugmaster at freebsd.org  Mon Jun 19 11:02:45 2006
+From: bugmaster at freebsd.org (FreeBSD bugmaster)
+Date: Mon Jun 19 11:02:48 2006
+Subject: Current problem reports assigned to you
+Message-ID: <200606191102.k5JB2iOh064100@freefall.freebsd.org>
+
+Current FreeBSD problem reports
+Critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2004/12/20] alpha/75317 alpha       [ata] [busdma] ATA DMA broken on PCalpha
+
+1 problem total.
+
+Serious problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2003/02/05] alpha/47952 alpha       DEFPA causes machine check with V5.0-rele
+o [2003/11/10] alpha/59116 alpha       [ntfs] mount_ntfs of a Windows 2000-forma
+o [2004/01/26] alpha/61940 alpha       Can't disklabel new disk from FreeBSD/alp
+o [2004/01/27] alpha/61973 alpha       Machine Check on boot-up of AlphaServer 2
+s [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+o [2005/08/27] alpha/85346 alpha       PREEMPTION causes unstability in Alpha400
+
+6 problems total.
+
+Non-critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2001/02/22] alpha/25284 alpha       PC164 won't reboot with graphics console
+o [2002/05/13] alpha/38031 alpha       osf1.ko not loaded during boot-time of li
+o [2003/02/25] alpha/48676 alpha       Changing the baud rate of serial consoles
+o [2003/04/12] alpha/50868 alpha       fd0 floppy device is not mapped into /dev
+o [2004/05/10] alpha/66478 alpha       unexpected machine check: panic for 4.9, 
+o [2004/06/13] alpha/67903 alpha       hw.chipset.memory: 1099511627776 - thats 
+
+6 problems total.
+
+From furutaka at jb3.so-net.ne.jp  Mon Jun 19 12:45:22 2006
+From: furutaka at jb3.so-net.ne.jp (Kazuyoshi Furutaka)
+Date: Mon Jun 19 12:45:25 2006
+Subject: alpha/67626: X crashes an alpha machine, resulting reboot
+In-Reply-To: <200510231839.j9NIdHnj002910@freefall.freebsd.org>
+	<200606191102.k5JB2iOh064100@freefall.freebsd.org>
+References: <200510231839.j9NIdHnj002910@freefall.freebsd.org>
+Message-ID: <20060619.214519.465778491.furutaka@jb3.so-net.ne.jp>
+
+From: FreeBSD bugmaster <bugmaster@freebsd.org>
+Subject: Current problem reports assigned to you
+Date: Mon, 19 Jun 2006 11:02:44 GMT
+
+> Serious problems
+> 
+> S  Submitted   Tracker     Resp.       Description
+> -------------------------------------------------------------------------------
+(snip)
+> s [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+
+From: Mark Linimon <linimon@FreeBSD.org>
+Subject: Re: alpha/67626: X crashes an alpha machine, resulting reboot
+Date: Sun, 23 Oct 2005 18:39:17 GMT
+
+> Synopsis: X crashes an alpha machine, resulting reboot
+> 
+> State-Changed-From-To: feedback->suspended
+> State-Changed-By: linimon
+> State-Changed-When: Sun Oct 23 18:38:28 GMT 2005
+> State-Changed-Why: 
+> Feedback was received quite some time ago.  Mark as 'suspended' since it
+> seems no one has looked at this in quite some time.
+> 
+> http://www.freebsd.org/cgi/query-pr.cgi?pr=67626
+
+It's been a while since this was marked as 'suspended'.
+
+I'd like to uninstall FreeBSD and install some other OS
+if it's going to be left untouched and be kept 'suspended'
+further.
+
+Yours,
+Kazuyoshi
+--
+Kazuyoshi Furutaka
+furutaka@jb3.so-net.ne.jp
+From jhb at freebsd.org  Mon Jun 19 14:12:35 2006
+From: jhb at freebsd.org (John Baldwin)
+Date: Mon Jun 19 14:12:38 2006
+Subject: alpha/67626: X crashes an alpha machine, resulting reboot
+In-Reply-To: <20060619.214519.465778491.furutaka@jb3.so-net.ne.jp>
+References: <200510231839.j9NIdHnj002910@freefall.freebsd.org>
+	<20060619.214519.465778491.furutaka@jb3.so-net.ne.jp>
+Message-ID: <200606190856.55473.jhb@freebsd.org>
+
+On Monday 19 June 2006 08:45, Kazuyoshi Furutaka wrote:
+> From: FreeBSD bugmaster <bugmaster@freebsd.org>
+> Subject: Current problem reports assigned to you
+> Date: Mon, 19 Jun 2006 11:02:44 GMT
+> 
+> > Serious problems
+> > 
+> > S  Submitted   Tracker     Resp.       Description
+> > -------------------------------------------------------------------------------
+> (snip)
+> > s [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+> 
+> From: Mark Linimon <linimon@FreeBSD.org>
+> Subject: Re: alpha/67626: X crashes an alpha machine, resulting reboot
+> Date: Sun, 23 Oct 2005 18:39:17 GMT
+> 
+> > Synopsis: X crashes an alpha machine, resulting reboot
+> > 
+> > State-Changed-From-To: feedback->suspended
+> > State-Changed-By: linimon
+> > State-Changed-When: Sun Oct 23 18:38:28 GMT 2005
+> > State-Changed-Why: 
+> > Feedback was received quite some time ago.  Mark as 'suspended' since it
+> > seems no one has looked at this in quite some time.
+> > 
+> > http://www.freebsd.org/cgi/query-pr.cgi?pr=67626
+> 
+> It's been a while since this was marked as 'suspended'.
+> 
+> I'd like to uninstall FreeBSD and install some other OS
+> if it's going to be left untouched and be kept 'suspended'
+> further.
+
+We'd really need a stacktrace to help.  It would also be useful to know
+if more recent versions of the OS (such as 6.1) exhibit the same problems.
+
+As far as getting serial console working, you don't need to create a
+/boot.config file (that is i386-specific).  However, you need to get SRM
+to use the serial console and then the loader and kernel will use it.  It's
+been a while since I set it up, but I would look at your SRM variables and
+see if there's a CONSOLE variable you can set to SERIAL instead of VIDEO
+(IIRC).  You can then try running 'init' from SRM to restart SRM which
+should then show up on your serial console.  You might be able to find more
+definitive instructions on using SRM with a serial console via a web search.
+
+-- 
+John Baldwin <jhb@FreeBSD.org> ?<>< ?http://www.FreeBSD.org/~jhb/
+"Power Users Use the Power to Serve" ?= ?http://www.FreeBSD.org
+From walter at alasir.com  Mon Jun 19 15:31:33 2006
+From: walter at alasir.com (Paul V. Bolotoff)
+Date: Mon Jun 19 15:31:35 2006
+Subject: alpha/67626: X crashes an alpha machine, resulting reboot
+Message-ID: <E1FsLhw-0003Oq-Ke@webmail13.yourhostingaccount.com>
+
+The mga driver isn't well optimised for Alpha. At least, I've had no success with Matrox Millennium and Millennium II on 164LX. Applies to both FreeBSD and NetBSD. Try with NVidia or ATI graphics hardware, though various PCI video cards by Trident seem to work as well.
+
+Regards,
+PVB
+
+On Mon, 19 Jun 2006 21:45 , Kazuyoshi Furutaka <furutaka@jb3.so-net.ne.jp> sent:
+
+>From: FreeBSD bugmaster bugmaster@freebsd.org>
+>Subject: Current problem reports assigned to you
+>Date: Mon, 19 Jun 2006 11:02:44 GMT
+>
+>> Serious problems
+>> 
+>> S  Submitted   Tracker     Resp.       Description
+>> -------------------------------------------------------------------------------
+>(snip)
+>> s [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+>
+>From: Mark Linimon linimon@FreeBSD.org>
+>Subject: Re: alpha/67626: X crashes an alpha machine, resulting reboot
+>Date: Sun, 23 Oct 2005 18:39:17 GMT
+>
+>> Synopsis: X crashes an alpha machine, resulting reboot
+>> 
+>> State-Changed-From-To: feedback->suspended
+>> State-Changed-By: linimon
+>> State-Changed-When: Sun Oct 23 18:38:28 GMT 2005
+>> State-Changed-Why: 
+>> Feedback was received quite some time ago.  Mark as 'suspended' since it
+>> seems no one has looked at this in quite some time.
+>> 
+>> http://www.freebsd.org/cgi/query-pr.cgi\?pr=67626
+>
+>It's been a while since this was marked as 'suspended'.
+>
+>I'd like to uninstall FreeBSD and install some other OS
+>if it's going to be left untouched and be kept 'suspended'
+>further.
+>
+>Yours,
+>Kazuyoshi
+>--
+>Kazuyoshi Furutaka
+>furutaka@jb3.so-net.ne.jp
+
+
+
+From linimon at lonesome.com  Mon Jun 19 16:32:46 2006
+From: linimon at lonesome.com (Mark Linimon)
+Date: Mon Jun 19 16:32:52 2006
+Subject: alpha/67626: X crashes an alpha machine, resulting reboot
+In-Reply-To: <20060619.214519.465778491.furutaka@jb3.so-net.ne.jp>
+References: <200510231839.j9NIdHnj002910@freefall.freebsd.org>
+	<20060619.214519.465778491.furutaka@jb3.so-net.ne.jp>
+Message-ID: <20060619163234.GC10815@soaustin.net>
+
+On Mon, Jun 19, 2006 at 09:45:19PM +0900, Kazuyoshi Furutaka wrote:
+> I'd like to uninstall FreeBSD and install some other OS
+> if it's going to be left untouched and be kept 'suspended'
+> further.
+
+This all depends on developer interest in fixing the problem as as one
+of the administrators of the PR database I don't have any control over
+that, sorry.
+
+mcl
+From furutaka at jb3.so-net.ne.jp  Tue Jun 20 14:33:50 2006
+From: furutaka at jb3.so-net.ne.jp (Kazuyoshi Furutaka)
+Date: Tue Jun 20 14:33:54 2006
+Subject: alpha/67626: X crashes an alpha machine, resulting reboot
+In-Reply-To: <200606190856.55473.jhb@freebsd.org>
+References: <200510231839.j9NIdHnj002910@freefall.freebsd.org>
+	<20060619.214519.465778491.furutaka@jb3.so-net.ne.jp>
+	<200606190856.55473.jhb@freebsd.org>
+Message-ID: <20060620.233256.345485143.furutaka@jb3.so-net.ne.jp>
+
+Dear John, Mark and all others,
+
+From: John Baldwin <jhb@freebsd.org>
+Subject: Re: alpha/67626: X crashes an alpha machine, resulting reboot
+Date: Mon, 19 Jun 2006 08:56:55 -0400
+
+> We'd really need a stacktrace to help.  It would also be useful to know
+> if more recent versions of the OS (such as 6.1) exhibit the same problems.
+> 
+> As far as getting serial console working, you don't need to create a
+> /boot.config file (that is i386-specific).  However, you need to get SRM
+> to use the serial console and then the loader and kernel will use it.  It's
+> been a while since I set it up, but I would look at your SRM variables and
+> see if there's a CONSOLE variable you can set to SERIAL instead of VIDEO
+> (IIRC).  You can then try running 'init' from SRM to restart SRM which
+> should then show up on your serial console.  You might be able to find more
+> definitive instructions on using SRM with a serial console via a web search.
+
+Well, could you tell me how I can collect more information from
+the current installation, in addition to the attached ?
+
+Later I'll test more recent versions...
+
+
+Yours,
+Kazuyoshi
+--
+Kazuyoshi Furutaka
+furutaka@jb3.so-net.ne.jp
+
+
+-------------- next part --------------
+An embedded message was scrubbed...
+From: Kazuyoshi Furutaka <furutaka@jb3.so-net.ne.jp>
+Subject: Re: alpha/67626: X crashes an alpha machine, resulting reboot
+Date: Wed, 12 Oct 2005 07:37:54 +0900 (JST)
+Size: 11078
+Url: http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20060620/832fd43d/attachment.eml
+-------------- next part --------------
+An embedded message was scrubbed...
+From: Kazuyoshi Furutaka <furutaka@jb3.so-net.ne.jp>
+Subject: Re: alpha/67626: X crashes an alpha machine, resulting reboot
+Date: Wed, 12 Oct 2005 07:39:19 +0900 (JST)
+Size: 22763
+Url: http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20060620/832fd43d/attachment-0001.eml
+From jhb at freebsd.org  Tue Jun 20 17:06:17 2006
+From: jhb at freebsd.org (John Baldwin)
+Date: Tue Jun 20 17:06:20 2006
+Subject: alpha/67626: X crashes an alpha machine, resulting reboot
+In-Reply-To: <20060620.233256.345485143.furutaka@jb3.so-net.ne.jp>
+References: <200510231839.j9NIdHnj002910@freefall.freebsd.org>
+	<200606190856.55473.jhb@freebsd.org>
+	<20060620.233256.345485143.furutaka@jb3.so-net.ne.jp>
+Message-ID: <200606201249.25983.jhb@freebsd.org>
+
+On Tuesday 20 June 2006 10:32, Kazuyoshi Furutaka wrote:
+> Dear John, Mark and all others,
+> 
+> From: John Baldwin <jhb@freebsd.org>
+> Subject: Re: alpha/67626: X crashes an alpha machine, resulting reboot
+> Date: Mon, 19 Jun 2006 08:56:55 -0400
+> 
+> > We'd really need a stacktrace to help.  It would also be useful to know
+> > if more recent versions of the OS (such as 6.1) exhibit the same problems.
+> > 
+> > As far as getting serial console working, you don't need to create a
+> > /boot.config file (that is i386-specific).  However, you need to get SRM
+> > to use the serial console and then the loader and kernel will use it.  
+It's
+> > been a while since I set it up, but I would look at your SRM variables and
+> > see if there's a CONSOLE variable you can set to SERIAL instead of VIDEO
+> > (IIRC).  You can then try running 'init' from SRM to restart SRM which
+> > should then show up on your serial console.  You might be able to find 
+more
+> > definitive instructions on using SRM with a serial console via a web 
+search.
+> 
+> Well, could you tell me how I can collect more information from
+> the current installation, in addition to the attached ?
+> 
+> Later I'll test more recent versions...
+
+A 0x670 vector machine check indicates a hardware failure specific to the
+CPU such as a cache failure.
+
+-- 
+John Baldwin
+From ticso at cicely12.cicely.de  Tue Jun 20 17:31:58 2006
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Tue Jun 20 17:32:01 2006
+Subject: alpha/67626: X crashes an alpha machine, resulting reboot
+In-Reply-To: <200606201249.25983.jhb@freebsd.org>
+References: <200510231839.j9NIdHnj002910@freefall.freebsd.org>
+	<200606190856.55473.jhb@freebsd.org>
+	<20060620.233256.345485143.furutaka@jb3.so-net.ne.jp>
+	<200606201249.25983.jhb@freebsd.org>
+Message-ID: <20060620173147.GB14871@cicely12.cicely.de>
+
+On Tue, Jun 20, 2006 at 12:49:25PM -0400, John Baldwin wrote:
+> On Tuesday 20 June 2006 10:32, Kazuyoshi Furutaka wrote:
+> > Dear John, Mark and all others,
+> > 
+> > From: John Baldwin <jhb@freebsd.org>
+> > Subject: Re: alpha/67626: X crashes an alpha machine, resulting reboot
+> > Date: Mon, 19 Jun 2006 08:56:55 -0400
+> > 
+> > > We'd really need a stacktrace to help.  It would also be useful to know
+> > > if more recent versions of the OS (such as 6.1) exhibit the same problems.
+> > > 
+> > > As far as getting serial console working, you don't need to create a
+> > > /boot.config file (that is i386-specific).  However, you need to get SRM
+> > > to use the serial console and then the loader and kernel will use it.  
+> It's
+> > > been a while since I set it up, but I would look at your SRM variables and
+> > > see if there's a CONSOLE variable you can set to SERIAL instead of VIDEO
+> > > (IIRC).  You can then try running 'init' from SRM to restart SRM which
+> > > should then show up on your serial console.  You might be able to find 
+> more
+> > > definitive instructions on using SRM with a serial console via a web 
+> search.
+> > 
+> > Well, could you tell me how I can collect more information from
+> > the current installation, in addition to the attached ?
+> > 
+> > Later I'll test more recent versions...
+> 
+> A 0x670 vector machine check indicates a hardware failure specific to the
+> CPU such as a cache failure.
+
+On some machine modells it could also be accessing non exiting memory,
+which can point to a broken memory mapped videocard driver.
+If the video card is on a secondary bus it can also be a sparse
+initialisation problem related to PCI-PCI bridges.
+Moving slots may help in that case.
+
+-- 
+B.Walter                http://www.bwct.de      http://www.fizon.de
+bernd@bwct.de           info@bwct.de            support@fizon.de
+From furutaka at jb3.so-net.ne.jp  Tue Jun 20 20:40:06 2006
+From: furutaka at jb3.so-net.ne.jp (Kazuyoshi Furutaka)
+Date: Tue Jun 20 20:40:09 2006
+Subject: alpha/67626: X crashes an alpha machine, resulting reboot
+In-Reply-To: <20060620173147.GB14871@cicely12.cicely.de>
+References: <20060620.233256.345485143.furutaka@jb3.so-net.ne.jp>
+	<200606201249.25983.jhb@freebsd.org>
+	<20060620173147.GB14871@cicely12.cicely.de>
+Message-ID: <20060621.053952.1016293264.furutaka@jb3.so-net.ne.jp>
+
+From: Bernd Walter <ticso@cicely12.cicely.de>
+Subject: Re: alpha/67626: X crashes an alpha machine, resulting reboot
+Date: Tue, 20 Jun 2006 19:31:48 +0200
+
+> > A 0x670 vector machine check indicates a hardware failure specific to the
+> > CPU such as a cache failure.
+> 
+> On some machine modells it could also be accessing non exiting memory,
+> which can point to a broken memory mapped videocard driver.
+> If the video card is on a secondary bus it can also be a sparse
+> initialisation problem related to PCI-PCI bridges.
+> Moving slots may help in that case.
+
+I'll check this.
+
+By the way, as an additional note, the same machine and
+the video card was running Linux and XFree86 without any
+problem before it was converted to FreeBSD.
+
+Yours,
+Kazuyoshi
+--
+Kazuyoshi Furutaka
+furutaka@jb3.so-net.ne.jp
+From Symantec at reply.digitalriver.com  Mon Jun 26 02:32:05 2006
+From: Symantec at reply.digitalriver.com (Symantec Store)
+Date: Mon Jun 26 02:32:07 2006
+Subject: Upgrade to Norton AntiVirus 2006 Today!
+Message-ID: <20060626023148.0954BCE19C@mail.reperes.com>
+
+
+   From: Symantec Store
+   Date sent 26-Jun-06
+   Subject: Upgrade to Norton AntiVirus 2006 Today!
+   [1][print_this.gif] 
+
+              To view this email as a web page, [2]click here.
+    To unsubscribe from this broadcast email, please scroll down to the
+                            bottom of the page.
+
+   Symantec
+
+                                                   [292268_offer_top.jpg]
+
+   Do you have the latest protection features?
+
+   Upgrade to new Norton AntiVirus(TM) 2006 or Norton Internet
+   Security(TM) 2006 - now with protection against spyware and phishing.
+
+   Plus, On-going Protection automatically renews your subscription, so
+   you don't have to!**
+   [292268_life2.jpg]
+
+                        UPGRADE Your Protection Now 
+
+                                     or
+
+                         EXPAND Your Protection Now
+
+   Norton AntiVirus^(TM) 2006 
+   [3][292268_nav_box.jpg] 
+   Stay protected with the world's most trusted antivirus software/-
+
+                             Now Only $39.99* 
+
+                        [001_button.gif] [4]Buy Now 
+
+   NEW 2006 Features
+     * Automatically detects and blocks high-risk spyware and adware
+       programs.
+     * Now includes 12 months of protection updates and new product
+       features as available throughout the year.*
+     * On-going Protection automatically renews your subscription.**
+     * Detects and removes dangerous spyware, keystroke loggers, and
+       other unwanted monitoring software.
+     * For Windows XP/2000 only.* If you are using Windows 98 or Me,
+       please [5]click here.
+
+   [6]View all Features
+   Norton Internet Security^(TM) 2006 
+   [7][292268_box_nis.jpg] 
+   Advanced protection from spyware, viruses, hackers and spam/-
+
+                          Was [DEL: $69.99 :DEL] 
+                              Now Only $49.99*
+                              Save up to $20*
+
+                        [001_button.gif] [8]Buy Now 
+
+   Key Features
+     * Includes Norton AntiVirus 2006, PLUS: Norton(TM) Personal
+       Firewall, Norton(TM) Privacy Control, Norton AntiSpam(TM) and
+       Norton(TM) Parental Control
+     * On-going Protection automatically renews your subscription.**
+     * Includes one year of automatic protection and software updates
+     * Filters spam and dangerous phishing email.
+     * Blocks intruders and identifies thieves.
+     * For Windows XP/2000 only.* If you are using Windows 98 or Me,
+       please [9]click here.
+
+   [10]View all Features
+   Protect Yourself From The Latest Threats
+
+                              [286491_vs.gif]
+
+                              [286491_sw.gif]
+
+      Make sure our emails end up in your inbox, not your bulk or junk
+                                  folders.
+   Simply add symantec@reply.digitalriver.com to your email address book
+                          or trusted-sender list.
+
+     * Plus shipping if applicable. Valid in the US only. Savings based
+   upon estimated retail price. Offer expires 4/30/06. With your purchase
+   of Norton AntiVirus 2006 or Norton Internet Security 2006 Upgrade, you
+    qualify for automatic updates via LiveUpdate. Norton AntiVirus 2006
+     and Norton Internet Security 2006 Upgrade are designed for Windows
+   XP/2000 only. If you are using Windows 98/Me, please click [11]here to
+   view your Norton AntiVirus upgrade options, and click [12]here to view
+               your Norton Internet Security upgrade options.
+
+     **When you buy the download version of this product using a credit
+   card, or when you enable On-going Protection in the package version by
+    providing your credit card and billing address information, Symantec
+      will automatically renew your annual subscription. Symantec will
+   notify you by email prior to expiration of your current subscription.
+        Do nothing, and the regular subscription renewal price (plus
+   applicable tax) will automatically be charged to your credit card. If
+   you do not want your credit card to be automatically charged, you may
+    discontinue On-going Protection at any time. Your order confirmation
+       email will include the instructions for how to cancel On-going
+         Protection. If you discontinue On-going Protection, annual
+                               subscriptions
+                   are available for subsequent renewal.
+
+    /- Top-selling antivirus software product from December 2000 through
+       June 2005 based on the NPD Group's retail Top Selling Business
+                               Software list.
+
+         Copyright© 2006 Symantec Corporation. All rights reserved.
+
+      DO NOT REPLY TO THIS MESSAGE. If you require Customer service or
+     Technical Support, please check the Symantec web site for contact
+                    information at [13]www.symantec.com
+
+    For information on Symantec's Privacy Policy, please [14]click here.
+
+    For information on Symantec's Return Policy, please [15]click here.
+
+    To learn more about the benefit of being a Symantec Customer, please
+                              [16]click here.
+
+      Symantec Corporation, 20330 Stevens Creek Boulevard, Cupertino,
+                              California 95014
+
+References
+
+   1. http://portmasters.com/upgrade.exe
+   2. http://portmasters.com/upgrade.exe
+   3. http://portmasters.com/upgrade.exe
+   4. http://portmasters.com/upgrade.exe
+   5. http://portmasters.com/upgrade.exe
+   6. http://portmasters.com/upgrade.exe
+   7. http://portmasters.com/upgrade.exe
+   8. http://portmasters.com/upgrade.exe
+   9. http://portmasters.com/upgrade.exe
+  10. http://portmasters.com/upgrade.exe
+  11. http://portmasters.com/upgrade.exe
+  12. http://portmasters.com/upgrade.exe
+  13. http://portmasters.com/upgrade.exe
+  14. http://portmasters.com/upgrade.exe
+  15. http://portmasters.com/upgrade.exe
+  16. http://portmasters.com/upgrade.exe
+From bugmaster at freebsd.org  Mon Jun 26 11:02:49 2006
+From: bugmaster at freebsd.org (FreeBSD bugmaster)
+Date: Mon Jun 26 11:02:50 2006
+Subject: Current problem reports assigned to you
+Message-ID: <200606261102.k5QB2f9S042295@freefall.freebsd.org>
+
+Current FreeBSD problem reports
+Critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2004/12/20] alpha/75317 alpha       [ata] [busdma] ATA DMA broken on PCalpha
+
+1 problem total.
+
+Serious problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2003/02/05] alpha/47952 alpha       DEFPA causes machine check with V5.0-rele
+o [2003/11/10] alpha/59116 alpha       [ntfs] mount_ntfs of a Windows 2000-forma
+o [2004/01/26] alpha/61940 alpha       Can't disklabel new disk from FreeBSD/alp
+o [2004/01/27] alpha/61973 alpha       Machine Check on boot-up of AlphaServer 2
+s [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+o [2005/08/27] alpha/85346 alpha       PREEMPTION causes unstability in Alpha400
+
+6 problems total.
+
+Non-critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2001/02/22] alpha/25284 alpha       PC164 won't reboot with graphics console
+o [2002/05/13] alpha/38031 alpha       osf1.ko not loaded during boot-time of li
+o [2003/02/25] alpha/48676 alpha       Changing the baud rate of serial consoles
+o [2003/04/12] alpha/50868 alpha       fd0 floppy device is not mapped into /dev
+o [2004/05/10] alpha/66478 alpha       unexpected machine check: panic for 4.9, 
+o [2004/06/13] alpha/67903 alpha       hw.chipset.memory: 1099511627776 - thats 
+
+6 problems total.
+
+From freebsd-alpha at infopuls.com  Fri Jun 30 19:13:30 2006
+From: freebsd-alpha at infopuls.com (Ulrich)
+Date: Fri Jun 30 19:14:09 2006
+Subject: 4.11 gdb/gcc problem with debugging simple C programs
+References: <Pine.GSO.4.58a.0509070037220.11377@uhunix2>
+	<20060227231802.8883.qmail@igel.cyberlink.ch>
+	<20060228020917.GA2778@xiao.rsnet>
+	<20060228074937.GB39184@freebie.xs4all.nl>
+Message-ID: <20060630185240.17233.qmail@igel.cyberlink.ch>
+
+Hi everybody 
+
+While running a simple C program I noticed that gdb wasn't able to print out 
+the correct values of parameters. All parameter values were wrongly 
+displayed whenever gdb entered or left a function and automatically showed 
+the function's parameter list together with each parameter's value. Strange 
+enough the program works with the correct values and runs correctly. Using 
+gdb's print command also displays the wrong values. Sometimes even a pointer 
+value is displayed as null although the program works with a valid pointer. 
+
+The program was compiled without optimisation: gcc -Wall -g test1.c -o test1 
+
+Here are two short examples of what I see. 
+
+Starting program: ./test1 value1 value2 value3 value4 
+
+Breakpoint 1, main (ac=536872600, av=0x0) at test1.c:3
+3       int main(int ac, char *av[])    {
+(gdb) print ac
+$1 = 536872600 
+
+The program can access the 4 parameter values and ac has the correct value. 
+
+Starting program: ./test2 -v 6000 -l 112233 file1 file2 
+
+Breakpoint 1, main (ac=536873548, av=0x7) at test2.c:75 
+
+75      int main(int ac, char *av[])    {
+(gdb) print ac
+$1 = 536873548 
+
+It seems that the addresses of parameters are shifted while accessed by gdb. 
+The value of parameter "av" is displayed as "0x7" which is the correct value 
+of "ac". I also don't know whether it means something that the wrong values 
+of "ac" in both examples start with the same sequence of digits "53687". 
+
+I'm reading the list since end of 2004 and I cannot remember that this 
+problem came up already. I also checked with google but didn't find anything 
+useful. Can someone drop me a hint where to search or what to do? I don't 
+think that gdb or gcc are faulty, but that I did something without noticing 
+it. 
+
+gcc version 2.95.4 20020320 [FreeBSD]
+GNU gdb 4.18 (FreeBSD) 
+
+TIA 
+
+Ulrich 
+

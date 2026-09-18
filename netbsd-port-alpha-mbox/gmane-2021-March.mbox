@@ -1,0 +1,1005 @@
+From listac@nebelschwaden.de  Sat Mar 20 18:28:34 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Ede Wolf <listac@nebelschwaden.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Installing to a gpt disk?
+Date: Sat, 20 Mar 2021 18:28:34 +0100
+Approved: news@gmane.org
+Message-ID: <bce9ce87-16a0-4b67-0eab-273a661c2830@nebelschwaden.de>
+Reply-To: listac@nebelschwaden.de
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="3421"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101
+ Thunderbird/78.8.1
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Sat Mar 20 18:28:52 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lNfPA-0000lc-5h
+	for netbsd-port-alpha@m.gmane-mx.org; Sat, 20 Mar 2021 18:28:52 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 5B2FC84D48; Sat, 20 Mar 2021 17:28:48 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 5B97C84D27
+	for <port-alpha@netbsd.org>; Sat, 20 Mar 2021 17:28:43 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id gYxjSwUFmBBR for <port-alpha@netbsd.org>;
+	Sat, 20 Mar 2021 17:28:42 +0000 (UTC)
+Original-Received: from mail.worldserver.net (mail.worldserver.net [217.13.200.37])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 9724784CD8
+	for <port-alpha@netbsd.org>; Sat, 20 Mar 2021 17:28:42 +0000 (UTC)
+Original-Received: from postpony.nebelschwaden.de (v22018114346177759.hotsrv.de [194.55.14.20])
+	(Authenticated sender: postmaster@nebelschwaden.de)
+	by mail.worldserver.net (Postfix) with ESMTPA id B035426AF5
+	for <port-alpha@netbsd.org>; Sat, 20 Mar 2021 18:28:34 +0100 (CET)
+Original-Received: from [172.16.37.5] (kaperfahrt.nebelschwaden.de [172.16.37.5])
+	by postpony.nebelschwaden.de (Postfix) with ESMTP id 5395FE9753
+	for <port-alpha@netbsd.org>; Sat, 20 Mar 2021 18:28:34 +0100 (CET)
+Content-Language: en-US
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5244
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5244>
+
+Hello,
+
+I am just wondering, wether installation on gpt is supported on alpha 
+[for 9.1]? Or, not unlikely, that it is just me not doing it right?
+
+I've tried two installations, one with manual partitioning before and 
+one with sysinst doing extended partitioning. The installation itself 
+does not complain, but trying to boot afterwards ends in:
+
+...
+jumping to bootstrap code
+
+NetBSD/alpha 9.1 FFS Primary Bootstrap
+Can't open /boot.
+
+PRIMARY BOOTSTRAP FAILED!
+
+ >>>
+
+Looking at the disk straight after install, right after exiting sysinst 
+for reboot:
+
+# dkctl sd0 listwedges
+/dev/rsd0: 2 wedges:
+dk0: 976e2174-565a-4100-854a-b65e9b08c3a1, 8388544 blocks at 64, type: ffs
+dk1: 4f0cdf5f-f088-4461-819e-10ebee76ecc5, 4194240 blocks at 8388672, 
+type: ffs
+
+
+but:
+
+# gpt show sd0
+GPT not found, displaying data from MBR.
+
+      start      size  index  contents
+          0  17916207         Unused
+   17916207        32         Sec GPT table
+   17916239         1         Sec GPT header
+
+
+
+and disklabel sd0:
+
+....
+drivedata: 0
+
+3 partitions:
+#        size    offset     fstype [fsize bsize cpg/sgs]
+  c:  17916240         0     unused      0     0        # (Cyl.      0 - 
+  15119*)
+disklabel: boot block size 0
+disklabel: super block size 0
+
+
+and of course, after a reboot, the wedges are gone as well.
+
+In addition, when using extended partitioning, after having finished 
+creating the partitions, it jumps straight to the set selection. 
+However, without newfs (installflags and newfs flags have of course 
+beeen set. Also boot for /).
+
+So I have to leave sysinst and restart and then choose use existing gpt 
+partitions. This of course ends in above scenario.
+
+Any hint what I might be missing?
+
+
+From martin@duskware.de  Sat Mar 20 18:55:33 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Installing to a gpt disk?
+Date: Sat, 20 Mar 2021 18:55:33 +0100
+Approved: news@gmane.org
+Message-ID: <20210320175533.GA4904@mail.duskware.de>
+References: <bce9ce87-16a0-4b67-0eab-273a661c2830@nebelschwaden.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="37531"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mutt/1.7.2 (2016-11-26)
+Cc: port-alpha@netbsd.org
+To: Ede Wolf <listac@nebelschwaden.de>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Sat Mar 20 18:55:41 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lNfp6-0009ba-U4
+	for netbsd-port-alpha@m.gmane-mx.org; Sat, 20 Mar 2021 18:55:41 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 7A05384D27; Sat, 20 Mar 2021 17:55:37 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id CCE7D84CE2
+	for <port-alpha@netbsd.org>; Sat, 20 Mar 2021 17:55:35 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id aQFqSwxvQrRh for <port-alpha@netbsd.org>;
+	Sat, 20 Mar 2021 17:55:35 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [IPv6:2a00:19e0:3004:291::144])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 4266684CD8
+	for <port-alpha@netbsd.org>; Sat, 20 Mar 2021 17:55:34 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id 4BD66A7FD4; Sat, 20 Mar 2021 18:55:33 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <bce9ce87-16a0-4b67-0eab-273a661c2830@nebelschwaden.de>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5245
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5245>
+
+On Sat, Mar 20, 2021 at 06:28:34PM +0100, Ede Wolf wrote:
+> Hello,
+> 
+> I am just wondering, wether installation on gpt is supported on alpha [for
+> 9.1]? Or, not unlikely, that it is just me not doing it right?
+
+I don't think alpha has any bootloader that could boot from a non-disklabel
+disk.
+
+Sysinst should not offer that option, I'll check what is wrong.
+
+Martin
+
+
+From listac@nebelschwaden.de  Sat Mar 20 21:13:03 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Ede Wolf <listac@nebelschwaden.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Installing to a gpt disk?
+Date: Sat, 20 Mar 2021 21:13:03 +0100
+Approved: news@gmane.org
+Message-ID: <643709a5-02c4-0d2f-add5-4c9a51355d5c@nebelschwaden.de>
+References: <bce9ce87-16a0-4b67-0eab-273a661c2830@nebelschwaden.de>
+ <20210320175533.GA4904@mail.duskware.de>
+Reply-To: listac@nebelschwaden.de
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="21270"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101
+ Thunderbird/78.8.1
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Sat Mar 20 21:13:16 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lNhyF-0005ST-8e
+	for netbsd-port-alpha@m.gmane-mx.org; Sat, 20 Mar 2021 21:13:15 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 835A184D1C; Sat, 20 Mar 2021 20:13:11 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id C5E4B84CE1
+	for <port-alpha@netbsd.org>; Sat, 20 Mar 2021 20:13:07 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id V-5GeVnMoMaT for <port-alpha@netbsd.org>;
+	Sat, 20 Mar 2021 20:13:07 +0000 (UTC)
+Original-Received: from mail.worldserver.net (mail.worldserver.net [217.13.200.37])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 0DB1C84CD8
+	for <port-alpha@netbsd.org>; Sat, 20 Mar 2021 20:13:06 +0000 (UTC)
+Original-Received: from postpony.nebelschwaden.de (v22018114346177759.hotsrv.de [194.55.14.20])
+	(Authenticated sender: postmaster@nebelschwaden.de)
+	by mail.worldserver.net (Postfix) with ESMTPA id 2221326D0B
+	for <port-alpha@netbsd.org>; Sat, 20 Mar 2021 21:13:03 +0100 (CET)
+Original-Received: from [172.16.37.5] (kaperfahrt.nebelschwaden.de [172.16.37.5])
+	by postpony.nebelschwaden.de (Postfix) with ESMTP id BB2CEE978E
+	for <port-alpha@netbsd.org>; Sat, 20 Mar 2021 21:13:03 +0100 (CET)
+In-Reply-To: <20210320175533.GA4904@mail.duskware.de>
+Content-Language: en-US
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5246
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5246>
+
+Thanks very much. Indeed, when just creating the gpt partitions with 
+sysinst, but without actually installing, I see the partitions after 
+leaving sysinst.
+
+However, as posted before, after the installation they are all gone. 
+Well, kind of. Despite "gpt show" does not recognise any partitions, as 
+posted before, if I do not explicitly run "gtp destroy" on that disk I 
+cannot install  even with disklabel.
+
+But it could very well be the moment sysinst is installing the boot 
+block, that the gpt table goes bust.
+
+  Currently I am also having a second drive, that seems to keep the gpt 
+table across boots, but is consistently losing the wedge after a reboot.
+In addition, I need to create the wedges manually, "gpt add" will not do 
+that on alpha automagically.
+
+I have not been able to newfs a gpt partition without a wedge. That 
+would be interesting, but seems not to be documented anywhere. According 
+to google, that is.
+
+Generally, this all is just out of curiosity, I have no real practical 
+need for gpt and can happily live with disklabel.
+
+Ede
+
+
+Am 20.03.21 um 18:55 schrieb Martin Husemann:
+> On Sat, Mar 20, 2021 at 06:28:34PM +0100, Ede Wolf wrote:
+>> Hello,
+>>
+>> I am just wondering, wether installation on gpt is supported on alpha [for
+>> 9.1]? Or, not unlikely, that it is just me not doing it right?
+> 
+> I don't think alpha has any bootloader that could boot from a non-disklabel
+> disk.
+> 
+> Sysinst should not offer that option, I'll check what is wrong.
+> 
+> Martin
+> 
+
+
+
+From john@ziaspace.com  Tue Mar 30 20:15:00 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: John Klos <john@ziaspace.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Panic on -current with MULTIPROCESSOR
+Date: Tue, 30 Mar 2021 20:15:00 +0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.2103302005430.7971@athena.zia.io>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="18145"; mail-complaints-to="usenet@ciao.gmane.io"
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Tue Mar 30 22:15:22 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lRKlk-0004YY-8G
+	for netbsd-port-alpha@m.gmane-mx.org; Tue, 30 Mar 2021 22:15:21 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 5A5D484D3F; Tue, 30 Mar 2021 20:15:16 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id C6C4D84D04
+	for <port-alpha@netbsd.org>; Tue, 30 Mar 2021 20:15:06 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (1024-bit key) header.d=ziaspace.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id KnmlQ9QC5aQ2 for <port-alpha@netbsd.org>;
+	Tue, 30 Mar 2021 20:15:05 +0000 (UTC)
+Original-Received: from athena.zia.io (athena.zia.io [IPv6:2602:fe6b:1012:1::1])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 8185084CDF
+	for <port-alpha@netbsd.org>; Tue, 30 Mar 2021 20:15:04 +0000 (UTC)
+Original-Received: from athena.zia.io (localhost [127.0.0.1])
+	by athena.zia.io (8.15.2/8.15.2) with ESMTPS id 12UKF0hi016240
+	(version=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 bits=256 verify=NOT)
+	for <port-alpha@netbsd.org>; Tue, 30 Mar 2021 20:15:03 GMT
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=ziaspace.com;
+	s=selector; t=1617135303;
+	bh=lZK3lrKQfFl43PNSs6P0srrH6sPUa90ikvhWX7JnWbE=;
+	h=Date:From:To:Subject;
+	b=bbLKaxXS+BcQ+hAM6p3nnHazdZD79lLBWQFqHug6i18XkauqdLDv5KXZ1BNnQVLNZ
+	 tmkfomKYk12felhJ7YZxGVJ62DHF3ZblO+Fck31dXN7K3GK+DKvQ8F4F/9o84VF9Og
+	 QB3Jq/W3LMDytrC4DftktFZ8VWoV+0lqk9DUeELE=
+Original-Received: from localhost (john@localhost)
+	by athena.zia.io (8.15.2/8.15.2/Submit) with ESMTP id 12UKF0NF003016
+	for <port-alpha@netbsd.org>; Tue, 30 Mar 2021 20:15:00 GMT
+X-Authentication-Warning: athena.zia.io: john owned process doing -bs
+X-X-Sender: john@athena.zia.io
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.4.3 (athena.zia.io [127.0.0.1]); Tue, 30 Mar 2021 20:15:03 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5247
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5247>
+
+Hi,
+
+I've been running pbulk builds on my DS25 with no problems at all when the 
+kernel is compiled without MULTIPROCESSOR. We have a full pbulk build of 
+2020Q4 :)
+
+I just tried with MULTIPROCESSOR with -current from 28-March-2021, but it 
+paniced within a few hours of starting a pbulk scan.
+
+Does anyone have a clue about what might be going on here?
+
+Thanks,
+John
+
+
+[ 74219.1614327] TLB LOCAL MASK  = 0x0000000000000001
+[ 74219.1614327] TLB REMOTE MASK = 0x0000000000000002
+[ 74219.1614327] TLB REMOTE PENDING = 0x0000000000000002
+[ 74219.1614327] TLB CONTEXT = 0xfffffc001b83dd58
+[ 74219.1614327] TLB LOCAL IPL = 6
+[ 74219.1614327] panic: pmap_tlb_shootnow
+[ 74219.1614327] cpu0: Begin traceback...
+[ 74219.1614327] alpha trace requires known PC =eject=
+[ 74219.1614327] cpu0: End traceback...
+Stopped in pid 5054.5054 (echo) at      netbsd:cpu_Debugger+0x4: 
+ret
+zero,(ra)
+db{0}>
+db{0}> bt
+cpu_Debugger() at netbsd:cpu_Debugger+0x4
+db_panic() at netbsd:db_panic+0xc8
+vpanic() at netbsd:vpanic+0x10c
+panic() at netbsd:panic+0x58
+pmap_tlb_shootnow.part.0() at netbsd:pmap_tlb_shootnow.part.0+0x234
+pmap_remove_internal() at netbsd:pmap_remove_internal+0x328
+pmap_remove() at netbsd:pmap_remove+0x2c
+uvm_unmap_remove() at netbsd:uvm_unmap_remove+0x158
+sys_munmap() at netbsd:sys_munmap+0xb8
+syscall() at netbsd:syscall+0x260
+XentSys() at netbsd:XentSys+0x5c
+--- syscall (73) ---
+--- user mode ---
+PID    LID S CPU     FLAGS       STRUCT LWP *               NAME WAIT
+5054 >5054 7   0         0   fffffc02e8db0500               echo
+20918 20918 3   1       180   fffffc000ef9e480               make wait
+19235 19235 3   0       180   fffffc0019d9ee40               make pipe_rd
+28954 28954 3   1       180   fffffc001aa5c140               make pipe_rd
+2913  2913 3   0       180   fffffc001b093a80                top select
+7334  7334 3   1       180   fffffc0016176080         pbulk-scan pipe_rd
+17864 17864 3   1       180   fffffc000c14ea80                 sh wait
+28220 28220 3   0       180   fffffc0019d9e5c0                 sh wait
+26180 26180 3   1       180   fffffc001aa5c9c0               tcsh pause
+15702 15702 3   1       180   fffffc001b092100               tcsh pause
+5805  5805 3   1       180   fffffc001aa5d240               tcsh pause
+16556 16556 3   0       180   fffffc000c14eec0               tcsh pause
+18472 18472 3   1       180   fffffc000c14f300               tmux kqueue
+28224 28224 3   1       180   fffffc001aa5ce00               tcsh pause
+11357 11357 3   0       180   fffffc0019d9f280               sshd select
+14035 14035 3   0       180   fffffc0016176d40               sshd poll
+17970 17970 3   1       180   fffffc000c234680               tcsh ttyraw
+18858 18858 3   1       180   fffffc00161764c0               sshd select
+23130 23130 3   0       180   fffffc001b093200               sshd poll
+338    338 3   0       1c0   fffffc02fd68cdc0              getty ttyraw
+326    326 3   1       180   fffffc000ef9f9c0               cron nanoslp
+2204  2204 3   1       180   fffffc000ef9f580              inetd kqueue
+1695  1695 3   0       180   fffffc000ef9f140               sshd select
+206    206 3   0       180   fffffc000ef9e8c0                 cu poll
+205    205 3   1       180   fffffc000c234ac0                 cu ttyraw
+203    203 3   1       180   fffffc000c235bc0               ntpd pause
+2213  2213 3   0       180   fffffc000c235780               tcsh pause
+2043  2043 3   0       180   fffffc000c235340               tmux kqueue
+1240  1240 3   0       180   fffffc000c234f00            syslogd kqueue
+1        1 3   1       180   fffffc000086ee80               init wait
+0     1313 3   1       200   fffffc000c234240          acctwatch actwat
+0      228 3   0       200   fffffc00007d4140            physiod physiod
+0      126 3   1       200   fffffc000c14e200          pooldrain pooldrain
+0      125 3   1       200   fffffc000086fb40            ioflush syncer
+0      124 3   1       200   fffffc000086f700           pgdaemon pgdaemon
+0      121 3   1       200   fffffc02fd68c540            raidio0 raidiow
+0      120 3   0       200   fffffc02fd68d640              raid0 rfnodeq
+0      119 3   1       200   fffffc000086f2c0             npfgc0 npfgcw
+0      118 3   0       200   fffffc000086ea40            rt_free rt_free
+0      117 3   0       200   fffffc000086e600              unpgc unpgc
+0      116 3   1       200   fffffc000086e1c0    icmp6_wqinput/1 
+icmp6_wqinput
+0      115 3   0       200   fffffc0000787b00    icmp6_wqinput/0 
+icmp6_wqinput
+0      114 3   1       200   fffffc00007876c0            ip6flow ip6flow
+0      113 3   1       200   fffffc0000787280          nd6_timer nd6_timer
+0      112 3   1       200   fffffc0000786e40    carp6_wqinput/1 
+carp6_wqinput
+0      111 3   0       200   fffffc0000786a00    carp6_wqinput/0 
+carp6_wqinput
+0      110 3   1       200   fffffc00007865c0     carp_wqinput/1 
+carp_wqinput
+0      109 3   0       200   fffffc00007d4580     carp_wqinput/0 
+carp_wqinput
+0      108 3   1       200   fffffc00007d49c0     icmp_wqinput/1 
+icmp_wqinput
+0      107 3   0       200   fffffc00007d4e00     icmp_wqinput/0 
+icmp_wqinput
+0      106 3   1       200   fffffc00007d5240           rt_timer rt_timer
+0      105 3   0       200   fffffc00007d5680    ipflow_slowtimo 
+ipflow_slowtimo
+
+0      104 3   1       200   fffffc00007d5ac0        vmem_rehash 
+vmem_rehash
+0      103 3   1       200   fffffc0000786180          entbutler entropy
+0       29 3   0       200   fffffc02fd68da80               iic0 iicintr
+0       27 3   0       200   fffffc02fd68d200           scsibus2 sccomp
+0       25 3   0       200   fffffc02fd68c980           scsibus1 sccomp
+0       23 3   0       200   fffffc02fd68c100           scsibus0 sccomp
+0       22 3   0       200   fffffc02fd713a40            atabus1 atath
+0       21 3   0       200   fffffc02fd713600            atabus0 atath
+0       20 3   1       200   fffffc02fd7131c0            xcall/1 xcall
+0       19 1   1       200   fffffc02fd712d80          softser/1
+0       18 1   1       200   fffffc02fd712940          softclk/1
+0       17 1   1       200   fffffc02fd712500          softbio/1
+0       16 1   1       200   fffffc02fd7120c0          softnet/1
+0    >  15 1   1       201   fffffc02fef39a00             idle/1
+0       14 3   0       200   fffffc02fef395c0         pmfsuspend 
+pmfsuspend
+0       13 3   0       200   fffffc02fef39180           pmfevent pmfevent
+0       12 3   0       200   fffffc02fef38d40         sopendfree sopendfr
+0       11 3   1       200   fffffc02fef38900            iflnkst iflnkst
+0       10 3   0       200   fffffc02fef384c0           nfssilly nfssilly
+0        9 3   0       240   fffffc02fef38080             vdrain vdrain
+0        8 3   0       200   fffffc02ff74f9c0          modunload mod_unld
+0        7 3   0       200   fffffc02ff74f580            xcall/0 xcall
+0        6 1   0       200   fffffc02ff74f140          softser/0
+0        5 1   0       200   fffffc02ff74ed00          softclk/0
+0        4 1   0       200   fffffc02ff74e8c0          softbio/0
+0        3 1   0       200   fffffc02ff74e480          softnet/0
+0        2 1   0       201   fffffc02ff74e040             idle/0
+0        0 3   1       200   fffffc00014d0f80            swapper uvm
+
+
+From john@ziaspace.com  Tue Mar 30 21:43:43 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: John Klos <john@ziaspace.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Panic on -current with MULTIPROCESSOR
+Date: Tue, 30 Mar 2021 21:43:43 +0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.2103302142370.10165@athena.zia.io>
+References: <Pine.NEB.4.64.2103302005430.7971@athena.zia.io>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="14263"; mail-complaints-to="usenet@ciao.gmane.io"
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Tue Mar 30 23:43:59 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lRM9W-0003bv-Mw
+	for netbsd-port-alpha@m.gmane-mx.org; Tue, 30 Mar 2021 23:43:59 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 4B53884D17; Tue, 30 Mar 2021 21:43:55 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 9B7B084D04
+	for <port-alpha@netbsd.org>; Tue, 30 Mar 2021 21:43:45 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (1024-bit key) header.d=ziaspace.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id uNNSbMddZNVB for <port-alpha@netbsd.org>;
+	Tue, 30 Mar 2021 21:43:44 +0000 (UTC)
+Original-Received: from athena.zia.io (athena.zia.io [IPv6:2602:fe6b:1012:1::1])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 916AC84CDF
+	for <port-alpha@netbsd.org>; Tue, 30 Mar 2021 21:43:44 +0000 (UTC)
+Original-Received: from athena.zia.io (localhost [127.0.0.1])
+	by athena.zia.io (8.15.2/8.15.2) with ESMTPS id 12ULhhSp021934
+	(version=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 bits=256 verify=NOT)
+	for <port-alpha@netbsd.org>; Tue, 30 Mar 2021 21:43:43 GMT
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=ziaspace.com;
+	s=selector; t=1617140624;
+	bh=GOXIxDpCOmlOo8ACvTypgQ9xDTc5802pubu8DmIgqLA=;
+	h=Date:From:To:Subject:In-Reply-To:References;
+	b=jsugU9SLt0D1+vEd8eAfaPPMQ3pviFVFPC25kK0GWEaO+Tt6T+2cYQ+0KsL+szso9
+	 LCfErKRNFKly2clErg0KpPyGmrF4PRoYqBFo4nmxuDu1OjuPqZ/UvB1z8ymMtH8fLW
+	 CW95z2Yj5yBhRkt2uoKPnE4z84XYUPli15SS+d+w=
+Original-Received: from localhost (john@localhost)
+	by athena.zia.io (8.15.2/8.15.2/Submit) with ESMTP id 12ULhhVh023049
+	for <port-alpha@netbsd.org>; Tue, 30 Mar 2021 21:43:43 GMT
+X-Authentication-Warning: athena.zia.io: john owned process doing -bs
+X-X-Sender: john@athena.zia.io
+In-Reply-To: <Pine.NEB.4.64.2103302005430.7971@athena.zia.io>
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.4.3 (athena.zia.io [127.0.0.1]); Tue, 30 Mar 2021 21:43:44 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5248
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5248>
+
+Here's another panic from before I switched back to a non-MULTIPROCESSOR 
+kernel:
+
+[ 4980503.6787670] CPU 0: fatal kernel trap:
+
+[ 4980503.7290869] CPU 0    trap entry = 0x2 (memory management fault)
+[ 4980503.8039717] CPU 0    a0         = 0x14
+[ 4980503.8528528] CPU 0    a1         = 0x1
+[ 4980503.9006974] CPU 0    a2         = 0x0
+[ 4980503.9485400] CPU 0    pc         = 0xfffffc0000fb20b0
+[ 4980504.0119832] CPU 0    ra         = 0xfffffc0000fb20a4
+[ 4980504.0754273] CPU 0    pv         = 0xfffffc0000fb2ff0
+[ 4980504.1388704] CPU 0    curlwp     = 0xfffffc000ceded00
+[ 4980504.2023160] CPU 0        pid = 9234, comm = sh
+
+[ 4980504.2615989] panic: trap
+[ 4980504.2948801] cpu0: Begin traceback...
+[ 4980504.3416832] alpha trace requires known PC =eject=
+[ 4980504.4020074] cpu0: End traceback...
+Stopped in pid 9234.9234 (sh) at        netbsd:cpu_Debugger+0x4: 
+ret
+zero,(ra)
+
+cpu_Debugger() at netbsd:cpu_Debugger+0x4
+db_panic() at netbsd:db_panic+0xc0
+vpanic() at netbsd:vpanic+0x188
+panic() at netbsd:panic+0x58
+trap() at netbsd:trap+0xf74
+XentMM() at netbsd:XentMM+0x20
+--- memory management fault (from ipl 0) ---
+uvm_pglistalloc() at netbsd:uvm_pglistalloc+0x7a0
+cpu_uarea_alloc() at netbsd:cpu_uarea_alloc+0x44
+uarea_poolpage_alloc() at netbsd:uarea_poolpage_alloc+0x24
+pool_grow() at netbsd:pool_grow+0x2cc
+pool_get() at netbsd:pool_get+0x78
+pool_cache_get_slow() at netbsd:pool_cache_get_slow+0x110
+pool_cache_get_paddr() at netbsd:pool_cache_get_paddr+0x128
+uvm_uarea_alloc() at netbsd:uvm_uarea_alloc+0x28
+fork1() at netbsd:fork1+0xec
+sys_fork() at netbsd:sys_fork+0x34
+syscall() at netbsd:syscall+0x250
+XentSys() at netbsd:XentSys+0x60
+--- syscall (2) ---
+--- user mode ---
+
+
+PID    LID S CPU     FLAGS       STRUCT LWP *               NAME WAIT
+9234 >9234 7   0         0   fffffc000ceded00                 sh
+24215 24215 3   0       180   fffffc000cede8c0                 sh wait
+12573 12573 3   0       180   fffffc02fcda21c0               make pipe_rd
+11423 11423 3   0       180   fffffc02fae7bbc0               make pipe_rd
+6485  6485 3   0     40180   fffffc000cedf9c0               make pipe_rd
+22978 22978 3   0       180   fffffc000cedf140               make pipe_rd
+18464 18464 3   0     40180   fffffc02fd52db00               sort pipe_rd
+5904  5904 3   0     40180   fffffc01586e6ac0                sed pipe_rd
+9169  9169 3   0     40180   fffffc02fc3a9740                awk pipe_rd
+8362  8362 3   0     40000   fffffc01586e6680           pkg_info biowait
+28992 28992 3   0       180   fffffc01586e6240               make pipe_rd
+28226 28226 3   0       180   fffffc01586e7bc0                 sh wait
+27857 27857 3   0       180   fffffc02fc3a8640               make wait
+7791  7791 3   0       180   fffffc02fcda3700                 sh wait
+28081 28081 3   0       180   fffffc01586e7780               tcsh pause
+13025 13025 3   0       180   fffffc017a28f780               sshd select
+28386 28386 3   0       180   fffffc000cede040               sshd poll
+4665  4665 3   0       180   fffffc02fae7b780               tcsh ttyraw
+10435 10435 3   0       180   fffffc01586e7340         pbulk-scan pipe_rd
+4355  4355 3   0       180   fffffc01586e6f00                 sh wait
+1343  1343 3   0       180   fffffc017a28fbc0                 sh wait
+20547 20547 3   0       180   fffffc000cede480               tcsh pause
+16029 16029 3   0       180   fffffc02fcda2a40               sshd select
+12167 12167 3   0       180   fffffc02fd52d6c0               sshd poll
+196    196 3   0       180   fffffc02fae7b340               tcsh pause
+377    377 3   0       180   fffffc02fae7af00               tcsh pause
+1663  1663 3   0       180   fffffc02fc3a8ec0               tcsh pause
+245    245 3   0       180   fffffc02fcda2600               tmux kqueue
+1554  1554 3   0       1c0   fffffc02fd6da940              getty ttyraw
+1501  1501 3   0       180   fffffc02fae7aac0               cron nanoslp
+1436  1436 3   0       180   fffffc02fae7a680              inetd kqueue
+1176  1176 3   0       180   fffffc02fae7a240               sshd select
+1046  1046 3   0       180   fffffc02fc3a9b80                 cu poll
+1136  1136 3   0       180   fffffc02fc3a9300                 cu ttyraw
+671    671 3   0       180   fffffc02fc3a8a80               ntpd pause
+1020  1020 3   0       180   fffffc02fcda2e80               tcsh pause
+957    957 3   0       180   fffffc02fcda32c0               tmux kqueue
+635    635 3   0       180   fffffc02fcda3b40            syslogd kqueue
+1        1 3   0       180   fffffc02fd52c180               init wait
+0      800 3   0       200   fffffc02fc3a8200          acctwatch actwat
+0       94 3   0       200   fffffc02fd5f8540            physiod physiod
+0      116 3   0       200   fffffc02fd52d280          pooldrain pooldrain
+0      115 3   0       200   fffffc02fd52ce40            ioflush syncer
+0      114 3   0       200   fffffc02fd52ca00           pgdaemon pgdaemon
+0      111 2   0       200   fffffc02fd6db1c0            raidio0
+0      110 3   0       200   fffffc02fd6dba40              raid0 rfnodeq
+0      109 3   0       200   fffffc02fd52c5c0             npfgc0 npfgcw
+0      108 3   0       200   fffffc02fd58bac0            rt_free rt_free
+0      107 3   0       240   fffffc02fd58b680              unpgc unpgc
+0      106 3   0       200   fffffc02fd58b240    icmp6_wqinput/0 
+icmp6_wqinput
+0      105 3   0       200   fffffc02fd58ae00            ip6flow ip6flow
+0      104 3   0       200   fffffc02fd58a9c0          nd6_timer nd6_timer
+0      103 3   0       200   fffffc02fd5f8980    carp6_wqinput/0 
+carp6_wqinput
+0      102 3   0       200   fffffc02fd5f8dc0     carp_wqinput/0 
+carp_wqinput
+0      101 3   0       200   fffffc02fd5f9200     icmp_wqinput/0 
+icmp_wqinput
+0      100 3   0       200   fffffc02fd5f9640           rt_timer rt_timer
+0       99 3   0       200   fffffc02fd5f9a80    ipflow_slowtimo 
+ipflow_slowtimo
+
+0       98 3   0       200   fffffc02fd58a140        vmem_rehash 
+vmem_rehash
+0       97 3   0       200   fffffc02fd58a580          entbutler entropy
+0       23 3   0       200   fffffc02fd5f8100               iic0 iicintr
+0       21 3   0       200   fffffc02fd6db600           scsibus2 sccomp
+0       19 3   0       200   fffffc02fd6dad80           scsibus1 sccomp
+0       17 3   0       200   fffffc02fd6da500           scsibus0 sccomp
+0       16 3   0       200   fffffc02fd6da0c0            atabus1 atath
+0       15 3   0       200   fffffc02fef37a00            atabus0 atath
+0       14 3   0       200   fffffc02fef375c0         pmfsuspend 
+pmfsuspend
+0       13 3   0       200   fffffc02fef37180           pmfevent pmfevent
+0       12 3   0       200   fffffc02fef36d40         sopendfree sopendfr
+0       11 3   0       200   fffffc02fef36900            iflnkst iflnkst
+0       10 3   0       200   fffffc02fef364c0           nfssilly nfssilly
+0        9 3   0       240   fffffc02fef36080             vdrain vdrain
+0        8 3   0       200   fffffc02ff74d9c0          modunload mod_unld
+0        7 3   0       200   fffffc02ff74d580            xcall/0 xcall
+0        6 1   0       200   fffffc02ff74d140          softser/0
+0        5 1   0       200   fffffc02ff74cd00          softclk/0
+0        4 1   0       200   fffffc02ff74c8c0          softbio/0
+0        3 1   0       200   fffffc02ff74c480          softnet/0
+0        2 1   0       201   fffffc02ff74c040             idle/0
+0        0 3   0       200   fffffc00014c6440            swapper uvm
+
+
+
+
+From thorpej@me.com  Tue Mar 30 14:49:21 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Panic on -current with MULTIPROCESSOR
+Date: Tue, 30 Mar 2021 14:49:21 -0700
+Approved: news@gmane.org
+Message-ID: <8522DC30-03C4-4A45-8B87-B260BF7C2024@me.com>
+References: <Pine.NEB.4.64.2103302005430.7971@athena.zia.io>
+Mime-Version: 1.0 (Mac OS X Mail 14.0 \(3654.60.0.2.21\))
+Content-Type: text/plain;
+	charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="568"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org
+To: John Klos <john@ziaspace.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Tue Mar 30 23:49:45 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lRMF6-000Aag-FT
+	for netbsd-port-alpha@m.gmane-mx.org; Tue, 30 Mar 2021 23:49:44 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 6F76184D40; Tue, 30 Mar 2021 21:49:40 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id C7FA484D04
+	for <port-alpha@netbsd.org>; Tue, 30 Mar 2021 21:49:24 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id ZcXHtqeMfYEO for <port-alpha@netbsd.org>;
+	Tue, 30 Mar 2021 21:49:23 +0000 (UTC)
+Original-Received: from pv34p98im-ztdg02172101.me.com (pv34p98im-ztdg02172101.me.com [17.143.234.142])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id A71E984CDF
+	for <port-alpha@netbsd.org>; Tue, 30 Mar 2021 21:49:23 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=1a1hai;
+	t=1617140963; bh=4AOa23ZFzj2vn9uZjGEDltz6hUTbN58apo4Qa4zuWPo=;
+	h=Content-Type:Mime-Version:Subject:From:Date:Message-Id:To;
+	b=XjnknU7V7d1eQd+Y6TmawhYepOk6+YYlVUfWwrTCKdcn3Dcr9sGLntwwtw2BqPcdw
+	 DqJoSHknR2U3YndqgrJvW9/HrLlL5uVB2O0cbgO9gPmQ0Sr5yGH1vBvY11GF7NFQxn
+	 O9bONjZFBYYRUcIgVSANa1Wmc8+2Yht0LcbzCCMAKk3RZfkkhXaUmkJG4rJGEEv1aN
+	 MxjkUu7FluxdEwxEZSS098sbbWnbOFphDTqbHtiQKslhmeNuf4AxMLmVFeezjV73/n
+	 VnjsijNmTO4LdNviUetRyRiMXsi2BEdY/4mqZ4iC9bUFvqfCNd4Ygf4VMH3rC+9F2x
+	 Hxye8xvRP5X/g==
+Original-Received: from [17.11.92.132] (unknown [17.11.92.132])
+	by pv34p98im-ztdg02172101.me.com (Postfix) with ESMTPSA id C27955400E1;
+	Tue, 30 Mar 2021 21:49:22 +0000 (UTC)
+In-Reply-To: <Pine.NEB.4.64.2103302005430.7971@athena.zia.io>
+X-Mailer: Apple Mail (2.3654.60.0.2.21)
+X-Proofpoint-Virus-Version: vendor=fsecure engine=2.50.10434:6.0.369,18.0.761
+ definitions=2021-03-30_12:2021-03-30,2021-03-30 signatures=0
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 suspectscore=0 malwarescore=0
+ phishscore=0 bulkscore=0 spamscore=0 clxscore=1011 mlxscore=0
+ mlxlogscore=527 adultscore=0 classifier=spam adjust=0 reason=mlx
+ scancount=1 engine=8.0.1-2006250000 definitions=main-2103300158
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5249
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5249>
+
+
+
+> On Mar 30, 2021, at 1:15 PM, John Klos <john@ziaspace.com> wrote:
+>=20
+> Hi,
+>=20
+> I've been running pbulk builds on my DS25 with no problems at all when =
+the kernel is compiled without MULTIPROCESSOR. We have a full pbulk =
+build of 2020Q4 :)
+>=20
+> I just tried with MULTIPROCESSOR with -current from 28-March-2021, but =
+it paniced within a few hours of starting a pbulk scan.
+>=20
+> Does anyone have a clue about what might be going on here?
+
+This indicates that the pmap is having TLB invalidations processed on =
+the local CPU (id 0) and a remove CPU (id 1).  The local CPU is running =
+at splhigh() (IPL 6 =3D=3D ALPHA_PSL_IPL_HIGH).  The local CPU has sent =
+an IPI to the remote CPU to process the invalidation, and has timed out =
+waiting for the remote CPU to process it.
+
+Couple of things=E2=80=A6 I=E2=80=99m actually pretty surprised to see =
+IPL =3D=3D 6 there.  At the top of pmap_tlb_shootnow() is the following:
+
+        /*
+         * Acquire the shootdown mutex.  This will also block IPL_VM
+         * interrupts and disable preemption.  It is critically =
+important
+         * that IPIs not be blocked in this routine.
+         */
+        KASSERT((alpha_pal_rdps() & ALPHA_PSL_IPL_MASK) < =
+ALPHA_PSL_IPL_CLOCK);
+        mutex_spin_enter(&tlb_lock);
+
+=E2=80=A6this is because on the Apha, IPIs come in at the same IPL as =
+the clock interrupt, which is IPL =3D=3D 5.
+
+tlb_lock is initialized thus:
+
+        mutex_init(&tlb_lock, MUTEX_SPIN, IPL_VM);
+
+..and IPL_VM is ALPHA_PSL_IPL_IO_HI, which is IPL =3D=3D 4.
+
+So, something is raising our IPL to IPL_HIGH somewhere.  How rude!
+
+mutex_spin_enter() is just an alias for mutex_vector_enter() on Alpha, =
+so looking there, we see that MUTEX_SPIN_SPLRAISE() does:
+
+        s =3D splraiseipl(MUTEX_SPIN_IPL(mtx));
+
+=E2=80=A6and:
+
+#define MUTEX_SPIN_IPL(mtx)             ((mtx)->mtx_ipl)
+
+So, something is a little fishy here.  I think there=E2=80=99s a chance =
+that there is some slight brokenness with spin mutexes on Alpha that =
+only show up on MULTIPROCESSOR kernels.  I=E2=80=99ll take a deeper look =
+a little later today.
+
+
+
+
+
+
+>=20
+> Thanks,
+> John
+>=20
+>=20
+> [ 74219.1614327] TLB LOCAL MASK  =3D 0x0000000000000001
+> [ 74219.1614327] TLB REMOTE MASK =3D 0x0000000000000002
+> [ 74219.1614327] TLB REMOTE PENDING =3D 0x0000000000000002
+> [ 74219.1614327] TLB CONTEXT =3D 0xfffffc001b83dd58
+> [ 74219.1614327] TLB LOCAL IPL =3D 6
+> [ 74219.1614327] panic: pmap_tlb_shootnow
+> [ 74219.1614327] cpu0: Begin traceback...
+> [ 74219.1614327] alpha trace requires known PC =3Deject=3D
+> [ 74219.1614327] cpu0: End traceback...
+> Stopped in pid 5054.5054 (echo) at      netbsd:cpu_Debugger+0x4: ret
+> zero,(ra)
+> db{0}>
+> db{0}> bt
+> cpu_Debugger() at netbsd:cpu_Debugger+0x4
+> db_panic() at netbsd:db_panic+0xc8
+> vpanic() at netbsd:vpanic+0x10c
+> panic() at netbsd:panic+0x58
+> pmap_tlb_shootnow.part.0() at netbsd:pmap_tlb_shootnow.part.0+0x234
+> pmap_remove_internal() at netbsd:pmap_remove_internal+0x328
+> pmap_remove() at netbsd:pmap_remove+0x2c
+> uvm_unmap_remove() at netbsd:uvm_unmap_remove+0x158
+> sys_munmap() at netbsd:sys_munmap+0xb8
+> syscall() at netbsd:syscall+0x260
+> XentSys() at netbsd:XentSys+0x5c
+> --- syscall (73) ---
+> --- user mode ---
+> PID    LID S CPU     FLAGS       STRUCT LWP *               NAME WAIT
+> 5054 >5054 7   0         0   fffffc02e8db0500               echo
+> 20918 20918 3   1       180   fffffc000ef9e480               make wait
+> 19235 19235 3   0       180   fffffc0019d9ee40               make =
+pipe_rd
+> 28954 28954 3   1       180   fffffc001aa5c140               make =
+pipe_rd
+> 2913  2913 3   0       180   fffffc001b093a80                top =
+select
+> 7334  7334 3   1       180   fffffc0016176080         pbulk-scan =
+pipe_rd
+> 17864 17864 3   1       180   fffffc000c14ea80                 sh wait
+> 28220 28220 3   0       180   fffffc0019d9e5c0                 sh wait
+> 26180 26180 3   1       180   fffffc001aa5c9c0               tcsh =
+pause
+> 15702 15702 3   1       180   fffffc001b092100               tcsh =
+pause
+> 5805  5805 3   1       180   fffffc001aa5d240               tcsh pause
+> 16556 16556 3   0       180   fffffc000c14eec0               tcsh =
+pause
+> 18472 18472 3   1       180   fffffc000c14f300               tmux =
+kqueue
+> 28224 28224 3   1       180   fffffc001aa5ce00               tcsh =
+pause
+> 11357 11357 3   0       180   fffffc0019d9f280               sshd =
+select
+> 14035 14035 3   0       180   fffffc0016176d40               sshd poll
+> 17970 17970 3   1       180   fffffc000c234680               tcsh =
+ttyraw
+> 18858 18858 3   1       180   fffffc00161764c0               sshd =
+select
+> 23130 23130 3   0       180   fffffc001b093200               sshd poll
+> 338    338 3   0       1c0   fffffc02fd68cdc0              getty =
+ttyraw
+> 326    326 3   1       180   fffffc000ef9f9c0               cron =
+nanoslp
+> 2204  2204 3   1       180   fffffc000ef9f580              inetd =
+kqueue
+> 1695  1695 3   0       180   fffffc000ef9f140               sshd =
+select
+> 206    206 3   0       180   fffffc000ef9e8c0                 cu poll
+> 205    205 3   1       180   fffffc000c234ac0                 cu =
+ttyraw
+> 203    203 3   1       180   fffffc000c235bc0               ntpd pause
+> 2213  2213 3   0       180   fffffc000c235780               tcsh pause
+> 2043  2043 3   0       180   fffffc000c235340               tmux =
+kqueue
+> 1240  1240 3   0       180   fffffc000c234f00            syslogd =
+kqueue
+> 1        1 3   1       180   fffffc000086ee80               init wait
+> 0     1313 3   1       200   fffffc000c234240          acctwatch =
+actwat
+> 0      228 3   0       200   fffffc00007d4140            physiod =
+physiod
+> 0      126 3   1       200   fffffc000c14e200          pooldrain =
+pooldrain
+> 0      125 3   1       200   fffffc000086fb40            ioflush =
+syncer
+> 0      124 3   1       200   fffffc000086f700           pgdaemon =
+pgdaemon
+> 0      121 3   1       200   fffffc02fd68c540            raidio0 =
+raidiow
+> 0      120 3   0       200   fffffc02fd68d640              raid0 =
+rfnodeq
+> 0      119 3   1       200   fffffc000086f2c0             npfgc0 =
+npfgcw
+> 0      118 3   0       200   fffffc000086ea40            rt_free =
+rt_free
+> 0      117 3   0       200   fffffc000086e600              unpgc unpgc
+> 0      116 3   1       200   fffffc000086e1c0    icmp6_wqinput/1 =
+icmp6_wqinput
+> 0      115 3   0       200   fffffc0000787b00    icmp6_wqinput/0 =
+icmp6_wqinput
+> 0      114 3   1       200   fffffc00007876c0            ip6flow =
+ip6flow
+> 0      113 3   1       200   fffffc0000787280          nd6_timer =
+nd6_timer
+> 0      112 3   1       200   fffffc0000786e40    carp6_wqinput/1 =
+carp6_wqinput
+> 0      111 3   0       200   fffffc0000786a00    carp6_wqinput/0 =
+carp6_wqinput
+> 0      110 3   1       200   fffffc00007865c0     carp_wqinput/1 =
+carp_wqinput
+> 0      109 3   0       200   fffffc00007d4580     carp_wqinput/0 =
+carp_wqinput
+> 0      108 3   1       200   fffffc00007d49c0     icmp_wqinput/1 =
+icmp_wqinput
+> 0      107 3   0       200   fffffc00007d4e00     icmp_wqinput/0 =
+icmp_wqinput
+> 0      106 3   1       200   fffffc00007d5240           rt_timer =
+rt_timer
+> 0      105 3   0       200   fffffc00007d5680    ipflow_slowtimo =
+ipflow_slowtimo
+>=20
+> 0      104 3   1       200   fffffc00007d5ac0        vmem_rehash =
+vmem_rehash
+> 0      103 3   1       200   fffffc0000786180          entbutler =
+entropy
+> 0       29 3   0       200   fffffc02fd68da80               iic0 =
+iicintr
+> 0       27 3   0       200   fffffc02fd68d200           scsibus2 =
+sccomp
+> 0       25 3   0       200   fffffc02fd68c980           scsibus1 =
+sccomp
+> 0       23 3   0       200   fffffc02fd68c100           scsibus0 =
+sccomp
+> 0       22 3   0       200   fffffc02fd713a40            atabus1 atath
+> 0       21 3   0       200   fffffc02fd713600            atabus0 atath
+> 0       20 3   1       200   fffffc02fd7131c0            xcall/1 xcall
+> 0       19 1   1       200   fffffc02fd712d80          softser/1
+> 0       18 1   1       200   fffffc02fd712940          softclk/1
+> 0       17 1   1       200   fffffc02fd712500          softbio/1
+> 0       16 1   1       200   fffffc02fd7120c0          softnet/1
+> 0    >  15 1   1       201   fffffc02fef39a00             idle/1
+> 0       14 3   0       200   fffffc02fef395c0         pmfsuspend =
+pmfsuspend
+> 0       13 3   0       200   fffffc02fef39180           pmfevent =
+pmfevent
+> 0       12 3   0       200   fffffc02fef38d40         sopendfree =
+sopendfr
+> 0       11 3   1       200   fffffc02fef38900            iflnkst =
+iflnkst
+> 0       10 3   0       200   fffffc02fef384c0           nfssilly =
+nfssilly
+> 0        9 3   0       240   fffffc02fef38080             vdrain =
+vdrain
+> 0        8 3   0       200   fffffc02ff74f9c0          modunload =
+mod_unld
+> 0        7 3   0       200   fffffc02ff74f580            xcall/0 xcall
+> 0        6 1   0       200   fffffc02ff74f140          softser/0
+> 0        5 1   0       200   fffffc02ff74ed00          softclk/0
+> 0        4 1   0       200   fffffc02ff74e8c0          softbio/0
+> 0        3 1   0       200   fffffc02ff74e480          softnet/0
+> 0        2 1   0       201   fffffc02ff74e040             idle/0
+> 0        0 3   1       200   fffffc00014d0f80            swapper uvm
+
+-- thorpej
+
+
+

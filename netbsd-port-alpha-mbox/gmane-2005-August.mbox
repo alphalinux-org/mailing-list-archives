@@ -1,0 +1,1888 @@
+From smj@cirr.com  Wed Aug 3 17:03:45 2005
+Path: news.gmane.org!not-for-mail
+From: "Stephen M. Jones" <smj@cirr.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: occassional hangs (non-smp) 2.0.2
+Date: Wed, 3 Aug 2005 17:03:45 -0500 (CDT)
+Lines: 47
+Approved: news@gmane.org
+Message-ID: <200508032203.j73M3jOu017143@egsner.cirr.com>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1123106662 12421 80.91.229.2 (3 Aug 2005 22:04:22 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Wed, 3 Aug 2005 22:04:22 +0000 (UTC)
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Aug 04 00:04:13 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E0RLB-0002a3-MV
+	for netbsd-port-alpha@m.gmane.org; Thu, 04 Aug 2005 00:03:58 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id C6CB563B339; Wed,  3 Aug 2005 22:03:46 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from egsner.cirr.com (pop.cirr.com [192.67.63.1])
+	by mail.netbsd.org (Postfix) with ESMTP id F2A6D63B1CC
+	for <port-alpha@netbsd.org>; Wed,  3 Aug 2005 22:03:45 +0000 (UTC)
+Original-Received: from egsner.cirr.com (smj@localhost [127.0.0.1])
+	by egsner.cirr.com (8.13.4/8.13.1/$Revision: 1.26 $)  with ESMTP
+	id j73M3jlN001075 for <port-alpha@netbsd.org>; Wed, 3 Aug 2005 17:03:45 -0500 (CDT)
+Original-Received: (from smj@localhost)
+	by egsner.cirr.com (8.13.4/8.13.3) id j73M3jOu017143
+	for port-alpha@netbsd.org; Wed, 3 Aug 2005 17:03:45 -0500 (CDT)
+Original-To: port-alpha@netbsd.org
+X-Mailer: ELM [version 2.5 PL7]
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3393
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3393
+
+I've been experiencing occassional hangs on an NFS server running 
+NetBSD 2.0.2 (Jul 24th sys.tar.gz source and prior up to the 2.0.2 release).
+The NFS clients also run the same kernel as the NFS server but do not
+experience hangs.
+
+The machine hangs under normal load and can break to the debugger on
+the console.  
+
+I can not switch to single user mode by killing init, nor can I continue.
+I can provide further details upon request.
+
+A trace and a portion of the process table follow:
+
+cpu_Debugger() at netbsd:cpu_Debugger+0x4
+comintr() at netbsd:comintr+0x768
+alpha_shared_intr_dispatch() at netbsd:alpha_shared_intr_dispatch+0x6c
+sio_iointr() at netbsd:sio_iointr+0x40
+interrupt() at netbsd:interrupt+0x278
+XentInt() at netbsd:XentInt+0x1c
+--- interrupt (from ipl 0) ---
+ltsleep() at netbsd:ltsleep+0xe0
+uvm_scheduler() at netbsd:uvm_scheduler+0xd4
+check_console() at netbsd:check_console
+
+ PID           PPID     PGRP        UID S   FLAGS LWPS          COMMAND    WAIT
+ 11548         8769     3013          0 2  0x6000    1              cut
+ 14530          780       11         92 2  0x4000    1            sleep
+ 2440         15827    15827         99 2  0x4002    1             more   ttyin
+ 8769         24297     3013          0 2  0x4000    1              ksh
+ 28533            1    28533          0 2   0x400    3            named       *
+ 28476        23388    28476         99 2  0x4002    1              ksh   ttyin
+ 23388          612      612          0 2  0x4000    1          telnetd
+ 15827         6981    15827         99 2  0x4002    1              ksh   pause
+ 6981           612      612          0 2  0x4000    1          telnetd
+ 14272        12465    12465         99 2  0x4002    1         htpasswd   ttyin
+ 12465        29790    12465         99 2  0x4002    1              ksh   pause
+ 29790          612      612          0 2  0x4000    1          telnetd    poll
+ 24297         3013     3013          0 2  0x4000    1              ksh   pause
+ 3013          3436     3013          0 2  0x4000    1               sh    wait
+ 3436          1326     1326          0 2       0    1             cron  piperd
+ 28072         5371    28072          0 2  0x4002    1              ksh   ttyin
+ 8596             1     8596         99 2  0x4002    1              ssh  ttyopn
+ 27571         4443    27571         99 2  0x4002    1              ksh   ttyin
+ 4443           612      612          0 2  0x4000    1          telnetd
+ 2320           703      703      32767 2   0x100    1            httpd  netcon
+ 13047          703      703      32767 2   0x100    1            httpd  netcon
+
+
+From hernani@vecirex.net  Thu Aug 4 00:31:32 2005
+Path: news.gmane.org!not-for-mail
+From: Hernani Marques Madeira <hernani@vecirex.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: occassional hangs (non-smp) 2.0.2
+Date: Thu, 4 Aug 2005 00:31:32 +0200
+Lines: 18
+Approved: news@gmane.org
+Message-ID: <20050803223132.GI14013@www.vecirex.net>
+References: <200508032203.j73M3jOu017143@egsner.cirr.com>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: sea.gmane.org 1123108351 23997 80.91.229.2 (3 Aug 2005 22:32:31 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Wed, 3 Aug 2005 22:32:31 +0000 (UTC)
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Aug 04 00:32:27 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E0RmP-0005hV-MS
+	for netbsd-port-alpha@m.gmane.org; Thu, 04 Aug 2005 00:32:05 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id BE93563B340; Wed,  3 Aug 2005 22:31:55 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from vecirex.net (80-218-106-195.dclient.hispeed.ch [80.218.106.195])
+	by mail.netbsd.org (Postfix) with ESMTP id D63B263B33F
+	for <port-alpha@netbsd.org>; Wed,  3 Aug 2005 22:31:54 +0000 (UTC)
+Original-Received: from vecirex.net (localhost [IPv6:::1])
+	by vecirex.net (8.12.11/8.12.11) with ESMTP id j73MVWn9002633
+	for <port-alpha@netbsd.org>; Thu, 4 Aug 2005 00:31:32 +0200 (CEST)
+Original-Received: (from hernani@localhost)
+	by vecirex.net (8.12.11/8.12.11) id j73MVWjB003426
+	for port-alpha@netbsd.org; Thu, 4 Aug 2005 00:31:32 +0200 (CEST)
+Original-To: port-alpha@netbsd.org
+Content-Disposition: inline
+In-Reply-To: <200508032203.j73M3jOu017143@egsner.cirr.com>
+User-Agent: Mutt/1.5.6i
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3394
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3394
+
+On Wed, Aug 03, 2005 at 05:03:45PM -0500, Stephen M. Jones wrote:
+
+> I've been experiencing occassional hangs on an NFS server running 
+> NetBSD 2.0.2 (Jul 24th sys.tar.gz source and prior up to the 2.0.2 release).
+> The NFS clients also run the same kernel as the NFS server but do not
+> experience hangs.
+> 
+> The machine hangs under normal load and can break to the debugger on
+> the console.  
+
+I've had similar problems (currently that box is running 1.6.2_RC4)
+reported in PR #30148, but while the box was running as NFS client, although 
+I'v never set up that box as NFS server:
+http://www.netbsd.org/cgi-bin/query-pr-single.pl?number=30148
+
+-- 
+hernani
+
+
+From owner-3d@Softimage.COM  Mon Aug 8 02:14:29 2005
+Path: news.gmane.org!not-for-mail
+From: owner-3d@Softimage.COM
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.spam.detected
+Subject: BOUNCE 3d@Softimage.COM:    Non-member submission from [port-alpha@netbsd.org]
+Date: Mon, 8 Aug 2005 02:14:29 -0400
+Lines: 62
+Approved: news@gmane.org
+Message-ID: <200508080614.j786ETK3013207@paperboy.global.avidww.com>
+NNTP-Posting-Host: main.gmane.org
+X-Trace: sea.gmane.org 1123481654 15572 80.91.229.2 (8 Aug 2005 06:14:14 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Mon, 8 Aug 2005 06:14:14 +0000 (UTC)
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Aug 08 08:14:06 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E20tB-0005NW-W6
+	for netbsd-port-alpha@m.gmane.org; Mon, 08 Aug 2005 08:13:34 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id C766963B566; Mon,  8 Aug 2005 06:13:21 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from softgate1.softimage.com (SoftGate1.Softimage.COM [198.168.8.130])
+	by mail.netbsd.org (Postfix) with ESMTP id B390F63B55F
+	for <port-alpha@netbsd.org>; Mon,  8 Aug 2005 06:13:20 +0000 (UTC)
+Original-Received: from paperboy.global.avidww.com (IDENT:U2FsdGVkX18BQJJyo2k8VgPx2+YzT6IZWgxR+eZsd+Q@localhost.localdomain [127.0.0.1])
+	by softgate1.softimage.com (8.12.11/8.12.1) with ESMTP id j7857vio019884
+	for <port-alpha@netbsd.org>; Mon, 8 Aug 2005 01:07:57 -0400
+Original-Received: from paperboy.global.avidww.com (localhost.localdomain [127.0.0.1])
+	by paperboy.global.avidww.com (8.12.9/8.12.6) with ESMTP id j786ETvQ013208;
+	Mon, 8 Aug 2005 02:14:29 -0400
+Original-Received: (from majordom@localhost)
+	by paperboy.global.avidww.com (8.12.9/8.12.9/Submit) id j786ETK3013207;
+	Mon, 8 Aug 2005 02:14:29 -0400
+X-Authentication-Warning: paperboy.global.avidww.com: majordom set sender to owner-3d@Softimage.COM using -f
+Original-To: owner-3d@Softimage.COM, port-alpha@netbsd.org
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+X-Spam-Report: 15.8 points;
+ *  0.0 NO_REAL_NAME From: does not include a real name
+ *  2.0 BOUNCE_TRANSCRIPT_RECEIVED BODY: Looks like message transcript with 'Received:' header
+ *  2.5 BOUNCE_COULD_NOT_BE_DELIVERED BODY: Message says 'could not be delivered', so probably a bounce
+ *  2.0 BOUNCE_TRANSCRIPT_MULTIPART BODY: Looks like transcript of a MIME multipart message
+ *  0.2 BOUNCE_YOUR_MESSAGE BODY: Talks about 'your message', perhaps a bounce
+ *  2.5 BOUNCE_NOT_DELIVERED BODY: Says your message was not delivered
+ *  6.6 AWL AWL: From: address is in the auto white-list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3395 gmane.spam.detected:742025
+X-Report-Unspam: http://unspam.gmane.org/gmane.os.netbsd.ports.alpha:3395
+
+>From 3D-owner@paperboy.global.avidww.com Mon Aug  8 02:14:29 2005
+Received: from mtl-smtpgw2.global.avidww.com (mtl-smtpgw2.global.avidww.com [172.24.33.104])
+	by paperboy.global.avidww.com (8.12.9/8.12.6) with ESMTP id j786ESvu013124
+	for <3d@softimage.com>; Mon, 8 Aug 2005 02:14:29 -0400
+Received: from softgate1.softimage.com ([172.24.33.30]) by mtl-smtpgw2.global.avidww.com with Microsoft SMTPSVC(5.0.2195.6713);
+	 Mon, 8 Aug 2005 02:13:10 -0400
+Received: from netbsd.org (IDENT:U2FsdGVkX1/0xf3j5smS5d9AbP1uyNdyq4rWvkerN+k@localhost.localdomain [127.0.0.1])
+	by softgate1.softimage.com (8.12.11/8.12.1) with SMTP id j7857kK9019794
+	for <3d@softimage.com>; Mon, 8 Aug 2005 01:07:47 -0400
+Message-Id: <200508080507.j7857kK9019794@softgate1.softimage.com>
+From: port-alpha@netbsd.org
+To: 3d@Softimage.COM
+Subject: Message could not be delivered
+Date: Mon, 8 Aug 2005 08:13:12 +0200
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0007_A81E1B52.C0E595B2"
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2600.0000
+X-MIMEOLE: Produced By Microsoft MimeOLE V6.00.2600.0000
+X-OriginalArrivalTime: 08 Aug 2005 06:13:10.0919 (UTC) FILETIME=[40A0D970:01C59BE0]
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_0007_A81E1B52.C0E595B2
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+The message was not delivered due to the following reason(s):
+
+Your message was not delivered because the destination server was
+unreachable within the allowed queue period. The amount of time
+a message is queued before it is returned depends on local configura-
+tion parameters.
+
+Most likely there is a network problem that prevented delivery, but
+it is also possible that the computer is turned off, or does not
+have a mail system running right now.
+
+Your message could not be delivered within 4 days:
+Host 164.199.85.93 is not responding.
+
+The following recipients did not receive this message:
+<3d@softimage.com>
+
+Please reply to postmaster@netbsd.org
+if you feel this message to be in error.
+
+
+------=_NextPart_000_0007_A81E1B52.C0E595B2
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+[Filename: softimage.com, Content-Type: application/octet-stream]
+The attachment file in the message has been removed by eManager.
+
+------=_NextPart_000_0007_A81E1B52.C0E595B2--
+
+
+
+
+From sammyshome@gmx.net  Tue Aug 9 02:36:21 2005
+Path: news.gmane.org!not-for-mail
+From: sp4rc <sammyshome@gmx.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: raided1 root / installboot drives me mad
+Date: Tue, 09 Aug 2005 02:36:21 +0200
+Lines: 60
+Approved: news@gmane.org
+Message-ID: <1123547781.16459.22.camel@uranos.pentacon.gov>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1123550971 2557 80.91.229.2 (9 Aug 2005 01:29:31 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Tue, 9 Aug 2005 01:29:31 +0000 (UTC)
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Aug 09 03:29:20 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E2Ivc-0001Lk-IQ
+	for netbsd-port-alpha@m.gmane.org; Tue, 09 Aug 2005 03:29:16 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id AD33563B32E; Tue,  9 Aug 2005 01:29:06 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mailout08.sul.t-online.com (mailout08.sul.t-online.com [194.25.134.20])
+	by mail.netbsd.org (Postfix) with ESMTP id 8FFA463B32B
+	for <port-alpha@netbsd.org>; Tue,  9 Aug 2005 01:29:05 +0000 (UTC)
+Original-Received: from fwd23.aul.t-online.de 
+	by mailout08.sul.t-online.com with smtp 
+	id 1E2HzJ-0001NA-01; Tue, 09 Aug 2005 02:29:01 +0200
+Original-Received: from pentacon.gov (JJ12ViZdZee7WpFrEwn0YaJjlJl7GEdNwV2yBdhnC2w+uccWoWdcUB@[217.248.52.80]) by fwd23.sul.t-online.de
+	with esmtp id 1E2HzI-044Qtc0; Tue, 9 Aug 2005 02:29:00 +0200
+Original-Received: from [192.168.1.231] (uranos.pentacon.gov [192.168.1.231])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by pentacon.gov (Postfix) with ESMTP id 22280261B1
+	for <port-alpha@netbsd.org>; Tue,  9 Aug 2005 04:31:12 +0200 (CEST)
+Original-To: port-alpha@netbsd.org
+X-Mailer: Ximian Evolution 1.4.6 
+X-ID: JJ12ViZdZee7WpFrEwn0YaJjlJl7GEdNwV2yBdhnC2w+uccWoWdcUB@t-dialin.net
+X-TOI-MSGID: fea0a66d-043f-4a05-8eef-a30bfd4ca1a0
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3396
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3396
+
+Hello list,
+
+i am getting mad trying to installing netbsd 2.0.2 using a raided1 root
+on as1200. So far I came to point 16.3.9
+(http://www.netbsd.org/guide/en/chap-rf.html#chap-rf-ex-raid1root)
+
+the quide says to install the boot loader on sda1 using the following
+command:
+
+# /usr/sbin/installboot -v /dev/rsd1a /usr/mdec/bootblk
+
+as i am installing on an alpha system and not sparc64, bootblk doesn't
+exist, so i tried /usr/mdec/boot.
+
+# installboot -v /dev/rsd1a /usr/mdec/boot
+File system:         /dev/rsd1a
+File system type:    raw (blocksize 8192, needswap 0)
+Primary bootstrap:   /usr/mdec/boot
+Bootstrap start sector:  1
+Bootstrap sector count:  103
+New boot block checksum: 0xf4f4a3e360232b13
+Writing bootstrap
+Writing boot block
+installboot: Writing `/dev/rsd1a': Read-only file system
+installboot: Set bootstrap operation failed  <-- aaarggh
+
+but the bootstrap process always fails. Why does installboot complains
+about a read-only file system? 
+Althoug i don't understand why to take a instead of c, i tried using c
+instead of a, which seemed to work
+
+# installboot -v /dev/rsd1c /usr/mdec/boot
+File system:         /dev/rsd1c
+File system type:    raw (blocksize 8192, needswap 0)
+Primary bootstrap:   /usr/mdec/boot
+Bootstrap start sector:  1
+Bootstrap sector count:  103
+New boot block checksum: 0xf4f4a3e360232b13
+Writing bootstrap
+Writing boot block
+
+after a "shutdown -h now" i entered "boot dka100" (which is my second
+scsi hd) this is was happend. I don't understand whats going on here.
+
+...
+AlphaServer 1200 Console V6.0-4, 10-MAY-2001 10:11:42
+CPU 0 booting
+(boot dka100.1.0.1.1 -flags a)
+device dka100.1.0.1.1 no longer valid
+device dka100.1.0.1.1 no longer valid
+device dka100.1.0.1.1 no longer valid
+P00>>>^C
+
+Any hints or help on this would be greatly appreciated... please not
+another sleepless night...
+
+greets 
+	/sp4rc
+
+
+
+From simonb@wasabisystems.com  Tue Aug 9 11:56:30 2005
+Path: news.gmane.org!not-for-mail
+From: Simon Burge <simonb@wasabisystems.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: raided1 root / installboot drives me mad
+Date: Tue, 09 Aug 2005 11:56:30 +1000
+Organization: Wasabi Systems, Inc.
+Lines: 25
+Approved: news@gmane.org
+Message-ID: <20050809015630.71A12237D9@thoreau.thistledown.com.au>
+References: <1123547781.16459.22.camel@uranos.pentacon.gov>
+NNTP-Posting-Host: main.gmane.org
+X-Trace: sea.gmane.org 1123552681 12316 80.91.229.2 (9 Aug 2005 01:58:01 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Tue, 9 Aug 2005 01:58:01 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Aug 09 03:57:52 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E2JMB-0003p1-Jy
+	for netbsd-port-alpha@m.gmane.org; Tue, 09 Aug 2005 03:56:43 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id EE49F63B339; Tue,  9 Aug 2005 01:56:33 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from thoreau.thistledown.com.au (thoreau.thistledown.com.au [203.217.30.154])
+	by mail.netbsd.org (Postfix) with ESMTP id 2FAAB63B335
+	for <port-alpha@netbsd.org>; Tue,  9 Aug 2005 01:56:33 +0000 (UTC)
+Original-Received: from thoreau.thistledown.com.au (localhost [127.0.0.1])
+	by thoreau.thistledown.com.au (Postfix) with ESMTP
+	id 71A12237D9; Tue,  9 Aug 2005 11:56:30 +1000 (EST)
+Original-To: sp4rc <sammyshome@gmx.net>
+In-Reply-To: Your message of "Tue, 09 Aug 2005 02:36:21 +0200 "
+	<1123547781.16459.22.camel@uranos.pentacon.gov> 
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3397
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3397
+
+sp4rc wrote:
+
+> Hello list,
+> 
+> i am getting mad trying to installing netbsd 2.0.2 using a raided1 root
+> on as1200. So far I came to point 16.3.9
+> (http://www.netbsd.org/guide/en/chap-rf.html#chap-rf-ex-raid1root)
+> 
+> the quide says to install the boot loader on sda1 using the following
+> command:
+> 
+> # /usr/sbin/installboot -v /dev/rsd1a /usr/mdec/bootblk
+> 
+> as i am installing on an alpha system and not sparc64, bootblk doesn't
+> exist, so i tried /usr/mdec/boot.
+
+For alpha, you want to use /usr/mdec/bootxx_ffs with installboot, and
+also copy /usr/mdec/boot to /boot.  bootxx_ffs will be loaded by SRM,
+then that loads /boot and /boot finally loads the kernel itself.
+
+Simon.
+--
+Simon Burge                            <simonb@wasabisystems.com>
+NetBSD Support and Service:         http://www.wasabisystems.com/
+
+
+From carton@Ivy.NET  Tue Aug 9 08:08:54 2005
+Path: news.gmane.org!not-for-mail
+From: Miles Nordin <carton@Ivy.NET>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: raided1 root / installboot drives me mad
+Date: Tue, 09 Aug 2005 08:08:54 -0400
+Lines: 73
+Approved: news@gmane.org
+Message-ID: <oqslxj71nt.fsf@castrovalva.Ivy.NET>
+References: <1123547781.16459.22.camel@uranos.pentacon.gov>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0 (generated by SEMI 1.14.6 - "Maruoka")
+Content-Type: multipart/signed;
+ boundary="pgp-sign-Multipart_Tue_Aug__9_08:08:53_2005-1"; micalg=pgp-sha1;
+ protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1123591052 20377 80.91.229.2 (9 Aug 2005 12:37:32 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Tue, 9 Aug 2005 12:37:32 +0000 (UTC)
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Aug 09 14:37:22 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E2TLM-0007BZ-9Z
+	for netbsd-port-alpha@m.gmane.org; Tue, 09 Aug 2005 14:36:33 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 51CD463B35A; Tue,  9 Aug 2005 12:36:21 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from sakima.Ivy.NET (unknown [69.31.131.60])
+	by mail.netbsd.org (Postfix) with ESMTP id AB39A63B195
+	for <port-alpha@netbsd.org>; Tue,  9 Aug 2005 12:36:19 +0000 (UTC)
+Original-Received: from castrovalva.Ivy.NET (castrovalva.Ivy.NET [IPv6:2001:4830:2150:c0::3])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by sakima.Ivy.NET (Postfix) with ESMTP id 57B9C2F89F
+	for <port-alpha@netbsd.org>; Tue,  9 Aug 2005 08:08:55 -0400 (EDT)
+Original-Received: by castrovalva.Ivy.NET (Postfix, from userid 405)
+	id 873C412FB01; Tue,  9 Aug 2005 08:08:54 -0400 (EDT)
+Original-To: port-alpha@netbsd.org
+In-Reply-To: <1123547781.16459.22.camel@uranos.pentacon.gov> (sp4rc's message of "Tue, 09 Aug 2005 02:36:21 +0200")
+User-Agent: T-gnus/6.17.2 (based on No Gnus v0.2) SEMI/1.14.6 (Maruoka) FLIM/1.14.6 (Marutamachi) APEL/10.6 Emacs/21.3 (alpha--netbsd) MULE/5.0 (SAKAKI)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3398
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3398
+
+--pgp-sign-Multipart_Tue_Aug__9_08:08:53_2005-1
+Content-Type: text/plain; charset=US-ASCII
+
+>>>>> "s" == sp4rc  <sammyshome@gmx.net> writes:
+
+     s> Why does installboot complains about a read-only file system?
+
+Three things:
+
+1. securelevel 1 forbids writing to the raw device that corresponds to
+   a mounted partition.  If you can unmount your root filesystem, just
+   copy boot to /boot, unmount it, and then run installboot.  The new
+   installboot can work on unmounted filesystems.  
+
+   Or, you can run installboot in single-user mode where securelevel
+   is 0.  I think it is:
+
+>>>boot -flags -s
+
+   in the console, but that might not be exactly right.  Or, use '-d'
+   to enter ddb on boot, and before the system mounts the root
+   filesystem or configures most drivers, you'll be able to enter:
+
+   ddb> write/l securelevel -1
+   ddb> c
+
+   it's untested, but I think that might work to stay insecure in
+   multi-user, just for one boot-up.  Then you can reboot and get
+   normal securelevel back.
+
+2. sometimes you have to do:
+
+   # sleep 90 < /dev/rsd1c &
+   # disklabel -W sd1
+   # installboot ...
+   # disklabel -N sd1
+
+   you may need this to newfs filesystems as well so newfs can write
+   to the fsize/bsize/cpg in the disklabel.  Programs that write to
+   the disklabel directly rather than using the ioctl, on some
+   architectures, are prevented unless label writing is turned on with
+   'disklabel -W'.  You need the sleep 90 sometimes (maybe it is just
+   with pccard stuff?) because all the disk driver's state is cleaned
+   up and forgotten when no process has it open any more.
+
+3. as Simon said, the correct way is:
+
+   # cd /usr/mdec
+   # cp boot /
+   # sync
+   # installboot -v /dev/rsd1a bootxx_ffs /boot
+
+   so, use bootxx_ffs as primary loader (works on FFSv1 filesystems
+   only. can't use FFSv2 yet.) and not boot.  Copy boot to /boot
+   before starting.  Use /dev/rsd1a instead of rsd1c (might not be
+   important).
+
+--pgp-sign-Multipart_Tue_Aug__9_08:08:53_2005-1
+Content-Type: application/pgp-signature
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (NetBSD)
+
+iQCVAwUAQvic1onCBbTaW/4dAQKiawP/XmsogYl8jGmDXt3T+hXjhYtwuPO1DtwH
+64rYVOdM04xpfrlDqIL4R0L8fCwntgL8uj7w4VG8XPrZIqRHL96mKHvFi5F6I7l2
+7qyFTR17ktmOo1SR7fzbutKZ+tWnFHJu3lQ+mFnaAai3sJmSr3GqvRbovDhEPRhy
+7nK7gszUfGU=
+=P4QL
+-----END PGP SIGNATURE-----
+
+--pgp-sign-Multipart_Tue_Aug__9_08:08:53_2005-1--
+
+
+From sammyshome@gmx.net  Tue Aug 9 18:41:23 2005
+Path: news.gmane.org!not-for-mail
+From: sp4rc <sammyshome@gmx.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: raided1 root / installboot drives me mad
+Date: Tue, 09 Aug 2005 18:41:23 +0200
+Lines: 21
+Approved: news@gmane.org
+Message-ID: <1123605683.689.21.camel@uranos.pentacon.gov>
+References: <1123547781.16459.22.camel@uranos.pentacon.gov>
+	 <oqslxj71nt.fsf@castrovalva.Ivy.NET>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1123609140 5381 80.91.229.2 (9 Aug 2005 17:39:00 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Tue, 9 Aug 2005 17:39:00 +0000 (UTC)
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Aug 09 19:38:52 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E2Y1v-0005d6-UO
+	for netbsd-port-alpha@m.gmane.org; Tue, 09 Aug 2005 19:36:48 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id B3D1C63B14D; Tue,  9 Aug 2005 17:36:37 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mailout10.sul.t-online.com (mailout10.sul.t-online.com [194.25.134.21])
+	by mail.netbsd.org (Postfix) with ESMTP id F082963B12C
+	for <port-alpha@netbsd.org>; Tue,  9 Aug 2005 17:36:36 +0000 (UTC)
+Original-Received: from fwd27.aul.t-online.de 
+	by mailout10.sul.t-online.com with smtp 
+	id 1E2X3J-0008JH-01; Tue, 09 Aug 2005 18:34:09 +0200
+Original-Received: from pentacon.gov (rAiVPOZLoehtUFH32dbyhcIwWP0qB87Il10knkzTOTVA+R8+6LlBc+@[217.248.51.182]) by fwd27.sul.t-online.de
+	with esmtp id 1E2X3C-26Ihqi0; Tue, 9 Aug 2005 18:34:02 +0200
+Original-Received: from [192.168.1.231] (uranos.pentacon.gov [192.168.1.231])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by pentacon.gov (Postfix) with ESMTP id 36D4117C2D
+	for <port-alpha@netbsd.org>; Tue,  9 Aug 2005 20:36:14 +0200 (CEST)
+Original-To: port-alpha@netbsd.org
+In-Reply-To: <oqslxj71nt.fsf@castrovalva.Ivy.NET>
+X-Mailer: Ximian Evolution 1.4.6 
+X-ID: rAiVPOZLoehtUFH32dbyhcIwWP0qB87Il10knkzTOTVA+R8+6LlBc+@t-dialin.net
+X-TOI-MSGID: cc0e06b1-aa55-42d2-8938-1275c72e66f4
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3399
+
+>    # sleep 90 < /dev/rsd1c &
+>    # disklabel -W sd1
+>    # installboot ...
+>    # disklabel -N sd1
+
+[...]
+
+>    # cd /usr/mdec
+>    # cp boot /
+>    # sync
+>    # installboot -v /dev/rsd1a bootxx_ffs /boot
+
+Thank you guys so much. "disklabel -NW" and 
+"installboot -v /dev/rsd1a bootxx_ffs /boot" did the trick. Now i am
+proud owner of a raided 1 root netbsd alpha system xD
+
+-- 
+Regards
+	/sp4rc
+
+
+
+From ekarttun@cs.helsinki.fi  Sun Aug 7 20:22:13 2005
+Path: news.gmane.org!not-for-mail
+From: Einar Karttunen <ekarttun@cs.helsinki.fi>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: X11 with VGA?
+Date: Sun, 7 Aug 2005 20:22:13 +0300
+Lines: 13
+Approved: news@gmane.org
+Message-ID: <20050807172213.GA16617@melkki.cs.Helsinki.FI>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1123638083 25189 80.91.229.2 (10 Aug 2005 01:41:23 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Wed, 10 Aug 2005 01:41:23 +0000 (UTC)
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Aug 10 03:41:19 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E2fZh-0005IW-AD
+	for netbsd-port-alpha@m.gmane.org; Wed, 10 Aug 2005 03:40:09 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 5C0B063B3C4; Wed, 10 Aug 2005 01:39:59 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mail.cs.helsinki.fi (courier.cs.helsinki.fi [128.214.9.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 9BBC463B160
+	for <port-alpha@netbsd.org>; Wed, 10 Aug 2005 01:39:58 +0000 (UTC)
+Original-Received: from sbz-30.cs.Helsinki.FI (sbz-30.cs.helsinki.fi [128.214.9.98])
+  (AUTH: PLAIN cs-relay, TLS: TLSv1/SSLv3,256bits,AES256-SHA)
+  by mail.cs.helsinki.fi with esmtp; Sun, 07 Aug 2005 20:22:18 +0300
+  id 000F16AD.42F6434A.000045B5
+Original-Received: from sbz-30.cs.Helsinki.FI (localhost [127.0.0.1])
+	by sbz-30.cs.Helsinki.FI (8.12.8/8.12.8) with ESMTP id j77HME5v016767
+	for <port-alpha@netbsd.org>; Sun, 7 Aug 2005 20:22:14 +0300
+Original-Received: (from ekarttun@localhost)
+	by sbz-30.cs.Helsinki.FI (8.12.8/8.12.8/Submit) id j77HMDRx016766
+	for port-alpha@netbsd.org; Sun, 7 Aug 2005 20:22:13 +0300
+Original-To: port-alpha@netbsd.org
+Content-Disposition: inline
+User-Agent: Mutt/1.4.1i
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3400
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3400
+
+Hello
+
+Is it possible to get VGA cards to work under NetBSD/alpha? I have a 
+PCI Matrox millenium II card I would like to use in my alphastation,
+but the X server provided in the X sets seems to be tga only.
+
+At least on the netbsd-3 branch compiling x11/XFree86-* does not seem
+to work (e.g. the libs build results in many errors, but installs
+lacking most libraries from the PLIST file and being unusable).
+Is there a solution to make things work?
+
+- Einar Karttunen
+
+
+From harenberg@physik.uni-wuppertal.de  Wed Aug 10 10:15:34 2005
+Path: news.gmane.org!not-for-mail
+From: Torsten Harenberg <harenberg@physik.uni-wuppertal.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: X11 with VGA?
+Date: Wed, 10 Aug 2005 10:15:34 +0200
+Lines: 22
+Approved: news@gmane.org
+Message-ID: <42F9B7A6.9030504@physik.uni-wuppertal.de>
+References: <20050807172213.GA16617@melkki.cs.Helsinki.FI>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1123661830 24260 80.91.229.2 (10 Aug 2005 08:17:10 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Wed, 10 Aug 2005 08:17:10 +0000 (UTC)
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Aug 10 10:17:05 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E2lki-0004gD-K6
+	for netbsd-port-alpha@m.gmane.org; Wed, 10 Aug 2005 10:15:57 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 04AFF63B149; Wed, 10 Aug 2005 08:15:44 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mail.physik.uni-wuppertal.de (mail.physik.uni-wuppertal.de [132.195.104.215])
+	by mail.netbsd.org (Postfix) with ESMTP id 34F7163B127
+	for <port-alpha@netbsd.org>; Wed, 10 Aug 2005 08:15:43 +0000 (UTC)
+Original-Received: by mail.physik.uni-wuppertal.de (Postfix on SuSE Linux eMail Server 3.1, from userid 65534)
+	id 120AC14F68; Wed, 10 Aug 2005 10:15:42 +0200 (CEST)
+Original-Received: from [132.195.104.207] (grid-wn4.physik.uni-wuppertal.de [132.195.104.207])
+	(using TLSv1 with cipher RC4-MD5 (128/128 bits))
+	(Client did not present a certificate)
+	by mail.physik.uni-wuppertal.de (Postfix on SuSE Linux eMail Server 3.1) with ESMTP id E422814F44
+	for <port-alpha@netbsd.org>; Wed, 10 Aug 2005 10:15:38 +0200 (CEST)
+User-Agent: Mozilla Thunderbird 1.0.2 (Macintosh/20050317)
+X-Accept-Language: en-us, en
+Original-To: port-alpha@netbsd.org
+In-Reply-To: <20050807172213.GA16617@melkki.cs.Helsinki.FI>
+X-Spam-Checker-Version: SpamAssassin 2.63 (2004-01-11) on 
+	mail.physik.uni-wuppertal.de
+X-Spam-Level: 
+X-Spam-Status: No, hits=-2.0 required=5.0 tests=BAYES_00 autolearn=no 
+	version=2.63
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3401
+
+Dear Einar,
+
+have you allready looked here:
+
+http://www.caseydoodle.com/index1.html
+
+Best regards,
+
+    Torsten
+
+
+-- 
+<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+<>                                                              <>
+<> Torsten Harenberg         harenberg@physik.uni-wuppertal.de  <>
+<> Bergische Universitaet                                       <>
+<> FB C - Physik             Tel.: +49 (0)202 439-3521          <>
+<> Gaussstr. 20              Fax : +49 (0)202 439-2811          <>
+<> 42097 Wuppertal                                              <>
+<>                                                              <>
+<><><><><><><>< Of course it runs NetBSD http://www.netbsd.org ><>
+
+
+From dhop@nwlink.com  Wed Aug 10 10:16:53 2005
+Path: news.gmane.org!not-for-mail
+From: David Hopper <dhop@nwlink.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: X11 with VGA?
+Date: Wed, 10 Aug 2005 10:16:53 -0700
+Lines: 32
+Approved: news@gmane.org
+Message-ID: <26E13783-D913-404E-9563-716600367913@nwlink.com>
+References: <20050807172213.GA16617@melkki.cs.Helsinki.FI>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0 (Apple Message framework v733)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1123694323 13556 80.91.229.2 (10 Aug 2005 17:18:43 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Wed, 10 Aug 2005 17:18:43 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Aug 10 19:18:40 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E2uCc-0008JA-AK
+	for netbsd-port-alpha@m.gmane.org; Wed, 10 Aug 2005 19:17:18 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 1AC4463B256; Wed, 10 Aug 2005 17:17:07 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from netframe600.gesi.net (unknown [66.106.152.34])
+	by mail.netbsd.org (Postfix) with ESMTP id 6997F63B104
+	for <port-alpha@netbsd.org>; Wed, 10 Aug 2005 17:17:06 +0000 (UTC)
+Original-Received: from [192.168.0.100] ([207.202.249.27] unverified) by netframe600.gesi.net over TLS secured channel with Microsoft SMTPSVC(5.0.2195.6713);
+	 Wed, 10 Aug 2005 10:05:12 -0700
+In-Reply-To: <20050807172213.GA16617@melkki.cs.Helsinki.FI>
+Original-To: Einar Karttunen <ekarttun@cs.helsinki.fi>
+X-Mailer: Apple Mail (2.733)
+X-OriginalArrivalTime: 10 Aug 2005 17:05:12.0461 (UTC) FILETIME=[ABB5EBD0:01C59DCD]
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3402
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3402
+
+On Aug 7, 2005, at 10:22 AM, Einar Karttunen wrote:
+
+> Hello
+>
+> Is it possible to get VGA cards to work under NetBSD/alpha? I have a
+> PCI Matrox millenium II card I would like to use in my alphastation,
+> but the X server provided in the X sets seems to be tga only.
+>
+> At least on the netbsd-3 branch compiling x11/XFree86-* does not seem
+> to work (e.g. the libs build results in many errors, but installs
+> lacking most libraries from the PLIST file and being unusable).
+> Is there a solution to make things work?
+
+Last I checked (which was, admittedly, some time ago), in-tree builds  
+of x11 using build.sh do not work properly.  However, doing a 'make  
+World' and 'make install' on a clean src/x11 tree (i.e. do not use  
+build.sh) worked just fine for my alphastation.
+
+The key is to build a static server, which build.sh -x will not do.
+
+See http://mail-index.netbsd.org/tech-x11/2005/04/04/0001.html, and  
+PR 29882.
+
+>
+> - Einar Karttunen
+>
+
+
+Thanks,
+Dave
+
+
+
+From sammyshome@gmx.net  Thu Aug 11 08:54:00 2005
+Path: news.gmane.org!not-for-mail
+From: sp4rc <sammyshome@gmx.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: AS1200 freeze
+Date: Thu, 11 Aug 2005 08:54:00 +0200
+Lines: 13
+Approved: news@gmane.org
+Message-ID: <1123743240.681.8.camel@uranos.pentacon.gov>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1123746645 5595 80.91.229.2 (11 Aug 2005 07:50:45 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Thu, 11 Aug 2005 07:50:45 +0000 (UTC)
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Aug 11 09:50:42 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E37oU-0000xW-7q
+	for netbsd-port-alpha@m.gmane.org; Thu, 11 Aug 2005 09:49:18 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 951AD63B1D3; Thu, 11 Aug 2005 07:49:03 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mailout07.sul.t-online.com (mailout07.sul.t-online.com [194.25.134.83])
+	by mail.netbsd.org (Postfix) with ESMTP id CC84663B121
+	for <port-alpha@netbsd.org>; Thu, 11 Aug 2005 07:49:02 +0000 (UTC)
+Original-Received: from fwd31.aul.t-online.de 
+	by mailout07.sul.t-online.com with smtp 
+	id 1E36ps-0006qw-01; Thu, 11 Aug 2005 08:46:40 +0200
+Original-Received: from pentacon.gov (X7uKpiZJgejHG3AWg3SbvB4iyKYoptVMXz+YJsriWKehOLFHJE1fYP@[217.248.51.201]) by fwd31.sul.t-online.de
+	with esmtp id 1E36po-0uY1ZI0; Thu, 11 Aug 2005 08:46:36 +0200
+Original-Received: from [192.168.1.231] (uranos.pentacon.gov [192.168.1.231])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by pentacon.gov (Postfix) with ESMTP id 017BB1876B
+	for <port-alpha@netbsd.org>; Thu, 11 Aug 2005 10:48:49 +0200 (CEST)
+Original-To: port-alpha@netbsd.org
+X-Mailer: Ximian Evolution 1.4.6 
+X-ID: X7uKpiZJgejHG3AWg3SbvB4iyKYoptVMXz+YJsriWKehOLFHJE1fYP@t-dialin.net
+X-TOI-MSGID: ec36e8ef-4e4d-4714-bde3-d2608883f18f
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3403
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3403
+
+Hello list,
+
+while trying to reinitialize the parity status of a raid1 set and doing
+a "newfs -O 1 /dev/sd?a" on NetBSD 2.0.2 at the same time freezes my
+AS1200 as soon as the newfs process has finished. 
+1) Can anyone confirm this behaviour on his machine? 
+2) Maybee this is a bug within the kernel, raidctl or newfs? 
+3) If so how can i provide debug information?
+-- 
+Regards
+	/sp4rc
+
+
+
+From ekarttun@cs.helsinki.fi  Thu Aug 11 11:01:32 2005
+Path: news.gmane.org!not-for-mail
+From: Einar Karttunen <ekarttun@cs.helsinki.fi>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: X11 with VGA?
+Date: Thu, 11 Aug 2005 11:01:32 +0300
+Lines: 22
+Approved: news@gmane.org
+Message-ID: <20050811080132.GA14561@melkki.cs.Helsinki.FI>
+References: <20050807172213.GA16617@melkki.cs.Helsinki.FI> <26E13783-D913-404E-9563-716600367913@nwlink.com>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1123747350 7887 80.91.229.2 (11 Aug 2005 08:02:30 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Thu, 11 Aug 2005 08:02:30 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Aug 11 10:02:26 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E380f-00028C-Dw
+	for netbsd-port-alpha@m.gmane.org; Thu, 11 Aug 2005 10:01:53 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 4116B63B1FC; Thu, 11 Aug 2005 08:01:43 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mail.cs.helsinki.fi (courier.cs.helsinki.fi [128.214.9.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 6FF5863B121
+	for <port-alpha@netbsd.org>; Thu, 11 Aug 2005 08:01:42 +0000 (UTC)
+Original-Received: from sbz-30.cs.Helsinki.FI (sbz-30.cs.helsinki.fi [128.214.9.98])
+  (AUTH: PLAIN cs-relay, TLS: TLSv1/SSLv3,256bits,AES256-SHA)
+  by mail.cs.helsinki.fi with esmtp; Thu, 11 Aug 2005 11:01:40 +0300
+  id 0008BCC5.42FB05E4.00001BD6
+Original-Received: from sbz-30.cs.Helsinki.FI (localhost [127.0.0.1])
+	by sbz-30.cs.Helsinki.FI (8.12.8/8.12.8) with ESMTP id j7B81b5v015615;
+	Thu, 11 Aug 2005 11:01:37 +0300
+Original-Received: (from ekarttun@localhost)
+	by sbz-30.cs.Helsinki.FI (8.12.8/8.12.8/Submit) id j7B81WNm015614;
+	Thu, 11 Aug 2005 11:01:32 +0300
+Original-To: David Hopper <dhop@nwlink.com>
+Content-Disposition: inline
+In-Reply-To: <26E13783-D913-404E-9563-716600367913@nwlink.com>
+User-Agent: Mutt/1.4.1i
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3404
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3404
+
+On 10.08 10:16, David Hopper wrote:
+> Last I checked (which was, admittedly, some time ago), in-tree builds  
+> of x11 using build.sh do not work properly.  However, doing a 'make  
+> World' and 'make install' on a clean src/x11 tree (i.e. do not use  
+> build.sh) worked just fine for my alphastation.
+> 
+> The key is to build a static server, which build.sh -x will not do.
+> 
+> See http://mail-index.netbsd.org/tech-x11/2005/04/04/0001.html, and  
+> PR 29882.
+
+I tried using the "make World && make install" route defined there,
+but building X failed. The build did produce /usr/X11R6/bin/XFree86
+but that complained: "cannot execute binary file". During the 
+build GCC crashed a few times with internal compiler error.
+I am thinking of testing the memory for errors next.
+
+ps. If it helps I can provide a log of the build but it is 
+quite large - 4.7mb uncompressed.
+
+- Einar Karttunen
+
+
+From smj@cirr.com  Thu Aug 11 16:54:55 2005
+Path: news.gmane.org!not-for-mail
+From: "Stephen M. Jones" <smj@cirr.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: API CS20 dual alpha @ 833mhz available
+Date: Thu, 11 Aug 2005 16:54:55 -0500 (CDT)
+Lines: 11
+Approved: news@gmane.org
+Message-ID: <200508112154.j7BLsttU026078@egsner.cirr.com>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1123797437 5197 80.91.229.2 (11 Aug 2005 21:57:17 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Thu, 11 Aug 2005 21:57:17 +0000 (UTC)
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Aug 11 23:57:15 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E3L14-0007D2-O9
+	for netbsd-port-alpha@m.gmane.org; Thu, 11 Aug 2005 23:55:10 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id D959363B248; Thu, 11 Aug 2005 21:54:56 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from egsner.cirr.com (mail.cirr.com [192.67.63.1])
+	by mail.netbsd.org (Postfix) with ESMTP id E560E63B236
+	for <port-alpha@netbsd.org>; Thu, 11 Aug 2005 21:54:55 +0000 (UTC)
+Original-Received: from egsner.cirr.com (smj@localhost [127.0.0.1])
+	by egsner.cirr.com (8.13.4/8.13.1/$Revision: 1.26 $)  with ESMTP
+	id j7BLstIE024048 for <port-alpha@netbsd.org>; Thu, 11 Aug 2005 16:54:55 -0500 (CDT)
+Original-Received: (from smj@localhost)
+	by egsner.cirr.com (8.13.4/8.13.3) id j7BLsttU026078
+	for port-alpha@netbsd.org; Thu, 11 Aug 2005 16:54:55 -0500 (CDT)
+Original-To: port-alpha@netbsd.org
+X-Mailer: ELM [version 2.5 PL7]
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3405
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3405
+
+API CS20 Dual 1U rackmountable server
+
+Includes 2048MB of ECC memory
+         CD-ROM drive
+         Dual 100MBIT ethernet
+         two PCI slots
+         two 833mhz 264DP alpha CPUs
+         80 pin SCA SCSI adapter
+
+Please email me with offers.
+
+
+From sammyshome@gmx.net  Mon Aug 22 17:34:23 2005
+Path: news.gmane.org!not-for-mail
+From: sp4rc <sammyshome@gmx.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: mysql4 error
+Date: Mon, 22 Aug 2005 17:34:23 +0200
+Lines: 103
+Approved: news@gmane.org
+Message-ID: <1124724863.697.26.camel@uranos.pentacon.gov>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1124724894 25524 80.91.229.2 (22 Aug 2005 15:34:54 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Mon, 22 Aug 2005 15:34:54 +0000 (UTC)
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Aug 22 17:34:52 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E7ECO-0000sw-Dl
+	for netbsd-port-alpha@m.gmane.org; Mon, 22 Aug 2005 17:26:57 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id DCCB863B458; Mon, 22 Aug 2005 15:26:43 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mailout02.sul.t-online.com (mailout02.sul.t-online.com [194.25.134.17])
+	by mail.netbsd.org (Postfix) with ESMTP id A9AFD63B116
+	for <port-alpha@netbsd.org>; Mon, 22 Aug 2005 15:26:42 +0000 (UTC)
+Original-Received: from fwd30.aul.t-online.de 
+	by mailout02.sul.t-online.com with smtp 
+	id 1E7EC0-0003Qj-01; Mon, 22 Aug 2005 17:26:32 +0200
+Original-Received: from pentacon.gov (bptQJ2ZdQew9PQynTnlbWuhKCX7yCt8LN38uL74bp19vxSHYDUiFZz@[217.248.48.32]) by fwd30.sul.t-online.de
+	with esmtp id 1E7EBx-1xeUTo0; Mon, 22 Aug 2005 17:26:29 +0200
+Original-Received: from [192.168.1.231] (uranos.pentacon.gov [192.168.1.231])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by pentacon.gov (Postfix) with ESMTP id 127F7261B1
+	for <port-alpha@netbsd.org>; Mon, 22 Aug 2005 19:28:45 +0200 (CEST)
+Original-To: "port-alpha@netbsd.org" <port-alpha@netbsd.org>
+X-Mailer: Ximian Evolution 1.4.6 
+X-ID: bptQJ2ZdQew9PQynTnlbWuhKCX7yCt8LN38uL74bp19vxSHYDUiFZz@t-dialin.net
+X-TOI-MSGID: bf72c036-a46e-4268-bf9b-7a45364fc72d
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3406
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3406
+
+Hello list,
+
+i am not sure if this is the right place for this question...
+
+i have installed mysql4-server from pkgsrc using the newest
+pkgsrc.tar.gz. The whole compilation process and installing process
+works fine. (make install). While trying to execute "mysql_install_db
+--user=mysql" the following errors occur:
+
+proteus ~ # mysql_install_db --user=mysql
+Installing all prepared tables
+pid 507 (mysqld): unaligned access: va=0x12053fda3 pc=0x12035c6d0
+ra=0x12035c7f8 sp=0x1fffff450 op=ldl
+
+[...]
+
+a lot more of them 
+
+[...]
+
+pid 507 (mysqld): unaligned access: va=0x12053fda6 pc=0x12035b870
+ra=0x12035bb88 sp=0x1fffff470 op=stl
+Fill help tables
+pid 620 (mysqld): unaligned access: va=0x12053fda3 pc=0x12035c6d0
+ra=0x12035c7f8 sp=0x1fffff450 op=ldl
+
+[...]
+
+pid 620 (mysqld): unaligned access: va=0x12053fda6 pc=0x12035b870
+ra=0x12035bb88 sp=0x1fffff470 op=stl
+050822 19:11:43 [ERROR] /usr/pkg/libexec/mysqld: Can't find file:
+'./mysql/help_topic.frm' (errno: 13)
+050822 19:11:43 [ERROR] /usr/pkg/libexec/mysqld: Can't find file:
+'./mysql/help_topic.frm' (errno: 13)
+ERROR: 1017  Can't find file: './mysql/help_topic.frm' (errno: 13)
+050822 19:11:43 [ERROR] /usr/pkg/libexec/mysqld: Can't find file:
+'./mysql/help_category.frm' (errno: 13)
+050822 19:11:43 [ERROR] /usr/pkg/libexec/mysqld: Can't find file:
+'./mysql/help_category.frm' (errno: 13)
+ERROR: 1017  Can't find file: './mysql/help_category.frm' (errno: 13)
+050822 19:11:43 [ERROR] /usr/pkg/libexec/mysqld: Can't find file:
+'./mysql/help_keyword.frm' (errno: 13)
+050822 19:11:43 [ERROR] /usr/pkg/libexec/mysqld: Can't find file:
+'./mysql/help_keyword.frm' (errno: 13)
+
+[...]
+
+050822 19:11:43 [ERROR] /usr/pkg/libexec/mysqld: Can't find file:
+'./mysql/help_relation.frm' (errno: 13)
+ERROR: 1017  Can't find file: './mysql/help_relation.frm' (errno: 13)
+
+To start mysqld at boot time you have to copy support-files/mysql.server
+to the right place for your system
+
+PLEASE REMEMBER TO SET A PASSWORD FOR THE MySQL root USER !
+To do so, start the server, then issue the following commands:
+/usr/pkg/bin/mysqladmin -u root password 'new-password'
+/usr/pkg/bin/mysqladmin -u root -h proteus.pentacon.gov password
+'new-password'
+See the manual for more instructions.
+
+NOTE:  If you are upgrading from a MySQL <= 3.22.10 you should run
+the /usr/pkg/bin/mysql_fix_privilege_tables. Otherwise you will not be
+able to use the new GRANT command!
+
+You can start the MySQL daemon with:
+cd /usr/pkg ; /usr/pkg/bin/mysqld_safe &
+
+You can test the MySQL daemon with the benchmarks in the 'sql-bench'
+directory:
+cd sql-bench ; perl run-all-tests
+
+Please report any problems with the /usr/pkg/bin/mysqlbug script!
+
+The latest information about MySQL is available on the web at
+http://www.mysql.com
+Support MySQL by buying support/licenses at https://order.mysql.com
+proteus ~ # 
+
+ps uax shows me, that there is no mysqld running. If i try to execute
+only mysqld_safe the following happens:
+
+pid 636 (mysqld): unaligned access: va=0x12054338a pc=0x12035c6dc
+ra=0x12035c7f8 sp=0x1fffff4d0 op=stl
+
+[...] and again a lot more of this errors
+
+proteus mysql-server # mysql --version
+pid 694 (mysql): unaligned access: va=0x1200260d3 pc=0x160094230
+ra=0x160094358 sp=0x1fffff518 op=ldl
+[...]
+
+mysql  Ver 14.7 Distrib 4.1.13, for -netbsd (alpha) using  EditLine
+wrapper
+
+Any hints on this? I just don't know what to do to solve this...
+
+
+-- 
+Regards
+	/sp4rc
+
+
+
+From smj@cirr.com  Mon Aug 22 08:45:54 2005
+Path: news.gmane.org!not-for-mail
+From: Stephen Jones <smj@cirr.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: mysql4 error
+Date: Mon, 22 Aug 2005 08:45:54 -0700
+Lines: 16
+Approved: news@gmane.org
+Message-ID: <0c98d53fe2df24d82d8c8bcfffd9e916@cirr.com>
+References: <1124724863.697.26.camel@uranos.pentacon.gov>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0 (Apple Message framework v622)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1124725788 28714 80.91.229.2 (22 Aug 2005 15:49:48 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Mon, 22 Aug 2005 15:49:48 +0000 (UTC)
+Cc: "port-alpha@netbsd.org" <port-alpha@NetBSD.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Aug 22 17:49:36 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E7EV5-00078S-Uz
+	for netbsd-port-alpha@m.gmane.org; Mon, 22 Aug 2005 17:46:16 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 5C4F763B46D; Mon, 22 Aug 2005 15:46:06 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from sdf.lonestar.org (mx.freeshell.ORG [192.94.73.21])
+	by mail.netbsd.org (Postfix) with ESMTP id 5DBD963B116
+	for <port-alpha@NetBSD.org>; Mon, 22 Aug 2005 15:46:05 +0000 (UTC)
+Original-Received: from [10.0.0.2] (dsl254-015-081.sea1.dsl.speakeasy.net [216.254.15.81])
+	(authenticated (0 bits))
+	by sdf.lonestar.org (8.13.1/8.12.10) with ESMTP id j7MFju8X006234;
+	Mon, 22 Aug 2005 15:45:57 GMT
+In-Reply-To: <1124724863.697.26.camel@uranos.pentacon.gov>
+Original-To: sp4rc <sammyshome@gmx.net>
+X-Mailer: Apple Mail (2.622)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3407
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3407
+
+You'll see these on some applications.  Add these to /etc/sysctl.conf
+and run sysctl -f /etc/sysctl.conf or switch to single user mode and 
+back.
+
+machdep.unaligned_print=1
+machdep.unaligned_fix=1
+machdep.unaligned_sigbus=0
+
+> pid 507 (mysqld): unaligned access: va=0x12053fda3 pc=0x12035c6d0
+> ra=0x12035c7f8 sp=0x1fffff450 op=ldl
+>
+> [...]
+>
+> a lot more of them
+
+
+
+From sammyshome@gmx.net  Mon Aug 22 18:09:15 2005
+Path: news.gmane.org!not-for-mail
+From: sp4rc <sammyshome@gmx.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: mysql4 error
+Date: Mon, 22 Aug 2005 18:09:15 +0200
+Lines: 24
+Approved: news@gmane.org
+Message-ID: <1124726955.697.34.camel@uranos.pentacon.gov>
+References: <1124724863.697.26.camel@uranos.pentacon.gov>
+	 <0c98d53fe2df24d82d8c8bcfffd9e916@cirr.com>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1124726652 31803 80.91.229.2 (22 Aug 2005 16:04:12 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Mon, 22 Aug 2005 16:04:12 +0000 (UTC)
+Cc: "port-alpha@netbsd.org" <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Aug 22 18:04:00 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E7Ek5-0002lu-Om
+	for netbsd-port-alpha@m.gmane.org; Mon, 22 Aug 2005 18:01:46 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id F3E5663B137; Mon, 22 Aug 2005 16:01:35 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mailout02.sul.t-online.com (mailout02.sul.t-online.com [194.25.134.17])
+	by mail.netbsd.org (Postfix) with ESMTP id 37B3163B116
+	for <port-alpha@netbsd.org>; Mon, 22 Aug 2005 16:01:34 +0000 (UTC)
+Original-Received: from fwd25.aul.t-online.de 
+	by mailout02.sul.t-online.com with smtp 
+	id 1E7Ejl-0006yn-00; Mon, 22 Aug 2005 18:01:25 +0200
+Original-Received: from pentacon.gov (Saf25OZLQeaTj7J6kNR3wQje4oPtvdzoocKy0oQe3v2YJutz3sUhZ-@[217.248.55.212]) by fwd25.sul.t-online.de
+	with esmtp id 1E7Ejh-25whw80; Mon, 22 Aug 2005 18:01:21 +0200
+Original-Received: from [192.168.1.231] (uranos.pentacon.gov [192.168.1.231])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by pentacon.gov (Postfix) with ESMTP id 01075261B1;
+	Mon, 22 Aug 2005 20:03:36 +0200 (CEST)
+Original-To: Stephen Jones <smj@cirr.com>
+In-Reply-To: <0c98d53fe2df24d82d8c8bcfffd9e916@cirr.com>
+X-Mailer: Ximian Evolution 1.4.6 
+X-ID: Saf25OZLQeaTj7J6kNR3wQje4oPtvdzoocKy0oQe3v2YJutz3sUhZ-@t-dialin.net
+X-TOI-MSGID: 75ed97db-fcca-4fee-8859-2141f928b0ef
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3408
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3408
+
+
+> machdep.unaligned_print=1
+> machdep.unaligned_fix=1
+> machdep.unaligned_sigbus=0
+
+thx for the fast answer, but it didn't solve the problem. After changing
+this values the same thing happends. I recognized that this has been
+already the setting of the values before issuing sysctl -f
+/etc/sysctl.conf. 
+
+This error:
+ERROR: 1017  Can't find file: './mysql/help_category.frm' (errno: 13)
+was due a wrong permission setting. chmod'ing mysql:mysql
+/var/mysql/mysql/* did the trick.
+
+Now everything works as it should, but the unaligned access error looks
+pretty ugly and gives me a strange feeling, cause this should become a
+production server... any other hints on this?
+
+-- 
+Regards
+	/sp4rc
+
+
+
+From mhitch@lightning.msu.montana.edu  Mon Aug 22 10:19:54 2005
+Path: news.gmane.org!not-for-mail
+From: "Michael L. Hitch" <mhitch@lightning.msu.montana.edu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: mysql4 error
+Date: Mon, 22 Aug 2005 10:19:54 -0600 (MDT)
+Lines: 30
+Approved: news@gmane.org
+Message-ID: <Pine.ULT.4.44.0508221012350.11741-100000@lightning.msu.montana.edu>
+References: <1124726955.697.34.camel@uranos.pentacon.gov>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+X-Trace: sea.gmane.org 1124728073 4353 80.91.229.2 (22 Aug 2005 16:27:53 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Mon, 22 Aug 2005 16:27:53 +0000 (UTC)
+Cc: "port-alpha@netbsd.org" <port-alpha@NetBSD.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Aug 22 18:27:47 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E7F6S-0001NW-9V
+	for netbsd-port-alpha@m.gmane.org; Mon, 22 Aug 2005 18:24:52 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id F39D963B461; Mon, 22 Aug 2005 16:24:43 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from lightning.msu.montana.edu (lightning.msu.montana.edu [153.90.171.2])
+	by mail.netbsd.org (Postfix) with ESMTP id 4B2EC63B471
+	for <port-alpha@NetBSD.org>; Mon, 22 Aug 2005 16:24:42 +0000 (UTC)
+Original-Received: from localhost (mhitch@localhost)
+	by lightning.msu.montana.edu (8.9.0/8.9.0) with ESMTP id KAA19215;
+	Mon, 22 Aug 2005 10:19:54 -0600
+Original-To: sp4rc <sammyshome@gmx.net>
+In-Reply-To: <1124726955.697.34.camel@uranos.pentacon.gov>
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3409
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3409
+
+On Mon, 22 Aug 2005, sp4rc wrote:
+
+> > machdep.unaligned_print=1
+
+  This should be 'machdep.unaligned_print=0' if you don't want the
+messages printed.
+
+> Now everything works as it should, but the unaligned access error looks
+> pretty ugly and gives me a strange feeling, cause this should become a
+> production server... any other hints on this?
+
+  The unaligned access occurs because most programmers don't care about
+(or don't even know about) alignment constraints.  The i386 processors
+will happily load and store on unaligned boundaries and the only penalty
+would be performance.  The alpha requires quad word loads and store to be
+on a quadword boundary, but the NetBSD kernel has the ability to handle
+the faults and 'fix' them up.  This will affect performance if there are
+very many of them.
+
+  To properly fix this, someone needs to identify the places in the mysql4
+code where the unaligned accesses occur and redo the code to do properly
+aligned memory accesses.
+
+--
+Michael L. Hitch			mhitch@montana.edu
+Computer Consultant
+Information Technology Center
+Montana State University	Bozeman, MT	USA
+
+
+
+From jht380@gmail.com  Mon Aug 22 19:18:51 2005
+Path: news.gmane.org!not-for-mail
+From: "jarkko teppo" <jht380@gmail.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: mysql4 error
+Date: Mon, 22 Aug 2005 19:18:51 +0300 (EEST)
+Lines: 17
+Approved: news@gmane.org
+Message-ID: <62551.212.54.15.97.1124727531.squirrel@purpurpur.homeunix.com>
+References: <1124724863.697.26.camel@uranos.pentacon.gov> 
+    <0c98d53fe2df24d82d8c8bcfffd9e916@cirr.com>
+    <1124726955.697.34.camel@uranos.pentacon.gov>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain;charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+X-Trace: sea.gmane.org 1124730149 11230 80.91.229.2 (22 Aug 2005 17:02:29 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Mon, 22 Aug 2005 17:02:29 +0000 (UTC)
+Cc: "Stephen Jones" <smj@cirr.com>,
+	"port-alpha@netbsd.org" <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Aug 22 19:02:17 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E7FdF-0001y7-TF
+	for netbsd-port-alpha@m.gmane.org; Mon, 22 Aug 2005 18:58:46 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id E539D63B1CB; Mon, 22 Aug 2005 16:58:34 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from fep33-app.kolumbus.fi (fep33-0.kolumbus.fi [193.229.0.56])
+	by mail.netbsd.org (Postfix) with ESMTP id 93C7C63B182
+	for <port-alpha@netbsd.org>; Mon, 22 Aug 2005 16:58:33 +0000 (UTC)
+Original-Received: from lyngen.thinktank.org ([212.54.15.97])
+          by fep02-app.kolumbus.fi with ESMTP
+          id <20050822161851.RTCV8199.fep02-app.kolumbus.fi@lyngen.thinktank.org>;
+          Mon, 22 Aug 2005 19:18:51 +0300
+Original-Received: from purpurpur.homeunix.com (localhost [127.0.0.1])
+	by lyngen.thinktank.org (Postfix) with ESMTP id 90D749AC69;
+	Mon, 22 Aug 2005 19:18:51 +0300 (EEST)
+Original-Received: from 212.54.15.97
+        (SquirrelMail authenticated user jarkko)
+        by purpurpur.homeunix.com with HTTP;
+        Mon, 22 Aug 2005 19:18:51 +0300 (EEST)
+In-Reply-To: <1124726955.697.34.camel@uranos.pentacon.gov>
+Original-To: "sp4rc" <sammyshome@gmx.net>
+User-Agent: SquirrelMail/1.4.5
+X-Priority: 3 (Normal)
+Importance: Normal
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3410
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3410
+
+
+> Now everything works as it should, but the unaligned access error looks
+> pretty ugly and gives me a strange feeling, cause this should become a
+> production server... any other hints on this?
+>
+
+Have you read this ?
+
+http://netbsd.org/Ports/alpha/faq.html#unaligned
+
+I've never tried mysql (at all) but I don't remember postgresql giving
+me any problems on alpha.
+
+--=20
+jht
+
+
+
+From ekarttun@cs.helsinki.fi  Tue Aug 23 17:11:47 2005
+Path: news.gmane.org!not-for-mail
+From: Einar Karttunen <ekarttun@cs.helsinki.fi>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: X11 with VGA?
+Date: Tue, 23 Aug 2005 17:11:47 +0300
+Lines: 13
+Approved: news@gmane.org
+Message-ID: <20050823141147.GD12197@melkki.cs.Helsinki.FI>
+References: <20050807172213.GA16617@melkki.cs.Helsinki.FI> <26E13783-D913-404E-9563-716600367913@nwlink.com> <20050811080132.GA14561@melkki.cs.Helsinki.FI> <20050811150333.GA1815@melkinkari.cs.Helsinki.FI> <E5F89411-EA41-4201-8C4E-773A99C97B49@nwlink.com>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1124806548 13500 80.91.229.2 (23 Aug 2005 14:15:48 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Tue, 23 Aug 2005 14:15:48 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Aug 23 16:15:37 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E7ZVV-0002EG-86
+	for netbsd-port-alpha@m.gmane.org; Tue, 23 Aug 2005 16:12:05 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 118CC63B5DB; Tue, 23 Aug 2005 14:11:54 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mail.cs.helsinki.fi (courier.cs.helsinki.fi [128.214.9.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 445AC63B5E6
+	for <port-alpha@netbsd.org>; Tue, 23 Aug 2005 14:11:53 +0000 (UTC)
+Original-Received: from sbz-30.cs.Helsinki.FI (sbz-30.cs.helsinki.fi [128.214.9.98])
+  (AUTH: PLAIN cs-relay, TLS: TLSv1/SSLv3,256bits,AES256-SHA)
+  by mail.cs.helsinki.fi with esmtp; Tue, 23 Aug 2005 17:11:51 +0300
+  id 0008FD87.430B2EA7.00007B0A
+Original-Received: from sbz-30.cs.Helsinki.FI (localhost [127.0.0.1])
+	by sbz-30.cs.Helsinki.FI (8.12.8/8.12.8) with ESMTP id j7NEBm5v012507;
+	Tue, 23 Aug 2005 17:11:48 +0300
+Original-Received: (from ekarttun@localhost)
+	by sbz-30.cs.Helsinki.FI (8.12.8/8.12.8/Submit) id j7NEBlWV012506;
+	Tue, 23 Aug 2005 17:11:47 +0300
+Original-To: David Hopper <dhop@nwlink.com>
+Content-Disposition: inline
+In-Reply-To: <E5F89411-EA41-4201-8C4E-773A99C97B49@nwlink.com>
+User-Agent: Mutt/1.4.1i
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3411
+X-Report-Spam: http://spam.gmane.org/gmane.os.netbsd.ports.alpha:3411
+
+On 15.08 11:23, David Hopper wrote:
+> I would make sure I had 'unlimit' set for the shell, to make sure you  
+> aren't experiencing any low stack issues.  Then I might suspect the  
+> toolchain itself.  On my build I had "-mcpu=ev4, -Wa,-m21064" defined  
+> for all compiles on my AS255-- my superstition tells me that it makes  
+> a difference, but that should be the default target for the alpha  
+> anyway, and probably doesn't really matter.  But you might try it.
+
+After adding swap and setting ulimit the build finally succeeded.
+Thanks for the advice.
+
+- Einar Karttunen
+
+
+From sammyshome@gmx.net  Mon Aug 29 16:04:33 2005
+Path: news.gmane.org!not-for-mail
+From: sp4rc <sammyshome@gmx.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: RaidFrame Raid5 question
+Date: Mon, 29 Aug 2005 16:04:33 +0200
+Lines: 100
+Approved: news@gmane.org
+Message-ID: <1125324272.692.35.camel@uranos.pentacon.gov>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1125327693 28441 80.91.229.2 (29 Aug 2005 15:01:33 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Mon, 29 Aug 2005 15:01:33 +0000 (UTC)
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Aug 29 17:01:25 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E9l51-00076S-GZ
+	for netbsd-port-alpha@m.gmane.org; Mon, 29 Aug 2005 16:57:48 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 53BEA63B435; Mon, 29 Aug 2005 14:57:41 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mailout09.sul.t-online.com (mailout09.sul.t-online.com [194.25.134.84])
+	by mail.netbsd.org (Postfix) with ESMTP id 26C1C63B37E
+	for <port-alpha@netbsd.org>; Mon, 29 Aug 2005 14:57:40 +0000 (UTC)
+Original-Received: from fwd16.aul.t-online.de 
+	by mailout09.sul.t-online.com with smtp 
+	id 1E9k7p-0005Yb-00; Mon, 29 Aug 2005 15:56:37 +0200
+Original-Received: from pentacon.gov (Tz550cZcZes4UfL6x+MtQHOVLYEzPyfaemBUuPSh3D9fABVNrgvb8z@[217.248.54.131]) by fwd16.sul.t-online.de
+	with esmtp id 1E9k7a-19vfBA0; Mon, 29 Aug 2005 15:56:22 +0200
+Original-Received: from [192.168.1.231] (uranos.pentacon.gov [192.168.1.231])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by pentacon.gov (Postfix) with ESMTP id C60EF261B1
+	for <port-alpha@netbsd.org>; Mon, 29 Aug 2005 17:58:39 +0200 (CEST)
+Original-To: "port-alpha@netbsd.org" <port-alpha@netbsd.org>
+X-Mailer: Ximian Evolution 1.4.6 
+X-ID: Tz550cZcZes4UfL6x+MtQHOVLYEzPyfaemBUuPSh3D9fABVNrgvb8z@t-dialin.net
+X-TOI-MSGID: 33fa3cf9-d480-46b4-8115-e78872c8db04
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3412
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3412>
+
+Hello list,
+
+i am trying to set up an kernelized raid5 array using 5 scsi harddisks
+from the same vendor, typ, size, etc.
+
+this is my raid1.conf
+------------------------------
+START array
+1 5 0
+
+START disks
+/dev/sd2a
+/dev/sd3a
+/dev/sd4a
+/dev/sd5a
+/dev/sd6a
+
+START layout
+128 1 1 5
+
+START queue
+fifo 100
+------------------------------
+
+all scsi harddisks are labelel as followed
+------------------------------
+# /dev/rsd6c:
+type: SCSI
+disk: mydisk
+label: disk6
+flags:
+bytes/sector: 512
+sectors/track: 369
+tracks/cylinder: 22
+sectors/cylinder: 8118
+cylinders: 12024
+total sectors: 97693755
+rpm: 7177
+interleave: 1
+trackskew: 0
+cylinderskew: 0
+headswitch: 0 # microseconds
+track-to-track seek: 0 # microseconds
+drivedata: 0 
+
+3 partitions:
+# size offset fstype [fsize bsize cpg/sgs]
+a: 97693755 0 RAID # (Cyl. 0 - 12034*)
+c: 97693755 0 unused 2048 16384 # (Cyl. 0 - 12034*)
+------------------------------
+
+to set up the raid array i followed this steps:
+
+raidctl -v -C /var/tmp/raid1.conf
+raidctl -v -I 29082005 raid1
+raidctl -v -i raid1
+
+at this point, about 2 and a half hours later, the following error
+occurs:
+------------------------------
+Aug 29 17:06:41 proteus /netbsd: sd6(isp0:0:6:0): Check Condition on
+CDB: 0x28 
+00 04 da a5 c0 00 00 80 00
+Aug 29 17:06:41 proteus /netbsd: SENSE KEY: Recovered Error
+Aug 29 17:06:41 proteus /netbsd: INFO FIELD: 81438243
+Aug 29 17:06:41 proteus /netbsd: ASC/ASCQ: Recovered Data - Data
+Auto-Real
+located
+Aug 29 17:06:41 proteus /netbsd: FRU CODE: 0xe4
+Aug 29 17:06:41 proteus /netbsd: SKSV: Actual Retry Count: 1
+Aug 29 17:06:41 proteus /netbsd: 
+Aug 29 17:06:41 proteus /netbsd: stray kn300 irq 48
+Aug 29 17:06:46 proteus /netbsd: sd6(isp0:0:6:0): Check Condition on
+CDB: 0x28 
+00 04 da d6 c0 00 00 80 00
+Aug 29 17:06:46 proteus /netbsd: SENSE KEY: Media Error
+Aug 29 17:06:46 proteus /netbsd: INFO FIELD: 81450743
+Aug 29 17:06:46 proteus /netbsd: ASC/ASCQ: Unrecovered Read Error
+Aug 29 17:06:46 proteus /netbsd: FRU CODE: 0xe4
+Aug 29 17:06:46 proteus /netbsd: SKSV: Actual Retry Count: 121
+Aug 29 17:06:46 proteus /netbsd: 
+Aug 29 17:06:46 proteus /netbsd: raid1: IO Error. Marking /dev/sd6a as
+failed.
+Aug 29 17:06:46 proteus /netbsd: Unable to verify parity: can't read the
+stripe
+Aug 29 17:06:46 proteus /netbsd: Could not verify parity
+Aug 29 17:06:46 proteus /netbsd: raid1: Error re-writing parity!
+------------------------------
+
+so one can assume the harddisk is damaged, but if i disklabel sd6 and
+set the a partition to fstype 4.2BSD and then create a newfs (newfs -O 1
+/dev/sd6a) on it, a fsck -fy /dev/sd6a doesn't show up any kind of
+error. So what's going on here ?! 
+
+I am stumped. Any hints on this?
+-- 
+Regards
+	/sp4rc
+
+
+
+From oster@cs.usask.ca  Mon Aug 29 09:04:10 2005
+Path: news.gmane.org!not-for-mail
+From: Greg Oster <oster@cs.usask.ca>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: RaidFrame Raid5 question
+Date: Mon, 29 Aug 2005 09:04:10 -0600
+Lines: 24
+Approved: news@gmane.org
+Message-ID: <20050829150410.DA27232BC7@cs.usask.ca>
+References: <1125324272.692.35.camel@uranos.pentacon.gov>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: sea.gmane.org 1125328017 29549 80.91.229.2 (29 Aug 2005 15:06:57 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Mon, 29 Aug 2005 15:06:57 +0000 (UTC)
+Cc: "port-alpha@netbsd.org" <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Aug 29 17:06:57 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E9lBI-0000IF-3d
+	for netbsd-port-alpha@m.gmane.org; Mon, 29 Aug 2005 17:04:16 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id C2B9B63B27B; Mon, 29 Aug 2005 15:04:11 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from cs.usask.ca (cs.usask.ca [128.233.101.16])
+	by mail.netbsd.org (Postfix) with ESMTP id 37AF863B1E6
+	for <port-alpha@netbsd.org>; Mon, 29 Aug 2005 15:04:11 +0000 (UTC)
+Original-Received: from skorpio (skorpio.usask.ca [128.233.101.15])
+	by cs.usask.ca (Postfix) with ESMTP id DA27232BC7;
+	Mon, 29 Aug 2005 09:04:10 -0600 (CST)
+X-Mailer: exmh version 2.7.2 01/07/2005 with nmh-1.0.1
+Original-To: sp4rc <sammyshome@gmx.net>
+In-Reply-To: Your message of "Mon, 29 Aug 2005 16:04:33 +0200."
+             <1125324272.692.35.camel@uranos.pentacon.gov> 
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3413
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3413>
+
+sp4rc writes:
+[snip]
+> 
+> so one can assume the harddisk is damaged, but if i disklabel sd6 and
+> set the a partition to fstype 4.2BSD and then create a newfs (newfs -O 1
+> /dev/sd6a) on it, a fsck -fy /dev/sd6a doesn't show up any kind of
+> error. So what's going on here ?! 
+
+newfs doesn't touch all the blocks on a disk.  And in your case, it's
+not touching the part of the disk that's having problems.
+
+Try something like this:
+
+  dd if=/dev/zero of=/dev/rsd6a bs=1m seek=1
+
+to do the testing.  It should generate the same error that you saw
+with 'raidctl -v -i'.
+
+Later...
+
+Greg Oster
+
+
+
+
+From bouyer@antioche.eu.org  Mon Aug 29 20:33:20 2005
+Path: news.gmane.org!not-for-mail
+From: Manuel Bouyer <bouyer@antioche.eu.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: RaidFrame Raid5 question
+Date: Mon, 29 Aug 2005 20:33:20 +0200
+Lines: 26
+Approved: news@gmane.org
+Message-ID: <20050829183319.GA2811@antioche.eu.org>
+References: <1125324272.692.35.camel@uranos.pentacon.gov> <20050829150410.DA27232BC7@cs.usask.ca>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: sea.gmane.org 1125340674 10086 80.91.229.2 (29 Aug 2005 18:37:54 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Mon, 29 Aug 2005 18:37:54 +0000 (UTC)
+Cc: sp4rc <sammyshome@gmx.net>,
+        "port-alpha@netbsd.org" <port-alpha@NetBSD.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Aug 29 20:37:53 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1E9oSl-0007xH-OF
+	for netbsd-port-alpha@m.gmane.org; Mon, 29 Aug 2005 20:34:32 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 3512E63B46C; Mon, 29 Aug 2005 18:34:26 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from chassiron.antioche.eu.org (chassiron.antioche.eu.org [IPv6:2001:7a8:242c:1::1])
+	by mail.netbsd.org (Postfix) with ESMTP id 8EEB163B468
+	for <port-alpha@NetBSD.org>; Mon, 29 Aug 2005 18:34:24 +0000 (UTC)
+Original-Received: from rochebonne.antioche.eu.org (rochebonne [IPv6:2001:7a8:242c:0:240:95ff:fe45:4702])
+	by chassiron.antioche.eu.org (8.12.11/8.12.11) with ESMTP id j7TIXK8L025471;
+	Mon, 29 Aug 2005 20:33:22 +0200 (MEST)
+Original-Received: (from bouyer@localhost)
+	by rochebonne.antioche.eu.org (8.13.3/8.12.8/Submit) id j7TIXKmY002090;
+	Mon, 29 Aug 2005 20:33:20 +0200 (CEST)
+Original-To: Greg Oster <oster@cs.usask.ca>
+Content-Disposition: inline
+In-Reply-To: <20050829150410.DA27232BC7@cs.usask.ca>
+User-Agent: Mutt/1.4.2.1i
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-1.6 (chassiron.antioche.eu.org [IPv6:2001:7a8:242c:0:a00:20ff:fe1c:276e]); Mon, 29 Aug 2005 20:33:24 +0200 (MEST)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3414
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3414>
+
+On Mon, Aug 29, 2005 at 09:04:10AM -0600, Greg Oster wrote:
+> sp4rc writes:
+> [snip]
+> > 
+> > so one can assume the harddisk is damaged, but if i disklabel sd6 and
+> > set the a partition to fstype 4.2BSD and then create a newfs (newfs -O 1
+> > /dev/sd6a) on it, a fsck -fy /dev/sd6a doesn't show up any kind of
+> > error. So what's going on here ?! 
+> 
+> newfs doesn't touch all the blocks on a disk.  And in your case, it's
+> not touching the part of the disk that's having problems.
+> 
+> Try something like this:
+> 
+>   dd if=/dev/zero of=/dev/rsd6a bs=1m seek=1
+> 
+> to do the testing.  It should generate the same error that you saw
+> with 'raidctl -v -i'.
+
+The error was on a read. Writing to the bad sector may auto-relocate it.
+
+-- 
+Manuel Bouyer <bouyer@antioche.eu.org>
+     NetBSD: 26 ans d'experience feront toujours la difference
+--
+
+
+From helpdesk@telus.net  Wed Aug 31 01:13:48 2005
+Path: news.gmane.org!not-for-mail
+From: TELUS.net Postmaster <helpdesk@telus.net>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Your Message Could Not Be Delivered
+Date: Wed, 31 Aug 2005 01:13:48 -0600
+Lines: 30
+Approved: news@gmane.org
+Message-ID: <20050831071348.YUOJ5589.priv-edmwes50.telusplanet.net@priv-edmwes50>
+Reply-To: <Postmaster@telus.net>
+NNTP-Posting-Host: main.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/report;
+		report-type=delivery-status;
+		Boundary="===========================_ _= 9694519(5589)1125472428"
+Content-Transfer-Encoding: 7bit
+X-Trace: sea.gmane.org 1125472510 16885 80.91.229.2 (31 Aug 2005 07:15:10 GMT)
+X-Complaints-To: usenet@sea.gmane.org
+NNTP-Posting-Date: Wed, 31 Aug 2005 07:15:10 +0000 (UTC)
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Aug 31 09:15:06 2005
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by ciao.gmane.org with esmtp (Exim 4.43)
+	id 1EAMnD-0001E2-61
+	for netbsd-port-alpha@m.gmane.org; Wed, 31 Aug 2005 09:13:55 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id B754E63B205; Wed, 31 Aug 2005 07:13:49 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from priv-edmwes50.telusplanet.net (defout.telus.net [204.209.205.55])
+	by mail.netbsd.org (Postfix) with ESMTP id D089963B154
+	for <port-alpha@netbsd.org>; Wed, 31 Aug 2005 07:13:48 +0000 (UTC)
+Original-To: port-alpha@netbsd.org
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:3415
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/3415>
+
+
+--===========================_ _= 9694519(5589)1125472428
+Content-Type: text/plain
+
+Your message could not be delivered.
+
+The recipient's account is temporarily over the maximum allowed number of messages.
+
+<wolf@telus.net>
+
+We hope this information is helpful. 
+For more information, visit us at <<http://help.telus.net>> or e-mail 
+TELUS at <helpdesk@telus.net>.
+
+The original message has been removed from the bounce message.
+
+--===========================_ _= 9694519(5589)1125472428
+Content-Type: message/delivery-status
+
+Reporting-MTA: dns; priv-edmwes50.telusplanet.net
+Arrival-Date: Wed, 31 Aug 2005 01:13:48 -0600
+Received-From-MTA: dns; netbsd.org (82.88.104.190)
+
+Final-Recipient: RFC822; <wolf@telus.net>
+Action: failed
+Status: 4.2.2
+
+--===========================_ _= 9694519(5589)1125472428--
+
+
+

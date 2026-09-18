@@ -1,0 +1,2257 @@
+From cjs@portal.ca  Sat Jan 3 18:52:43 1998
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 03 Jan 1998 18:52:43 +0000
+Subject: IMPORTANT: _POSIX_SOURCE and struct stat lossage
+
+It appears we have a fairly major bug in the 1.3 release of the
+alpha.  This also exists in current, although we are working on a
+fix.
+
+>From the note I've just added to the LAST_MINUTE file of the 1.3
+release:
+
+  There is a serious bug in sys/stat.h that causes the alignment
+  of struct stat to change when _POSIX_SOURCE is defined, which in
+  turn causes some of the return values from stat/fstat/lastat to
+  appear to be bogus. (This affects only the alpha.) We are working
+  on a fix for this. In the meantime, if you compile a program that
+  appears to get wrong the size or time, or possibly other attributes,
+  of a file, you are probably being affected by this.
+
+I discovered this when doing an X build; the patch to fix this for
+X is as follows:
+
+Index: include/Xosdefs.h
+===================================================================
+RCS file: /cvsroot/xsrc/xc/include/Xosdefs.h,v
+retrieving revision 1.1.1.2
+diff -u -u -r1.1.1.2 Xosdefs.h
+--- Xosdefs.h   1997/06/30 12:45:20     1.1.1.2
++++ Xosdefs.h   1998/01/04 02:48:22
+@@ -106,6 +106,10 @@
+ #endif
+ #endif
+ 
++#if defined(__NetBSD__) && defined(__alpha__)
++#define X_NOT_POSIX    /* get around struct stat alignment lossage */
++#endif
++
+ #ifdef WIN32
+ #ifndef _POSIX_
+ #define X_NOT_POSIX
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite mist, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From cjs@portal.ca  Sun Jan 4 16:59:40 1998
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 04 Jan 1998 16:59:40 +0000
+Subject: NetBSD-1.3 X Clients Available
+
+I've uploaded all of the X sets for NetBSD-1.3/alpha except the
+server set. (The server currently doesn't build; I'm investigating
+why.) Note that a few patches to the standard sources are required
+to get this to build; I can make these patches available if anyone
+needs them.
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite mist, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From thorpej@nas.nasa.gov  Sun Jan 4 18:14:57 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 04 Jan 1998 18:14:57 +0000
+Subject: IMPORTANT: stat(2) fix for NetBSD/alpha 1.3
+
+Hi folks...
+
+To follow up on Curt's post the other day, here is a fix for the stat(2)
+ABI bug on the Alpha.  This is going into the first 1.3 patch set, and
+will be slightly different in post-1.3 NetBSD-current (I am going to remove
+the "timespec" structures; they never should have been there in the first
+place.)
+
+It was suggested that in current I remove the padding as well, and just
+rev the stat(2) ABI one more time.  But, I decided NOT to do that because
+if time_t is changed to 64-bits (2038 bug! :-), then that will change the
+stat(2) ABI again.  So, I have just added the comment directing whoever
+changes stat(2) again to remove the padding.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-6                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+Index: stat.h
+===================================================================
+RCS file: /cvsroot/src/sys/sys/stat.h,v
+retrieving revision 1.30
+diff -c -r1.30 stat.h
+*** stat.h	1997/11/23 20:40:42	1.30
+--- stat.h	1998/01/05 02:14:36
+***************
+*** 85,90 ****
+--- 85,104 ----
+  	int64_t	  st_qspare[2];
+  };
+  
++ /*
++  * On systems with 8 byte longs and 4 byte time_ts, padding the time_ts
++  * is required in order to have a consistent ABI.  This is because the
++  * stat structure used to contain timespecs, which had different
++  * alignment constraints than a time_t and a long alone.  The padding
++  * should be removed the next time the stat structure ABI is changed.
++  * (This will happen whever we change to 8 byte time_t.)
++  */
++ #if defined(__alpha__)			/* XXX XXX XXX */
++ #define	__STATPAD(x)	int x;
++ #else
++ #define	__STATPAD(x)	/* nothing */
++ #endif
++ 
+  struct stat {
+  	dev_t	  st_dev;		/* inode's device */
+  	ino_t	  st_ino;		/* inode's number */
+***************
+*** 98,108 ****
+--- 112,126 ----
+  	struct	  timespec st_mtimespec;/* time of last data modification */
+  	struct	  timespec st_ctimespec;/* time of last file status change */
+  #else
++ 	__STATPAD(__pad0)
+  	time_t	  st_atime;		/* time of last access */
++ 	__STATPAD(__pad1)
+  	long	  st_atimensec;		/* nsec of last access */
+  	time_t	  st_mtime;		/* time of last data modification */
++ 	__STATPAD(__pad2)
+  	long	  st_mtimensec;		/* nsec of last data modification */
+  	time_t	  st_ctime;		/* time of last file status change */
++ 	__STATPAD(__pad3)
+  	long	  st_ctimensec;		/* nsec of last file status change */
+  #endif
+  	off_t	  st_size;		/* file size, in bytes */
+***************
+*** 112,117 ****
+--- 130,137 ----
+  	u_int32_t st_gen;		/* file generation number */
+  	int64_t	  st_qspare[2];
+  };
++ 
++ #undef __STATPAD
+  
+  #ifndef _POSIX_SOURCE
+  #define	st_atime	st_atimespec.tv_sec
+
+From weiss@Uni-Mainz.DE  Mon Jan 5 16:11:48 1998
+From: Juergen Weiss <weiss@Uni-Mainz.DE>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 05 Jan 1998 16:11:48 +0000
+Subject: kernel panic while running top
+
+In NetBSD-1.3_BETA I observed the following panic while
+running top:
+
+#2  0xfffffc0000262b34 in panic () at ../../../../kern/subr_prf.c:150
+#3  0xfffffc0000391fbc in trap () at ../../../../arch/alpha/alpha/trap.c:527
+#4  0xfffffc0000230428 in XentMM ()
+    at ../../../../arch/alpha/alpha/locore.s:377
+#5  0xfffffc000025e680 in sysctl_doproc ()
+    at ../../../../kern/kern_sysctl.c:649
+#6  0xfffffc000025db64 in kern_sysctl () at ../../../../kern/kern_sysctl.c:270
+#7  0xfffffc000025d744 in sys___sysctl () at ../../../../kern/kern_sysctl.c:159
+#8  0xfffffc0000392200 in syscall () at ../../../../arch/alpha/alpha/trap.c:641
+#9  0xfffffc0000230488 in XentSys ()
+
+The allproc.lh_first, p_list.le_next chain is undamaged,
+but the variable p contains
+
+p p
+$6 = (struct proc *) 0xdeadbeefdeadbeef
+
+
+My reasoning is as follows:
+
+It seems, that there is a race condition in the sysctl_doproc
+function in kern_sysctl.c
+
+The functions loops over the process table and copyout's some
+infos. I think that copyouts may lead to pagefaults (for the
+user pages) und process switches.  Thus changes to the process
+table may happen asynchronously during the loop. This may lead
+to p_list.le_next pointers to nowhere.
+
+Is this correct?
+
+J�rgen Wei�
+
+-- 
+Juergen Weiss		| Universitaet Mainz, Zentrum f"ur Datenverarbeitung,
+weiss@uni-mainz.de      | 55099 Mainz, Tel: 06131/39-6361, FAX: 06131/39-6407
+
+From ross@teraflop.com  Mon Jan 5 15:10:41 1998
+From: Ross Harvey <ross@teraflop.com>
+To: port-alpha@NetBSD.ORG, weiss@Uni-Mainz.DE
+Date: Mon, 05 Jan 1998 15:10:41 +0000
+Subject: Re:  kernel panic while running top
+
+>Juergen Weiss weiss@uni-mainz.de writes:
+>
+>In NetBSD-1.3_BETA I observed the following panic while
+>running top:
+>
+>#2  0xfffffc0000262b34 in panic () at ../../../../kern/subr_prf.c:150
+>#3  0xfffffc0000391fbc in trap () at ../../../../arch/alpha/alpha/trap.c:527
+>#4  0xfffffc0000230428 in XentMM ()
+>    at ../../../../arch/alpha/alpha/locore.s:377
+>#5  0xfffffc000025e680 in sysctl_doproc ()
+>    at ../../../../kern/kern_sysctl.c:649
+>#6  0xfffffc000025db64 in kern_sysctl () at ../../../../kern/kern_sysctl.c:270
+>#7  0xfffffc000025d744 in sys___sysctl () at ../../../../kern/kern_sysctl.c:159
+>#8  0xfffffc0000392200 in syscall () at ../../../../arch/alpha/alpha/trap.c:641
+>#9  0xfffffc0000230488 in XentSys ()
+>
+>The allproc.lh_first, p_list.le_next chain is undamaged,
+>but the variable p contains
+>
+>p p
+>$6 = (struct proc *) 0xdeadbeefdeadbeef
+
+
+Be careful: as a general rule, NetBSD/Alpha does not yet support
+examining stack objects and intermediate frames in kernel crash dumps.
+
+-----------
+Ross Harvey ross@teraflop.com
+
+From dillema@acm.org  Tue Jan 6 14:42:04 1998
+From: None <dillema@acm.org>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 06 Jan 1998 14:42:04 +0000
+Subject: rpc.bootparamd problem on alpha?
+
+I recently replaced my '486 fileserver with my multia box. I used this server
+to netboot some diskless intel machines. However, I cannot get bootparams to
+work on the alpha-box. when I put it in debug mode it says something like
+(from the back of my head):
+
+whoami request for <client-address>
+This is host <client-address>
+whoami request failed.
+
+checking with tcpdump, it does not reply to a boot-request at all. 
+AFAIK I use the same (or very similir) configuration on the alpha box
+as on the intel box previously. I had no problems with rpc.bootparamd
+on teh intel machine.
+
+Have I overlooked something, and made a configuration mistake? Or have I
+found a bug. I'm pretty much clueless wrt. why it does not work. All
+the obvious config stuff seems to be ok to me. The alpha is running
+an early NetBSD-1.3-Beta. I'm out of NetBSD source code at the moment, so
+I'm temporarily unable to rebuild or debug things myself. Anybody seen
+this problem with rpc.bootparamd on the alpha? Is anybody using it
+successfully (using what version of NetBSD?).
+
+thanks to everybody for 1.3 (I'll be upgrading in a few days again)
+and happy new year!
+
+{ Feico Dillema,                                                        }
+{ Install NetBSD as first step in your MS-ware 12-step recovery program }
+
+From romash@BBN.COM  Tue Jan 6 09:27:26 1998
+From: Cliff Romash <romash@BBN.COM>
+To: dillema@huygens.org
+Date: Tue, 06 Jan 1998 09:27:26 +0000
+Subject: Re: rpc.bootparamd problem on alpha?
+
+Funny this message should appear today, when I just debugged this
+yesterday....
+
+If you run rpc.bootparamd with the -d switch, you will see that it is
+getting whoami requests, but unable to properly convert the IP address to a
+name to answer with.  The exact text of this is:
+
+	rpc.bootparamd: whoami got question for 128.89.29.40
+	rpc.bootparamd: This is host 128.89.29.40
+	rpc.bootparamd: whoami failed
+
+The second line should give the name of the host, not its address.
+
+In usr.sbin/rpc.bootparamd/bootparamd.c, in the routine
+bootparamproc_whoami_1_svc, the declaration of haddr is long. It needs to
+be int, since the sizeof(haddr) is used as the length argument to
+gethostbyaddr, and later checked against INADDRSZ. sizeof(long) on the
+alpha is 8, while sizeof(int) is 4.
+
+
+
+
+At 02:42 PM 1/6/98 +0100, dillema@acm.org wrote:
+>
+>I recently replaced my '486 fileserver with my multia box. I used this server
+>to netboot some diskless intel machines. However, I cannot get bootparams to
+>work on the alpha-box. when I put it in debug mode it says something like
+>(from the back of my head):
+>
+>whoami request for <client-address>
+>This is host <client-address>
+>whoami request failed.
+>
+>checking with tcpdump, it does not reply to a boot-request at all. 
+>AFAIK I use the same (or very similir) configuration on the alpha box
+>as on the intel box previously. I had no problems with rpc.bootparamd
+>on teh intel machine.
+>
+>Have I overlooked something, and made a configuration mistake? Or have I
+>found a bug. I'm pretty much clueless wrt. why it does not work. All
+>the obvious config stuff seems to be ok to me. The alpha is running
+>an early NetBSD-1.3-Beta. I'm out of NetBSD source code at the moment, so
+>I'm temporarily unable to rebuild or debug things myself. Anybody seen
+>this problem with rpc.bootparamd on the alpha? Is anybody using it
+>successfully (using what version of NetBSD?).
+>
+>thanks to everybody for 1.3 (I'll be upgrading in a few days again)
+>and happy new year!
+>
+>{ Feico Dillema,                                                        }
+>{ Install NetBSD as first step in your MS-ware 12-step recovery program }
+>
+>
+>
+
+From dillema@acm.org  Tue Jan 6 15:42:40 1998
+From: Feico Dillema <dillema@acm.org>
+To: romash@BBN.COM
+Date: Tue, 06 Jan 1998 15:42:40 +0000
+Subject: Re: rpc.bootparamd problem on alpha?
+
+Your message dated: Tue, 06 Jan 1998 09:27:26 EST
+>Funny this message should appear today, when I just debugged this
+>yesterday....
+>
+>If you run rpc.bootparamd with the -d switch, you will see that it is
+>getting whoami requests, but unable to properly convert the IP address to a
+>name to answer with.  The exact text of this is:
+>
+>	rpc.bootparamd: whoami got question for 128.89.29.40
+>	rpc.bootparamd: This is host 128.89.29.40
+>	rpc.bootparamd: whoami failed
+>
+>The second line should give the name of the host, not its address.
+Right! That one got me pretty confused.
+
+>alpha is 8, while sizeof(int) is 4.
+
+Thanks a lot! This will make it worthwhile to ftp the NetBSD-sources through
+my telephone line again (lost them due to disk-problem). Thanks again..
+
+Feico.
+
+From yba@polytronics.com  Tue Jan 6 11:13:29 1998
+From: Mark H. Levine <yba@polytronics.com>
+To: dillema@huygens.org
+Date: Tue, 06 Jan 1998 11:13:29 +0000
+Subject: Re: rpc.bootparamd problem on alpha?
+
+I actually mentioned this exact problem several months ago.
+I have not looked at the internet headers for 1.3 in detail
+yet, but using "long" for an ipv4 address seemed to be all
+over the 1.2 sources, where it needs to be unsigned 32-bit int.
+If NetBSD doesn't have an inet_addr_t yet, I'll reraise the
+suggestion that you really, really want one.
+
+Apologies for not using send-pr in time :).
+
+From cgd@pa.dec.com  Tue Jan 6 08:43:40 1998
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: yba@polytronics.com
+Date: Tue, 06 Jan 1998 08:43:40 +0000
+Subject: Re: rpc.bootparamd problem on alpha?
+
+> I actually mentioned this exact problem several months ago.
+> I have not looked at the internet headers for 1.3 in detail
+> yet, but using "long" for an ipv4 address seemed to be all
+> over the 1.2 sources, where it needs to be unsigned 32-bit int.
+
+It's quite fine (bug-wise, at least 8-) to use 'long' for an IP
+address in most situations.
+
+However, it's _not_ fine to treat a (long *) like an "ip address
+pointer".  That's what the code in question was doing.  There aren't
+_too_ many instances of this in the source tree, because I debugged an
+awful lot of them.  (For instance, rpc.bootparamd used to work for me.
+I wonder if a change reintroduced a problem.)
+
+
+chris
+
+From riz@boogers.sf.ca.us  Tue Jan 6 09:09:48 1998
+From: the Riz <riz@boogers.sf.ca.us>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 06 Jan 1998 09:09:48 +0000
+Subject: problems with tar 'z' option under 1.3
+
+I just installed 1.3 on my Alphastation 255, and I'm getting problems with
+tar's 'z' option.  Whenever I extract files, I get the following error:
+
+gzip: stdout: Broken pipe
+tar: child returned status 1
+
+...but the extract seems (at least the few times I've let it complete) to
+be OK.  Have I done something wrong in the setup?  It's fairly generic, and
+I didn't have this problem under 1.3_ALPHA.  This is a clean install of
+1.3.  (that is, I completely wiped the drive and installed using a boot
+floppy)
+
+ideas?
+
++j
+
+-- 
+Jeff Rizzo                                         http://boogers.sf.ca.us/~riz
+
+From riz@boogers.sf.ca.us  Tue Jan 6 13:43:01 1998
+From: the Riz <riz@boogers.sf.ca.us>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 06 Jan 1998 13:43:01 +0000
+Subject: how to tell if a shared library exists?
+
+What's the canonical way to check for the existence of a shared library
+under NetBSD/alpha?  The other ports use 'ldconfig -r', but since there's
+no ldconfig...
+
+Along the same lines, is there another way to give ld.so_elf "hints"
+besides LD_LIBRARY_PATH?  I've run into some weirdness with that...
+
+Thanks,
++j
+
+-- 
+Jeff Rizzo                                         http://boogers.sf.ca.us/~riz
+
+From shmit@erols.com  Wed Jan 7 02:50:12 1998
+From: Brian Cully <shmit@erols.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 07 Jan 1998 02:50:12 +0000
+Subject: Non-booting Multia
+
+I've spent the better part of today trying to net-boot my Multia. I
+get as far as the second-stage boot, at which point it tries to send
+out a bootp request to find its IP address and NFS server when the thing
+hangs.
+
+>From the tcpdump output it looks like the Multia keeps sending bootp
+requests, which my server answers, but for some reason the Multia throws
+out. Strangely, I don't have problems net-booting the AlphaServer 500's
+we have, only the Multia.
+
+I'm using the 1.3 tree to do all of this with, BTW.
+
+Here's the console output:
+
+[snip]
+>>>boot ewa0
+(boot ewa0.0.0.8.0 -flags a)
+
+Trying BOOTP boot.
+
+Broadcasting BOOTP Request...
+local inet address: 207.172.25.171
+remote inet address: 207.172.25.236
+TFTP Read File Name: /netbsd.alpha
+..
+bootstrap code read in
+base = 166000, image_start = 0, image_bytes = 15710
+initializing HWRPB at 2000
+initializing page table at 158000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/Alpha Network Boot, Revision 1.6
+(cjs@bishop, Wed Dec 31 00:53:26 PST 1997)
+
+VMS PAL revision: 0x1000000010530
+OSF PAL rev: 0x1000000020123
+Switch to OSF PAL code succeeded.
+
+Boot flags: a
+
+Loading netbsd...
+boot: boot device name does not contain ethernet address.
+boot: using hard-coded ethernet address.
+boot: ethernet address: 08:00:2b:e4:d6:7f
+bootp: no reply
+net_open: BOOTP failed
+open netbsd: Input/output error
+
+[...]
+[snip]
+
+Any help would be most appreciated.
+
+-- 
+Brian Cully						<shmit@erols.com>
+``And when one of our comrades was taken prisoner, blindfolded, hung
+  upside-down, shot, and burned, we thought to ourselves, `These are the
+  best experiences of our lives''' -Pathology (Joe Frank, Somewhere Out There)
+
+From wilko@yedi.iaf.nl  Wed Jan 7 21:34:53 1998
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 07 Jan 1998 21:34:53 +0000
+Subject: differences in NFS over FDDI performance between NetBSD-1.3 and OpenBSD2.2 /alpha-axp
+
+I've been playing a bit with my new DEFPA fddi cards and have some simple
+performance comparisons using NFS. bonnie was used as the 'benchmark'.
+
+The results are as follows:
+
+Wed Jan  7 21:25:42 MET 1998
+
+Server: FreeBSD-2.2.5R, DEFPA FDDI network card, Seagate ST15150N 
+	NCR810, Pentium 100 Mc, 32Mb
+
+Client: AXPpci33 NoName, 200Mc, DEFPA FDDI network card, 32Mb
+
+'Benchmark': bonnie running over NFS
+
+openbsd2.2:
+              -------Sequential Output-------- ---Sequential Input--
+              -Per Char- --Block--- -Rewrite-- -Per Char- --Block---
+Machine    MB K/sec %CPU K/sec %CPU K/sec %CPU K/sec %CPU K/sec %CPU  
+          100   206 15.1   215  8.3   244 16.6   993 67.5  1849 46.4 
+          100   184 13.3   225  9.0   245 16.9  1080 63.8  1879 45.1 
+
+same HW, but now NetBSD1.3 (alpha test release)
+          100  1008 59.5  1308 23.9   831 34.3  1303 77.3  2457 29.6 
+          100   972 58.8  1303 26.0   791 32.9  1277 78.3  2372 27.8 
+
+same HW, but now Digital Unix T4.0D (field test release)
+          100  1598 48.8  2385 30.0  1239 30.0  1702 67.2  2581 26.3 
+
+As you can see, the differences are considerable. For comparison's sake
+I also tried it on a field test version of Digital Unix. 
+
+It seems there is something that makes OpenBSD considerable different
+from NetBSD in this particular arena.
+
+Anybody care to comment what this could be?
+
+Wilko
+_     ______________________________________________________________________
+ |   / o / /  _  Bulte email: wilko @ yedi.iaf.nl http://www.tcja.nl/~wilko
+ |/|/ / / /( (_) Arnhem, The Netherlands - Do, or do not. There is no 'try'
+---------------  Support your local daemons: run [Free,Net,Open]BSD Unix  --
+
+From root@garbled.futureone.com  Wed Jan 7 19:16:15 1998
+From: Tim Rightnour <root@garbled.futureone.com>
+To: shmit@erols.com
+Date: Wed, 07 Jan 1998 19:16:15 +0000
+Subject: RE: Non-booting Multia
+
+Ack.. hate to tell you..  Firmware 3.8-3 does NOT netboot.. Believe me, I spent
+about 40 hours screwing with it.. If you can get 3.8-2 do so.. and read the
+older posts on port-alpha..  You can see my previous barrage of posts about it..
+
+---
+Tim Rightnour    -  root@garbled.futureone.com
+http://www.zynetwc.com/~garbled/garbled.html
+
+From wilko@yedi.iaf.nl  Thu Jan 8 00:05:43 1998
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 08 Jan 1998 00:05:43 +0000
+Subject: sorry......
+
+I got a polite email informing me that posting at the same time to an
+OpenBSD list and a NetBSD list is not considered appropriate to do.
+
+Rest assured that it was done without hidden thoughts or intentions.
+
+I won't repeat the exercise (save for the mail you're currently reading that
+is)
+
+Wilko
+_     ______________________________________________________________________
+ |   / o / /  _  Bulte email: wilko @ yedi.iaf.nl http://www.tcja.nl/~wilko
+ |/|/ / / /( (_) Arnhem, The Netherlands - Do, or do not. There is no 'try'
+---------------  Support your local daemons: run [Free,Net,Open]BSD Unix  --
+
+From proff@iq.org  Thu Jan 8 17:49:38 1998
+From: None <proff@iq.org>
+To: wilko@yedi.iaf.nl
+Date: Thu, 08 Jan 1998 17:49:38 +0000
+Subject: Re: sorry......
+
+> From tech-request@openbsd.org Thu Jan 08 06:29:02 1998
+> Delivered-To: proff@iq.org
+> Delivered-To: proff@suburbia.net
+> From: Wilko Bulte <wilko@yedi.iaf.nl>
+> Message-Id: <199801072305.AAA01323@yedi.iaf.nl>
+> Subject: sorry......
+> To: port-alpha@netbsd.org (port-alpha list NetBSD),
+>         tech@openbsd.org (tech mailing list OpenBSD)
+> Date: Thu, 8 Jan 1998 00:05:43 +0100 (MET)
+> X-Organisation: Private FreeBSD site - Arnhem, The Netherlands
+> X-Pgp-Info: PGP public key at 'finger wilko@freefall.freebsd.org'
+> X-Mailer: ELM [version 2.4 PL24 ME8a]
+> Sender: tech-request@openbsd.org
+> Precedence: bulk
+
+> I got a polite email informing me that posting at the same time to an
+> OpenBSD list and a NetBSD list is not considered appropriate to do.
+> 
+> Rest assured that it was done without hidden thoughts or intentions.
+> 
+> I won't repeat the exercise (save for the mail you're currently reading that
+> is)
+> 
+> Wilko
+> _     ______________________________________________________________________
+>  |   / o / /  _  Bulte email: wilko @ yedi.iaf.nl http://www.tcja.nl/~wilko
+>  |/|/ / / /( (_) Arnhem, The Netherlands - Do, or do not. There is no 'try'
+> ---------------  Support your local daemons: run [Free,Net,Open]BSD Unix  --
+> 
+
+And from a FreeBSD machine as well! What's the world coming to?
+
+Cheers,
+Julian.
+
+From shmit@erols.com  Thu Jan 8 16:50:54 1998
+From: Brian Cully <shmit@erols.com>
+To: root@garbled.futureone.com
+Date: Thu, 08 Jan 1998 16:50:54 +0000
+Subject: Re: Non-booting Multia
+
+On Jan 7, Tim Rightnour wrote:
+> Ack.. hate to tell you..  Firmware 3.8-3 does NOT netboot.. Believe
+> me, I spent about 40 hours screwing with it.. If you can get 3.8-2
+> do so.. and read the older posts on port-alpha..  You can see my
+> previous barrage of posts about it..
+
+Yeah, after I sent the mail I went through the port-alpha archives and
+found this out. I believe Wilko is looking for a copy of 3.8-2 around
+DEC, so there may be hope yet.
+
+-- 
+Brian Cully						<shmit@erols.com>
+``And when one of our comrades was taken prisoner, blindfolded, hung
+  upside-down, shot, and burned, we thought to ourselves, `These are the
+  best experiences of our lives''' -Pathology (Joe Frank, Somewhere Out There)
+
+From sabarker@nwlink.com  Thu Jan 8 13:47:14 1998
+From: Scott A. Barker <sabarker@nwlink.com>
+To: netbsd-users@NetBSD.ORG, port-alpha@NetBSD.ORG, redhat-list@redhat.com,
+Date: Thu, 08 Jan 1998 13:47:14 +0000
+Subject: I have two Multias that must go...
+
+This is a complete package and I must sell everything at once.  I want
+$2000, or best offer, for EVERYTHING.  This system has been used for about
+6 months and operated (Win NT 4.0 Server :( ) problem free; shortly after
+their purchase I did replace one motherboard though.  All components are
+new (~6mos).  There is a great deal of value here, I simply need to
+purchase (or trade for?) a Win95 laptop computer.
+ 
+
+These are DEC Multias (aka UDB) complete with ram and internally mounted
+scsi hard drives.  For great information on these systems, look at some of
+the links Starship has to offer: 
+
+http://www.starshipcorp.com/onlinereference.html#links
+
+
+ CPUs
+ 2-DEC Multia with 64bit Alpha 166MHz processor		
+  
+ RAM
+ 6-16Mb 72pin Parity					
+ 
+ HDs (all SCSI)
+ 1-2.3 Gb 3 =' internal to one 166MHz			
+ 1-1.2 Gb 3 =' internal to one 166MHz			
+ 
+ Keyboards
+ 1-DEC extended with 10 key			
+ 1-Reveal extended with 10 key, speakers and microphone
+ 
+ Misc
+ 2-RedHat Linux (Alpha v4.0) Cd-ROM				 
+ 1-RedHat Linux (Alpha v4.1) Cd-ROM Boxed with Manual		 
+ 1-AB Data Transfer Switch (for 2 CPU's using 1 keyboard/monitor)
+ 2-DEC 3-button Mouse						 
+ 2-3.5' SCSI Internal HD/External SCSI-2 kit 			
+ 2-External SCSI-2  kit (replaced by Internal kit, above)		
+ 1-SCSI2/SCSI Cable						
+ 
+TOTAL COST							$2000
+
+
+Scott A. Barker 
+pokeyd@nwlink.com
+
+From kpneal@pobox.com  Thu Jan 8 20:20:19 1998
+From: Kevin P. Neal <kpneal@pobox.com>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 08 Jan 1998 20:20:19 +0000
+Subject: Could the 1.3 release kernel be copied out of the install fs?
+
+Is there a copy of the 1.3 kernel on ftp.netbsd.org anywhere other than on
+the install.fs file that is included in the release?
+
+I'm trying to copy the generic 1.3 kernel out of the install filesystem but
+I keep getting:
+panic: pagemove
+
+Before I jump through hoops I was wondering if a copy of the generic kernel
+could be placed into the release area?
+
+Thanks.
+ 
+--
+XCOMM Kevin P. Neal, Junior, Comp. Sci.     -   House of Retrocomputing
+XCOMM  mailto:kpneal@pobox.com              -   http://www.pobox.com/~kpn/
+XCOMM  kpneal@eos.ncsu.edu              Spoken by Keir Finlow-Bates:
+XCOMM "Good grief, I've just noticed I've typed in a rant. Sorry chaps!"
+
+From perry@piermont.com  Thu Jan 8 20:36:55 1998
+From: Perry E. Metzger <perry@piermont.com>
+To: kpneal@pobox.com
+Date: Thu, 08 Jan 1998 20:36:55 +0000
+Subject: Re: Could the 1.3 release kernel be copied out of the install fs?
+
+"Kevin P. Neal" writes:
+> Is there a copy of the 1.3 kernel on ftp.netbsd.org anywhere other than on
+> the install.fs file that is included in the release?
+
+"The" 1.3 kernel?
+
+> Before I jump through hoops I was wondering if a copy of the generic kernel
+> could be placed into the release area?
+
+I guess you missed it in the documentation... see kern.tgz, which
+contains the GENERIC kernel you use after install. The kernel on the
+floppy is NOT for use except when booting that floppy.
+
+Perry
+
+From kpneal@pobox.com  Thu Jan 8 22:18:25 1998
+From: Kevin P. Neal <kpneal@pobox.com>
+To: perry@piermont.com
+Date: Thu, 08 Jan 1998 22:18:25 +0000
+Subject: Re: Could the 1.3 release kernel be copied out of the install
+
+At 08:36 PM 1/8/98 -0500, Perry E. Metzger wrote:
+>
+>"Kevin P. Neal" writes:
+>> Before I jump through hoops I was wondering if a copy of the generic kernel
+>> could be placed into the release area?
+>
+>I guess you missed it in the documentation... see kern.tgz, which
+>contains the GENERIC kernel you use after install. The kernel on the
+>floppy is NOT for use except when booting that floppy.
+
+Right there in front of me and I didn't see it. 
+
+Thanks.
+--
+XCOMM Kevin P. Neal, Junior, Comp. Sci.     -   House of Retrocomputing
+XCOMM  mailto:kpneal@pobox.com              -   http://www.pobox.com/~kpn/
+XCOMM  kpneal@eos.ncsu.edu              Spoken by Keir Finlow-Bates:
+XCOMM "Good grief, I've just noticed I've typed in a rant. Sorry chaps!"
+
+From wilko@yedi.iaf.nl  Thu Jan 8 23:46:26 1998
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: shmit@erols.com
+Date: Thu, 08 Jan 1998 23:46:26 +0000
+Subject: Re: Non-booting Multia
+
+As Brian Cully wrote...
+> On Jan 7, Tim Rightnour wrote:
+> > Ack.. hate to tell you..  Firmware 3.8-3 does NOT netboot.. Believe
+> > me, I spent about 40 hours screwing with it.. If you can get 3.8-2
+> > do so.. and read the older posts on port-alpha..  You can see my
+> > previous barrage of posts about it..
+> 
+> Yeah, after I sent the mail I went through the port-alpha archives and
+> found this out. I believe Wilko is looking for a copy of 3.8-2 around
+> DEC, so there may be hope yet.
+
+Yep, I am. Sofar without much luck. I now have plenty of copies of 3.8-3
+being offered but that is it. I've put some requests on internal DEC-Notes
+conferences, but since this is not exactly a hot product....
+
+Wilko
+_     ______________________________________________________________________
+ |   / o / /  _  Bulte email: wilko @ yedi.iaf.nl http://www.tcja.nl/~wilko
+ |/|/ / / /( (_) Arnhem, The Netherlands - Do, or do not. There is no 'try'
+---------------  Support your local daemons: run [Free,Net,Open]BSD Unix  --
+
+From dillema@acm.org  Fri Jan 9 13:11:12 1998
+From: None <dillema@acm.org>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 09 Jan 1998 13:11:12 +0000
+Subject: Alpha `config` problem.
+
+I ftp-ed the NetBSD-1.3 source tarballs, and tried to build a kernel
+for my alpha. After I config-ed it, I noticed that the top generated 
+Makefile has an empty "SFILES=" line. I think this is wrong (kernel
+linking failed). I added the .s files from arch/alpha/alpha manually
+to the SFILES=... and my machine is currently busy building a kernel 
+at home (don't know the result yet).
+
+Is this a bug, or did I make a mistake in the kernel-config file?
+
+{ Feico Dillema,                                                        }
+{ University of Twente, P.O. Box 217, 7500 AE Enschede, The Netherlands }
+{ Install NetBSD as first step in your MS-ware 12-step recovery program }
+
+From seifert@sequent.com  Sat Jan 10 11:34:27 1998
+From: David Seifert <seifert@sequent.com>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 10 Jan 1998 11:34:27 +0000
+Subject: How to prevent autoboot?
+
+On the Multia/UDB, once one has set the autoboot variables in SRM to
+autoboot NetBSD from a harddrive, how does one get back to a SRM prompt?
+
+I've looked through the documentation (perhaps I'm missing some?)
+and tried banging on ^C and such during boot, but no joy.
+
+I want to install 1.3 on a different drive, leaving 1.2 in place
+"just in case", and then tell SRM to boot from the other drive.
+
+The only way I've found is to make the boot disk inaccessable
+(unplug it from SCSI bus, power it down, etc.) which is a pretty
+ugly workaround, especially if it is booting from the internal drive.
+There must be a better way?
+
+thanks,
+Dave
+
+From seifert@sequent.com  Sun Jan 11 11:28:34 1998
+From: David Seifert <seifert@sequent.com>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 11 Jan 1998 11:28:34 +0000
+Subject: How to prevent autoboot? - part 2
+
+Doing a "shutdown -h now" or shutting down to single user mode
+and then running "halt" both reboot to multi-user mode.
+
+-Dave
+
+From thorpej@nas.nasa.gov  Sun Jan 11 11:34:17 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: seifert@sequent.com
+Date: Sun, 11 Jan 1998 11:34:17 +0000
+Subject: Re: How to prevent autoboot? - part 2
+
+On Sun, 11 Jan 98 11:28:34 PST 
+ David Seifert <seifert@sequent.com> wrote:
+
+ > Doing a "shutdown -h now" or shutting down to single user mode
+ > and then running "halt" both reboot to multi-user mode.
+
+What is the contents of the SRM's auto-action variable?
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-6                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From seifert@sequent.com  Sun Jan 11 21:42:50 1998
+From: David Seifert <seifert@sequent.com>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 11 Jan 1998 21:42:50 +0000
+Subject: preventing autoboot, part 3
+
+More details, after unplugging the disk:
+
+auto_action  BOOT
+console_mode boot
+pal VMS PALcode X5.48-57, OSF PALcode X1.35-39
+qsnvr_version V1.0
+version BL5 V3.7-628 Apr 25 1995 15:14:12
+
+It turns out there is a "allow_ctrlc" command, and
+after running it, I can halt the reboot by hitting
+^C at just the right nanosecond.
+
+Still, it would be nice if halt really halted the machine.
+
+-Dave
+
+From wulf@ping.net.au  Mon Jan 12 07:18:31 1998
+From: Berndt Josef Wulf <wulf@ping.net.au>
+To: seifert@sequent.com
+Date: Mon, 12 Jan 1998 07:18:31 +0000
+Subject: Re: How to prevent autoboot?
+
+David Seifert wrote
+> 
+> On the Multia/UDB, once one has set the autoboot variables in SRM to
+> autoboot NetBSD from a harddrive, how does one get back to a SRM prompt?
+> 
+> I've looked through the documentation (perhaps I'm missing some?)
+> and tried banging on ^C and such during boot, but no joy.
+> 
+> I want to install 1.3 on a different drive, leaving 1.2 in place
+> "just in case", and then tell SRM to boot from the other drive.
+> 
+> The only way I've found is to make the boot disk inaccessable
+> (unplug it from SCSI bus, power it down, etc.) which is a pretty
+> ugly workaround, especially if it is booting from the internal drive.
+> There must be a better way?
+> 
+
+Issue the "halt"  command  from NetBSD which  will bring
+you back to the SRM prompt.
+
+cheerio  Berndt
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@ping.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.2
+
+From mjacob@feral.com  Mon Jan 12 15:16:24 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG, seifert@sequent.com
+Date: Mon, 12 Jan 1998 15:16:24 +0000
+Subject: Re: preventing autoboot, part 3
+
+set auto_action to halt
+
+
+>From port-alpha-owner-mjacob=feral.com@NetBSD.ORG  Sun Jan 11 22:16:31 1998
+>Return-Path: <port-alpha-owner-mjacob=feral.com@NetBSD.ORG>
+>X-Authentication-Warning: eng4.sequent.com: seifert@localhost didn't use HELO protocol
+>To: port-alpha@NetBSD.ORG
+>Subject: preventing autoboot, part 3
+>Date: Sun, 11 Jan 98 21:42:50 PST
+>From: David Seifert <seifert@sequent.com>
+>Sender: port-alpha-owner@NetBSD.ORG
+>Delivered-To: port-alpha@NetBSD.ORG
+>Content-Length: 389
+>
+>More details, after unplugging the disk:
+>
+>auto_action  BOOT
+>console_mode boot
+>pal VMS PALcode X5.48-57, OSF PALcode X1.35-39
+>qsnvr_version V1.0
+>version BL5 V3.7-628 Apr 25 1995 15:14:12
+>
+>It turns out there is a "allow_ctrlc" command, and
+>after running it, I can halt the reboot by hitting
+>^C at just the right nanosecond.
+>
+>Still, it would be nice if halt really halted the machine.
+>
+>-Dave
+>
+
+From atluru@tortel1.echo-on.net  Mon Jan 12 21:27:23 1998
+From: Tim Atluru <atluru@tortel1.echo-on.net>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 12 Jan 1998 21:27:23 +0000
+Subject: More Multia Stories
+
+I found some time to play with my Multia reciently. It looks to me 
+like my problem is with the on-board NCR SCSI controller. I am wondering
+if anyone out there would be willing to build me an copy of kern.tgz
+without the NCR support. At least this way I should (hopefully) be able
+to floppy boot it and import a file system. Including Adaptec 2940 support
+would be handy as well.
+
+Anyhow, if anyone can help me out it'd be much appreciated.
+
+THX,
+Tim Atluru
+atluru@echo-on.net
+
+From song@zk3.dec.com  Tue Jan 13 13:57:45 1998
+From: Chang-Hyeon Song <song@zk3.dec.com>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 13 Jan 1998 13:57:45 +0000
+Subject: Install on DEC 3000/500
+
+Hi.
+I am trying to install NetBSD on DEC 3000/500.
+I found out that the installation kernel does not recognize 3000/500.
+Can anyone compile INSTALL kernel with 3000/500 enable and send it to
+me?
+Thanks in advance.
+
+-- 
+Chang Song                                   Phone: (603) 884-0799
+Digital Equipment Corp.,ZKO3-3/U14           Home:  (603) 437-5088
+110 Spitbrook Rd., Nashua, NH 03062          Pager: (603) 467-1777
+
+From thorpej@nas.nasa.gov  Tue Jan 13 14:54:45 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: song@zk3.dec.com
+Date: Tue, 13 Jan 1998 14:54:45 +0000
+Subject: Re: Install on DEC 3000/500
+
+On Tue, 13 Jan 1998 13:57:45 -0500 
+ Chang-Hyeon Song <song@zk3.dec.com> wrote:
+
+ > Hi.
+ > I am trying to install NetBSD on DEC 3000/500.
+ > I found out that the installation kernel does not recognize 3000/500.
+ > Can anyone compile INSTALL kernel with 3000/500 enable and send it to
+ > me?
+ > Thanks in advance.
+
+Is a GENERIC kernel available on the FTP server?  If so, it will work.
+The INSTALL kernel is simply one that is stripped down so that it will
+fit on a floppy (which is why it only includes support for Alphas with
+floppy drives :-)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-6                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From thorpej@nas.nasa.gov  Wed Jan 14 23:20:39 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 14 Jan 1998 23:20:39 +0000
+Subject: IDE and floppy
+
+Folks...
+
+I have changed the Alpha port to use the new MI IDE drivers.  This means
+that ATAPI CD-ROMs and disk (e.g. ATAPI Zip drives) should work!  You'll
+need to make a few config changes.  Basically:
+
+	% vi CONFIG_FILE
+	:%s/awd/wd/g
+	:wq
+
+...and re-run config(8).  (Make sure you have a new config binary installed,
+per my post on current-users the other day!)
+
+Also...
+
+I have made the floppy driver sort-of work on my AlphaStation 500:
+
+[ preserving 142256 bytes of netbsd symbol table ]
+Copyright (c) 1996, 1997, 1998
+    The NetBSD Foundation, Inc.  All rights reserved.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+    The Regents of the University of California.  All rights reserved.
+
+NetBSD 1.3A (BISHOP) #57: Thu Jan  8 23:47:23 PST 1998
+    thorpej@bishop:/tmp_mnt/dracul/u5/netbsd/src/sys/arch/alpha/compile/BISHOP
+AlphaStation 500 or 600 (KN20AA), 500MHz
+8192 byte page size, 1 processor.
+real mem = 268435456 (2252800 reserved for PROM, 266182656 used by NetBSD)
+avail mem = 227483648
+using 3249 buffers containing 26615808 bytes of memory
+mainbus0 (root)
+ .
+ .
+ .
+fdc0 at isa0 port 0x3f0-0x3f7 irq 6 drq 2
+fd0 at fdc0 drive 0: 1.44MB, 80 cyl, 2 head, 18 sec
+mcclock0 at isa0 port 0x70-0x71: mc146818 or compatible
+root on sd0a dumps on sd0b
+root file system type: ffs
+
+...unfortunately, DMA doesn't seem to work properly.  In an effort to
+find out if it's specific to the CIA chipset (i.e. a bug in the SGMAP
+code I wrote for that chipset) or something else, I'd like for someone
+with a Multia or AXPpci33 to test the driver.  The reason I'm picking
+that system is because I _know_ ISA DMA works on that platform, since
+Curt Sampson tested my SGMAP code with an Adaptec 1542 in his AXPpci33.
+
+If you can do this for me, please let me know, and I'll make a GENERIC
+kernel available to you for testing.
+
+Thanks!
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-6                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From thorpej@nas.nasa.gov  Sat Jan 17 16:15:09 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 17 Jan 1998 16:15:09 +0000
+Subject: ISA DMA testers needed (again :-)
+
+Over the last couple of days, I've been fixing some bugs in the SGMAP
+DMA code used for, among other things, ISA DMA (it's also used for
+PCI and EISA DMA on systems with more memory than 1G).
+
+I've been beating SGMAP DMA on my AlphaStation 600 pretty extensively,
+but I can't get my Adaptec 1542 to work properly (I'm unable to get
+the SRM to configure it, so the kernel doesn't find it; does anyone
+have hints on adding ISA devices to an AlphaStation 600?  "isacfg" is
+what the NoName uses, but that doens't exist on a 600, and the "ecu"
+is an ARC application that wants to be loaded from disk, which I don't
+have, sigh).
+
+Curt Sampson did some initial DMA testing on his NoName with a 1542,
+and if he could do that again, I'd be very grateful (hey curt, I think
+I've solved those until-now-unexplained machine checks you were seeing!)
+
+A GENERIC + DDB kernel is up for FTP:
+
+ ftp://ftp.netbsd.org:/ftp/pub/incoming/thorpej/hide/netbsd-alpha-GENERIC.gz
+
+Thanks!
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-6                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From nisimura@is.aist-nara.ac.jp  Tue Jan 20 11:54:15 1998
+From: Toru Nishimura <nisimura@is.aist-nara.ac.jp>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 20 Jan 1998 11:54:15 +0000
+Subject: DEC3000 netboot procedure
+
+Hi, all.
+
+I practiced network installation on DEC3000/300 (TurboChannel based 1st
+generation Alpha machines).  It seems NetBSD/alpha Web page and INSTALL
+doc does not provide how to netboot TC Alpha, I summarise the steps here
+for others sake.  The points are;
+
+    o TC Alpha ROM console can do BOOTP/TFTP boot with >>> boot ez0
+    o Before netboot, you have to prepare proper netboot.XXYYZZXXYYZZ
+
+Comments and corrections are welcome.
+
+--
+
+1) Prepare boot server.  /etc/bootptab should have lines like;
+
+	preparecan:\
+        :ht=ethernet:ha=08002B3F57FF:\
+        :ip=10.1.1.59:sm=255.255.255.0:sa=10.1.1.60:\
+        :td=/tftpboot:hd=/:bf=netboot.08002b3f57ff:rp=/u0/alpha:
+
+   Populate NFS root directory (/u0/alpha in this example) with base.tgz,
+   etc.tgz and var.tgz, then configure /etc directory contents appropriately.
+   (It'd be very helpful there was miniroot.tgz for minimum run, BTW)
+
+2) Now complicated step.  Compile setnetbootinfo(8) program on the boot
+   server.  This is required to modify primary boot code 'netboot' for
+   the target machine.  Source files are located at
+   /sys/arch/alpha/stand/setnetbootinfo/.  You probably need to change 4
+   lines of codes because the original uses 64bit integer constants.   It
+   would be ok to add 'LL' suffixes to them.
+
+   With setnetbootinfo(8), modify 'netboot' burning target ether MAC address
+   into it like;
+
+	# cd /u0/alpha/usr/mdec
+	# <THE_PATH>/setnetbootinfo -v -a <MAC_ADDR> netboot
+
+   MAC address can be seen on screen during target self diagnostic stage.
+
+   You now have modified copy of 'netboot' named like 'netboot.08002b3f57ff'
+   Copy it into the boot servers /tftpboot/ directory.
+
+3) Try to boot it off;
+
+	>>> boot ez0
+
+   Your machine should be served promptly.  If not, check bootp/tftpboot
+   configuration.
+
+   IMPORTANT fireware revision notice:
+
+   Never use most recent v7.0 firmware.  It seems to send a broken TFTP
+   request which will never be served.  I tried v6.2 (by downgrade), which
+   was proven to work, but v7.0 not.
+
+Tohru Nishimura
+Nara Institute of Science and Technology
+
+From angelos@dsl.cis.upenn.edu  Tue Jan 20 10:57:14 1998
+From: Angelos D. Keromytis <angelos@dsl.cis.upenn.edu>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 20 Jan 1998 10:57:14 +0000
+Subject: pc164sx
+
+-----BEGIN PGP SIGNED MESSAGE-----
+
+Ok, I have an Alpha PC 164SX; I just installed SRM 4.9 successfully.
+Now, the configuration of this machine is 64MB RAM, WDC hd on ATAPI 0,
+Toshiba CDROM on ATAPI 1. When I try to boot with the installation
+floppy for 1.3,  I get up to:
+
+sio_intr_setup: 0 LT!
+sio_sis: initial: ocw = (f9,ff), elcr = (ff,ff)
+                  current = (f9,ff), elcr = (fe, ff)
+panic: sio_setirqstat: hosed
+halted
+
+
+
+halted CPU 0
+
+halt code = 5
+HALT instruction executed
+
+And I'm back at the SRM boot prompt. Someone told me there may be some
+BIOS setting I need to tweak, but that's all the information I could
+get.
+
+Any help appreciated.
+- -Angelos
+
+-----BEGIN PGP SIGNATURE-----
+Version: 2.6.3i
+Charset: noconv
+Comment: Processed by Mailcrypt 3.4, an Emacs/PGP interface
+
+iQCVAwUBNMTJWb0pBjh2h1kFAQFYggP/QoHWiPuGHIc/KiEDsu5Z5pQkDPS277FY
+o4Y7DFqo5WD7hReU0kRrmRbHsjRsdiUCqtaJRH+gT2KbXMhGIZuy1uTp+Ht9ei32
+pIUcYPGPGNYx2qckVEstPbG6UNwhaDR6a4SXRjUVJAStulFRUCGqgSh7/bQ6zIWY
+ygsGnptYUR8=
+=R5p+
+-----END PGP SIGNATURE-----
+
+From wilko@yedi.iaf.nl  Tue Jan 20 20:11:47 1998
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 20 Jan 1998 20:11:47 +0000
+Subject: ftp-able old Multia SRM firmware available
+
+Hi there
+
+I finally managed to obtain an earlier SRM console firmware for the Multia.
+
+Unfortunately(??) not the V3.8-2 but V3.7-628. At least that is 
+what 'strings' tells me. Note that it is a .sys file, I think this means
+it is intended for network-bashed ROM flashing. It was taken from the
+Multia V3.0 master CDROM. So, it is a normal released version that people
+had on their Multias.
+
+It can be found on ftp://www.tcja.nl/pub/srmV3.7-628.sys.gz
+
+I sincerely hopes this one does bootp correctly, I've given up 
+on obtaining V3.8-2
+
+Please post any results.
+
+Wilko
+_     ______________________________________________________________________
+ |   / o / /  _  Bulte email: wilko @ yedi.iaf.nl http://www.tcja.nl/~wilko
+ |/|/ / / /( (_) Arnhem, The Netherlands - Do, or do not. There is no 'try'
+---------------  Support your local daemons: run [Free,Net,Open]BSD Unix  --
+
+From soren@t.dk  Tue Jan 20 22:04:42 1998
+From: Soren S. Jorvang <soren@t.dk>
+To: wilko@yedi.iaf.nl
+Date: Tue, 20 Jan 1998 22:04:42 +0000
+Subject: Re: ftp-able old Multia SRM firmware available
+
+On Tue, 20 Jan 1998, Wilko Bulte wrote:
+
+> I finally managed to obtain an earlier SRM console firmware for the Multia.
+> 
+> Unfortunately(??) not the V3.8-2 but V3.7-628. At least that is 
+> what 'strings' tells me. Note that it is a .sys file, I think this means
+> it is intended for network-bashed ROM flashing. It was taken from the
+> Multia V3.0 master CDROM. So, it is a normal released version that people
+> had on their Multias.
+
+I couldn't get the upgrade to netboot. At least with DECaxp33 firmware, the
+.EXE version seems to needed.
+
+I just now installed V3.7-628 by chopping off the first 512 bytes, writing
+the file to a FAT12 floppy as SRM.EXE, and running 'blast' at the SRM
+prompt.
+
+> It can be found on ftp://www.tcja.nl/pub/srmV3.7-628.sys.gz
+> 
+> I sincerely hopes this one does bootp correctly, I've given up 
+> on obtaining V3.8-2
+> 
+> Please post any results.
+
+No success with netbooting here. It does run disk-based like with V3.8-3
+(including the bogus PCI devices).
+
+
+-- 
+Soren
+
+From soren@t.dk  Tue Jan 20 22:18:38 1998
+From: Soren S. Jorvang <soren@t.dk>
+To: wilko@yedi.iaf.nl
+Date: Tue, 20 Jan 1998 22:18:38 +0000
+Subject: Re: ftp-able old Multia SRM firmware available
+
+On Tue, 20 Jan 1998, Wilko Bulte wrote:
+
+> I sincerely hopes this one does bootp correctly, I've given up 
+> on obtaining V3.8-2
+
+If it is not a question of licensing/distribution problems, someone with
+V3.8-2 (or perhaps the 'experimental' version that cgd distributed at one
+time) could send you the flash file ('cat srmflash > fat:foosrm.exe/dva0').
+
+My Multia came with V3.8-2, so I assume there are other who have it.
+
+
+-- 
+Soren
+
+From wilko@yedi.iaf.nl  Tue Jan 20 23:21:34 1998
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: soren@t.dk
+Date: Tue, 20 Jan 1998 23:21:34 +0000
+Subject: Re: ftp-able old Multia SRM firmware available
+
+As Soren S. Jorvang wrote...
+> On Tue, 20 Jan 1998, Wilko Bulte wrote:
+> 
+> > I finally managed to obtain an earlier SRM console firmware for the Multia.
+> > 
+> > Unfortunately(??) not the V3.8-2 but V3.7-628. At least that is 
+> > what 'strings' tells me. Note that it is a .sys file, I think this means
+> > it is intended for network-bashed ROM flashing. It was taken from the
+> > Multia V3.0 master CDROM. So, it is a normal released version that people
+> > had on their Multias.
+> 
+> I couldn't get the upgrade to netboot. At least with DECaxp33 firmware, the
+> .EXE version seems to needed.
+
+No .exe in sight.
+
+> I just now installed V3.7-628 by chopping off the first 512 bytes, writing
+> the file to a FAT12 floppy as SRM.EXE, and running 'blast' at the SRM
+> prompt.
+> 
+> > It can be found on ftp://www.tcja.nl/pub/srmV3.7-628.sys.gz
+> > 
+> > I sincerely hopes this one does bootp correctly, I've given up 
+> > on obtaining V3.8-2
+> > 
+> > Please post any results.
+> 
+> No success with netbooting here. It does run disk-based like with V3.8-3
+> (including the bogus PCI devices).
+
+<censored> That was the best I had to offer right now. I'll keep an open
+eye for other versions, but the probability of that happening is approaching 0
+I'm afraid.
+
+Wilko
+_     ______________________________________________________________________
+ |   / o / /  _  Bulte email: wilko @ yedi.iaf.nl http://www.tcja.nl/~wilko
+ |/|/ / / /( (_) Arnhem, The Netherlands - Do, or do not. There is no 'try'
+---------------  Support your local daemons: run [Free,Net,Open]BSD Unix  --
+
+From wilko@yedi.iaf.nl  Tue Jan 20 23:22:58 1998
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: soren@t.dk
+Date: Tue, 20 Jan 1998 23:22:58 +0000
+Subject: Re: ftp-able old Multia SRM firmware available
+
+As Soren S. Jorvang wrote...
+> On Tue, 20 Jan 1998, Wilko Bulte wrote:
+> 
+> > I sincerely hopes this one does bootp correctly, I've given up 
+> > on obtaining V3.8-2
+> 
+> If it is not a question of licensing/distribution problems, someone with
+> V3.8-2 (or perhaps the 'experimental' version that cgd distributed at one
+> time) could send you the flash file ('cat srmflash > fat:foosrm.exe/dva0').
+
+Well, it is not required for myself, I gave my Multia back to it's owner.
+I have a NoName and a Jensen right now.
+
+Wilko
+_     ______________________________________________________________________
+ |   / o / /  _  Bulte email: wilko @ yedi.iaf.nl http://www.tcja.nl/~wilko
+ |/|/ / / /( (_) Arnhem, The Netherlands - Do, or do not. There is no 'try'
+---------------  Support your local daemons: run [Free,Net,Open]BSD Unix  --
+
+From root@garbled.futureone.com  Wed Jan 21 06:52:59 1998
+From: Tim Rightnour <root@garbled.futureone.com>
+To: wilko@yedi.iaf.nl
+Date: Wed, 21 Jan 1998 06:52:59 +0000
+Subject: Re: ftp-able old Multia SRM firmware available
+
+On 20-Jan-98 Wilko Bulte spoke unto us all:
+# > I just now installed V3.7-628 by chopping off the first 512 bytes, writing
+# > the file to a FAT12 floppy as SRM.EXE, and running 'blast' at the SRM
+# > prompt.
+# > 
+# <censored> That was the best I had to offer right now. I'll keep an open
+# eye for other versions, but the probability of that happening is approaching
+# 0
+
+I have a firmware labeled 4.33 (arc version I'm sure)  However the SRM is
+different too..  It was originally installed on my multia..  I don't *think* it
+netboots, but I later found out I was doing something wrong. (this is after I
+upgraded to the latest rev.  I've tried to downgrade to this but it complained
+about file sizes being wrong.   I believe you can download this off
+www.starshipcorp.com *somewhere* on there page.  I don't know what to say other
+than that.  Maybe someone should post to linux-alpha groups and beg there?
+
+---
+Tim Rightnour    -  root@garbled.futureone.com
+http://www.zynetwc.com/~garbled/garbled.html
+
+From song@zk3.dec.com  Wed Jan 21 09:17:18 1998
+From: Chang-Hyeon Song <song@zk3.dec.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 21 Jan 1998 09:17:18 +0000
+Subject: Console setting on Multia
+
+Hi.
+I am fiddling with the console setting on Multia.
+I am trying to set "d_harderr" to "loop" not "halt".
+But everytime I reboot "d_harderr" reset itself to "halt" and some other
+variables behaves that way.
+But on the other hand, other variables stick with the value that I gave.
+So it is not battery problem.
+
+does anybody has the same problem?
+
+p.s. I don't want to see the softerr or harderr message that comes up
+quite often during installation. How do I do?
+
+-- 
+Chang Song                                   Phone: (603) 884-0799
+Digital Equipment Corp.,ZKO3-3/U14           Home:  (603) 437-5088
+110 Spitbrook Rd., Nashua, NH 03062          Pager: (603) 467-1777
+
+From weiss@Uni-Mainz.DE  Wed Jan 21 15:45:04 1998
+From: Juergen Weiss <weiss@Uni-Mainz.DE>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 21 Jan 1998 15:45:04 +0000
+Subject: Re: ftp-able old Multia SRM firmware available
+
+I have put 3 different srm versions (3.7.628,3.8.1, 3.8.2) on my
+homepage (http://www.Uni-Mainz.DE/~weiss). If anybody succeeds
+netbooting a multia with these I would be glad to hear from them.
+
+Juergen Weiss
+
+-- 
+Juergen Weiss		| Universitaet Mainz, Zentrum f"ur Datenverarbeitung,
+weiss@uni-mainz.de      | 55099 Mainz, Tel: 06131/39-6361, FAX: 06131/39-6407
+
+From wilko@yedi.iaf.nl  Fri Jan 23 20:55:53 1998
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 23 Jan 1998 20:55:53 +0000
+Subject: question about netbooting alpha
+
+Hello
+
+I'm having some trouble to get a Jensen to netboot. Getting it to netboot
+is a by multiple people recommended way to test attempts for making NetBSD
+run on Jensen.
+
+When I tried to netboot NetBSD-1.2 last year with the DE422 I got:
+
+	AUDIT_BOOT_STARTS ... 
+	AUDIT_BOOT_REQ 
+	AUDIT_BSERVER_FOUND IP 192.168.200.1
+	AUDIT_BSERVER_FOUND ENET 00-00-F8-20-7F-45
+	AUDIT_LOAD_BEGINS
+
+	AUDIT_LOAD_DONE
+
+	NetBSD/Alpha boot, Revision $NetBSD: version,v 1.5 1996/05/09 
+	23:54:18 cgd
+	Exp $
+	(cgd@bunnahabhain.pdl.cs.cmu.edu, Fri Sep 13 16:10:36 EDT 1996)
+
+	VMS PAL revision: 0x100010530
+	OSF PAL rev: 0x20123
+	Switch to OSF PAL code succeeded.
+
+	boot_dev = "BOOTP 1 5 0 0 0 2 JENS-IO"
+	boot_file = ""
+	boot_flags = "I"
+	boot_console = "0"
+	Boot: /netbsd I
+	1420032+137984+118752
+	calling fffffc0000230000 with 1e7, 80, 4, 200266c0, 0
+	panic: Support for DEC 2000/300 ("Jensen") system type not in kernel.
+	halted.
+
+When I try NetBSD-1.3 I get:
+
+        Loading netbsd...
+        boot: boot device name does not contain ethernet address.
+        boot: using hard-coded ethernet address.
+        boot: ethernet address: 08:00:2b:36:86:0c
+        prom_init: open failed: 7
+
+        Boot device name was: "BOOTP 1 5 0 0 0 2 JENS-IO"
+
+        Your firmware may be too old to network-boot NetBSD/Alpha,
+        or you might have to hard-code an ethernet address into
+        your network boot block with setnetbootinfo(8).
+
+For comparison's sake I tried a netboot of my NoName:
+
+	Loading netbsd...
+(my debug) prom_getenv_booted dev --> 'BOOTP 0 11 0 0 0 3 0 00-00-F8-20-7F-45 1'
+        boot: ethernet address: 00:00:f8:20:7f:45
+        boot: client addr: 192.168.200.9
+
+It's easy to see the the difference in the value returned by prom_getenv()
+for the booted device. if_prom.c contains code that does a prom_open()
+on the returned device name. In the Jensen case this fails miserably.
+
+Using setnetbootinfo you can compensate for the lack of the Ethernet address
+as in the Jensen case. But you cannot compensate for the other differences
+of the devname returned by prom_getenv(). 
+
+I wonder if it would be feasible to add functionality to setnetbootinfo
+so that you can hardcode the right values for the device name fed to 
+prom_open(). My problem is that I don't know what the different fields
+mean (except from the obvious BOOTP and Ethernet address field). The
+different number of fields is also puzzling. Is there any doc on this?
+
+Hardcoding things like this using setnetbootinfo is unclean, but it might
+be the only way. The problem is that any SRM later than V1.8 on Jensen
+has broken BOOTP support :-( What I currently don't understand why
+NetBSD-1.2 had less problems (need to get the 1.2 source back online)
+
+Appreciate comments on this.
+
+Wilko
+_     ______________________________________________________________________
+ |   / o / /  _  Bulte email: wilko @ yedi.iaf.nl http://www.tcja.nl/~wilko
+ |/|/ / / /( (_) Arnhem, The Netherlands - Do, or do not. There is no 'try'
+---------------  Support your local daemons: run [Free,Net,Open]BSD Unix  --
+
+From matt@3am-software.com  Fri Jan 23 17:10:20 1998
+From: Matt Thomas <matt@3am-software.com>
+To: wilko@yedi.iaf.nl
+Date: Fri, 23 Jan 1998 17:10:20 +0000
+Subject: Re: question about netbooting alpha
+
+At 02:55 PM 1/23/98 , Wilko Bulte wrote:
+>Hello
+>
+>I'm having some trouble to get a Jensen to netboot. Getting it to netboot
+>is a by multiple people recommended way to test attempts for making NetBSD
+>run on Jensen.
+
+You know now why you can't RIS install Digital UNIX 4.0 or later on
+a Jensen. :-)
+-- 
+Matt Thomas               Internet:   matt@3am-software.com
+3am Software Foundry      WWW URL:    http://www.3am-software.com/bio/matt/
+Nashua, NH                Disclaimer: I disavow all knowledge of this message
+
+From parsely!sopwith.UUCP!snoopy@ucbvax.Berkeley.EDU  Fri Jan 23 19:11:23 1998
+From: Der Beagle <parsely!sopwith.UUCP!snoopy@ucbvax.Berkeley.EDU>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 23 Jan 1998 19:11:23 +0000
+Subject: web browser on NetBSD/Alpha?
+
+Has anyone gotten a graphical web browser running on NetBSD/Alpha?
+Most of them have trouble running on ILP32 machines, and won't
+run or even build on LP64.
+
+thanks,
+Snoopy
+
+From seifert@sequent.com  Fri Jan 23 20:34:49 1998
+From: David Seifert <seifert@sequent.com>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 23 Jan 1998 20:34:49 +0000
+Subject: Re: preventing autoboot, part 3
+
+If auto_action is set to boot, the machine always boots multiuser.
+If auto_action is set to halt, the machine always halts at the SRM prompt.
+
+I would like it to:
+
+	Boot multiuser upon powerup.
+	Boot multiuser after the "reboot" command.
+	Halt at the SRM prompt after the "halt" or "shutdown -h" commands.
+
+Is there a way to achive this?
+
+thanks,
+Dave
+
+> set auto_action to halt
+
+> >More details, after unplugging the disk:
+> >
+> >auto_action  BOOT
+> >console_mode boot
+> >pal VMS PALcode X5.48-57, OSF PALcode X1.35-39
+> >qsnvr_version V1.0
+> >version BL5 V3.7-628 Apr 25 1995 15:14:12
+> >
+> >It turns out there is a "allow_ctrlc" command, and
+> >after running it, I can halt the reboot by hitting
+> >^C at just the right nanosecond.
+> >
+> >Still, it would be nice if halt really halted the machine.
+> >
+> >-Dave
+> >
+
+From cgd@pa.dec.com  Fri Jan 23 22:46:59 1998
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: seifert@sequent.com
+Date: Fri, 23 Jan 1998 22:46:59 +0000
+Subject: Re: preventing autoboot, part 3
+
+> I would like it to:
+> 
+> 	Boot multiuser upon powerup.
+> 	Boot multiuser after the "reboot" command.
+> 	Halt at the SRM prompt after the "halt" or "shutdown -h" commands.
+> 
+> Is there a way to achive this?
+
+yes, but i forget what it is.
+
+you might try to 'set auto_action foo', and see what it tells you;
+most SRM variables print informative messages if you try to set them
+to illegal values.   There are three possible values for the
+auto_action variable on all SRMs i can remember.  one's halt, one's
+boot, and the last does what you (and I, usually 8-) want.
+
+
+
+chris
+
+From wilko@yedi.iaf.nl  Sat Jan 24 00:06:44 1998
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: matt@3am-software.com
+Date: Sat, 24 Jan 1998 00:06:44 +0000
+Subject: Re: question about netbooting alpha
+
+As Matt Thomas wrote...
+> At 02:55 PM 1/23/98 , Wilko Bulte wrote:
+> >Hello
+> >
+> >I'm having some trouble to get a Jensen to netboot. Getting it to netboot
+> >is a by multiple people recommended way to test attempts for making NetBSD
+> >run on Jensen.
+> 
+> You know now why you can't RIS install Digital UNIX 4.0 or later on
+> a Jensen. :-)
+
+Yes, it is quite clearly listed in the release notes. The fact that the
+latest SRM for Jensen does not do bootp correctly at all does not help
+I suppose :/ And then there is the fact that the Jensen won't boot the
+floppy from within SRM and you are really stuck when netboot is out.
+
+So, input is very welcome ;-)
+
+Wilko
+_     ______________________________________________________________________
+ |   / o / /  _  Bulte email: wilko @ yedi.iaf.nl http://www.tcja.nl/~wilko
+ |/|/ / / /( (_) Arnhem, The Netherlands - Do, or do not. There is no 'try'
+---------------  Support your local daemons: run [Free,Net,Open]BSD Unix  --
+
+From n@nectar.com  Sat Jan 24 21:47:04 1998
+From: Jacques Vidrine <n@nectar.com>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 24 Jan 1998 21:47:04 +0000
+Subject: 'command aborted' - NCR 53c810 on Multia
+
+Hi folks,
+
+I'm trying my first install of NetBSD on a Multia with an NCR53c810.
+The boot messages relevant to SCSI are:
+
+ncr0 at pci0 dev 6 function 0: ncr 53c810 fast10 scsi
+ncr0: interrupting at isa irq 11
+ncr0: minsync=25, maxsync=206, maxoffs=8, 16 dwords burst, normal dma fifo
+ncr0: single-ended, open drain IRQ driver
+ncr0: restart (scsi reset)
+scsibus0 at ncr0: 8 targets
+sd0 at scsibus0 targ 0 lun 0: <HP, C3325A 5256> SCSI2 0/direct fixed
+sd0: sd0(ncr0:0:0): 10.0 MB/s (100 ns, offset 8)
+2048MB, 3703 cyl, 9 head, 125 sec, 512 bytes/sect x 4194304 sectors
+
+
+When attempting to read or write sd0 (such as when the install script
+attempts to disklabel), the following message is emitted with each
+operation:
+
+sd0(ncr0:0:0): command aborted, data = 00 00 00 00 4e 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00
+
+Can anybody loan me a clue as to how to proceed?
+
+FWIW, this same box previously ran NT 4.0, NT 5.0, and Red Hat Linux
+4.2, so I tend to think that this is not a hardware problem.
+
+Jacques Vidrine <n@nectar.com>
+
+------- End of Forwarded Message
+
+From thorpej@nas.nasa.gov  Sat Jan 24 19:49:10 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: n@nectar.com
+Date: Sat, 24 Jan 1998 19:49:10 +0000
+Subject: Re: 'command aborted' - NCR 53c810 on Multia
+
+On Sat, 24 Jan 1998 21:47:04 -0600 
+ Jacques Vidrine <n@nectar.com> wrote:
+
+ > Hi folks,
+
+Hiya...
+
+ > ncr0 at pci0 dev 6 function 0: ncr 53c810 fast10 scsi
+ > ncr0: interrupting at isa irq 11
+ > ncr0: minsync=25, maxsync=206, maxoffs=8, 16 dwords burst, normal dma fifo
+ > ncr0: single-ended, open drain IRQ driver
+ > ncr0: restart (scsi reset)
+ > scsibus0 at ncr0: 8 targets
+ > sd0 at scsibus0 targ 0 lun 0: <HP, C3325A 5256> SCSI2 0/direct fixed
+ > sd0: sd0(ncr0:0:0): 10.0 MB/s (100 ns, offset 8)
+ > 2048MB, 3703 cyl, 9 head, 125 sec, 512 bytes/sect x 4194304 sectors
+
+I had this _exact_ problem with the ncr driver and an HP drive on
+both an Alpha _and_ a Pentium machine.  I suspect it's a bug in the
+ncr driver (big surprise! :-), but I have no idea what it is... *sigh*
+
+Unfortunately, my solution was to take back the HP drive and get a
+Seagate :(
+
+ > When attempting to read or write sd0 (such as when the install script
+ > attempts to disklabel), the following message is emitted with each
+ > operation:
+ > 
+ > sd0(ncr0:0:0): command aborted, data = 00 00 00 00 4e 00 00 00 00 00
+ > 00 00 00 00 00 00 00 00 00 00
+ > 
+ > Can anybody loan me a clue as to how to proceed?
+ > 
+ > FWIW, this same box previously ran NT 4.0, NT 5.0, and Red Hat Linux
+ > 4.2, so I tend to think that this is not a hardware problem.
+ > 
+ > Jacques Vidrine <n@nectar.com>
+ > 
+ > ------- End of Forwarded Message
+ > 
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-6                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From thorpej@nas.nasa.gov  Sat Jan 24 21:01:02 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: parsely!sopwith.UUCP!snoopy@ucbvax.berkeley.edu
+Date: Sat, 24 Jan 1998 21:01:02 +0000
+Subject: Re: web browser on NetBSD/Alpha?
+
+On Fri, 23 Jan 1998 19:11:23 +0000 
+ Der Beagle <parsely!sopwith.UUCP!snoopy@ucbvax.Berkeley.EDU> wrote:
+
+ > Has anyone gotten a graphical web browser running on NetBSD/Alpha?
+ > Most of them have trouble running on ILP32 machines, and won't
+ > run or even build on LP64.
+
+Well, Netscape runs under DUh, so when Communicator 5 source comes out,
+well.... :-)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-6                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From wilko@yedi.iaf.nl  Sun Jan 25 21:10:39 1998
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 25 Jan 1998 21:10:39 +0000
+Subject: ne driver in Netbsd-1.3/alpha
+
+Quick question: is the 'ne' (NE1000/2000 driver) in NetBSD1.3
+supposed to work?
+
+I get:
+
+axprene# 
+fatal kernel trap:
+
+    trap entry = 0x4 (unaligned access fault)
+    a0         = 0xfffffe008a6d423e
+    a1         = 0x28
+    a2         = 0x2
+    pc         = 0xfffffc00002d86f8
+    ra         = 0xfffffc00002d8648
+    curproc    = 0x0
+
+panic: trap
+syncing disks... 2 1 done
+
+as soon as I do anything to it (a ping from a remote machine to the axp
+also causes the panic).
+
+Wilko
+_     ______________________________________________________________________
+ |   / o / /  _  Bulte email: wilko @ yedi.iaf.nl http://www.tcja.nl/~wilko
+ |/|/ / / /( (_) Arnhem, The Netherlands - Do, or do not. There is no 'try'
+---------------  Support your local daemons: run [Free,Net,Open]BSD Unix  --
+
+From seifert@sequent.com  Sun Jan 25 18:20:20 1998
+From: David Seifert <seifert@sequent.com>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 25 Jan 1998 18:20:20 +0000
+Subject: Re: preventing autoboot, part 3
+
+> > I would like it to:
+> > 
+> > 	Boot multiuser upon powerup.
+> > 	Boot multiuser after the "reboot" command.
+> > 	Halt at the SRM prompt after the "halt" or "shutdown -h" commands.
+> > 
+> > Is there a way to achive this?
+> 
+> yes, but i forget what it is.
+> 
+> you might try to 'set auto_action foo', and see what it tells you;
+> most SRM variables print informative messages if you try to set them
+> to illegal values.   There are three possible values for the
+> auto_action variable on all SRMs i can remember.  one's halt, one's
+> boot, and the last does what you (and I, usually 8-) want.
+> 
+> chris
+
+Thanks for the suggestion, the third option is "restart".
+The bad news is that restart is acting the same as "boot".
+
+I wonder if there is some additional variable that is involved?
+
+-Dave
+
+From ajo@wopr.campus.luth.se  Mon Jan 26 00:02:05 1998
+From: Andreas Johansson <ajo@wopr.campus.luth.se>
+To: wilko@yedi.iaf.nl
+Date: Mon, 26 Jan 1998 00:02:05 +0000
+Subject: Re: ne driver in Netbsd-1.3/alpha
+
+On Sun, 25 Jan 1998, Wilko Bulte wrote:
+
+> Quick question: is the 'ne' (NE1000/2000 driver) in NetBSD1.3
+> supposed to work?
+
+No, it doesn't work. I made a fix for it and submitted it as a send-pr,
+but it was fixed in the wrong place so to speak. I never got around to fix
+it "better" even though I know how to do it.
+
+There are two problems. One is in the receiving of packets. The ip header
+becomes unaligned to 32 bits since the ethernet header is not divisible by
+four. This is simply overcome by moving the data pointer two steps ahead
+in each mbuf.
+
+The second problem is that sometimes (not often) packets are sent which
+include several mbuf's where one of them (not the last) has uneven size.
+This means that the next mbuf will be transferred from an uneven address,
+while the 16 bit accesses to the isa bus requires aligned pointers on the
+alpha. The driver should be changed to so it puts bytes together and
+sends these with a 16 bit transfer whenever the mbuf data is unaligned.
+
+/Andreas
+--
+
+<-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=->
+: E-mail: ajo@wopr.campus.luth.se                                       :
+: S-mail: Andreas Johansson, Karhusvagen 5  6:618, 977 54 Lulea, SWEDEN :
+<-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=->
+
+From thorpej@nas.nasa.gov  Mon Jan 26 10:14:37 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: wilko@yedi.iaf.nl
+Date: Mon, 26 Jan 1998 10:14:37 +0000
+Subject: Re: ne driver in Netbsd-1.3/alpha
+
+On Sun, 25 Jan 1998 21:10:39 +0100 (MET) 
+ Wilko Bulte <wilko@yedi.iaf.nl> wrote:
+
+ > Quick question: is the 'ne' (NE1000/2000 driver) in NetBSD1.3
+ > supposed to work?
+
+It was known to not work.  If I send you a patch to test, could you
+rebuild your kernel and give it another go?
+
+ > 
+ > I get:
+ > 
+ > axprene# 
+ > fatal kernel trap:
+ > 
+ >     trap entry = 0x4 (unaligned access fault)
+ >     a0         = 0xfffffe008a6d423e
+ >     a1         = 0x28
+ >     a2         = 0x2
+ >     pc         = 0xfffffc00002d86f8
+ >     ra         = 0xfffffc00002d8648
+ >     curproc    = 0x0
+ > 
+ > panic: trap
+ > syncing disks... 2 1 done
+ > 
+ > as soon as I do anything to it (a ping from a remote machine to the axp
+ > also causes the panic).
+ > 
+ > Wilko
+ > _     ______________________________________________________________________
+ >  |   / o / /  _  Bulte email: wilko @ yedi.iaf.nl http://www.tcja.nl/~wilko
+ >  |/|/ / / /( (_) Arnhem, The Netherlands - Do, or do not. There is no 'try'
+ > ---------------  Support your local daemons: run [Free,Net,Open]BSD Unix  --
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-6                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From cjs@portal.ca  Tue Jan 27 08:47:14 1998
+From: Curt Sampson <cjs@portal.ca>
+To: cgd@pa.dec.com
+Date: Tue, 27 Jan 1998 08:47:14 +0000
+Subject: Re: preventing autoboot, part 3
+
+On Fri, 23 Jan 1998, Chris G. Demetriou wrote:
+
+>  There are three possible values for the
+> auto_action variable on all SRMs i can remember.  one's halt, one's
+> boot, and the last does what you (and I, usually 8-) want.
+
+The third one is "RESTART". Please post here if you ever figure
+out what exactly the behaviour of AUTO_ACTION is; it's not described
+terribly well in the architecture manual. In fact, I'm sure I used
+BOOT and a `halt' or `shutdown -h' under NetBSD still brought me
+to an SRM prompt, but I don't have time to test this right now.
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite mist, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From yba@polytronics.com  Tue Jan 27 11:59:00 1998
+From: Mark H. Levine <yba@polytronics.com>
+To: cjs@portal.ca
+Date: Tue, 27 Jan 1998 11:59:00 +0000
+Subject: Re: preventing autoboot, part 3
+
+On Fri, 23 Jan 1998, Chris G. Demetriou wrote:
+   
+   >  There are three possible values for the
+   > auto_action variable on all SRMs i can remember.  one's halt, one's
+   > boot, and the last does what you (and I, usually 8-) want.
+   
+   The third one is "RESTART". Please post here if you ever figure
+   out what exactly the behaviour of AUTO_ACTION is; it's not described
+   terribly well in the architecture manual. In fact, I'm sure I used
+   BOOT and a `halt' or `shutdown -h' under NetBSD still brought me
+   to an SRM prompt, but I don't have time to test this right now.
+   
+On the EB164 and PC164, we always get the the system halt throwing us
+to the chevron prompt (>>>) of SRM.  We never used RESTART, only HALT
+while setting up, and BOOT when in service where we wanted the server
+back up after a crash without human intervention.
+
+Maybe now we can call Compaq customer service and ask, I understand
+they're better about documentation than DEC was :)
+
+From cgd@pa.dec.com  Tue Jan 27 17:51:32 1998
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: nisimura@is.aist-nara.ac.jp
+Date: Tue, 27 Jan 1998 17:51:32 +0000
+Subject: Re: DEC3000/300 panic: pagemove
+
+> Hi.  I'm experiencing kernel panics with DEC3000/300.  Does anyone
+> out there have same trouble with 1.3 GENERIC kernel?
+
+What kind of file systems are you using?  (If it's an FFS, use
+'dumpfs' to check the block size.)
+
+If you're using a file system with a 4k block size, that's the
+problem.  Use at least an 8k block size.  Unfortunately, the only way
+to do that is newfs the file system (take a look at the newfs manual
+page for the correct arguments).
+
+
+Was the file system created automatically for you, e.g. by install
+tools?  If so, that's a very serious bug...  8-)
+
+
+
+chris
+
+From thorpej@nas.nasa.gov  Tue Jan 27 18:13:09 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: nisimura@is.aist-nara.ac.jp
+Date: Tue, 27 Jan 1998 18:13:09 +0000
+Subject: Re: DEC3000/300 panic: pagemove
+
+On Wed, 28 Jan 1998 10:47:25 +0900 (JST) 
+ nisimura@is.aist-nara.ac.jp (Toru Nishimura) wrote:
+
+ > Hi.  I'm experiencing kernel panics with DEC3000/300.  Does anyone
+ > out there have same trouble with 1.3 GENERIC kernel?
+ > 
+ > The panic is very easily reproducable and system is nearly unusable.
+ > Runing '/sbin/config GENERIC' and/or 'make depend' can crash instantly.
+ > Kernel is GENERIC#0.  I'm very sure when I tried snapshot kernel last
+ > summar, the kernel was very stable and never made any trouble like this.
+ > 
+ > I've already sent a PR, but received no reply. I'm wondering this trouble
+ > is just peculiar to mine, or more popular.
+
+Ah, I just saw the PR (looks like it didn't get forwarded to netbsd-bugs
+properly, hrm...)
+
+One question:  What is your file system block size?  I'm willing to bet
+it's not an even multiple of the page size (8k).
+
+P.S. I'll also make sure your subscribe makes it though.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-6                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From thorpej@nas.nasa.gov  Tue Jan 27 18:31:33 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: enami@but-b.or.jp
+Date: Tue, 27 Jan 1998 18:31:33 +0000
+Subject: Re: DEC3000/300 panic: pagemove
+
+On 28 Jan 1998 11:29:06 +0900 
+ enami@but-b.or.jp wrote:
+
+ > Jason Thorpe <thorpej@nas.nasa.gov> writes:
+ > 
+ > > One question:  What is your file system block size?  I'm willing to bet
+ > > it's not an even multiple of the page size (8k).
+ > 
+ > The kernel should reject to mount such a file system, shouldn't it?
+
+There should probably be some sanity checking there, yes.
+
+IIRC, the only thing that uses pagemove() is the clustering code.  Perhaps
+a warning could be printed on the console, and clustering disabled for
+that file system?
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-6                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From romash@BBN.COM  Tue Jan 27 21:34:29 1998
+From: Cliff Romash <romash@BBN.COM>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 27 Jan 1998 21:34:29 +0000
+Subject: Large C++ program problem
+
+I'm not sure if this is the correct forum for this, but I am looking for
+guidance on a NetBSD related problem that has recently cropped up here at
+GTE Internetworking.
+
+One of our programmers is developing a large C++ application, whose text
+segment has recently grown to just larger than 4 megabytes. This week, he
+started receiving a link error, as follows:
+
+/usr/lib/crtbegin.o: In function `__dtors':
+crtbegin.c(.fini+0x10): relocation truncated to fit: BRADDR text
+
+My reading of this is that a branch address at .fini+0x10 had to be
+truncated to fit the available instruction space. 
+
+After some poking, I pulled out the source to lib/csu/alpha/crtbegin.c, and
+discovered that .fini+0x10 was a bsr instruction in __fini that was
+branching to a static function __dtors in the same file. But __fini was
+being explicitly put into section .fini by the C code in crtbegin.c. This
+was resulting in __fini being AFTER the .text section, while __dtors was
+BEFORE the text section. Since the user's text section had recently grown
+bigger than 4 megabytes, the displacement on the bsr in __fini could not
+reach __dtors (if my understanding is correct, a bsr instruction on an
+Alpha has a 21 bit displacement word field, for a 4MB limit).
+
+I have temporarily resolved the problem by removing the 
+--attribute__((section(".fini"))) from the prototype declaration for __fini
+in crtbegin.c. This was originally just a wild stab on my part, although my
+investigation leads me to believe this is at least reasonable. Probably a
+better fix might be to put __dtors into the same section as __fini. Or
+possibly to compile ctrbegin.c with an option that forces bsr's to become
+jsr's, if there is such.
+
+I looked at the -current version of crtbegin.c, but saw no differences, so
+I assume this problem is still lurking. I'd be happy to send a pr, but I'm
+rather 
+unsure of what I'm doing here and thought I'd try the mailing list first.
+
+Here's the assembly code for __fini from the original version of crtbegin:
+
+
+.section        .fini,"ax",@progbits
+        .align 3
+        .globl __fini
+        .ent __fini
+__fini:
+        ldgp $29,0($27)
+__fini..ng:
+        lda $30,-16($30)
+        .frame $30,16,$26,0
+        stq $26,0($30)
+        .mask 0x4000000,-16
+        .prologue 1
+        bsr $26,__dtors..ng
+        ldq $26,0($30)
+        addq $30,16,$30
+        ret $31,($26),1
+        .end __fini
+        .ident  "GCC: (GNU) 2.7.2.2"
+
+and here is the diff from my change:
+
+108c108
+< extern void __fini(void) __attribute__((section(".fini")));
+---
+> extern void __fini(void);
+
+
+
+Any guidance on this is greatly appreciated.
+
+
+Cliff Romash, GTE Internetworking
+
+From nisimura@is.aist-nara.ac.jp  Wed Jan 28 10:47:25 1998
+From: Toru Nishimura <nisimura@is.aist-nara.ac.jp>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 28 Jan 1998 10:47:25 +0000
+Subject: DEC3000/300 panic: pagemove
+
+Hi.  I'm experiencing kernel panics with DEC3000/300.  Does anyone
+out there have same trouble with 1.3 GENERIC kernel?
+
+The panic is very easily reproducable and system is nearly unusable.
+Runing '/sbin/config GENERIC' and/or 'make depend' can crash instantly.
+Kernel is GENERIC#0.  I'm very sure when I tried snapshot kernel last
+summar, the kernel was very stable and never made any trouble like this.
+
+I've already sent a PR, but received no reply. I'm wondering this trouble
+is just peculiar to mine, or more popular.
+
+(Note. please Cc: to my own address beside port-alpha because it seems my
+subscribe request has not been handled over weeks)
+
+Tohru Nishimura
+Nara Institute of Science and Technology
+
+From nisimura@is.aist-nara.ac.jp  Wed Jan 28 11:12:42 1998
+From: Toru Nishimura <nisimura@is.aist-nara.ac.jp>
+To: cgd@pa.dec.com
+Date: Wed, 28 Jan 1998 11:12:42 +0000
+Subject: Re: DEC3000/300 panic: pagemove
+
+Hi.
+
+>> Hi.  I'm experiencing kernel panics with DEC3000/300.  Does anyone
+>> out there have same trouble with 1.3 GENERIC kernel?
+> 
+> What kind of file systems are you using?  (If it's an FFS, use
+> 'dumpfs' to check the block size.)
+> 
+> If you're using a file system with a 4k block size, that's the
+> problem.  Use at least an 8k block size.
+
+Aaa.  That's it.  The trouble is 4K block size filesystem on my own /u0 store.
+
+f:  1081290   969570      4.2BSD      512  4096    16   # (Cyl. 1215 - 2569)
+
+As I've been NetBSD/pmax user, I've never had trouble with 4K block.
+I will re-create filesystem and try it.  If it goes well, I send
+a cancel request of my PR.  Thanks.
+
+Tohru Nishimura
+
+From enami@but-b.or.jp  Wed Jan 28 11:29:06 1998
+From: None <enami@but-b.or.jp>
+To: thorpej@nas.nasa.gov
+Date: Wed, 28 Jan 1998 11:29:06 +0000
+Subject: Re: DEC3000/300 panic: pagemove
+
+Jason Thorpe <thorpej@nas.nasa.gov> writes:
+
+> One question:  What is your file system block size?  I'm willing to bet
+> it's not an even multiple of the page size (8k).
+
+The kernel should reject to mount such a file system, shouldn't it?
+
+enami.
+
+From ross@teraflop.com  Fri Jan 30 23:16:42 1998
+From: Ross Harvey <ross@teraflop.com>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 30 Jan 1998 23:16:42 +0000
+Subject: diskless operation lives
+
+I've mixed in some old (pk) and new (ross) code to fix up diskless operation
+and NFS paging. Apparently, one of the reasons alpha was more affected than
+other ports is because of the particular pattern of dynamic memory allocation
+done by the if_de ethernet driver we all use, but that's partly just a guess.
+
+Anyway, please let me know how this works. It would be nice to have in a 1.3.1
+patch release.
+
+Thanks.
+
+Ross Harvey
+ross@teraflop.com
+
+From thorpej@nas.nasa.gov  Sat Jan 31 18:45:42 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 31 Jan 1998 18:45:42 +0000
+Subject: instkernel + sysinst
+
+Hi folks...
+
+In an effort to make installing NetBSD on our Alphas here at work easier,
+I've made the new sysinst tool work on the Alpha, and created an "instkernel"
+which has a larger ramdisk than the floppy install kernel so that it can
+hold all of the stuff that sysinst needs.  All of this has been checked
+into -current, and can be found in src/distrib/alpha/instkernel.
+
+This kernel can be network booted without any additional NFS root setup.
+
+I just completed an install of NetBSD/alpha 1.3 on my AlphaStation 600
+using this instkernel (I network booted it).  If the rest of you would
+like to try it out, it can be found at:
+
+     ftp://ftp.netbsd.org:/pub/incoming/thorpej/netbsd-instkernel.gz
+
+I'm hoping to make booting from CD-ROM work within the next week, or so,
+and if I do, I will make a CD-ROM image available with a binary snapshot
+of NetBSD/alpha 1.3B (-current) + the X sets from 1.3.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+

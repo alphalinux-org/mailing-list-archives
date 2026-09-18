@@ -1,0 +1,2808 @@
+From bouyer@antioche.eu.org  Wed May 6 20:00:40 2009
+Path: news.gmane.org!not-for-mail
+From: Manuel Bouyer <bouyer@antioche.eu.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: is __insn_barrier() needed in alpha_pal_swpipl ?
+Date: Wed, 6 May 2009 20:00:40 +0200
+Lines: 17
+Approved: news@gmane.org
+Message-ID: <20090506180040.GA2458@antioche.eu.org>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1241632863 13828 80.91.229.12 (6 May 2009 18:01:03 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Wed, 6 May 2009 18:01:03 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed May 06 20:00:55 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M1lQJ-0006Zw-S5
+	for netbsd-port-alpha@m.gmane.org; Wed, 06 May 2009 20:00:52 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id E8D0863B151; Wed,  6 May 2009 18:00:45 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from chassiron.antioche.eu.org (chassiron.antioche.eu.org [IPv6:2001:7a8:242c:1::1])
+	by mail.netbsd.org (Postfix) with ESMTP id 4FC0463B159
+	for <port-alpha@netbsd.org>; Wed,  6 May 2009 18:00:43 +0000 (UTC)
+Original-Received: from rochebonne.antioche.eu.org (rochebonne [IPv6:2001:7a8:242c:0:240:95ff:fe45:4702])
+	by chassiron.antioche.eu.org (8.14.2/8.12.11) with ESMTP id n46I0fmK017680
+	for <port-alpha@netbsd.org>; Wed, 6 May 2009 20:00:41 +0200 (MEST)
+Original-Received: (from bouyer@localhost)
+	by rochebonne.antioche.eu.org (8.13.5.20060308/8.12.8/Submit) id n46I0evx002605
+	for port-alpha@netbsd.org; Wed, 6 May 2009 20:00:41 +0200 (CEST)
+Content-Disposition: inline
+User-Agent: Mutt/1.5.13 (2006-08-11)
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.0 (chassiron.antioche.eu.org [IPv6:2001:7a8:242c:0:a00:20ff:fe1c:276e]); Wed, 06 May 2009 20:00:42 +0200 (MEST)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4420
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4420>
+
+Hi,
+working on kern/38637 it turns out that some ports define splhigh
+as a macro or __inline, and the compiler may optimise thing
+wrongly if it's not properly defined (softint_schedule() in this example,
+where the compiler is not aware that sh_flags may have changed before
+and after the call to splhigh()).
+
+alpha has an inline splhigh (alpha_pal_swpipl() really); and I couldn't
+determine if the assembly in this function is a barrier for
+the compiler, or if a __insn_barrier() is needed here. Can someone
+confirms it ?
+
+-- 
+Manuel Bouyer <bouyer@antioche.eu.org>
+     NetBSD: 26 ans d'experience feront toujours la difference
+--
+
+
+From mhitch@lightning.msu.montana.edu  Wed May 6 11:47:40 2009
+Path: news.gmane.org!not-for-mail
+From: "Michael L. Hitch" <mhitch@lightning.msu.montana.edu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: is __insn_barrier() needed in alpha_pal_swpipl ?
+Date: Wed, 6 May 2009 11:47:40 -0600 (MDT)
+Lines: 17
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.0905061146260.1703@lightning.msu.montana.edu>
+References: <20090506180040.GA2458@antioche.eu.org>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: ger.gmane.org 1241634383 19504 80.91.229.12 (6 May 2009 18:26:23 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Wed, 6 May 2009 18:26:23 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Manuel Bouyer <bouyer@antioche.eu.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed May 06 20:26:14 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M1lor-0002GZ-8i
+	for netbsd-port-alpha@m.gmane.org; Wed, 06 May 2009 20:26:13 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id B6F8E63B1AF; Wed,  6 May 2009 18:26:05 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from lightning.msu.montana.edu (lightning.msu.montana.edu [153.90.169.4])
+	by mail.netbsd.org (Postfix) with ESMTP id DB36163B1A4
+	for <port-alpha@netbsd.org>; Wed,  6 May 2009 18:26:03 +0000 (UTC)
+Original-Received: from lightning.msu.montana.edu (localhost [127.0.0.1])
+	by lightning.msu.montana.edu (Postfix) with ESMTP id 281F01043A;
+	Wed,  6 May 2009 11:47:43 -0600 (MDT)
+Original-Received: by lightning.msu.montana.edu (Postfix, from userid 271)
+	id 8C7CE10371; Wed,  6 May 2009 11:47:42 -0600 (MDT)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by lightning.msu.montana.edu (Postfix) with ESMTP id 6A6A45865;
+	Wed,  6 May 2009 11:47:41 -0600 (MDT)
+In-Reply-To: <20090506180040.GA2458@antioche.eu.org>
+X-Virus-Scanned: ClamAV using ClamSMTP
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4421
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4421>
+
+On Wed, 6 May 2009, Manuel Bouyer wrote:
+
+> alpha has an inline splhigh (alpha_pal_swpipl() really); and I couldn't
+> determine if the assembly in this function is a barrier for
+> the compiler, or if a __insn_barrier() is needed here. Can someone
+> confirms it ?
+
+   I looked at a disassembly of kern_softintr.o, and it appears that it's 
+not needed for alpha (the second check of sh_flags is present after the
+splhigh()).
+
+--
+Michael L. Hitch			mhitch@montana.edu
+Computer Consultant
+Information Technology Center
+Montana State University	Bozeman, MT	USA
+
+
+From bouyer@antioche.eu.org  Wed May 6 20:34:56 2009
+Path: news.gmane.org!not-for-mail
+From: Manuel Bouyer <bouyer@antioche.eu.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: is __insn_barrier() needed in alpha_pal_swpipl ?
+Date: Wed, 6 May 2009 20:34:56 +0200
+Lines: 20
+Approved: news@gmane.org
+Message-ID: <20090506183455.GA3557@antioche.eu.org>
+References: <20090506180040.GA2458@antioche.eu.org> <Pine.NEB.4.64.0905061146260.1703@lightning.msu.montana.edu>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1241634923 21544 80.91.229.12 (6 May 2009 18:35:23 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Wed, 6 May 2009 18:35:23 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: "Michael L. Hitch" <mhitch@lightning.msu.montana.edu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed May 06 20:35:14 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M1lxZ-0006kn-0P
+	for netbsd-port-alpha@m.gmane.org; Wed, 06 May 2009 20:35:13 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 7A5B863B1A7; Wed,  6 May 2009 18:35:05 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from chassiron.antioche.eu.org (chassiron.antioche.eu.org [IPv6:2001:7a8:242c:1::1])
+	by mail.netbsd.org (Postfix) with ESMTP id 6E70C63B189
+	for <port-alpha@netbsd.org>; Wed,  6 May 2009 18:35:03 +0000 (UTC)
+Original-Received: from rochebonne.antioche.eu.org (rochebonne [IPv6:2001:7a8:242c:0:240:95ff:fe45:4702])
+	by chassiron.antioche.eu.org (8.14.2/8.12.11) with ESMTP id n46IYu3q017844;
+	Wed, 6 May 2009 20:34:56 +0200 (MEST)
+Original-Received: (from bouyer@localhost)
+	by rochebonne.antioche.eu.org (8.13.5.20060308/8.12.8/Submit) id n46IYudY003615;
+	Wed, 6 May 2009 20:34:56 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <Pine.NEB.4.64.0905061146260.1703@lightning.msu.montana.edu>
+User-Agent: Mutt/1.5.13 (2006-08-11)
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.0 (chassiron.antioche.eu.org [IPv6:2001:7a8:242c:0:a00:20ff:fe1c:276e]); Wed, 06 May 2009 20:34:57 +0200 (MEST)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4422
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4422>
+
+On Wed, May 06, 2009 at 11:47:40AM -0600, Michael L. Hitch wrote:
+> On Wed, 6 May 2009, Manuel Bouyer wrote:
+> 
+> >alpha has an inline splhigh (alpha_pal_swpipl() really); and I couldn't
+> >determine if the assembly in this function is a barrier for
+> >the compiler, or if a __insn_barrier() is needed here. Can someone
+> >confirms it ?
+> 
+>   I looked at a disassembly of kern_softintr.o, and it appears that it's 
+> not needed for alpha (the second check of sh_flags is present after the
+> splhigh()).
+
+thanks. I tried to look at the disassembly, but couldn't make much sense
+of it :)
+
+-- 
+Manuel Bouyer <bouyer@antioche.eu.org>
+     NetBSD: 26 ans d'experience feront toujours la difference
+--
+
+
+From martin@duskware.de  Wed May 6 21:34:17 2009
+Path: news.gmane.org!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: is __insn_barrier() needed in alpha_pal_swpipl ?
+Date: Wed, 6 May 2009 21:34:17 +0200
+Lines: 8
+Approved: news@gmane.org
+Message-ID: <20090506193417.GA8942@drowsy.duskware.de>
+References: <20090506180040.GA2458@antioche.eu.org>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1241638507 2311 80.91.229.12 (6 May 2009 19:35:07 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Wed, 6 May 2009 19:35:07 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Manuel Bouyer <bouyer@antioche.eu.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed May 06 21:34:57 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M1mt0-0004Zl-By
+	for netbsd-port-alpha@m.gmane.org; Wed, 06 May 2009 21:34:34 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 4DA6D63B19B; Wed,  6 May 2009 19:34:22 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from mail.duskware.de (mail.duskware.de [IPv6:2a01:170:1032:1::2])
+	by mail.netbsd.org (Postfix) with ESMTP id CFB5363B19F
+	for <port-alpha@netbsd.org>; Wed,  6 May 2009 19:34:19 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id E928E33AAF; Wed,  6 May 2009 21:34:17 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20090506180040.GA2458@antioche.eu.org>
+User-Agent: Mutt/1.4.2.3i
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4423
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4423>
+
+On Wed, May 06, 2009 at 08:00:40PM +0200, Manuel Bouyer wrote:
+> the compiler, or if a __insn_barrier() is needed here. Can someone
+> confirms it ?
+
+It has a "memory" clobber in the last asm statement, which should be enough.
+
+Martin
+
+
+From Flora@gmail.com  Thu May 14 19:36:33 2009
+Path: news.gmane.org!not-for-mail
+From: "HANDEL" <Flora@gmail.com>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.spam.detected
+Subject: DATA = Informacje handlowo-gospodarcze =
+Date: Thu, 14 May 2009 19:36:33 +0200
+Lines: 34
+Approved: news@gmane.org
+Message-ID: <004101c9d51e$cc68c56f$a1b51b02@pcv>
+Reply-To: "HANDEL" <vika@mail.zp.ua>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-2"
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1242323008 14901 80.91.229.12 (14 May 2009 17:43:28 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Thu, 14 May 2009 17:43:28 +0000 (UTC)
+To: <port-alpha@netbsd.org>, <port-ouvert@lodz.pdi.netrych.gov>,
+	<port-ouvert@pdi.net.pl>, <port-pro@o2.pl>, <port.elblag@poczta.fm>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu May 14 19:43:16 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M4evn-0000uV-LP
+	for netbsd-port-alpha@m.gmane.org; Thu, 14 May 2009 19:41:20 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 43BD463B212; Thu, 14 May 2009 17:41:07 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from smtp23.orange.fr (unknown [193.252.22.30])
+	by mail.netbsd.org (Postfix) with ESMTP id 2561163B100
+	for <port-alpha@netbsd.org>; Thu, 14 May 2009 17:41:04 +0000 (UTC)
+Original-Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf2338.orange.fr (SMTP Server) with ESMTP id 5A86A1C0008A;
+	Thu, 14 May 2009 19:41:03 +0200 (CEST)
+Original-Received: from srv-rateau (LPuteaux-156-14-18-115.w82-127.abo.wanadoo.fr [82.127.1.115])
+	by mwinf2338.orange.fr (SMTP Server) with SMTP id 1B4EF1C00086;
+	Thu, 14 May 2009 19:40:57 +0200 (CEST)
+X-ME-UUID: 20090514174058112.1B4EF1C00086@mwinf2338.orange.fr
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2600.0000
+X-MimeOLE: Produced By Microsoft MimeOLE V6.00.2600.0000
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+X-Spam-Report: 5.5 points;
+ *  1.5 SUSPICIOUS_RECIPS Similar addresses in recipient list
+ *  3.0 RAZOR2_CF_RANGE_51_100 BODY: Razor2 gives confidence level above 50%
+ *      [cf: 100]
+ *  1.0 RAZOR2_CHECK Listed in Razor2 (http://razor.sf.net/)
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4424 gmane.spam.detected:4382145
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4424>
+
+                              Serdecznie zapraszamy na
+               Miêdzynarodow±  Polsko - Ukraiñsk± konferencjê na temat 
+>                   "Polska - Ukraina: sami budujemy przysz³o¶æ"
+                           XXXIII Miêdzynarodowa  konferencja
+ 
+>                          INWESTYCYJNE INTERESY ZA GRANIC±:
+                                Twoja firma na Ukrainie
+
+                     20-21 czerwca 2009 r, Lwów, Hotel  "Sputnik"
+                (zakwaterowanie od 19 czerwca do 22 czerwca 2009 roku)
+
+Kryzys œwiatowy spowodowa³ spadek sprzeda¿y produkcji na ca³ym œwiecie.
+Jednak kryzys ten nie jest tak groŸny jak siê o nim mówi – poniewa¿ wêwnêtrzne kursy walut pozosta³y prawie bez zmian: 
+Polska z³otówka jak i ukraiñska hrywna maj± taki sam wskaŸnik jaki mia³y przed kryzysem:  2,15-2,20
+Ta sytuacja pozwala naszym przedsiêbiorstwom prowadziæ handel na tym samym poziomie cen, 
+niezale¿nie od zaistnienia kryzysu œwiatowego
+
+===============================================================================
+• Aktualne informacje. Informacje handlowo-gospodarcze.
+• Przepisy prawne, exportowo-importowe. 
+• W co warto inwestowaæ na Ukrainie? Jak nabyæ nieruchomo¶æ na firmê?
+• Rozwój inwestycji w Ukrainie- tera¿niejszo¶æ i perspektywy
+===============================================================================
+
+Program konferencji:         http://seminar.pl.ua
+Kwestionariusz zg³oszeniowy: http://seminar.pl.ua/kwestionariusz.doc
+
+Osoba odpowiedzialna: Wiktoria Swiêcicka - Dyrektor ds.  wspó³pracy z zagranic± 
+- znajomo¶æ jêzyka polskiego, rosyjskiego, ukraiñskiego. 
+{ Tel. OO 38 (O67) 5O6-OI-IO } E-mail:vika@mail.zp.ua
+
+vscjmpd
+
+
+
+From woods@planix.ca  Thu May 14 17:12:15 2009
+Path: news.gmane.org!not-for-mail
+From: "Greg A. Woods" <woods@planix.ca>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: AlphaServer 2000 4/200 available for pickup in Toronto
+Date: Thu, 14 May 2009 17:12:15 -0400
+Lines: 54
+Approved: news@gmane.org
+Message-ID: <m1M4iDy-000kmgC@most.weird.com>
+Reply-To: "Greg A. Woods" <woods@planix.ca>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (generated by SEMI 1.14.6 - "Maruoka")
+Content-Type: multipart/signed;
+ boundary="pgp-sign-Multipart_Thu_May_14_17:12:15_2009-1"; micalg=pgp-sha1;
+ protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1242335572 25515 80.91.229.12 (14 May 2009 21:12:52 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Thu, 14 May 2009 21:12:52 +0000 (UTC)
+Cc: Alex Orgill <aorgill@infra-service.com>
+To: NetBSD/Alpha Discussion List <port-alpha@NetBSD.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu May 14 23:12:45 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M4iEO-00010Y-Tg
+	for netbsd-port-alpha@m.gmane.org; Thu, 14 May 2009 23:12:45 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 4276563B1DE; Thu, 14 May 2009 21:12:33 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from most.weird.com (most.robohack.planix.com [204.92.254.2])
+	by mail.netbsd.org (Postfix) with ESMTP id E1EDB63B1F2
+	for <port-alpha@NetBSD.org>; Thu, 14 May 2009 21:12:25 +0000 (UTC)
+Original-Received: from once.weird.com
+	([204.92.254.13] port=62789)
+	by most.weird.com([204.92.254.2] port=25)
+	via TCP with esmtp (3067 bytes)
+	(sender: <woods@once.weird.com>)
+	(ident <woods> using rfc1413)
+	id <m1M4iDy-000kmgC@most.weird.com>
+	for <port-alpha@NetBSD.org>;
+	Thu, 14 May 2009 17:12:18 -0400 (EDT)
+	(Smail-3.2.0.122-Pre 2005-Nov-17 #1 built 2009-Feb-3)
+User-Agent: Wanderlust/2.15.6 (Almost Unreal) SEMI/1.14.6 (Maruoka)
+ FLIM/1.14.7 (=?ISO-8859-4?Q?Sanj=F2?=) APEL/10.7 Emacs/21.4
+ (i386--netbsdelf) MULE/5.0 (SAKAKI)
+X-Face: ;j3Eth2XV8h1Yfu<eXd9JL+"t;iT8?{X]Fjm`Qb]>*uL{<:dQ$#E[DB0gemGZJ"J#4fH*][
+ lz;@-iwMv_u\6uIEKR0KY"=MzoQH#CrqBN`nG_5B@rrM8,f~Gr&h5a\=<t0loVf0$}bP=]i3OMh"n_
+ _@m4/,~2`V=(-9LyW.)'`@E_fE^<4y7)BIe`A''/j-Y#gDNZERh%CCij'q-NA4F<|yjznEhd7=l^xH
+ 2.qD3o0IanGHERTW+z$G
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4425
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4425>
+
+--pgp-sign-Multipart_Thu_May_14_17:12:15_2009-1
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
+
+A colleague has shown me an AlphaServer 2000 4/200 that is available for
+free for pickup in Toronto.
+
+There are two CPUs (unknown speed but probably the 200MHz EV4's as the
+system model would suggest), and the RAM board is full of SIMMs.
+
+It has a DEC 100baseT PCI ethernet card and an EISA video card.
+
+It should be in working condition, but we did not attempt to power it up
+as we did not have an appropriate video cable (the 15-pin mini D-shell
+with the missing pin).
+
+There's also a Storageworks RAID-210 subsystem in it, with a PCI-based
+controller of some sort (not sure which model), with as many as 8 drives
+in the on-board disk BA-350 shelf.
+
+I suspect it was running Windows-NT, and there's a Watcom SQL server
+CD-ROM with it.
+
+It's a double-wide desk-side system on casters, and it weighs a fair bit!
+
+Anyone interested in obtaining this system must pick it up at its
+current location in Toronto near York Mills & Yonge St. before the end
+of next week, i.e. before May 22.  If nobody claims it before then it
+will go to the computer recyclers.
+
+The person to contact is:  Alex Orgill <aorgill@infra-service.com>
+
+I can be an alternate contact too, if necessary.
+
+--=20
+						Greg A. Woods
+
++1 416 218-0098                VE3TCP          RoboHack <woods@robohack.ca>
+Planix, Inc. <woods@planix.com>      Secrets of the Weird <woods@weird.com>
+
+--pgp-sign-Multipart_Thu_May_14_17:12:15_2009-1
+Content-Type: application/pgp-signature
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (NetBSD)
+
+iD8DBQBKDIkvZn1xt3i/9H8RAk7fAKC7DadRBqv66I3AIxuCKgrrJ966RQCbBP3G
+V4jcKm7O6fzxLMdwtZ3zJYE=
+=DnVv
+-----END PGP SIGNATURE-----
+
+--pgp-sign-Multipart_Thu_May_14_17:12:15_2009-1--
+
+
+From r.phillips@uq.edu.au  Mon May 18 12:00:51 2009
+Path: news.gmane.org!not-for-mail
+From: Ray Phillips <r.phillips@uq.edu.au>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: writing cdhdtape to CD
+Date: Mon, 18 May 2009 12:00:51 +1000
+Lines: 399
+Approved: news@gmane.org
+Message-ID: <p05200f64c6366b64c483@[130.102.20.138]>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1" ; format="flowed"
+Content-Transfer-Encoding: quoted-printable
+X-Trace: ger.gmane.org 1242612096 13499 80.91.229.12 (18 May 2009 02:01:36 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Mon, 18 May 2009 02:01:36 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon May 18 04:01:29 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M5sAS-0003dr-El
+	for netbsd-port-alpha@m.gmane.org; Mon, 18 May 2009 04:01:29 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 3D1F763B255; Mon, 18 May 2009 02:01:15 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from egalite.jkmrc.uq.edu.au (egalite.jkmrc.uq.edu.au [130.102.20.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 1909A63B236
+	for <port-alpha@netbsd.org>; Mon, 18 May 2009 02:01:00 +0000 (UTC)
+Original-Received: from [130.102.20.138] (Ray-Mac.jkmrc.uq.edu.au [130.102.20.138])
+	by egalite.jkmrc.uq.edu.au (8.14.3/8.14.3) with ESMTP id n4I20ttW018530
+	for <port-alpha@netbsd.org>; Mon, 18 May 2009 12:00:56 +1000 (EST)
+X-Sender: e5rphill@egalite.jkmrc.uq.edu.au
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4426
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4426>
+
+Just for the sake of experimenting, I thought I'd try writing 
+NetBSD/alpha 5.0's cdhdtape file to CD and booting from it, but so 
+far it hasn't worked.  The steps I followed are shown below.  The 
+cdrecord commands were executed on a PC running NetBSD/i386 5.0.  I 
+used the -v option in the hope it might help to clear up the problem.
+
+I've tried using two different CD-R/W discs in case one was damaged, 
+and also tried booting a 164LX with the same result as below.
+
+Booting from a hard disk to which the same cdhdfile had been copied 
+worked fine.
+
+By the way, what's the correct block size to use when writing 
+cdhdtape to a hard disk with dd, bs=3D16k as shown in
+
+ftp://ftp.netbsd.org/pub/NetBSD/NetBSD-5.0/alpha/INSTALL.txt
+
+or 18k as shown in
+
+ftp://ftp.netbsd.org/pub/NetBSD/NetBSD-5.0/alpha/installation/diskimage/READ=
+ME.files
+
+Both values seem to work OK.
+
+
+Ray
+
+
+Burning cdhdtape to CD
+----------------------
+
+# cdrecord dev=3D/dev/rcd0d:@ -v blank=3Dfast
+Cdrecord-ProDVD-ProBD-Clone 2.01.01a59 (i386-unknown-netbsd5.0) 
+Copyright (C) 1995-2009 J=F6rg Schilling
+TOC Type: 1 =3D CD-ROM
+scsidev: '/dev/rcd0d:@'
+devname: '/dev/rcd0d'
+scsibus: -2 target: -2 lun: -2
+Using libscg version 'schily-0.9'.
+SCSI buffer size: 61440
+atapi: 1
+Device type    : Removable CD-ROM
+Version        : 0
+Response Format: 1
+Vendor_info    : 'PLEXTOR '
+Identifikation : 'CD-R   PX-W8432T'
+Revision       : '1.09'
+Device seems to be: Generic mmc CD-RW.
+Using generic SCSI-3/mmc   CD-R/CD-RW driver (mmc_cdr).
+Driver flags   : MMC SWABAUDIO
+Supported modes: TAO PACKET SAO SAO/R96P SAO/R96R RAW/R16 RAW/R96P RAW/R96R
+Drive buf size : 2394336 =3D 2338 KB
+Drive pbuf size: 4194304 =3D 4096 KB
+Drive DMA Speed: 10778 kB/s 61x CD 7x DVD 2x BD
+Current Secsize: 2048
+ATIP info from disk:
+   Indicated writing power: 6
+   Reference speed: 0
+Disk Is not unrestricted
+Disk Is erasable
+   ATIP start of lead in:  -11078 (97:34/22)
+   ATIP start of lead out: 359849 (79:59/74)
+   1T speed low:  0 (reserved val  0) 1T speed high:  4
+   power mult factor: 3 5
+   recommended erase/write power: 3
+   A1 values: 02 3A B0
+   A2 values: 00 00 00
+Disk type:    Phase change
+Manuf. index: 11
+Manufacturer: Mitsubishi Chemical Corporation
+cdrecord: Input/output error. read_format_capacities: scsi sendcmd: 
+retryable error
+CDB:  23 00 00 00 00 00 00 00 04 00
+status: 0x2 (CHECK CONDITION)
+Sense Bytes: 70 00 05 00 00 00 00 0A 00 00 00 00 20 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00
+Sense Key: 0x5 Illegal Request, Segment 0
+Sense Code: 0x20 Qual 0x00 (invalid command operation code) Fru 0x0
+Sense flags: Blk 0 (not valid)
+resid: 4
+cmd finished after 0.000s timeout 40s
+New start of lead in: 0 (00:02/00)
+New start of lead out: -1 (00:01/74)
+Starting to write CD/DVD/BD at speed 4 in real BLANK mode for single session=
+=2E
+Last chance to quit, starting real write    0 seconds. Operation starts.
+Performing OPC...
+Blanking PMA, TOC, pregap
+Blanking time:   45.346s
+#
+# ls -l cdhdtape
+-r-xr-xr-x  1 ray  wheel  3776512 May 14 10:59 cdhdtape
+# md5 cdhdtape
+MD5 (cdhdtape) =3D 2165582d6591ca74a9a483c3522e52a8
+#
+# cdrecord dev=3D/dev/rcd0d:@ -v -eject driveropts=3Dburnproof cdhdtape
+cdrecord: No write mode specified.
+cdrecord: Assuming -sao mode.
+cdrecord: If your drive does not accept -sao, try -tao.
+cdrecord: Future versions of cdrecord may have different drive 
+dependent defaults.
+Cdrecord-ProDVD-ProBD-Clone 2.01.01a59 (i386-unknown-netbsd5.0) 
+Copyright (C) 1995-2009 J=F6rg Schilling
+TOC Type: 1 =3D CD-ROM
+scsidev: '/dev/rcd0d:@'
+devname: '/dev/rcd0d'
+scsibus: -2 target: -2 lun: -2
+Using libscg version 'schily-0.9'.
+Driveropts: 'burnproof'
+SCSI buffer size: 61440
+atapi: 1
+Device type    : Removable CD-ROM
+Version        : 0
+Response Format: 1
+Vendor_info    : 'PLEXTOR '
+Identifikation : 'CD-R   PX-W8432T'
+Revision       : '1.09'
+Device seems to be: Generic mmc CD-RW.
+Using generic SCSI-3/mmc   CD-R/CD-RW driver (mmc_cdr).
+Driver flags   : MMC SWABAUDIO
+Supported modes: TAO PACKET SAO SAO/R96P SAO/R96R RAW/R16 RAW/R96P RAW/R96R
+Drive buf size : 2394336 =3D 2338 KB
+Drive pbuf size: 4194304 =3D 4096 KB
+Drive DMA Speed: 10893 kB/s 61x CD 7x DVD 2x BD
+=46IFO size      : 4194304 =3D 4096 KB
+Track 01: data     3 MB
+Total size:        4 MB (00:24.58) =3D 1844 sectors
+Lout start:        4 MB (00:26/44) =3D 1844 sectors
+Current Secsize: 2048
+ATIP info from disk:
+   Indicated writing power: 6
+   Reference speed: 0
+Disk Is not unrestricted
+Disk Is erasable
+   ATIP start of lead in:  -11078 (97:34/22)
+   ATIP start of lead out: 359849 (79:59/74)
+   1T speed low:  0 (reserved val  0) 1T speed high:  4
+   power mult factor: 3 5
+   recommended erase/write power: 3
+   A1 values: 02 3A B0
+   A2 values: 00 00 00
+Disk type:    Phase change
+Manuf. index: 11
+Manufacturer: Mitsubishi Chemical Corporation
+cdrecord: Input/output error. read_format_capacities: scsi sendcmd: 
+retryable error
+CDB:  23 00 00 00 00 00 00 00 04 00
+status: 0x2 (CHECK CONDITION)
+Sense Bytes: 70 00 05 00 00 00 00 0A 00 00 00 00 20 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 00 00 00 00 00
+Sense Key: 0x5 Illegal Request, Segment 0
+Sense Code: 0x20 Qual 0x00 (invalid command operation code) Fru 0x0
+Sense flags: Blk 0 (not valid)
+resid: 4
+cmd finished after 0.000s timeout 200s
+Blocks total: 359849 Blocks current: 359849 Blocks remaining: 358005
+Starting to write CD/DVD/BD at speed 4 in real SAO mode for single session.
+Last chance to quit, starting real write    0 seconds. Operation starts.
+Waiting for reader process to fill input buffer ... input buffer ready.
+Performing OPC...
+Sending CUE sheet...
+Writing pregap for track 1 at -150
+Starting new track at sector: 0
+Track 01:    3 of    3 MB written (fifo 100%) [buf  96%]   4.4x.
+Track 01: Total bytes read/written: 3776512/3776512 (1844 sectors).
+Writing  time:   67.648s
+Average write speed   0.4x.
+Min drive buffer fill was 96%
+=46ixating...
+=46ixating time:    4.895s
+cdrecord: fifo had 62 puts and 62 gets.
+cdrecord: fifo was 0 times empty and 0 times full, min fill was 100%.
+#
+# cdrecord dev=3D/dev/rcd0d:@ -media-info
+Cdrecord-ProDVD-ProBD-Clone 2.01.01a59 (i386-unknown-netbsd5.0) 
+Copyright (C) 1995-2009 J=F6rg Schilling
+scsidev: '/dev/rcd0d:@'
+devname: '/dev/rcd0d'
+scsibus: -2 target: -2 lun: -2
+Using libscg version 'schily-0.9'.
+Device type    : Removable CD-ROM
+Version        : 0
+Response Format: 1
+Vendor_info    : 'PLEXTOR '
+Identifikation : 'CD-R   PX-W8432T'
+Revision       : '1.09'
+Device seems to be: Generic mmc CD-RW.
+Using generic SCSI-3/mmc   CD-R/CD-RW driver (mmc_cdr).
+Driver flags   : MMC SWABAUDIO
+Supported modes: TAO PACKET SAO SAO/R96P SAO/R96R RAW/R16 RAW/R96P RAW/R96R
+Disk Is erasable
+data type:                standard
+disk status:              complete
+session status:           complete
+BG format status:         none
+first track:              1
+number of sessions:       1
+first track in last sess: 1
+last track in last sess:  1
+Disk Is not unrestricted
+Disk type: CD-DA or CD-ROM
+last start of lead in: 716730
+last start of lead out: 1166730
+
+Track  Sess Type   Start Addr End Addr   Size
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+     1     1 Data   0          1843       1844
+
+Last session start address:         0
+Last session leadout start address: 1844
+#
+
+
+Attempting to boot the alpha
+----------------------------
+
+>>>*** keyboard not plugged in ...
+
+ff.fe.fd.fc.fb.fa.f9.f8.f7.f6.f5.CPU 0 speed is 2.00 ns (500MHz)
+
+Digital Personal WorkStation 500au5.e4.
+Console V7.2-1 Mar  6 2000 14:47:02
+>>>
+>>>sh dev
+dkc400.4.0.11.0            DKC400     PLEXTOR CD-R   PX-W4012S  1.05
+dva0.0.0.0.1               DVA0
+ewa0.0.0.3.0               EWA0              00-00-F8-75-5E-6F
+fwa0.0.0.12.0              FWA0              00-00-F8-63-18-65
+pkc0.7.0.11.0              PKC0                  SCSI Bus ID 7  5.57
+pkd0.7.0.1008.0            PKD0                  SCSI Bus ID 7
+pqa0.0.0.4.0               PQA0                       PCI EIDE
+pqb0.0.1.4.0               PQB0                       PCI EIDE
+>>>
+>>>b dkc400
+(boot dkc400.4.0.11.0 -flags a)
+block 0 of dkc400.4.0.11.0 is a valid boot block
+reading 82 blocks from dkc400.4.0.11.0
+bootstrap code read in
+base =3D 1d8000, image_start =3D 0, image_bytes =3D a400
+initializing HWRPB at 2000
+initializing page table at 1ca000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+(builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+
+VMS PAL rev: 0x1000000010114
+OSF PAL rev: 0x1000000020116
+Switch to OSF PAL code succeeded.
+
+Boot flags: a
+9784992@@@@@@@@@read text: Input/output error
+@@@@@@@@@open netbsd.gz: Input/output error
+@@@@@@@@@open netbsd.bak: Input/output error
+@@@@@@@@@open netbsd.bak.gz: Input/output error
+@@@@@@@@@open netbsd.old: Input/output error
+@@@@@@@@@open netbsd.old.gz: Input/output error
+@@@@@@@@@open onetbsd: Input/output error
+@@@@@@@@@open onetbsd.gz: Input/output error
+@@@@@@@@@open netbsd.alpha: Input/output error
+@@@@@@@@@open netbsd.alpha.gz: Input/output error
+
+Boot failed!  Halting...
+
+halted CPU 0
+
+halt code =3D 5
+HALT instruction executed
+PC =3D 2000003c
+>>>
+>>>boot -file netbsd -flags a dkc400
+(boot dkc400.4.0.11.0 -file netbsd -flags a)
+block 0 of dkc400.4.0.11.0 is a valid boot block
+reading 82 blocks from dkc400.4.0.11.0
+bootstrap code read in
+base =3D 1d8000, image_start =3D 0, image_bytes =3D a400
+initializing HWRPB at 2000
+initializing page table at 1ca000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+(builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+
+VMS PAL rev: 0x1000000010114
+OSF PAL rev: 0x1000000020116
+Switch to OSF PAL code succeeded.
+
+Boot file: netbsd
+Boot flags: a
+9784992@@@@@@@@@read text: Input/output error
+
+Boot failed!  Halting...
+
+halted CPU 0
+
+halt code =3D 5
+HALT instruction executed
+PC =3D 2000003c
+>>>
+
+
+Trying with a different CD drive:
+
+
+>>>*** keyboard not plugged in ...
+
+ff.fe.fd.fc.fb.fa.f9.f8.f7.f6.f5.CPU 0 speed is 2.00 ns (500MHz)
+
+Digital Personal WorkStation 500au5.e4.
+Console V7.2-1 Mar  6 2000 14:47:02
+>>>
+>>>
+>>>sh dev
+dkb0.0.1.4.0               DKB0            SONY CD-RW  CRX230E  QYS1
+dkc400.4.0.11.0            DKC400     PLEXTOR CD-R   PX-W4012S  1.05
+dva0.0.0.0.1               DVA0
+ewa0.0.0.3.0               EWA0              00-00-F8-75-5E-6F
+fwa0.0.0.12.0              FWA0              00-00-F8-63-18-65
+pkc0.7.0.11.0              PKC0                  SCSI Bus ID 7  5.57
+pkd0.7.0.1008.0            PKD0                  SCSI Bus ID 7
+pqa0.0.0.4.0               PQA0                       PCI EIDE
+pqb0.0.1.4.0               PQB0                       PCI EIDE
+>>>
+>>>b dkb0
+(boot dkb0.0.1.4.0 -flags a)
+block 0 of dkb0.0.1.4.0 is a valid boot block
+reading 82 blocks from dkb0.0.1.4.0
+bootstrap code read in
+base =3D 1d8000, image_start =3D 0, image_bytes =3D a400
+initializing HWRPB at 2000
+initializing page table at 1ca000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+(builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+
+VMS PAL rev: 0x1000000010114
+OSF PAL rev: 0x1000000020116
+Switch to OSF PAL code succeeded.
+
+Boot flags: a
+9784992@@@@@@@@@read text: Input/output error
+@@@@@@@@@open netbsd.gz: Input/output error
+@@@@@@@@@open netbsd.bak: Input/output error
+@@@@@@@@@open netbsd.bak.gz: Input/output error
+@@@@@@@@@open netbsd.old: Input/output error
+@@@@@@@@@open netbsd.old.gz: Input/output error
+@@@@@@@@@open onetbsd: Input/output error
+@@@@@@@@@open onetbsd.gz: Input/output error
+@@@@@@@@@open netbsd.alpha: Input/output error
+@@@@@@@@@open netbsd.alpha.gz: Input/output error
+
+Boot failed!  Halting...
+
+halted CPU 0
+
+halt code =3D 5
+HALT instruction executed
+PC =3D 2000003c
+>>>
+>>>boot -file netbsd -flags a dkb0
+(boot dkb0.0.1.4.0 -file netbsd -flags a)
+block 0 of dkb0.0.1.4.0 is a valid boot block
+reading 82 blocks from dkb0.0.1.4.0
+bootstrap code read in
+base =3D 1d8000, image_start =3D 0, image_bytes =3D a400
+initializing HWRPB at 2000
+initializing page table at 1ca000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+(builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+
+VMS PAL rev: 0x1000000010114
+OSF PAL rev: 0x1000000020116
+Switch to OSF PAL code succeeded.
+
+Boot file: netbsd
+Boot flags: a
+9784992@@@@@@@@@read text: Input/output error
+
+Boot failed!  Halting...
+
+halted CPU 0
+
+halt code =3D 5
+HALT instruction executed
+PC =3D 2000003c
+>>>
+
+
+From he@NetBSD.org  Mon May 18 09:42:23 2009
+Path: news.gmane.org!not-for-mail
+From: Havard Eidnes <he@NetBSD.org>
+Newsgroups: gmane.os.netbsd.devel.pkgsrc.user,gmane.os.netbsd.ports.alpha
+Subject: Package binaries for NetBSD/alpha 3.1 / pkgsrc-2009Q1
+Date: Mon, 18 May 2009 09:42:23 +0200 (CEST)
+Lines: 21
+Approved: news@gmane.org
+Message-ID: <20090518.094223.233396116.he@uninett.no>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+X-Trace: ger.gmane.org 1242632596 22084 80.91.229.12 (18 May 2009 07:43:16 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Mon, 18 May 2009 07:43:16 +0000 (UTC)
+Cc: pkgsrc-users@NetBSD.org
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-pkgsrc-users-owner-gondpu-pkgsrc-users=m.gmane.org@NetBSD.org Mon May 18 09:43:09 2009
+Return-path: <bounces-pkgsrc-users-owner-gondpu-pkgsrc-users=m.gmane.org@NetBSD.org>
+Envelope-to: gondpu-pkgsrc-users@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M5xV6-0004ts-Eu
+	for gondpu-pkgsrc-users@m.gmane.org; Mon, 18 May 2009 09:43:08 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 02BAA63B277; Mon, 18 May 2009 07:42:32 +0000 (UTC)
+Delivered-To: pkgsrc-users@NetBSD.org
+Original-Received: from smistad.uninett.no (smistad.uninett.no [IPv6:2001:700:1:0:21e:4fff:feed:ced])
+	by mail.netbsd.org (Postfix) with ESMTP id CBFB763B205;
+	Mon, 18 May 2009 07:42:25 +0000 (UTC)
+Original-Received: from smistad.uninett.no (smistad.uninett.no [158.38.62.77])
+	by smistad.uninett.no (Postfix) with ESMTP id DD1453D082;
+	Mon, 18 May 2009 09:42:23 +0200 (CEST)
+X-Mailer: Mew version 5.2 on Emacs 22.3 / Mule 5.0 (SAKAKI)
+Original-Sender: pkgsrc-users-owner@NetBSD.org
+List-Id: pkgsrc-users
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.devel.pkgsrc.user:9883 gmane.os.netbsd.ports.alpha:4427
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4427>
+
+Hi,
+
+I've uploaded the results of a bulk rebuild for NetBSD/alpha
+3.1 to
+
+   ftp://ftp.NetBSD.org/pub/pkgsrc/packages/NetBSD/alpha/3.1_2009Q1/
+
+A total of 6.4GB of packages were uploaded for a total count of
+6965 packages.
+
+The source tree this was built from was updated Apr 5 2009, and
+the packages were built on a system running 3.1_STABLE.
+
+Since we by convention only keep two sets of binary packages per
+arch/os/os-version combination, the 2008Q3 packages have now been
+removed from ftp.NetBSD.org.
+
+Regards,
+
+- H=E5vard
+
+
+From ahs@hogrelius.nu  Mon May 18 11:15:04 2009
+Path: news.gmane.org!not-for-mail
+From: Anders Hogrelius <ahs@hogrelius.nu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: writing cdhdtape to CD
+Date: Mon, 18 May 2009 11:15:04 +0200 (CEST)
+Lines: 445
+Approved: news@gmane.org
+Message-ID: <Pine.OSF.4.64.0905181106200.53870@hogrelius.nu>
+References: <p05200f64c6366b64c483@[130.102.20.138]>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1871705151-1564732818-1242638104=:53870"
+X-Trace: ger.gmane.org 1242642867 20279 80.91.229.12 (18 May 2009 10:34:27 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Mon, 18 May 2009 10:34:27 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Ray Phillips <r.phillips@uq.edu.au>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon May 18 12:34:19 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M60Aj-0005bm-4i
+	for netbsd-port-alpha@m.gmane.org; Mon, 18 May 2009 12:34:17 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 37D6363B115; Mon, 18 May 2009 10:34:06 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from hogrelius.nu (unknown [193.11.112.144])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client CN "hogrelius.nu", Issuer "CA Cert Signing Authority" (not verified))
+	by mail.netbsd.org (Postfix) with ESMTPS id 5470A63B110
+	for <port-alpha@netbsd.org>; Mon, 18 May 2009 10:34:00 +0000 (UTC)
+Original-Received: from ahs (helo=localhost)
+	by hogrelius.nu with local-esmtp  (Exim 4.69 #1)
+	id 1M5yw4-000EB7-8R; Mon, 18 May 2009 11:15:06 +0200
+In-Reply-To: <p05200f64c6366b64c483@[130.102.20.138]>
+X-Spam_score: -2.6
+X-Spam_score_int: -25
+X-Spam_bar: --
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4428
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4428>
+
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---1871705151-1564732818-1242638104=:53870
+Content-Type: TEXT/PLAIN; charset=iso-8859-1; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+
+
+I am pretty sure that you need a CD-rom that supports 512 byte blocksize=20
+for this to work in your alpha. Most of them only do 2048 bytes and I have=
+=20
+never had any success with those. The symptoms of not using 512 bytes=20
+blocksize have been exactly those you've had. This does not not seem=20
+to apply if you have a regular ISO formatted cd.
+
+You should also be able to test the cd's before trying to boot from them.=
+=20
+With the cdhdtape written to it is possible to mount the cd just like if=20
+it was a harddrive (with -ro since it is readonly media) and disklabel=20
+should show what slices are on there just like with any regular disk.
+
+Cheers,
+Anders
+
+-
+                   \\|%|//
+                   | ~ ~ |
+                  ^( @ @ )^
+--------------o000o-\_/-o000o-----------------------
+
+Anders Hogrelius
+Tessingatan 12
+SE72216 Vasteras
+SWEDEN
+
+Phone: +46 70 677-0210
+Skype-In No: +1 714 408-7868
+
+On Mon, 18 May 2009, Ray Phillips wrote:
+
+> Just for the sake of experimenting, I thought I'd try writing
+> NetBSD/alpha 5.0's cdhdtape file to CD and booting from it, but so
+> far it hasn't worked.  The steps I followed are shown below.  The
+> cdrecord commands were executed on a PC running NetBSD/i386 5.0.  I
+> used the -v option in the hope it might help to clear up the problem.
+>
+> I've tried using two different CD-R/W discs in case one was damaged,
+> and also tried booting a 164LX with the same result as below.
+>
+> Booting from a hard disk to which the same cdhdfile had been copied
+> worked fine.
+>
+> By the way, what's the correct block size to use when writing
+> cdhdtape to a hard disk with dd, bs=3D16k as shown in
+>
+> ftp://ftp.netbsd.org/pub/NetBSD/NetBSD-5.0/alpha/INSTALL.txt
+>
+> or 18k as shown in
+>
+> ftp://ftp.netbsd.org/pub/NetBSD/NetBSD-5.0/alpha/installation/diskimage/R=
+EADME.files
+>
+> Both values seem to work OK.
+>
+>
+> Ray
+>
+>
+> Burning cdhdtape to CD
+> ----------------------
+>
+> # cdrecord dev=3D/dev/rcd0d:@ -v blank=3Dfast
+> Cdrecord-ProDVD-ProBD-Clone 2.01.01a59 (i386-unknown-netbsd5.0)
+> Copyright (C) 1995-2009 J=F6rg Schilling
+> TOC Type: 1 =3D CD-ROM
+> scsidev: '/dev/rcd0d:@'
+> devname: '/dev/rcd0d'
+> scsibus: -2 target: -2 lun: -2
+> Using libscg version 'schily-0.9'.
+> SCSI buffer size: 61440
+> atapi: 1
+> Device type    : Removable CD-ROM
+> Version        : 0
+> Response Format: 1
+> Vendor_info    : 'PLEXTOR '
+> Identifikation : 'CD-R   PX-W8432T'
+> Revision       : '1.09'
+> Device seems to be: Generic mmc CD-RW.
+> Using generic SCSI-3/mmc   CD-R/CD-RW driver (mmc_cdr).
+> Driver flags   : MMC SWABAUDIO
+> Supported modes: TAO PACKET SAO SAO/R96P SAO/R96R RAW/R16 RAW/R96P RAW/R9=
+6R
+> Drive buf size : 2394336 =3D 2338 KB
+> Drive pbuf size: 4194304 =3D 4096 KB
+> Drive DMA Speed: 10778 kB/s 61x CD 7x DVD 2x BD
+> Current Secsize: 2048
+> ATIP info from disk:
+>  Indicated writing power: 6
+>  Reference speed: 0
+> Disk Is not unrestricted
+> Disk Is erasable
+>  ATIP start of lead in:  -11078 (97:34/22)
+>  ATIP start of lead out: 359849 (79:59/74)
+>  1T speed low:  0 (reserved val  0) 1T speed high:  4
+>  power mult factor: 3 5
+>  recommended erase/write power: 3
+>  A1 values: 02 3A B0
+>  A2 values: 00 00 00
+> Disk type:    Phase change
+> Manuf. index: 11
+> Manufacturer: Mitsubishi Chemical Corporation
+> cdrecord: Input/output error. read_format_capacities: scsi sendcmd:
+> retryable error
+> CDB:  23 00 00 00 00 00 00 00 04 00
+> status: 0x2 (CHECK CONDITION)
+> Sense Bytes: 70 00 05 00 00 00 00 0A 00 00 00 00 20 00 00 00 00 00 00
+> 00 00 00 00 00 00 00 00 00 00 00 00 00
+> Sense Key: 0x5 Illegal Request, Segment 0
+> Sense Code: 0x20 Qual 0x00 (invalid command operation code) Fru 0x0
+> Sense flags: Blk 0 (not valid)
+> resid: 4
+> cmd finished after 0.000s timeout 40s
+> New start of lead in: 0 (00:02/00)
+> New start of lead out: -1 (00:01/74)
+> Starting to write CD/DVD/BD at speed 4 in real BLANK mode for single sess=
+ion.
+> Last chance to quit, starting real write    0 seconds. Operation starts.
+> Performing OPC...
+> Blanking PMA, TOC, pregap
+> Blanking time:   45.346s
+> #
+> # ls -l cdhdtape
+> -r-xr-xr-x  1 ray  wheel  3776512 May 14 10:59 cdhdtape
+> # md5 cdhdtape
+> MD5 (cdhdtape) =3D 2165582d6591ca74a9a483c3522e52a8
+> #
+> # cdrecord dev=3D/dev/rcd0d:@ -v -eject driveropts=3Dburnproof cdhdtape
+> cdrecord: No write mode specified.
+> cdrecord: Assuming -sao mode.
+> cdrecord: If your drive does not accept -sao, try -tao.
+> cdrecord: Future versions of cdrecord may have different drive
+> dependent defaults.
+> Cdrecord-ProDVD-ProBD-Clone 2.01.01a59 (i386-unknown-netbsd5.0)
+> Copyright (C) 1995-2009 J=F6rg Schilling
+> TOC Type: 1 =3D CD-ROM
+> scsidev: '/dev/rcd0d:@'
+> devname: '/dev/rcd0d'
+> scsibus: -2 target: -2 lun: -2
+> Using libscg version 'schily-0.9'.
+> Driveropts: 'burnproof'
+> SCSI buffer size: 61440
+> atapi: 1
+> Device type    : Removable CD-ROM
+> Version        : 0
+> Response Format: 1
+> Vendor_info    : 'PLEXTOR '
+> Identifikation : 'CD-R   PX-W8432T'
+> Revision       : '1.09'
+> Device seems to be: Generic mmc CD-RW.
+> Using generic SCSI-3/mmc   CD-R/CD-RW driver (mmc_cdr).
+> Driver flags   : MMC SWABAUDIO
+> Supported modes: TAO PACKET SAO SAO/R96P SAO/R96R RAW/R16 RAW/R96P RAW/R9=
+6R
+> Drive buf size : 2394336 =3D 2338 KB
+> Drive pbuf size: 4194304 =3D 4096 KB
+> Drive DMA Speed: 10893 kB/s 61x CD 7x DVD 2x BD
+> FIFO size      : 4194304 =3D 4096 KB
+> Track 01: data     3 MB
+> Total size:        4 MB (00:24.58) =3D 1844 sectors
+> Lout start:        4 MB (00:26/44) =3D 1844 sectors
+> Current Secsize: 2048
+> ATIP info from disk:
+>  Indicated writing power: 6
+>  Reference speed: 0
+> Disk Is not unrestricted
+> Disk Is erasable
+>  ATIP start of lead in:  -11078 (97:34/22)
+>  ATIP start of lead out: 359849 (79:59/74)
+>  1T speed low:  0 (reserved val  0) 1T speed high:  4
+>  power mult factor: 3 5
+>  recommended erase/write power: 3
+>  A1 values: 02 3A B0
+>  A2 values: 00 00 00
+> Disk type:    Phase change
+> Manuf. index: 11
+> Manufacturer: Mitsubishi Chemical Corporation
+> cdrecord: Input/output error. read_format_capacities: scsi sendcmd:
+> retryable error
+> CDB:  23 00 00 00 00 00 00 00 04 00
+> status: 0x2 (CHECK CONDITION)
+> Sense Bytes: 70 00 05 00 00 00 00 0A 00 00 00 00 20 00 00 00 00 00 00
+> 00 00 00 00 00 00 00 00 00 00 00 00 00
+> Sense Key: 0x5 Illegal Request, Segment 0
+> Sense Code: 0x20 Qual 0x00 (invalid command operation code) Fru 0x0
+> Sense flags: Blk 0 (not valid)
+> resid: 4
+> cmd finished after 0.000s timeout 200s
+> Blocks total: 359849 Blocks current: 359849 Blocks remaining: 358005
+> Starting to write CD/DVD/BD at speed 4 in real SAO mode for single sessio=
+n.
+> Last chance to quit, starting real write    0 seconds. Operation starts.
+> Waiting for reader process to fill input buffer ... input buffer ready.
+> Performing OPC...
+> Sending CUE sheet...
+> Writing pregap for track 1 at -150
+> Starting new track at sector: 0
+> Track 01:    3 of    3 MB written (fifo 100%) [buf  96%]   4.4x.
+> Track 01: Total bytes read/written: 3776512/3776512 (1844 sectors).
+> Writing  time:   67.648s
+> Average write speed   0.4x.
+> Min drive buffer fill was 96%
+> Fixating...
+> Fixating time:    4.895s
+> cdrecord: fifo had 62 puts and 62 gets.
+> cdrecord: fifo was 0 times empty and 0 times full, min fill was 100%.
+> #
+> # cdrecord dev=3D/dev/rcd0d:@ -media-info
+> Cdrecord-ProDVD-ProBD-Clone 2.01.01a59 (i386-unknown-netbsd5.0)
+> Copyright (C) 1995-2009 J=F6rg Schilling
+> scsidev: '/dev/rcd0d:@'
+> devname: '/dev/rcd0d'
+> scsibus: -2 target: -2 lun: -2
+> Using libscg version 'schily-0.9'.
+> Device type    : Removable CD-ROM
+> Version        : 0
+> Response Format: 1
+> Vendor_info    : 'PLEXTOR '
+> Identifikation : 'CD-R   PX-W8432T'
+> Revision       : '1.09'
+> Device seems to be: Generic mmc CD-RW.
+> Using generic SCSI-3/mmc   CD-R/CD-RW driver (mmc_cdr).
+> Driver flags   : MMC SWABAUDIO
+> Supported modes: TAO PACKET SAO SAO/R96P SAO/R96R RAW/R16 RAW/R96P RAW/R9=
+6R
+> Disk Is erasable
+> data type:                standard
+> disk status:              complete
+> session status:           complete
+> BG format status:         none
+> first track:              1
+> number of sessions:       1
+> first track in last sess: 1
+> last track in last sess:  1
+> Disk Is not unrestricted
+> Disk type: CD-DA or CD-ROM
+> last start of lead in: 716730
+> last start of lead out: 1166730
+>
+> Track  Sess Type   Start Addr End Addr   Size
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>    1     1 Data   0          1843       1844
+>
+> Last session start address:         0
+> Last session leadout start address: 1844
+> #
+>
+>
+> Attempting to boot the alpha
+> ----------------------------
+>
+>>>> *** keyboard not plugged in ...
+>
+> ff.fe.fd.fc.fb.fa.f9.f8.f7.f6.f5.CPU 0 speed is 2.00 ns (500MHz)
+>
+> Digital Personal WorkStation 500au5.e4.
+> Console V7.2-1 Mar  6 2000 14:47:02
+>>>>=20
+>>>> sh dev
+> dkc400.4.0.11.0            DKC400     PLEXTOR CD-R   PX-W4012S  1.05
+> dva0.0.0.0.1               DVA0
+> ewa0.0.0.3.0               EWA0              00-00-F8-75-5E-6F
+> fwa0.0.0.12.0              FWA0              00-00-F8-63-18-65
+> pkc0.7.0.11.0              PKC0                  SCSI Bus ID 7  5.57
+> pkd0.7.0.1008.0            PKD0                  SCSI Bus ID 7
+> pqa0.0.0.4.0               PQA0                       PCI EIDE
+> pqb0.0.1.4.0               PQB0                       PCI EIDE
+>>>>=20
+>>>> b dkc400
+> (boot dkc400.4.0.11.0 -flags a)
+> block 0 of dkc400.4.0.11.0 is a valid boot block
+> reading 82 blocks from dkc400.4.0.11.0
+> bootstrap code read in
+> base =3D 1d8000, image_start =3D 0, image_bytes =3D a400
+> initializing HWRPB at 2000
+> initializing page table at 1ca000
+> initializing machine state
+> setting affinity to the primary CPU
+> jumping to bootstrap code
+>
+> NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+> (builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+>
+> VMS PAL rev: 0x1000000010114
+> OSF PAL rev: 0x1000000020116
+> Switch to OSF PAL code succeeded.
+>
+> Boot flags: a
+> 9784992@@@@@@@@@read text: Input/output error
+> @@@@@@@@@open netbsd.gz: Input/output error
+> @@@@@@@@@open netbsd.bak: Input/output error
+> @@@@@@@@@open netbsd.bak.gz: Input/output error
+> @@@@@@@@@open netbsd.old: Input/output error
+> @@@@@@@@@open netbsd.old.gz: Input/output error
+> @@@@@@@@@open onetbsd: Input/output error
+> @@@@@@@@@open onetbsd.gz: Input/output error
+> @@@@@@@@@open netbsd.alpha: Input/output error
+> @@@@@@@@@open netbsd.alpha.gz: Input/output error
+>
+> Boot failed!  Halting...
+>
+> halted CPU 0
+>
+> halt code =3D 5
+> HALT instruction executed
+> PC =3D 2000003c
+>>>>=20
+>>>> boot -file netbsd -flags a dkc400
+> (boot dkc400.4.0.11.0 -file netbsd -flags a)
+> block 0 of dkc400.4.0.11.0 is a valid boot block
+> reading 82 blocks from dkc400.4.0.11.0
+> bootstrap code read in
+> base =3D 1d8000, image_start =3D 0, image_bytes =3D a400
+> initializing HWRPB at 2000
+> initializing page table at 1ca000
+> initializing machine state
+> setting affinity to the primary CPU
+> jumping to bootstrap code
+>
+> NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+> (builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+>
+> VMS PAL rev: 0x1000000010114
+> OSF PAL rev: 0x1000000020116
+> Switch to OSF PAL code succeeded.
+>
+> Boot file: netbsd
+> Boot flags: a
+> 9784992@@@@@@@@@read text: Input/output error
+>
+> Boot failed!  Halting...
+>
+> halted CPU 0
+>
+> halt code =3D 5
+> HALT instruction executed
+> PC =3D 2000003c
+>>>>=20
+>
+>
+> Trying with a different CD drive:
+>
+>
+>>>> *** keyboard not plugged in ...
+>
+> ff.fe.fd.fc.fb.fa.f9.f8.f7.f6.f5.CPU 0 speed is 2.00 ns (500MHz)
+>
+> Digital Personal WorkStation 500au5.e4.
+> Console V7.2-1 Mar  6 2000 14:47:02
+>>>>=20
+>>>>=20
+>>>> sh dev
+> dkb0.0.1.4.0               DKB0            SONY CD-RW  CRX230E  QYS1
+> dkc400.4.0.11.0            DKC400     PLEXTOR CD-R   PX-W4012S  1.05
+> dva0.0.0.0.1               DVA0
+> ewa0.0.0.3.0               EWA0              00-00-F8-75-5E-6F
+> fwa0.0.0.12.0              FWA0              00-00-F8-63-18-65
+> pkc0.7.0.11.0              PKC0                  SCSI Bus ID 7  5.57
+> pkd0.7.0.1008.0            PKD0                  SCSI Bus ID 7
+> pqa0.0.0.4.0               PQA0                       PCI EIDE
+> pqb0.0.1.4.0               PQB0                       PCI EIDE
+>>>>=20
+>>>> b dkb0
+> (boot dkb0.0.1.4.0 -flags a)
+> block 0 of dkb0.0.1.4.0 is a valid boot block
+> reading 82 blocks from dkb0.0.1.4.0
+> bootstrap code read in
+> base =3D 1d8000, image_start =3D 0, image_bytes =3D a400
+> initializing HWRPB at 2000
+> initializing page table at 1ca000
+> initializing machine state
+> setting affinity to the primary CPU
+> jumping to bootstrap code
+>
+> NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+> (builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+>
+> VMS PAL rev: 0x1000000010114
+> OSF PAL rev: 0x1000000020116
+> Switch to OSF PAL code succeeded.
+>
+> Boot flags: a
+> 9784992@@@@@@@@@read text: Input/output error
+> @@@@@@@@@open netbsd.gz: Input/output error
+> @@@@@@@@@open netbsd.bak: Input/output error
+> @@@@@@@@@open netbsd.bak.gz: Input/output error
+> @@@@@@@@@open netbsd.old: Input/output error
+> @@@@@@@@@open netbsd.old.gz: Input/output error
+> @@@@@@@@@open onetbsd: Input/output error
+> @@@@@@@@@open onetbsd.gz: Input/output error
+> @@@@@@@@@open netbsd.alpha: Input/output error
+> @@@@@@@@@open netbsd.alpha.gz: Input/output error
+>
+> Boot failed!  Halting...
+>
+> halted CPU 0
+>
+> halt code =3D 5
+> HALT instruction executed
+> PC =3D 2000003c
+>>>>=20
+>>>> boot -file netbsd -flags a dkb0
+> (boot dkb0.0.1.4.0 -file netbsd -flags a)
+> block 0 of dkb0.0.1.4.0 is a valid boot block
+> reading 82 blocks from dkb0.0.1.4.0
+> bootstrap code read in
+> base =3D 1d8000, image_start =3D 0, image_bytes =3D a400
+> initializing HWRPB at 2000
+> initializing page table at 1ca000
+> initializing machine state
+> setting affinity to the primary CPU
+> jumping to bootstrap code
+>
+> NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+> (builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+>
+> VMS PAL rev: 0x1000000010114
+> OSF PAL rev: 0x1000000020116
+> Switch to OSF PAL code succeeded.
+>
+> Boot file: netbsd
+> Boot flags: a
+> 9784992@@@@@@@@@read text: Input/output error
+>
+> Boot failed!  Halting...
+>
+> halted CPU 0
+>
+> halt code =3D 5
+> HALT instruction executed
+> PC =3D 2000003c
+>>>>=20
+>
+---1871705151-1564732818-1242638104=:53870--
+
+
+From Ruth@gmail.com  Fri May 22 03:13:55 2009
+Path: news.gmane.org!not-for-mail
+From: "=Informacje handlowo-gospodarcze=" <Ruth@gmail.com>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.spam.detected
+Subject: 2009 =data= Informacje handlowo-gospodarcze =
+Date: Fri, 22 May 2009 03:13:55 +0200
+Lines: 34
+Approved: news@gmane.org
+Message-ID: <001001c9dade$a13e906b$7b082d2f@bfiwxlizrizoi>
+Reply-To: "=Informacje handlowo-gospodarcze=" <vika@mail.zp.ua>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-2"
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1242954867 4997 80.91.229.12 (22 May 2009 01:14:27 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Fri, 22 May 2009 01:14:27 +0000 (UTC)
+To: <port-alpha@netbsd.org>,
+	 <port-ouvert@lodz.pdi.netrych.gov>,
+	 <port-ouvert@pdi.net.pl>,
+	 <port-pro@o2.pl>,
+	 <port.elblag@poczta.fm>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Fri May 22 03:14:19 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M7JKz-0001cW-7L
+	for netbsd-port-alpha@m.gmane.org; Fri, 22 May 2009 03:14:17 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 7AEDD63B128; Fri, 22 May 2009 01:14:09 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from smtp21.orange.fr (unknown [80.12.242.48])
+	by mail.netbsd.org (Postfix) with ESMTP id AA85163B1BD
+	for <port-alpha@netbsd.org>; Fri, 22 May 2009 01:14:05 +0000 (UTC)
+Original-Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf2114.orange.fr (SMTP Server) with ESMTP id AB9E21C0009A;
+	Fri, 22 May 2009 03:14:04 +0200 (CEST)
+Original-Received: from isangar (LPuteaux-151-41-11-228.w217-128.abo.wanadoo.fr [217.128.26.228])
+	by mwinf2114.orange.fr (SMTP Server) with SMTP id 4B2081C0008F;
+	Fri, 22 May 2009 03:14:00 +0200 (CEST)
+X-ME-UUID: 20090522011401307.4B2081C0008F@mwinf2114.orange.fr
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 5.50.4522.1200
+X-MimeOLE: Produced By Microsoft MimeOLE V5.50.4522.1200
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+X-Spam-Report: 5.5 points;
+ *  1.5 SUSPICIOUS_RECIPS Similar addresses in recipient list
+ *  3.0 RAZOR2_CF_RANGE_51_100 BODY: Razor2 gives confidence level above 50%
+ *      [cf: 100]
+ *  1.0 RAZOR2_CHECK Listed in Razor2 (http://razor.sf.net/)
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4429 gmane.spam.detected:4386904
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4429>
+
+                              Serdecznie zapraszamy na
+               Miêdzynarodow±  Polsko - Ukraiñsk± konferencjê na temat 
+>                   "Polska - Ukraina: sami budujemy przysz³o¶æ"
+                           XXXIII Miêdzynarodowa  konferencja
+ 
+>                          INWESTYCYJNE INTERESY ZA GRANIC±:
+                                Twoja firma na Ukrainie
+
+                     20-21 czerwca 2009 r, Lwów, Hotel  "Sputnik"
+                (zakwaterowanie od 19 czerwca do 22 czerwca 2009 roku)
+
+Kryzys œwiatowy spowodowa³ spadek sprzeda¿y produkcji na ca³ym œwiecie.
+Jednak kryzys ten nie jest tak groŸny jak siê o nim mówi – poniewa¿ wêwnêtrzne kursy walut pozosta³y prawie bez zmian: 
+Polska z³otówka jak i ukraiñska hrywna maj± taki sam wskaŸnik jaki mia³y przed kryzysem:  2,15-2,20
+Ta sytuacja pozwala naszym przedsiêbiorstwom prowadziæ handel na tym samym poziomie cen, 
+niezale¿nie od zaistnienia kryzysu œwiatowego
+
+===============================================================================
+• Aktualne informacje. Informacje handlowo-gospodarcze.
+• Przepisy prawne, exportowo-importowe. 
+• W co warto inwestowaæ na Ukrainie? Jak nabyæ nieruchomo¶æ na firmê?
+• Rozwój inwestycji w Ukrainie- tera¿niejszo¶æ i perspektywy
+===============================================================================
+
+Program konferencji:         http://seminar.pl.ua
+Kwestionariusz zg³oszeniowy: http://seminar.pl.ua/kwestionariusz.doc
+
+Osoba odpowiedzialna: Wiktoria Swiêcicka - Dyrektor ds.  wspó³pracy z zagranic± 
+- znajomo¶æ jêzyka polskiego, rosyjskiego, ukraiñskiego. 
+{ Tel. OO 38 (O67) 5O6-OI-IO } E-mail:vika@mail.zp.ua
+
+vvy
+
+
+
+From he@NetBSD.org  Tue May 26 14:43:17 2009
+Path: news.gmane.org!not-for-mail
+From: Havard Eidnes <he@NetBSD.org>
+Newsgroups: gmane.os.netbsd.devel.pkgsrc.user,gmane.os.netbsd.ports.alpha
+Subject: Package binaries for NetBSD/alpha 4.0 / pkgsrc-2009Q1
+Date: Tue, 26 May 2009 14:43:17 +0200 (CEST)
+Lines: 25
+Approved: news@gmane.org
+Message-ID: <20090526.144317.189690483.he@uninett.no>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+X-Trace: ger.gmane.org 1243341820 7776 80.91.229.12 (26 May 2009 12:43:40 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Tue, 26 May 2009 12:43:40 +0000 (UTC)
+Cc: pkgsrc-users@NetBSD.org
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-pkgsrc-users-owner-gondpu-pkgsrc-users=m.gmane.org@NetBSD.org Tue May 26 14:43:33 2009
+Return-path: <bounces-pkgsrc-users-owner-gondpu-pkgsrc-users=m.gmane.org@NetBSD.org>
+Envelope-to: gondpu-pkgsrc-users@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M8w0C-0007Ma-BU
+	for gondpu-pkgsrc-users@m.gmane.org; Tue, 26 May 2009 14:43:32 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 3674563B1CB; Tue, 26 May 2009 12:43:23 +0000 (UTC)
+Delivered-To: pkgsrc-users@NetBSD.org
+Original-Received: from smistad.uninett.no (smistad.uninett.no [IPv6:2001:700:1:0:21e:4fff:feed:ced])
+	by mail.netbsd.org (Postfix) with ESMTP id CCB9763B117;
+	Tue, 26 May 2009 12:43:18 +0000 (UTC)
+Original-Received: from smistad.uninett.no (smistad.uninett.no [158.38.62.77])
+	by smistad.uninett.no (Postfix) with ESMTP id 60D3A3D082;
+	Tue, 26 May 2009 14:43:17 +0200 (CEST)
+X-Mailer: Mew version 5.2 on Emacs 22.3 / Mule 5.0 (SAKAKI)
+Original-Sender: pkgsrc-users-owner@NetBSD.org
+List-Id: pkgsrc-users
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.devel.pkgsrc.user:9938 gmane.os.netbsd.ports.alpha:4430
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4430>
+
+Hi,
+
+I've uploaded the results of a bulk rebuild for NetBSD/alpha
+4.0 to
+
+   ftp://ftp.NetBSD.org/pub/pkgsrc/packages/NetBSD/alpha/4.0_2009Q1/
+
+A total of 7.4GB of packages were uploaded for a total count of 7345
+packages.
+
+The source tree this was built from was updated 14 Apr 2009, and
+the packages were built on a system running 4.0.
+
+The binary packages for 4.0_2008Q3 have been deleted, since we
+only keep two branches per os/arch/os-version.
+
+I'll for now be updating this system along the 2009Q1 branch and
+upload the updated binaries when done.
+
+Regards,
+
+- H=E5vard
+
+
+
+
+From root@klik.hopto.org  Tue May 26 17:01:42 2009
+Path: news.gmane.org!not-for-mail
+From: "Program konferencji" <root@klik.hopto.org>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.spam.detected
+Subject: =DATA= Informacje handlowo-gospodarcze =
+Date: Tue, 26 May 2009 17:01:42 +0200
+Lines: 34
+Approved: news@gmane.org
+Message-ID: <002001c9de76$dac2cbad$951d1d3c@wohjr>
+Reply-To: "Program konferencji" <vika@mail.zp.ua>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-2";
+	reply-type=original
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1243350173 4305 80.91.229.12 (26 May 2009 15:02:53 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Tue, 26 May 2009 15:02:53 +0000 (UTC)
+To: <port-alpha@netbsd.org>,
+	 <port-ouvert@lodz.pdi.netrych.gov>,
+	 <port-ouvert@pdi.net.pl>,
+	 <port-pro@o2.pl>,
+	 <port.elblag@poczta.fm>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue May 26 17:02:46 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M8yAs-0001cX-Mx
+	for netbsd-port-alpha@m.gmane.org; Tue, 26 May 2009 17:02:43 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id C649163B121; Tue, 26 May 2009 15:02:10 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from smtp27.orange.fr (smtp27.orange.fr [80.12.242.96])
+	by mail.netbsd.org (Postfix) with ESMTP id 119A063B14E
+	for <port-alpha@netbsd.org>; Tue, 26 May 2009 15:01:58 +0000 (UTC)
+Original-Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf2722.orange.fr (SMTP Server) with ESMTP id 3E1C91C000A6;
+	Tue, 26 May 2009 17:01:52 +0200 (CEST)
+Original-Received: from srv-fcts (LPuteaux-151-42-32-215.w193-251.abo.wanadoo.fr [193.251.191.215])
+	by mwinf2722.orange.fr (SMTP Server) with SMTP id 552741C0005F;
+	Tue, 26 May 2009 17:01:51 +0200 (CEST)
+X-ME-UUID: 20090526150151348.552741C0005F@mwinf2722.orange.fr
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2900.2180
+X-MimeOLE: Produced By Microsoft MimeOLE V6.00.2900.2180
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+X-Spam-Report: 5.5 points;
+ *  1.5 SUSPICIOUS_RECIPS Similar addresses in recipient list
+ *  3.0 RAZOR2_CF_RANGE_51_100 BODY: Razor2 gives confidence level above 50%
+ *      [cf: 100]
+ *  1.0 RAZOR2_CHECK Listed in Razor2 (http://razor.sf.net/)
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4431 gmane.spam.detected:4390170
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4431>
+
+                              Serdecznie zapraszamy na
+               Miêdzynarodow±  Polsko - Ukraiñsk± konferencjê na temat 
+>                   "Polska - Ukraina: sami budujemy przysz³o¶æ"
+                           XXXIII Miêdzynarodowa  konferencja
+ 
+>                          INWESTYCYJNE INTERESY ZA GRANIC±:
+                                Twoja firma na Ukrainie
+
+                     20-21 czerwca 2009 r, Lwów, Hotel  "Sputnik"
+                (zakwaterowanie od 19 czerwca do 22 czerwca 2009 roku)
+
+Kryzys œwiatowy spowodowa³ spadek sprzeda¿y produkcji na ca³ym œwiecie.
+Jednak kryzys ten nie jest tak groŸny jak siê o nim mówi – poniewa¿ wêwnêtrzne kursy walut pozosta³y prawie bez zmian: 
+Polska z³otówka jak i ukraiñska hrywna maj± taki sam wskaŸnik jaki mia³y przed kryzysem:  2,15-2,20
+Ta sytuacja pozwala naszym przedsiêbiorstwom prowadziæ handel na tym samym poziomie cen, 
+niezale¿nie od zaistnienia kryzysu œwiatowego
+
+===============================================================================
+• Aktualne informacje. Informacje handlowo-gospodarcze.
+• Przepisy prawne, exportowo-importowe. 
+• W co warto inwestowaæ na Ukrainie? Jak nabyæ nieruchomo¶æ na firmê?
+• Rozwój inwestycji w Ukrainie- tera¿niejszo¶æ i perspektywy
+===============================================================================
+
+Program konferencji:         http://seminar.pl.ua
+Kwestionariusz zg³oszeniowy: http://seminar.pl.ua/kwestionariusz.doc
+
+Osoba odpowiedzialna: Wiktoria Swiêcicka - Dyrektor ds.  wspó³pracy z zagranic± 
+- znajomo¶æ jêzyka polskiego, rosyjskiego, ukraiñskiego. 
+{ Tel. OO 38 (O67) 5O6-OI-IO } E-mail:vika@mail.zp.ua
+
+pizxdhr
+
+
+
+From r.phillips@uq.edu.au  Thu May 28 12:33:27 2009
+Path: news.gmane.org!not-for-mail
+From: Ray Phillips <r.phillips@uq.edu.au>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: writing cdhdtape to CD
+Date: Thu, 28 May 2009 12:33:27 +1000
+Lines: 175
+Approved: news@gmane.org
+Message-ID: <p05200f85c6439fed89e9@[130.102.20.138]>
+References: <p05200f64c6366b64c483@130.102.20.138>
+ <Pine.OSF.4.64.0905181106200.53870@hogrelius.nu>
+ <2d81dc030905180515o6b926972l37cf63b0e49a79@mail.gmail.com>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii" ; format="flowed"
+X-Trace: ger.gmane.org 1243482412 18764 80.91.229.12 (28 May 2009 03:46:52 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Thu, 28 May 2009 03:46:52 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu May 28 05:46:50 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M9WZq-0003nl-O8
+	for netbsd-port-alpha@m.gmane.org; Thu, 28 May 2009 05:46:47 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 5809063B26F; Thu, 28 May 2009 03:46:34 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from egalite.jkmrc.uq.edu.au (egalite.jkmrc.uq.edu.au [130.102.20.1])
+	by mail.netbsd.org (Postfix) with ESMTP id EA4EE63B168
+	for <port-alpha@netbsd.org>; Thu, 28 May 2009 03:46:29 +0000 (UTC)
+Original-Received: from [130.102.20.138] (Ray-Mac.jkmrc.uq.edu.au [130.102.20.138])
+	by egalite.jkmrc.uq.edu.au (8.14.3/8.14.3) with ESMTP id n4S2XUKj014897
+	for <port-alpha@netbsd.org>; Thu, 28 May 2009 12:33:32 +1000 (EST)
+X-Sender: e5rphill@egalite.jkmrc.uq.edu.au
+In-Reply-To: <2d81dc030905180515o6b926972l37cf63b0e49a79@mail.gmail.com>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4432
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4432>
+
+Thanks for your replies Anders and Shawn.
+
+>I am pretty sure that you need a CD-rom that supports 512 byte 
+>blocksize for this to work in your alpha.
+
+OK, I'd noticed the line marked below and wondered if it was significant.
+
+     >>>b dkc400
+     (boot dkc400.4.0.11.0 -flags a)
+     block 0 of dkc400.4.0.11.0 is a valid boot block
+     reading 82 blocks from dkc400.4.0.11.0
+     bootstrap code read in
+     base = 1d8000, image_start = 0, image_bytes = a400
+     initializing HWRPB at 2000
+     initializing page table at 1ca000
+     initializing machine state
+     setting affinity to the primary CPU
+     jumping to bootstrap code
+
+     NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+     (builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+
+--> block size is not 512 bytes for dkc400.4.0.11.0
+     VMS PAL rev: 0x1000000010114
+     OSF PAL rev: 0x1000000020116
+     Switch to OSF PAL code succeeded.
+
+     Boot flags: a
+
+
+One of the jumper pairs on rear of the Plextor PX-W4012S is labelled 
+BLOCK.  The manual says:
+
+BLOCK: Block size.  You may need to change this setting if you are 
+working in a UNIX environment and want to boot from your PlexWriter.
+
+
+I put a jumper across those two pins and tried booting the PWS again:
+
+>>>*** keyboard not plugged in ...
+
+ff.fe.fd.fc.fb.fa.f9.f8.f7.f6.f5.CPU 0 speed is 2.00 ns (500MHz)
+
+Digital Personal WorkStation 500au5.e4.
+Console V7.2-1 Mar  6 2000 14:47:02
+>>>
+>>>sh dev
+dkb0.0.1.4.0               DKB0            SONY CD-RW  CRX230E  QYS1
+dkc400.4.0.11.0            DKC400     PLEXTOR CD-R   PX-W4012S  1.05
+dva0.0.0.0.1               DVA0
+ewa0.0.0.3.0               EWA0              00-00-F8-75-5E-6F
+fwa0.0.0.12.0              FWA0              00-00-F8-63-18-65
+pkc0.7.0.11.0              PKC0                  SCSI Bus ID 7  5.57
+pkd0.7.0.1008.0            PKD0                  SCSI Bus ID 7
+pqa0.0.0.4.0               PQA0                       PCI EIDE
+pqb0.0.1.4.0               PQB0                       PCI EIDE
+>>>
+>>>b dkc400
+(boot dkc400.4.0.11.0 -flags a)
+block 0 of dkc400.4.0.11.0 is a valid boot block
+reading 82 blocks from dkc400.4.0.11.0
+bootstrap code read in
+base = 1d8000, image_start = 0, image_bytes = a400
+initializing HWRPB at 2000
+initializing page table at 1ca000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+(builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+
+VMS PAL rev: 0x1000000010114
+OSF PAL rev: 0x1000000020116
+Switch to OSF PAL code succeeded.
+
+Boot flags: a
+9784992@@@@@@@@@read text: Input/output error
+@@@@@@@@@open netbsd.gz: Input/output error
+@@@@@@@@@open netbsd.bak: Input/output error
+@@@@@@@@@open netbsd.bak.gz: Input/output error
+@@@@@@@@@open netbsd.old: Input/output error
+@@@@@@@@@open netbsd.old.gz: Input/output error
+@@@@@@@@@open onetbsd: Input/output error
+@@@@@@@@@open onetbsd.gz: Input/output error
+@@@@@@@@@open netbsd.alpha: Input/output error
+@@@@@@@@@open netbsd.alpha.gz: Input/output error
+
+Boot failed!  Halting...
+
+halted CPU 0
+
+halt code = 5
+HALT instruction executed
+PC = 2000003c
+>>>
+
+So, the "block size is not 512 bytes" warning went away but it still 
+didn't work.  :(
+
+I also tried booting an XP1000 from this CD using the CD drive which 
+came with the machine, a Compaq CRD-8322B.  That's an IDE drive and 
+doesn't have a jumper pair labelled BLOCK, but presumably it's 
+configured to be able to boot from a 512-byte-block CD like this, but 
+it didn't work either:
+
+
+OpenVMS PALcode V1.88-27, Digital UNIX PALcode V1.83-22
+
+FF.FE.FD.FC.FB.FA.F9.F8.F7.F6.F5.F3.F2.F1.F0.
+EF.EE.EC.EB.EA.E9.F4.
+** mouse error **
+ED.E8.E7.E6.E5.E4.
+
+COMPAQ Professional Workstation XP1000
+Console V5.9-1 Dec 14 2000 16:19:05
+
+CPU 0 booting
+
+(boot dka0.0.0.6.1 -file vmunix -flags A)
+failed to open dka0.0.0.6.1
+
+Retrying, type ^C to abort...
+
+(boot dka0.0.0.6.1 -file vmunix -flags A)
+failed to open dka0.0.0.6.1
+>>>^C
+>>>
+>>>sh dev
+dka200.2.0.6.1             DKA200                     RZ2CD-KS  0306
+dqa0.0.0.107.0             DQA0             Compaq   CRD-8322B  1.07
+dva0.0.0.0.0               DVA0
+ewa0.0.0.3.1               EWA0              08-00-2B-86-61-D8
+pka0.7.0.6.1               PKA0                  SCSI Bus ID 7  5.57
+>>>
+>>>b -file netbsd -flags a dqa0
+(boot dqa0.0.0.107.0 -file netbsd -flags a)
+block 0 of dqa0.0.0.107.0 is a valid boot block
+reading 82 blocks from dqa0.0.0.107.0
+bootstrap code read in
+base = 200000, image_start = 0, image_bytes = a400
+initializing HWRPB at 2000
+initializing page table at 27fee000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+(builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+
+VMS PAL rev: 0x1001b00010158
+OSF PAL rev: 0x1001600020153
+Switch to OSF PAL code succeeded.
+
+Boot file: netbsd
+Boot flags: a
+9784992@@@@@@@@@read text: Input/output error
+
+Boot failed!  Halting...
+
+halted CPU 0
+
+halt code = 5
+HALT instruction executed
+PC = 2000003c
+boot failure
+>>>
+
+
+I wonder if there's something wrong with the way I'm burning the 
+cdhdtape file to the CD?
+
+
+Ray
+
+
+From ahs@hogrelius.nu  Thu May 28 09:55:23 2009
+Path: news.gmane.org!not-for-mail
+From: Anders Hogrelius <ahs@hogrelius.nu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: writing cdhdtape to CD
+Date: Thu, 28 May 2009 09:55:23 +0200 (CEST)
+Lines: 208
+Approved: news@gmane.org
+Message-ID: <Pine.OSF.4.64.0905280942550.10590@hogrelius.nu>
+References: <p05200f64c6366b64c483@130.102.20.138> <Pine.OSF.4.64.0905181106200.53870@hogrelius.nu>
+ <2d81dc030905180515o6b926972l37cf63b0e49a79@mail.gmail.com>
+ <p05200f85c6439fed89e9@[130.102.20.138]>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: ger.gmane.org 1243502402 1675 80.91.229.12 (28 May 2009 09:20:02 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Thu, 28 May 2009 09:20:02 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Ray Phillips <r.phillips@uq.edu.au>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu May 28 11:19:57 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M9bm9-0003XK-UA
+	for netbsd-port-alpha@m.gmane.org; Thu, 28 May 2009 11:19:50 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 3837963B26F; Thu, 28 May 2009 09:19:36 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from hogrelius.nu (unknown [193.11.112.144])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client CN "hogrelius.nu", Issuer "CA Cert Signing Authority" (not verified))
+	by mail.netbsd.org (Postfix) with ESMTPS id 7F1F763B286
+	for <port-alpha@netbsd.org>; Thu, 28 May 2009 09:19:30 +0000 (UTC)
+Original-Received: from ahs (helo=localhost)
+	by hogrelius.nu with local-esmtp  (Exim 4.69 #1)
+	id 1M9aSR-0002lB-DE; Thu, 28 May 2009 09:55:27 +0200
+In-Reply-To: <p05200f85c6439fed89e9@[130.102.20.138]>
+X-Spam_score: -2.6
+X-Spam_score_int: -25
+X-Spam_bar: --
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4433
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4433>
+
+
+Yes, the line that begins with "block size" is indeed significant, when 
+you changed the jumper in the back of the drive you managed to set it in 
+the correct mode. I think the problem might be either how the image was 
+burned to the CD or with the image itself. The first thing to check is 
+to see what happens when you try to mount the CD that doesn't boot on a 
+live system? It doesn't have to be an alpha system, any system capable of 
+mounting NetBSD UFS disks should do. Since the cdhdtape image is a UFS 
+disk image you should be able to mount the cdrom and read the contents. 
+If that doesn't work, booting the disk won't work either. Step two would 
+be to check the cdhdtape image itself by mounting it. vnconfig will allow 
+you to do that. You should be able to mount the image and access the files 
+just like on the CD.
+
+Cheers,
+Anders
+
+-
+                   \\|%|//
+                   | ~ ~ |
+                  ^( @ @ )^
+--------------o000o-\_/-o000o-----------------------
+
+Anders Hogrelius
+Tessingatan 12
+SE72216 Vasteras
+SWEDEN
+
+Phone: +46 70 677-0210
+Skype-In No: +1 714 408-7868
+
+On Thu, 28 May 2009, Ray Phillips wrote:
+
+> Thanks for your replies Anders and Shawn.
+>
+>> I am pretty sure that you need a CD-rom that supports 512 byte blocksize 
+>> for this to work in your alpha.
+>
+> OK, I'd noticed the line marked below and wondered if it was significant.
+>
+>    >>>b dkc400
+>    (boot dkc400.4.0.11.0 -flags a)
+>    block 0 of dkc400.4.0.11.0 is a valid boot block
+>    reading 82 blocks from dkc400.4.0.11.0
+>    bootstrap code read in
+>    base = 1d8000, image_start = 0, image_bytes = a400
+>    initializing HWRPB at 2000
+>    initializing page table at 1ca000
+>    initializing machine state
+>    setting affinity to the primary CPU
+>    jumping to bootstrap code
+>
+>    NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+>    (builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+>
+> --> block size is not 512 bytes for dkc400.4.0.11.0
+>    VMS PAL rev: 0x1000000010114
+>    OSF PAL rev: 0x1000000020116
+>    Switch to OSF PAL code succeeded.
+>
+>    Boot flags: a
+>
+>
+> One of the jumper pairs on rear of the Plextor PX-W4012S is labelled BLOCK. 
+> The manual says:
+>
+> BLOCK: Block size.  You may need to change this setting if you are working in 
+> a UNIX environment and want to boot from your PlexWriter.
+>
+>
+> I put a jumper across those two pins and tried booting the PWS again:
+>
+>>>> *** keyboard not plugged in ...
+>
+> ff.fe.fd.fc.fb.fa.f9.f8.f7.f6.f5.CPU 0 speed is 2.00 ns (500MHz)
+>
+> Digital Personal WorkStation 500au5.e4.
+> Console V7.2-1 Mar  6 2000 14:47:02
+>>>> 
+>>>> sh dev
+> dkb0.0.1.4.0               DKB0            SONY CD-RW  CRX230E  QYS1
+> dkc400.4.0.11.0            DKC400     PLEXTOR CD-R   PX-W4012S  1.05
+> dva0.0.0.0.1               DVA0
+> ewa0.0.0.3.0               EWA0              00-00-F8-75-5E-6F
+> fwa0.0.0.12.0              FWA0              00-00-F8-63-18-65
+> pkc0.7.0.11.0              PKC0                  SCSI Bus ID 7  5.57
+> pkd0.7.0.1008.0            PKD0                  SCSI Bus ID 7
+> pqa0.0.0.4.0               PQA0                       PCI EIDE
+> pqb0.0.1.4.0               PQB0                       PCI EIDE
+>>>> 
+>>>> b dkc400
+> (boot dkc400.4.0.11.0 -flags a)
+> block 0 of dkc400.4.0.11.0 is a valid boot block
+> reading 82 blocks from dkc400.4.0.11.0
+> bootstrap code read in
+> base = 1d8000, image_start = 0, image_bytes = a400
+> initializing HWRPB at 2000
+> initializing page table at 1ca000
+> initializing machine state
+> setting affinity to the primary CPU
+> jumping to bootstrap code
+>
+> NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+> (builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+>
+> VMS PAL rev: 0x1000000010114
+> OSF PAL rev: 0x1000000020116
+> Switch to OSF PAL code succeeded.
+>
+> Boot flags: a
+> 9784992@@@@@@@@@read text: Input/output error
+> @@@@@@@@@open netbsd.gz: Input/output error
+> @@@@@@@@@open netbsd.bak: Input/output error
+> @@@@@@@@@open netbsd.bak.gz: Input/output error
+> @@@@@@@@@open netbsd.old: Input/output error
+> @@@@@@@@@open netbsd.old.gz: Input/output error
+> @@@@@@@@@open onetbsd: Input/output error
+> @@@@@@@@@open onetbsd.gz: Input/output error
+> @@@@@@@@@open netbsd.alpha: Input/output error
+> @@@@@@@@@open netbsd.alpha.gz: Input/output error
+>
+> Boot failed!  Halting...
+>
+> halted CPU 0
+>
+> halt code = 5
+> HALT instruction executed
+> PC = 2000003c
+>>>> 
+>
+> So, the "block size is not 512 bytes" warning went away but it still didn't 
+> work.  :(
+>
+> I also tried booting an XP1000 from this CD using the CD drive which came 
+> with the machine, a Compaq CRD-8322B.  That's an IDE drive and doesn't have a 
+> jumper pair labelled BLOCK, but presumably it's configured to be able to boot 
+> from a 512-byte-block CD like this, but it didn't work either:
+>
+>
+> OpenVMS PALcode V1.88-27, Digital UNIX PALcode V1.83-22
+>
+> FF.FE.FD.FC.FB.FA.F9.F8.F7.F6.F5.F3.F2.F1.F0.
+> EF.EE.EC.EB.EA.E9.F4.
+> ** mouse error **
+> ED.E8.E7.E6.E5.E4.
+>
+> COMPAQ Professional Workstation XP1000
+> Console V5.9-1 Dec 14 2000 16:19:05
+>
+> CPU 0 booting
+>
+> (boot dka0.0.0.6.1 -file vmunix -flags A)
+> failed to open dka0.0.0.6.1
+>
+> Retrying, type ^C to abort...
+>
+> (boot dka0.0.0.6.1 -file vmunix -flags A)
+> failed to open dka0.0.0.6.1
+>>>> ^C
+>>>> 
+>>>> sh dev
+> dka200.2.0.6.1             DKA200                     RZ2CD-KS  0306
+> dqa0.0.0.107.0             DQA0             Compaq   CRD-8322B  1.07
+> dva0.0.0.0.0               DVA0
+> ewa0.0.0.3.1               EWA0              08-00-2B-86-61-D8
+> pka0.7.0.6.1               PKA0                  SCSI Bus ID 7  5.57
+>>>> 
+>>>> b -file netbsd -flags a dqa0
+> (boot dqa0.0.0.107.0 -file netbsd -flags a)
+> block 0 of dqa0.0.0.107.0 is a valid boot block
+> reading 82 blocks from dqa0.0.0.107.0
+> bootstrap code read in
+> base = 200000, image_start = 0, image_bytes = a400
+> initializing HWRPB at 2000
+> initializing page table at 27fee000
+> initializing machine state
+> setting affinity to the primary CPU
+> jumping to bootstrap code
+>
+> NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+> (builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+>
+> VMS PAL rev: 0x1001b00010158
+> OSF PAL rev: 0x1001600020153
+> Switch to OSF PAL code succeeded.
+>
+> Boot file: netbsd
+> Boot flags: a
+> 9784992@@@@@@@@@read text: Input/output error
+>
+> Boot failed!  Halting...
+>
+> halted CPU 0
+>
+> halt code = 5
+> HALT instruction executed
+> PC = 2000003c
+> boot failure
+>>>> 
+>
+>
+> I wonder if there's something wrong with the way I'm burning the cdhdtape 
+> file to the CD?
+>
+>
+> Ray
+>
+
+
+From r.phillips@uq.edu.au  Thu May 28 19:48:59 2009
+Path: news.gmane.org!not-for-mail
+From: Ray Phillips <r.phillips@uq.edu.au>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: writing cdhdtape to CD
+Date: Thu, 28 May 2009 19:48:59 +1000
+Lines: 55
+Approved: news@gmane.org
+Message-ID: <p05200f8cc643fb58080e@[130.102.20.138]>
+References: <p05200f64c6366b64c483@130.102.20.138>
+ <Pine.OSF.4.64.0905181106200.53870@hogrelius.nu>
+ <2d81dc030905180515o6b926972l37cf63b0e49a79@mail.gmail.com>
+ <p05200f85c6439fed89e9@[130.102.20.138]>
+ <Pine.OSF.4.64.0905280942550.10590@hogrelius.nu>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii" ; format="flowed"
+X-Trace: ger.gmane.org 1243504160 7007 80.91.229.12 (28 May 2009 09:49:20 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Thu, 28 May 2009 09:49:20 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu May 28 11:49:18 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M9cEf-0006KF-Om
+	for netbsd-port-alpha@m.gmane.org; Thu, 28 May 2009 11:49:18 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id CCBE863B29E; Thu, 28 May 2009 09:49:09 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from egalite.jkmrc.uq.edu.au (egalite.jkmrc.uq.edu.au [130.102.20.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 95B6E63B2A9
+	for <port-alpha@netbsd.org>; Thu, 28 May 2009 09:49:06 +0000 (UTC)
+Original-Received: from [130.102.20.138] (Ray-Mac.jkmrc.uq.edu.au [130.102.20.138])
+	by egalite.jkmrc.uq.edu.au (8.14.3/8.14.3) with ESMTP id n4S9n3Kn020295
+	for <port-alpha@netbsd.org>; Thu, 28 May 2009 19:49:04 +1000 (EST)
+X-Sender: e5rphill@egalite.jkmrc.uq.edu.au
+In-Reply-To: <Pine.OSF.4.64.0905280942550.10590@hogrelius.nu>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4434
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4434>
+
+Anders:
+
+I can't check the CD at the moment, but the cdhdtape file should be a 
+good place to start...
+
+I think the cdhdtape image file I have is OK, based on the facts that 
+it's the same size as this one:
+
+ftp://ftp.netbsd.org/pub/NetBSD/NetBSD-5.0/alpha/installation/diskimage/cdhdtape
+
+(there's not an md5 value for it on ftp.netbsd.org that I can check 
+against) and I can dd it to a hard disk and boot the PWS from that 
+disk successfully.
+
+I've totally failed to mount cdhdtape though.  I guess I'm doing 
+something wrong:
+
+# uname -mrs
+NetBSD 5.0 i386
+#
+# ls -li
+total 3714
+4659209 -rw-------  1 ray  wheel     1984 Apr 26 16:54 README.files
+4659210 -rw-------  1 ray  wheel  3776512 Apr 26 16:54 cdhdtape
+#
+# md5 cdhdtape
+MD5 (cdhdtape) = 2165582d6591ca74a9a483c3522e52a8
+#
+# vnconfig -l
+vnd0: not in use
+vnd1: not in use
+vnd2: not in use
+vnd3: not in use
+# vnconfig -v -c vnd0 cdhdtape
+/dev/rvnd0d: 3776512 bytes on cdhdtape
+# vnconfig -l
+vnd0: / (/dev/wd0a) inode 4659210
+vnd1: not in use
+vnd2: not in use
+vnd3: not in use
+# mount /dev/vnd0d /mnt
+mount_ffs: /dev/vnd0d on /mnt: incorrect super block
+# mount_ufs /dev/vnd0d /mnt
+mount_ufs: /dev/vnd0d on /mnt: incorrect super block
+# mount_ffs /dev/vnd0d /mnt
+mount_ffs: /dev/vnd0d on /mnt: incorrect super block
+#
+
+I tried mounting NetBSD-5.0/i386's boot-big.fs file using this 
+approach too as a test, but kept getting this 'incorrect super block' 
+error.  I'll be happy if you can point out my mistake.
+
+
+Ray
+
+
+From ahs@hogrelius.nu  Thu May 28 15:18:10 2009
+Path: news.gmane.org!not-for-mail
+From: Anders Hogrelius <ahs@hogrelius.nu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: writing cdhdtape to CD
+Date: Thu, 28 May 2009 15:18:10 +0200 (CEST)
+Lines: 81
+Approved: news@gmane.org
+Message-ID: <Pine.OSF.4.64.0905281516480.11179@hogrelius.nu>
+References: <p05200f64c6366b64c483@130.102.20.138> <Pine.OSF.4.64.0905181106200.53870@hogrelius.nu>
+ <2d81dc030905180515o6b926972l37cf63b0e49a79@mail.gmail.com>
+ <p05200f85c6439fed89e9@[130.102.20.138]> <Pine.OSF.4.64.0905280942550.10590@hogrelius.nu>
+ <p05200f8cc643fb58080e@[130.102.20.138]>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: ger.gmane.org 1243516723 13632 80.91.229.12 (28 May 2009 13:18:43 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Thu, 28 May 2009 13:18:43 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Ray Phillips <r.phillips@uq.edu.au>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu May 28 15:18:36 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M9fVC-0006FK-E8
+	for netbsd-port-alpha@m.gmane.org; Thu, 28 May 2009 15:18:34 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 61C3D63B10C; Thu, 28 May 2009 13:18:25 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from hogrelius.nu (unknown [193.11.112.144])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client CN "hogrelius.nu", Issuer "CA Cert Signing Authority" (not verified))
+	by mail.netbsd.org (Postfix) with ESMTPS id ACA6763B2B2
+	for <port-alpha@netbsd.org>; Thu, 28 May 2009 13:18:20 +0000 (UTC)
+Original-Received: from ahs (helo=localhost)
+	by hogrelius.nu with local-esmtp  (Exim 4.69 #1)
+	id 1M9fUo-0002uT-Hc; Thu, 28 May 2009 15:18:11 +0200
+In-Reply-To: <p05200f8cc643fb58080e@[130.102.20.138]>
+X-Spam_score: -2.6
+X-Spam_score_int: -25
+X-Spam_bar: --
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4435
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4435>
+
+
+Have you tried to mount the first slice in the image? Something like
+  mount /dev/vnd0a /mnt
+
+You should be able to check what slices  are in the image with disklabel 
+too.
+
+Cheers,
+Anders
+
+-
+                   \\|%|//
+                   | ~ ~ |
+                  ^( @ @ )^
+--------------o000o-\_/-o000o-----------------------
+
+Anders Hogrelius
+Tessingatan 12
+SE72216 Vasteras
+SWEDEN
+
+Phone: +46 70 677-0210
+Skype-In No: +1 714 408-7868
+
+On Thu, 28 May 2009, Ray Phillips wrote:
+
+> Anders:
+>
+> I can't check the CD at the moment, but the cdhdtape file should be a good 
+> place to start...
+>
+> I think the cdhdtape image file I have is OK, based on the facts that it's 
+> the same size as this one:
+>
+> ftp://ftp.netbsd.org/pub/NetBSD/NetBSD-5.0/alpha/installation/diskimage/cdhdtape
+>
+> (there's not an md5 value for it on ftp.netbsd.org that I can check against) 
+> and I can dd it to a hard disk and boot the PWS from that disk successfully.
+>
+> I've totally failed to mount cdhdtape though.  I guess I'm doing something 
+> wrong:
+>
+> # uname -mrs
+> NetBSD 5.0 i386
+> #
+> # ls -li
+> total 3714
+> 4659209 -rw-------  1 ray  wheel     1984 Apr 26 16:54 README.files
+> 4659210 -rw-------  1 ray  wheel  3776512 Apr 26 16:54 cdhdtape
+> #
+> # md5 cdhdtape
+> MD5 (cdhdtape) = 2165582d6591ca74a9a483c3522e52a8
+> #
+> # vnconfig -l
+> vnd0: not in use
+> vnd1: not in use
+> vnd2: not in use
+> vnd3: not in use
+> # vnconfig -v -c vnd0 cdhdtape
+> /dev/rvnd0d: 3776512 bytes on cdhdtape
+> # vnconfig -l
+> vnd0: / (/dev/wd0a) inode 4659210
+> vnd1: not in use
+> vnd2: not in use
+> vnd3: not in use
+> # mount /dev/vnd0d /mnt
+> mount_ffs: /dev/vnd0d on /mnt: incorrect super block
+> # mount_ufs /dev/vnd0d /mnt
+> mount_ufs: /dev/vnd0d on /mnt: incorrect super block
+> # mount_ffs /dev/vnd0d /mnt
+> mount_ffs: /dev/vnd0d on /mnt: incorrect super block
+> #
+>
+> I tried mounting NetBSD-5.0/i386's boot-big.fs file using this approach too 
+> as a test, but kept getting this 'incorrect super block' error.  I'll be 
+> happy if you can point out my mistake.
+>
+>
+> Ray
+>
+
+
+From rhialto@falu.nl  Thu May 28 17:48:09 2009
+Path: news.gmane.org!not-for-mail
+From: Rhialto <rhialto@falu.nl>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: writing cdhdtape to CD
+Date: Thu, 28 May 2009 17:48:09 +0200
+Lines: 18
+Approved: news@gmane.org
+Message-ID: <20090528154809.GE5445@falu.nl>
+References: <p05200f64c6366b64c483@130.102.20.138> <Pine.OSF.4.64.0905181106200.53870@hogrelius.nu> <2d81dc030905180515o6b926972l37cf63b0e49a79@mail.gmail.com> <p05200f85c6439fed89e9@[130.102.20.138]> <Pine.OSF.4.64.0905280942550.10590@hogrelius.nu>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1243525720 12945 80.91.229.12 (28 May 2009 15:48:40 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Thu, 28 May 2009 15:48:40 +0000 (UTC)
+Cc: Ray Phillips <r.phillips@uq.edu.au>, port-alpha@NetBSD.org
+To: Anders Hogrelius <ahs@hogrelius.nu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu May 28 17:48:37 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M9hqO-0002gJ-G8
+	for netbsd-port-alpha@m.gmane.org; Thu, 28 May 2009 17:48:36 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 1FBA063B2C6; Thu, 28 May 2009 15:48:27 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from smtp.falu.nl (tunnel453.ipv6.xs4all.nl [IPv6:2001:888:10:1c5::2])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client CN "azenomei.knuffel.net", Issuer "azenomei.knuffel.net" (not verified))
+	by mail.netbsd.org (Postfix) with ESMTPS id 04A9263B2D7
+	for <port-alpha@NetBSD.org>; Thu, 28 May 2009 15:48:19 +0000 (UTC)
+Original-Received: from radl.falu.nl (IDENT:3689-ident-is-a-completely-pointless-protocol-that-offers-no-security-or-traceability-at-all-so-tak@localhost [127.0.0.1])
+	by smtp.falu.nl (8.14.3/8.14.3) with ESMTP id n4SFmBAa015310;
+	Thu, 28 May 2009 17:48:11 +0200 (CEST)
+Original-Received: (from rhialto@localhost)
+	by radl.falu.nl (8.14.3/8.13.1/Submit) id n4SFm940027940;
+	Thu, 28 May 2009 17:48:09 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <Pine.OSF.4.64.0905280942550.10590@hogrelius.nu>
+User-Agent: Mutt/1.5.18 (2008-05-17)
+X-Greylist: Sender is SPF-compliant, not delayed by milter-greylist-4.0.1 (smtp.falu.nl [127.0.0.1]); Thu, 28 May 2009 17:48:11 +0200 (CEST)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4436
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4436>
+
+On Thu 28 May 2009 at 09:55:23 +0200, Anders Hogrelius wrote:
+> Since the cdhdtape image is a UFS  
+> disk image you should be able to mount the cdrom and read the contents.  
+
+Isn't it an USTAR volume, i.e. more or less a tar file?
+
+/NetBSD-5.0/alpha/installation/diskimage$ tar tvf cdhdtape 
+tar: Cannot identify format. Searching...
+-r--r--r--  1 611      125        41640 Apr 26 08:54 boot
+-rw-r--r--  1 611      125            0 Apr 26 08:54 USTAR.volsize.23420
+-rw-r--r--  1 611      125      3723267 Apr 26 08:54 netbsd
+tar: ustar vol 1, 3 files, 3776512 bytes read, 0 bytes written in 1 secs (3776512 bytes/sec)
+
+-Olaf.
+-- 
+___ Olaf 'Rhialto' Seibert    -- You author it, and I'll reader it.
+\X/ rhialto/at/xs4all.nl      -- Cetero censeo "authored" delendum esse.
+
+
+From ahs@hogrelius.nu  Thu May 28 23:57:10 2009
+Path: news.gmane.org!not-for-mail
+From: Anders Hogrelius <ahs@hogrelius.nu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: writing cdhdtape to CD
+Date: Thu, 28 May 2009 23:57:10 +0200 (CEST)
+Lines: 58
+Approved: news@gmane.org
+Message-ID: <Pine.OSF.4.64.0905282344480.12056@hogrelius.nu>
+References: <p05200f64c6366b64c483@130.102.20.138> <Pine.OSF.4.64.0905181106200.53870@hogrelius.nu>
+ <2d81dc030905180515o6b926972l37cf63b0e49a79@mail.gmail.com>
+ <p05200f85c6439fed89e9@[130.102.20.138]> <Pine.OSF.4.64.0905280942550.10590@hogrelius.nu>
+ <20090528154809.GE5445@falu.nl>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: ger.gmane.org 1243547869 21658 80.91.229.12 (28 May 2009 21:57:49 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Thu, 28 May 2009 21:57:49 +0000 (UTC)
+Cc: Ray Phillips <r.phillips@uq.edu.au>, port-alpha@NetBSD.org
+To: Rhialto <rhialto@falu.nl>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu May 28 23:57:46 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M9nbd-0007nG-Nv
+	for netbsd-port-alpha@m.gmane.org; Thu, 28 May 2009 23:57:46 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id E2A8E63B30B; Thu, 28 May 2009 21:57:24 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from hogrelius.nu (unknown [193.11.112.144])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client CN "hogrelius.nu", Issuer "CA Cert Signing Authority" (not verified))
+	by mail.netbsd.org (Postfix) with ESMTPS id CDCCF63B312
+	for <port-alpha@NetBSD.org>; Thu, 28 May 2009 21:57:17 +0000 (UTC)
+Original-Received: from ahs (helo=localhost)
+	by hogrelius.nu with local-esmtp  (Exim 4.69 #1)
+	id 1M9nb4-00038b-41; Thu, 28 May 2009 23:57:10 +0200
+In-Reply-To: <20090528154809.GE5445@falu.nl>
+X-Spam_score: -2.6
+X-Spam_score_int: -25
+X-Spam_bar: --
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4437
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4437>
+
+
+Has anyone even tested the cdhdtape recently? Considering the error 
+message Ray is getting boot can't find the kernel. Is the standard boot 
+even supposed to be able to locate the kernel if it is in a USTAR archive?
+
+Since we are dealing with what seems to be the same boot as on a hd I just 
+assumed that the cdhdtape image was a regular UFS file system image. 
+Perhaps someone can create such an image with the same files that are 
+included in the cdhdtape image and test it.
+
+On Tru64 the stand alone system restore tapes and cd's contains USTAR 
+archives just like the cdhdtape image but the Tru64 bootloader does know 
+how to handle USTAR archives to allow loading of the kernel. I'm not sure 
+that's the case with the file Ray has tried to use.
+
+I can't test this for the moment since my box no longer is running NetBSD. 
+I gave that up due to too many bugs that made NetBSD unstable on CS20 
+systems when running multiprocessor kernels...
+
+
+Cheers,
+Anders
+
+-
+                   \\|%|//
+                   | ~ ~ |
+                  ^( @ @ )^
+--------------o000o-\_/-o000o-----------------------
+
+Anders Hogrelius
+Tessingatan 12
+SE72216 Vasteras
+SWEDEN
+
+Phone: +46 70 677-0210
+Skype-In No: +1 714 408-7868
+
+On Thu, 28 May 2009, Rhialto wrote:
+
+> On Thu 28 May 2009 at 09:55:23 +0200, Anders Hogrelius wrote:
+>> Since the cdhdtape image is a UFS
+>> disk image you should be able to mount the cdrom and read the contents.
+>
+> Isn't it an USTAR volume, i.e. more or less a tar file?
+>
+> /NetBSD-5.0/alpha/installation/diskimage$ tar tvf cdhdtape
+> tar: Cannot identify format. Searching...
+> -r--r--r--  1 611      125        41640 Apr 26 08:54 boot
+> -rw-r--r--  1 611      125            0 Apr 26 08:54 USTAR.volsize.23420
+> -rw-r--r--  1 611      125      3723267 Apr 26 08:54 netbsd
+> tar: ustar vol 1, 3 files, 3776512 bytes read, 0 bytes written in 1 secs (3776512 bytes/sec)
+>
+> -Olaf.
+> -- 
+> ___ Olaf 'Rhialto' Seibert    -- You author it, and I'll reader it.
+> \X/ rhialto/at/xs4all.nl      -- Cetero censeo "authored" delendum esse.
+>
+
+
+From r.phillips@uq.edu.au  Fri May 29 11:01:30 2009
+Path: news.gmane.org!not-for-mail
+From: Ray Phillips <r.phillips@uq.edu.au>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: writing cdhdtape to CD
+Date: Fri, 29 May 2009 11:01:30 +1000
+Lines: 74
+Approved: news@gmane.org
+Message-ID: <p05200f8dc644e0e8ffdc@[130.102.20.138]>
+References: <p05200f64c6366b64c483@130.102.20.138>
+ <Pine.OSF.4.64.0905181106200.53870@hogrelius.nu>
+ <2d81dc030905180515o6b926972l37cf63b0e49a79@mail.gmail.com>
+ <p05200f85c6439fed89e9@[130.102.20.138]>
+ <Pine.OSF.4.64.0905280942550.10590@hogrelius.nu>
+ <20090528154809.GE5445@falu.nl>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii" ; format="flowed"
+X-Trace: ger.gmane.org 1243558922 13534 80.91.229.12 (29 May 2009 01:02:02 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Fri, 29 May 2009 01:02:02 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Fri May 29 03:01:59 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1M9qTp-000840-Al
+	for netbsd-port-alpha@m.gmane.org; Fri, 29 May 2009 03:01:53 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id D5E5463B326; Fri, 29 May 2009 01:01:40 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from egalite.jkmrc.uq.edu.au (egalite.jkmrc.uq.edu.au [130.102.20.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 61D4863B302
+	for <port-alpha@netbsd.org>; Fri, 29 May 2009 01:01:37 +0000 (UTC)
+Original-Received: from [130.102.20.138] (Ray-Mac.jkmrc.uq.edu.au [130.102.20.138])
+	by egalite.jkmrc.uq.edu.au (8.14.3/8.14.3) with ESMTP id n4T11ZCQ022288
+	for <port-alpha@netbsd.org>; Fri, 29 May 2009 11:01:35 +1000 (EST)
+X-Sender: e5rphill@egalite.jkmrc.uq.edu.au
+In-Reply-To: <20090528154809.GE5445@falu.nl>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4438
+
+Thanks Olaf and Anders.
+
+
+I came across this messsage from Luke:
+
+   http://mail-index.netbsd.org/netbsd-help/2004/01/03/0000.html
+
+in which he answers a question about mounting NetBSD/i386's 
+boot-big.fs file.  He wrote:
+
+--------------------------------------------------------------------------------
+It's not an FFS image, it's a bootable file system image, comprising of:
+	* 8KB of boot blocks (ustarfs)
+	* ustarfs (tar file) containing
+		boot
+		USTAR.volsize.NNNN	(metadata for boot to use)
+		netbsd			(gzipped kernel)
+The netbsd kernel contains an embedded file system which is mounted as `/'.
+
+To extract the kernel, you need to:
+     *	Extract the tarfile that's 8KB into boot-big.fs
+		dd if=boot-big.fs of=boot-big.tar bs=8k skip=1
+	Multi-volume images need a bit more work.
+	See src/distrib/common/buildfloppies.sh for more info.
+
+     *	Extract the kernel from the tarfile
+		pax -r -f boot-big.tar netbsd
+		mv netbsd netbsd.gz
+		gunzip netbsd.gz
+
+To extract the file system you'd need to use
+	mdsetimage -x netbsd image.ffs
+unfortunately that requires "netbsd" to be unstripped, which it is not :(
+--------------------------------------------------------------------------------
+
+cdhdtape appears to be the same type of file:
+
+% ls -l
+total 7428
+-rw-------  1 ray  wheel     1984 Apr 26 16:54 README.files
+-rw-------  1 ray  wheel  3776512 Apr 26 16:54 cdhdtape
+% mkdir 0
+% cd 0
+% dd if=../cdhdtape of=cdhdtape.tar bs=8k skip=1
+460+0 records in
+460+0 records out
+3768320 bytes transferred in 0.221 secs (17051221 bytes/sec)
+% ls -l
+total 7392
+-rw-r--r--  1 ray  wheel  3768320 May 29 01:28 cdhdtape.tar
+% file *
+cdhdtape.tar: POSIX tar archive
+% tar tf *
+boot
+USTAR.volsize.23420
+netbsd
+% mkdir 0
+% cd 0
+% tar xf ../*r
+% ls -l
+total 7412
+-rw-r--r--  1 ray  wheel        0 Apr 26 16:54 USTAR.volsize.23420
+-r--r--r--  1 ray  wheel    41640 Apr 26 16:54 boot
+-rw-r--r--  1 ray  wheel  3723267 Apr 26 16:54 netbsd
+% file *
+USTAR.volsize.23420: empty
+boot:                data
+netbsd:              gzip compressed data, was "netbsd.tmp", from 
+Unix, max compression
+%
+
+
+Ray
+
+
+From mhitch@lightning.msu.montana.edu  Fri May 29 14:08:21 2009
+Path: news.gmane.org!not-for-mail
+From: "Michael L. Hitch" <mhitch@lightning.msu.montana.edu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: writing cdhdtape to CD
+Date: Fri, 29 May 2009 14:08:21 -0600 (MDT)
+Lines: 56
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.0905291400440.1125@lightning.msu.montana.edu>
+References: <p05200f64c6366b64c483@130.102.20.138> <Pine.OSF.4.64.0905181106200.53870@hogrelius.nu>
+ <2d81dc030905180515o6b926972l37cf63b0e49a79@mail.gmail.com>
+ <p05200f85c6439fed89e9@[130.102.20.138]>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: ger.gmane.org 1243630502 11225 80.91.229.12 (29 May 2009 20:55:02 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Fri, 29 May 2009 20:55:02 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Ray Phillips <r.phillips@uq.edu.au>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Fri May 29 22:55:00 2009
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1MA96P-0000cD-KA
+	for netbsd-port-alpha@m.gmane.org; Fri, 29 May 2009 22:54:57 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id CE27263B37A; Fri, 29 May 2009 20:54:34 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from lightning.msu.montana.edu (lightning.msu.montana.edu [153.90.169.4])
+	by mail.netbsd.org (Postfix) with ESMTP id C9C0963B1EB
+	for <port-alpha@netbsd.org>; Fri, 29 May 2009 20:54:31 +0000 (UTC)
+Original-Received: from lightning.msu.montana.edu (localhost [127.0.0.1])
+	by lightning.msu.montana.edu (Postfix) with ESMTP id 295401043A;
+	Fri, 29 May 2009 14:08:26 -0600 (MDT)
+Original-Received: by lightning.msu.montana.edu (Postfix, from userid 271)
+	id 3362510371; Fri, 29 May 2009 14:08:22 -0600 (MDT)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by lightning.msu.montana.edu (Postfix) with ESMTP id BC0EB5865;
+	Fri, 29 May 2009 14:08:22 -0600 (MDT)
+In-Reply-To: <p05200f85c6439fed89e9@[130.102.20.138]>
+X-Virus-Scanned: ClamAV using ClamSMTP
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4439
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4439>
+
+On Thu, 28 May 2009, Ray Phillips wrote:
+
+> (boot dkc400.4.0.11.0 -flags a)
+> block 0 of dkc400.4.0.11.0 is a valid boot block
+> reading 82 blocks from dkc400.4.0.11.0
+> bootstrap code read in
+> base = 1d8000, image_start = 0, image_bytes = a400
+> initializing HWRPB at 2000
+> initializing page table at 1ca000
+> initializing machine state
+> setting affinity to the primary CPU
+> jumping to bootstrap code
+>
+> NetBSD/alpha 5.0 ustar Bootstrap, Revision 1.3
+> (builds@b4.netbsd.org, Sun Apr 26 05:45:58 UTC 2009)
+>
+> VMS PAL rev: 0x1000000010114
+> OSF PAL rev: 0x1000000020116
+> Switch to OSF PAL code succeeded.
+>
+> Boot flags: a
+> 9784992@@@@@@@@@read text: Input/output error
+
+   This would appear that it started reading the kernel, and I believe the 
+'@' symbols indicate errors while reading the media.
+
+> @@@@@@@@@open netbsd.gz: Input/output error
+> @@@@@@@@@open netbsd.bak: Input/output error
+> @@@@@@@@@open netbsd.bak.gz: Input/output error
+> @@@@@@@@@open netbsd.old: Input/output error
+> @@@@@@@@@open netbsd.old.gz: Input/output error
+> @@@@@@@@@open onetbsd: Input/output error
+> @@@@@@@@@open onetbsd.gz: Input/output error
+> @@@@@@@@@open netbsd.alpha: Input/output error
+> @@@@@@@@@open netbsd.alpha.gz: Input/output error
+
+   After getting errors reading the kernel, the boot program falls back to 
+a list of other potential kernels, and gets errors reading them.
+
+> I wonder if there's something wrong with the way I'm burning the cdhdtape 
+> file to the CD?
+
+   Have you tried using the alphacd.iso instead?  I don't think I've ever 
+tried using the cdhdtape image since the iso images were being generated.
+
+   Another thing I found (quite some time ago) was that burning the CD 
+images at single speed worked better in the various DEC machines I have. 
+This may only be applicable when using the original CD drives in the DEC 
+systems.
+
+--
+Michael L. Hitch			mhitch@montana.edu
+Computer Consultant
+Information Technology Center
+Montana State University	Bozeman, MT	USA
+
+

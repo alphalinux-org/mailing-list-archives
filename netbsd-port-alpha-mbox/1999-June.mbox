@@ -1,0 +1,5084 @@
+From khym@bga.com  Tue Jun 1 15:44:02 1999
+From: Dave Huang <khym@bga.com>
+To: port-alpha@netbsd.org
+Date: Tue, 01 Jun 1999 15:44:02 +0000
+Subject: fxp NIC on Alphas
+
+I notice that the supported hardware section of the INSTALL document
+lists the Intel EtherExpress Pro 10/100B as untested... well, I've got
+one in my PC164, and it's more or less working:
+
+fxp0 at pci0 dev 5 function 0: Intel EtherExpress Pro 10+/100B Ethernet
+fxp0: interrupting at eb164 irq 2
+fxp0: Ethernet address 00:90:27:13:0b:30
+inphy0 at fxp0 phy 1: i82555 10/100 media interface, rev. 0
+inphy0: 10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, auto
+
+However, if I send a lot of data from the alpha to another machine on my
+LAN (e.g. ftp a file from the alpha, or run "ttcp -t -s"), I get "fxp0:
+device timeout" messages on the console. Receiving seems to be fine...
+I'm running at 10Mbps, half-duplex.
+-- 
+Name: Dave Huang     |   Mammal, mammal / their names are called /
+INet: khym@bga.com   |   they raise a paw / the bat, the cat /
+FurryMUCK: Dahan     |   dolphin and dog / koala bear and hog -- TMBG
+Dahan: Hani G Y+C 23 Y++ L+++ W- C++ T++ A+ E+ S++ V++ F- Q+++ P+ B+ PA+ PL++
+
+From khym@bga.com  Tue Jun 1 16:09:45 1999
+From: Dave Huang <khym@bga.com>
+To: cgd@netbsd.org
+Date: Tue, 01 Jun 1999 16:09:45 +0000
+Subject: Re: Installation experiences
+
+On 30 May 1999, Chris G. Demetriou wrote:
+> > vrele: bad ref count: type VSOCK, usecount -3, writecount -1, refcount
+> > 5368826400,
+> 
+> This was a bug, is now fixed.
+
+Cool, thanks :) I don't like the error message it gives if there's no
+/emul/osf1/sbin/loader though :)
+
+yerfable ~/setiathome-1.1.alpha-dec-osf3.0> ls -l ./setiathome
+-rwxr-x---  1 khym  wheel  163840 May 17 02:23 ./setiathome*
+yerfable ~/setiathome-1.1.alpha-dec-osf3.0> ./setiathome
+./setiathome: Command not found.
+
+Would it be possible for it to print a less confusing error message? On
+the i386 port, the Linux emulation says "somelinuxexe: Exec format
+error. Binary file not executable." if it can't find ld-linux.so, which
+is a bit better :)
+
+From cgd@netbsd.org  Tue Jun 1 17:35:51 1999
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: khym@bga.com
+Date: Tue, 01 Jun 1999 17:35:51 +0000
+Subject: Re: Installation experiences
+
+Dave Huang <khym@bga.com> writes:
+
+> On 30 May 1999, Chris G. Demetriou wrote:
+> > > vrele: bad ref count: type VSOCK, usecount -3, writecount -1, refcount
+> > > 5368826400,
+> > 
+> > This was a bug, is now fixed.
+> 
+> Cool, thanks :) I don't like the error message it gives if there's no
+> /emul/osf1/sbin/loader though :)
+> 
+> yerfable ~/setiathome-1.1.alpha-dec-osf3.0> ls -l ./setiathome
+> -rwxr-x---  1 khym  wheel  163840 May 17 02:23 ./setiathome*
+> yerfable ~/setiathome-1.1.alpha-dec-osf3.0> ./setiathome
+> ./setiathome: Command not found.
+
+yah.  it was getting ENOENT on the loader lookup, and happily
+returning that.
+
+I'll modify the code so that it returns ENOEXEC instead.  I don't
+think it's right to blindly return ENOEXEC, because e.g. if there's an
+I/O error or permissions error on the loader binary (e.g. MNT_NOEXEC)
+you (or at least I) want that distinguished from the normal ENOEXEC
+message.
+
+
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From murray@pa.dec.com  Wed Jun 2 02:03:01 1999
+From: Hal Murray <murray@pa.dec.com>
+To: port-alpha@netbsd.org
+Date: Wed, 02 Jun 1999 02:03:01 +0000
+Subject: Re: fxp NIC on Alphas
+
+> I notice that the supported hardware section of the INSTALL document
+> lists the Intel EtherExpress Pro 10/100B as untested... well, I've got
+> one in my PC164, and it's more or less working:
+
+> However, if I send a lot of data from the alpha to another machine on my
+> LAN (e.g. ftp a file from the alpha, or run "ttcp -t -s"), I get "fxp0:
+> device timeout" messages on the console. Receiving seems to be fine...
+> I'm running at 10Mbps, half-duplex.
+
+I've put a lot of packets through 82558s at 100 megabits - both full 
+and half duplex.  I'm using a point-point link between a pair of 
+Miatas. 
+
+I've seen the timeout messages but haven't investigated.  (The console 
+is downstairs where I don't catch things out of the corner of my 
+eye.) 
+
+Packets get lost or delayed under heavy or complicated load.  I don't 
+have a simple test case.  
+
+A simple UDP request-response test works pretty well.  The TCP version 
+gets into a lot of trouble - mostly when the message lengths are 
+several MTUs.  I assume the acks are coming back at the "right" time. 
+
+I've run similar tests on PCs/Deskpros.  The PCs seem to work a lot 
+better. 
+ 
+If somebody wants to investigate I'll try to localize a test case 
+and/or see if my problems correlate with the console timeout msg.
+
+From gendalia@iastate.edu  Thu Jun 3 00:48:22 1999
+From: Tracy J. Di Marco White <gendalia@iastate.edu>
+To: port-alpha@netbsd.org
+Date: Thu, 03 Jun 1999 00:48:22 +0000
+Subject: 1.4 sysinst install problem
+
+1.4's sysinst seems to think I have a 1MB disk, but it's about 1GB larger
+than that.  I'm installing on sd1, sd0 is DU 4.0D.  Where does it think
+it's getting this info, and how do I fix it?
+
+I booted off of sd1, using the diskimage... so it is using the disklabel
+from that to decide it is a 1MB disk?  I'd think that's not the desired
+behavior.
+
+# cat /kern/msgbuf
+Copyright (c) 1996, 1997, 1998, 1999
+    The NetBSD Foundation, Inc.  All rights reserved.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+    The Regents of the University of California.  All rights reserved.
+
+NetBSD 1.4 (INSTALL) #1: Sat May  8 11:40:47 PDT 1999
+    ross@netbsd.org:/usr/src/sys/arch/alpha/compile/INSTALL
+AlphaStation 200 4/166, 166MHz
+8192 byte page size, 1 processor.
+real mem = 33554432 (2048000 reserved for PROM, 31506432 used by NetBSD)
+avail mem = 21954560
+using 384 buffers containing 3145728 bytes of memory
+mainbus0 (root)
+cpu0 at mainbus0: ID 0 (primary), 21064A ()
+apecs0 at mainbus0: DECchip 21071 Core Logic chipset
+apecs0: DC21071-CA pass 2, 64-bit memory bus
+apecs0: DC21071-DA pass 2
+pci0 at apecs0 bus 0
+pci0: i/o enabled, memory enabled
+ncr0 at pci0 dev 6 function 0: ncr 53c810 fast10 scsi
+ncr0: interrupting at isa irq 11
+ncr0: minsync=25, maxsync=206, maxoffs=8, 16 dwords burst, normal dma fifo
+ncr0: single-ended, open drain IRQ driver
+ncr0: restart (scsi reset).
+scsibus0 at ncr0: 8 targets, 8 luns per target
+sd0 at scsibus0 targ 0 lun 0: <DEC, RZ26F    (C) DEC, 630J> SCSI2 0/direct fixed
+sd0(ncr0:0:0): 10.0 MB/s (100 ns, offset 8)
+sd0: 1001MB, 3117 cyl, 8 head, 82 sec, 512 bytes/sect x 2050860 sectors
+sd1 at scsibus0 targ 1 lun 0: <DEC, RZ26F    (C) DEC, 630J> SCSI2 0/direct fixed
+sd1(ncr0:1:0): 10.0 MB/s (100 ns, offset 8)
+sd1: 1001MB, 3117 cyl, 8 head, 82 sec, 512 bytes/sect x 2050860 sectors
+cd0 at scsibus0 targ 4 lun 0: <DEC, RRD46   (C) DEC, 0557> SCSI2 5/cdrom removable
+probe(ncr0:4:1): 10.0 MB/s (100 ns, offset 8)
+sio0 at pci0 dev 7 function 0: vendor 0x8086 product 0x0484 (rev. 0x43)
+de0 at pci0 dev 11 function 0
+de0: interrupting at isa irq 5
+de0: DEC 21040 [10Mb/s] pass 2.4
+de0: address 00:00:f8:23:5a:1c
+tga0 at pci0 dev 13 function 0: DC21030 step C, board type T32-88
+tga0: 1280 x 1024, 32bpp, Bt463 RAMDAC
+tga0: interrupting at isa irq 10
+wsdisplay0 at tga0
+isa0 at sio0
+com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, working fifo
+com0: console
+com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, working fifo
+lpt0 at isa0 port 0x3bc-0x3bf irq 7
+pckbc0 at isa0 port 0x60-0x64
+fdc0 at isa0 port 0x3f0-0x3f7 irq 6 drq 2
+fd0 at fdc0 drive 0: 1.44MB, 80 cyl, 2 head, 18 sec
+mcclock0 at isa0 port 0x70-0x71: mc146818 or compatible
+md0: internal 3072K image area
+root on md0a dumps on md0b
+WARNING: preposterous clock chip time
+ -- CHECK AND RESET THE DATE!
+root file system type: ffs
+de0: enabling 10baseT port
+
+Tracy J. Di Marco White
+Project Vincent Systems Manager
+gendalia@iastate.edu
+
+From spock@sled.gsfc.nasa.gov  Fri Jun 4 18:09:08 1999
+From: Sven Dietrich <spock@sled.gsfc.nasa.gov>
+To: port-alpha@netbsd.org
+Date: Fri, 04 Jun 1999 18:09:08 +0000
+Subject: X on AlphaStation 500?
+
+Hi all,
+
+  I have successfully installed NetBSD 1.4 on an AS500, but now
+I am trying to get X to work. Obviously from the docs, the TGA2
+card is not supported. However it seems that the TGA2 has a Cirrus 
+Logic 5424 chipset, which is supported by XFree86. Building
+XFree86 for NetBSD/alpha has been a nightmarish experience so far.
+
+  What video cards are supported? The TGA is. Besides that?
+
+Any pointers would be appreciated.
+
+Sven
+
+From elric@mabelode.imrryr.org  Fri Jun 4 15:21:10 1999
+From: R. C. Dowdeswell <elric@mabelode.imrryr.org>
+To: spock@sled.gsfc.nasa.gov
+Date: Fri, 04 Jun 1999 15:21:10 +0000
+Subject: Re: X on AlphaStation 500?
+
+On 928534148 seconds since the Beginning of the UNIX epoch
+Sven Dietrich wrote:
+>
+>Hi all,
+>
+>  I have successfully installed NetBSD 1.4 on an AS500, but now
+>I am trying to get X to work. Obviously from the docs, the TGA2
+>card is not supported. However it seems that the TGA2 has a Cirrus 
+>Logic 5424 chipset, which is supported by XFree86. Building
+>XFree86 for NetBSD/alpha has been a nightmarish experience so far.
+>
+>  What video cards are supported? The TGA is. Besides that?
+>
+>Any pointers would be appreciated.
+>
+>Sven
+>
+
+Only the TGA in 8bit mode is supported at the moment.  I am currently
+working on the TGA2, which needs to be twiddled a little bit before
+it will work.  I expect to make some time to work on it towards
+the middle of the month, and I hope to have it working by the end
+of the month.  From my initial perusal of the TGA2 docs, I should
+be able to accelerate it to be quite a bit faster than the TGA.
+
+The TGA in 32bit mode should be supported later, as it is pretty
+similar.
+
+I am not sure about the timeline on generic XFree86 support, although
+there are a number of issues there to be solved.
+
+ == Roland Dowdeswell                      http://www.Imrryr.ORG/~elric/  ==
+ == The Unofficial NetBSD Web Pages        http://www.Imrryr.ORG/NetBSD/  ==
+ == The NetBSD Project                            http://www.NetBSD.ORG/  ==
+
+From briggs@ninthwonder.com  Sat Jun 5 12:59:28 1999
+From: Allen Briggs <briggs@ninthwonder.com>
+To: port-pmax@netbsd.org, port-alpha@netbsd.org
+Date: Sat, 05 Jun 1999 12:59:28 +0000
+Subject: Old DEC software
+
+Sorry for the mostly off-topic question...  I'm hoping there are
+some DEC-heads who might be able to help me.  I have a DECServer 300
+terminal server that I want to use as a console server for my NetBSD
+machines (m68k, pmax, alpha, arm32, etc.), but I don't have any boot
+software for it.  Does anyone know where I can find it?  Is it still
+possible to buy it from DEC/Compaq?
+If not, does anyone have a copy floating around some almost forgotten
+corner of a network?
+
+Thanks,
+-allen
+
+From ross@ghs.com  Sat Jun 5 14:06:20 1999
+From: Ross Harvey <ross@ghs.com>
+To: port-alpha@netbsd.org
+Date: Sat, 05 Jun 1999 14:06:20 +0000
+Subject: "non-profit" NetBSD-1.4/alpha CD's available
+
+Bob Nestor's non-profit CD operation now makes an alpha CD for NetBSD 1.4.
+
+See the NetBSD/alpha home page (top right, under ...News) for details.
+
+	www.netbsd.org/Ports/alpha/
+
+Ross.Harvey@Computer.Org
+
+From nathanw@MIT.EDU  Sun Jun 6 03:12:04 1999
+From: Nathan J. Williams <nathanw@MIT.EDU>
+To: briggs@ninthwonder.com
+Date: Sun, 06 Jun 1999 03:12:04 +0000
+Subject: Re: Old DEC software
+
+Allen Briggs <briggs@ninthwonder.com> writes:
+
+> Sorry for the mostly off-topic question...  I'm hoping there are
+> some DEC-heads who might be able to help me.  I have a DECServer 300
+> terminal server that I want to use as a console server for my NetBSD
+> machines (m68k, pmax, alpha, arm32, etc.), but I don't have any boot
+> software for it.  Does anyone know where I can find it?  Is it still
+> possible to buy it from DEC/Compaq?
+> If not, does anyone have a copy floating around some almost forgotten
+> corner of a network?
+
+	I have one of these boxes too, and I started a search similar
+to yours, until someone pointed out the fact that the boxes speak DEC
+LAT on the ethernet port, so unless you have client or translator box
+that also speaks LAT, even getting it running isn't actually very
+productive. I've also heard it said that some Cisco boxes can do
+conversion of LAT or whatever the relevant protocol on top of LAT is
+to TCP, so if you have a handy Cisco, the DECserver might be worth
+more than a doorstop.
+
+	- Nathan
+
+From cgd@netbsd.org  Sun Jun 6 23:15:44 1999
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: paul@gromit.dlib.vt.edu
+Date: Sun, 06 Jun 1999 23:15:44 +0000
+Subject: Re: LLSC MEM test?
+
+Paul Mather <paul@gromit.dlib.vt.edu> writes:
+> >>> test mem
+> T-STS-MEM - LLSC Test: Addr 00800000 FWD Wr 00000000
+> ? T-ERR-MEM - stl_c bcache miss with victim at Addr: 00d91bb8
+> T-STS-MEM - Uncorrected Error count = 1
+> ? T-ERR-MEM - FAILED status = 20 test Init addr = 00d91bb8
+> ?? 810       MEM 0x0020
+> [ ... ]
+> So, what is actually failing here?  Note: that this DEC3000/300LX also
+> fails the CXT test with what appears to be a stuck-at fault in the
+> framebuffer RAM.  Is there some other RAM that's failing in the LLSC
+> test other than the on-board SIMMs?  If so, is it on the CPU card, or
+> the mainboard?
+
+So, I don't have much insight into what exactly the test is doing, but
+it mentiones the 'bcache', i.e. the 'backup cache', DEC's name for the
+secondary cache on those boxes.
+
+The fact that i mentiones that makes me think there's something wrong
+with your cache...
+
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From paul@gromit.dlib.vt.edu  Mon Jun 7 00:35:11 1999
+From: Paul Mather <paul@gromit.dlib.vt.edu>
+To: port-alpha@netbsd.org
+Date: Mon, 07 Jun 1999 00:35:11 +0000
+Subject: LLSC MEM test?
+
+I discovered recently that a DEC3000/300LX on which I have been running
+NetBSD/alpha 1.4 without problems for a week or so actually fails one of
+the extended memory tests.  (I was trying some RAM from an RS/6000 in
+it, to see if it would work, which is why I happened to be using the
+extended tests.)  The machine passes the boot-up memory test, but a
+"test mem" from the PROM prompt eventually fails as follows:
+
+>>> test mem
+T-STS-MEM - LLSC Test: Addr 00800000 FWD Wr 00000000
+? T-ERR-MEM - stl_c bcache miss with victim at Addr: 00d91bb8
+T-STS-MEM - Uncorrected Error count = 1
+? T-ERR-MEM - FAILED status = 20 test Init addr = 00d91bb8
+?? 810       MEM 0x0020
+
+
+  84 FAIL
+
+>>>
+
+The above output is actually from testing genuine DEC MS16-BA memory
+upgrades (32MB in the form of four 8MB SIMMs) from another machine.  
+The same SIMMs check out without errors in another DEC3000/300LX, so I
+know *they* are not bad.
+
+So, what is actually failing here?  Note: that this DEC3000/300LX also
+fails the CXT test with what appears to be a stuck-at fault in the
+framebuffer RAM.  Is there some other RAM that's failing in the LLSC
+test other than the on-board SIMMs?  If so, is it on the CPU card, or
+the mainboard?  I don't think the former, because I tried another CPU
+card and got the same error.
+
+What is the likely consequence of failing an LLSC test?  Like I said,
+I've been running NetBSD without any (apparent) problems (I still am),
+and just discovered the memory test failure by accident.  Is the LLSC
+instruction used to implement semaphores?  If so, does this mean my
+mutexes aren't really that?  However, my gut feeling tells me that my
+system would've crashed long before now if concurrency control wasn't
+working properly.
+
+Can anyone shed any light on the ramifications of a failed LLSC memory
+test?  Also, what can/should I do to try and fix it.
+
+Apologies if this is more DEC3000/300 than NetBSD/alpha...
+
+Cheers,
+
+Paul.
+
+e-mail: paul@gromit.dlib.vt.edu
+
+"I don't live today; maybe tomorrow..."
+	--- James Marshall Hendrix
+
+From ross@ghs.com  Mon Jun 7 10:32:14 1999
+From: Ross Harvey <ross@ghs.com>
+Date: Mon, 07 Jun 1999 10:32:14 +0000
+Subject: Re: LLSC MEM test?
+
+Paul Mather <paul@gromit.dlib.vt.edu> writes:
+> >>> test mem
+> T-STS-MEM - LLSC Test: Addr 00800000 FWD Wr 00000000
+> ? T-ERR-MEM - stl_c bcache miss with victim at Addr: 00d91bb8
+> T-STS-MEM - Uncorrected Error count = 1
+> ? T-ERR-MEM - FAILED status = 20 test Init addr = 00d91bb8
+> ?? 810       MEM 0x0020
+> [ ... ]
+
+I don't have much insight into what the FW is doing or even into what that
+failure message really means, but the apparent contradictions that you found
+hard to resolve aren't too hard to speculate on... :-)
+
+	1. You don't actually "*know*" the SIMMs aren't bad, you just have
+	   a data point that says they tested good. Perhaps the 3000's are
+	   at slightly different rev or eco levels, or some critical part
+	   just happens to be faster on one. (There is a huge gap between
+	   min and max prop delays, and the 3000 is built with very low
+	   levels of integration, which means high relative uncertainty
+	   between different siganls.)
+
+	2. Like Chris said, maybe it's the bcache and not the DRAM.
+
+	3. Perhaps the FW turns off ECC for the purposes of the test.
+	   I would have. So, with NetBSD running, the errors are corrected.
+
+	4. I would bet the framebuffer RAM error is independant, but not
+	   necessarily. ECC won't deal with a completely stuck data line,
+	   not unless the FW is really smart and manages to turn on the
+	   `correct it without logging it' mode that at least some of the
+	   alpha HW has.
+
+Ross.Harvey@Computer.Org
+
+From paul@gromit.dlib.vt.edu  Mon Jun 7 13:57:40 1999
+From: Paul Mather <paul@gromit.dlib.vt.edu>
+To: port-alpha@netbsd.org
+Date: Mon, 07 Jun 1999 13:57:40 +0000
+Subject: Re: LLSC MEM test?
+
+On Mon, 7 Jun 1999, Ross Harvey wrote:
+
+=> Paul Mather <paul@gromit.dlib.vt.edu> writes:
+=> > >>> test mem
+=> > T-STS-MEM - LLSC Test: Addr 00800000 FWD Wr 00000000
+=> > ? T-ERR-MEM - stl_c bcache miss with victim at Addr: 00d91bb8
+=> > T-STS-MEM - Uncorrected Error count = 1
+=> > ? T-ERR-MEM - FAILED status = 20 test Init addr = 00d91bb8
+=> > ?? 810       MEM 0x0020
+=> > [ ... ]
+=> 
+=> I don't have much insight into what the FW is doing or even into what that
+=> failure message really means, but the apparent contradictions that you found
+=> hard to resolve aren't too hard to speculate on... :-)
+=> 
+=> 	1. You don't actually "*know*" the SIMMs aren't bad, you just have
+=> 	   a data point that says they tested good. Perhaps the 3000's are
+=> 	   at slightly different rev or eco levels, or some critical part
+=> 	   just happens to be faster on one. (There is a huge gap between
+=> 	   min and max prop delays, and the 3000 is built with very low
+=> 	   levels of integration, which means high relative uncertainty
+=> 	   between different siganls.)
+
+Actually, I omitted this from the original message, but I do have
+additional data points.  The same four 8MB SIMMs pass "test mem" in the
+DEC3000/300LX it actually belongs to, and from which it is currently "on
+loan" to the machine in which the "test mem" fails.  (So, in other
+words, it passes "test mem" in two other DEC3000/300LXs.)  Also, two
+32MB SIMMs from another 3000/300LX fail "test mem" in the machine I
+reported about, but pass in the machine from which they were taken.
+
+So, there is > 1 data point to suggest the SIMMs are okay.
+
+=> 	2. Like Chris said, maybe it's the bcache and not the DRAM.
+
+Is the bcache on the mainboard, or on the CPU card?
+
+=> 	3. Perhaps the FW turns off ECC for the purposes of the test.
+=> 	   I would have. So, with NetBSD running, the errors are corrected.
+=> 
+=> 	4. I would bet the framebuffer RAM error is independant, but not
+=> 	   necessarily. ECC won't deal with a completely stuck data line,
+=> 	   not unless the FW is really smart and manages to turn on the
+=> 	   `correct it without logging it' mode that at least some of the
+=> 	   alpha HW has.
+
+I don't mind the test failing per se.  I was just wondering if there
+would be any "hidden" effects on the operation of NetBSD that was
+serious enough to warrant doing something about.  Also, the framebuffer
+RAM not working doesn't bother me, as it isn't supported by NetBSD
+anyway.
+
+But, like I said, everything *seems* to be working in NetBSD, so I guess
+everything is grand.
+
+Cheers,
+
+Paul.
+
+e-mail: paul@gromit.dlib.vt.edu
+
+"I don't live today; maybe tomorrow..."
+	--- James Marshall Hendrix
+
+From wilko@yedi.iaf.nl  Mon Jun 7 19:57:49 1999
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: cgd@netbsd.org
+Date: Mon, 07 Jun 1999 19:57:49 +0000
+Subject: Re: LLSC MEM test?
+
+As Chris G. Demetriou wrote ...
+> Paul Mather <paul@gromit.dlib.vt.edu> writes:
+> > >>> test mem
+> > T-STS-MEM - LLSC Test: Addr 00800000 FWD Wr 00000000
+> > ? T-ERR-MEM - stl_c bcache miss with victim at Addr: 00d91bb8
+> > T-STS-MEM - Uncorrected Error count = 1
+> > ? T-ERR-MEM - FAILED status = 20 test Init addr = 00d91bb8
+> > ?? 810       MEM 0x0020
+> > [ ... ]
+> > So, what is actually failing here?  Note: that this DEC3000/300LX also
+> > fails the CXT test with what appears to be a stuck-at fault in the
+> > framebuffer RAM.  Is there some other RAM that's failing in the LLSC
+> > test other than the on-board SIMMs?  If so, is it on the CPU card, or
+> > the mainboard?
+> 
+> So, I don't have much insight into what exactly the test is doing, but
+> it mentiones the 'bcache', i.e. the 'backup cache', DEC's name for the
+> secondary cache on those boxes.
+> 
+> The fact that i mentiones that makes me think there's something wrong
+> with your cache...
+
+I'll try to ask our Alpha repair guru at work tomorrow if there is more
+detail that can be gleaned from the error. Stay tuned.
+
+|   / o / /  _  	 Arnhem, The Netherlands	- Powered by FreeBSD -
+|/|/ / / /( (_) Bulte 	 WWW  : http://www.tcja.nl 	http://www.freebsd.org
+
+From azathoth@cronos.net  Mon Jun 7 15:01:09 1999
+From: aZaTHoTH <azathoth@cronos.net>
+To: port-alpha@netbsd.org
+Date: Mon, 07 Jun 1999 15:01:09 +0000
+Subject: ARC console
+
+Hey guys!
+I'm currently using a SRM bios, but I somehow need to run the alpha bios.
+so I have to type arc each time... is there a way to load the arc console
+instead of the SRM console ?
+FreD>
+
+From nisimura@itc.aist-nara.ac.jp  Tue Jun 8 12:40:18 1999
+From: Toru Nishimura <nisimura@itc.aist-nara.ac.jp>
+To: port-pmax@netbsd.org, port-alpha@netbsd.org
+Date: Tue, 08 Jun 1999 12:40:18 +0000
+Subject: Re: Old DEC software
+
+>> Sorry for the mostly off-topic question...  I'm hoping there are
+>> some DEC-heads who might be able to help me.  I have a DECServer 300
+>> terminal server that I want to use as a console server for my NetBSD
+>> machines (m68k, pmax, alpha, arm32, etc.), but I don't have any boot
+>> software for it.
+>
+>        I have one of these boxes too, and I started a search similar
+> to yours, until someone pointed out the fact that the boxes speak DEC
+> LAT on the ethernet port,
+
+I've encountered Digital SPD (Software Product Description, SP25J3PF.pdf)
+"DECserver 300 for ULTRIX", and it refers to the software is also capable
+of speaking telnet as well as LAT.
+
+Tohru Nishimura
+Nara Institute of Science and Technology
+
+From mouse@Rodents.Montreal.QC.CA  Tue Jun 8 11:31:37 1999
+From: der Mouse <mouse@Rodents.Montreal.QC.CA>
+To: port-alpha@netbsd.org
+Date: Tue, 08 Jun 1999 11:31:37 +0000
+Subject: "SCSI phase error fixup"?
+
+What's a "SCSI phase error fixup"?  We've got an Alpha with an Exabyte
+(in an external enclosure) on its scsi chain, and at boot time...
+
+ncr0 at pci0 dev 9 function 0: ncr 53c810 fast10 scsi
+ncr0: interrupting at eb164 irq 3
+ncr0: minsync=25, maxsync=206, maxoffs=8, 16 dwords burst, normal dma fifo
+ncr0: single-ended, open drain IRQ driver
+ncr0: restart (scsi reset).
+scsibus0 at ncr0: 8 targets, 8 luns per target
+sd0 at scsibus0 targ 0 lun 0: <SGI, QUANTUM XP32150, S89C> SCSI2 0/direct fixed
+sd0(ncr0:0:0): 10.0 MB/s (100 ns, offset 8)
+sd0: 2150MB, 3907 cyl, 10 head, 112 sec, 512 bytes/sect x 4404489
+sectors
+st0 at scsibus0 targ 5 lun 0: <EXABYTE, EXB-850085asynr0, 0428> SCSI2 1/sequential removable
+st0: ncr0: SCSI phase error fixup: CCB address mismatch (0xfffffe0000065400 != 0xfffffe000005d800) np->ccb = 0xfffffe000005d800
+st0(ncr0:5:0): phase change 6-7 6@414a3660 resid=4.
+st0(ncr0:5:0): asynchronous.
+st0(ncr0:5:0): M_REJECT received (5:8).
+drive empty
+
+The stuff after the "st0 at scsibus0" line looks disturbing.  The tape
+drive seems to superficially work, though; is this actually anything to
+be concerned about?  The messages look as though the kernel recovered,
+or fell back to some other mode of operation, or something, implying
+that it's not actually an operational problem....
+
+This kernel is built from a source tree supped 1999-05-13 (1.4,
+basically).
+
+					der Mouse
+
+			       mouse@rodents.montreal.qc.ca
+		     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+From wilko@yedi.iaf.nl  Tue Jun 8 19:29:17 1999
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: cgd@netbsd.org
+Date: Tue, 08 Jun 1999 19:29:17 +0000
+Subject: Re: LLSC MEM test?
+
+As Chris G. Demetriou wrote ...
+> Paul Mather <paul@gromit.dlib.vt.edu> writes:
+> > >>> test mem
+> > T-STS-MEM - LLSC Test: Addr 00800000 FWD Wr 00000000
+> > ? T-ERR-MEM - stl_c bcache miss with victim at Addr: 00d91bb8
+> > T-STS-MEM - Uncorrected Error count = 1
+> > ? T-ERR-MEM - FAILED status = 20 test Init addr = 00d91bb8
+> > ?? 810       MEM 0x0020
+> > [ ... ]
+> > So, what is actually failing here?  Note: that this DEC3000/300LX also
+> > fails the CXT test with what appears to be a stuck-at fault in the
+> > framebuffer RAM.  Is there some other RAM that's failing in the LLSC
+> > test other than the on-board SIMMs?  If so, is it on the CPU card, or
+> > the mainboard?
+> 
+> So, I don't have much insight into what exactly the test is doing, but
+> it mentiones the 'bcache', i.e. the 'backup cache', DEC's name for the
+> secondary cache on those boxes.
+> 
+> The fact that i mentiones that makes me think there's something wrong
+> with your cache...
+
+In the meantime I got some info from our Alpha repair support engineer.
+He proved to be in the US instead of one floor down from my office, but
+this is what he wrote me based on his memory (he does not have access
+to his paperwork from the US obviously):
+
+" LLSC MEM test means: Load Locked Store Conditional MEMory test
+
+Is the Lock memory test, that uses the locking mechanism of the Alpha CPU
+itself (stl_c = store longword conditional). Looks to point to the CPU
+itself.
+"
+
+Well, that is what I have to offer, I'm not familiar with the inner
+workings of the Alpha CPU.
+
+Hope this helps,
+
+Wilko
+
+|   / o / /  _  	 Arnhem, The Netherlands	- Powered by FreeBSD -
+|/|/ / / /( (_) Bulte 	 WWW  : http://www.tcja.nl 	http://www.freebsd.org
+
+From woods@most.weird.com  Tue Jun 8 19:22:37 1999
+From: Greg A. Woods <woods@most.weird.com>
+To: port-pmax@netbsd.org,
+Date: Tue, 08 Jun 1999 19:22:37 +0000
+Subject: Re: Old DEC software
+
+[ On , June 6, 1999 at 03:12:04 (-0400), Nathan J. Williams wrote: ]
+> Subject: Re: Old DEC software
+>
+> Allen Briggs <briggs@ninthwonder.com> writes:
+> 
+> > Sorry for the mostly off-topic question...  I'm hoping there are
+> > some DEC-heads who might be able to help me.  I have a DECServer 300
+> > terminal server that I want to use as a console server for my NetBSD
+> > machines (m68k, pmax, alpha, arm32, etc.), but I don't have any boot
+> > software for it.  Does anyone know where I can find it?  Is it still
+> > possible to buy it from DEC/Compaq?
+> > If not, does anyone have a copy floating around some almost forgotten
+> > corner of a network?
+> 
+> 	I have one of these boxes too, and I started a search similar
+> to yours, until someone pointed out the fact that the boxes speak DEC
+> LAT on the ethernet port, so unless you have client or translator box
+> that also speaks LAT, even getting it running isn't actually very
+> productive. I've also heard it said that some Cisco boxes can do
+> conversion of LAT or whatever the relevant protocol on top of LAT is
+> to TCP, so if you have a handy Cisco, the DECserver might be worth
+> more than a doorstop.
+
+I have some DECserver 90TLs and a 900TM (hooked to a big DEChub900
+multiswitch backplane, along with associated ethernet switches, hubs,
+concentrators, etc.), which do speak TCP/IP, and I do have DECserver
+NAS-v2.2 that does run on them, but do not have FLASH ROMs (though the
+900TM has a PCMCIA slot for one) and as a result they make very poor
+(almost useless) terminal servers because they need a running host to
+boot from.  I'd been hoping to get rid of all of the screens on *all* of
+my servers, but unless I can find a compatible FLASH card for the 900TM
+I'll have to keep a head on at least one of the Unix servers....
+
+Actually I'm still looking for compatible 4MB SIMMs (1MBx36 bit quad
+CAS, 9 chips, 80ns, DEC Part # 4A-MS40-WB A01, aka DEC 20-41141-05, aka
+SAMSUNG, KMM5361000B2G-8 9347 SEC) to upgrade some of the 90TLs too.
+
+-- 
+							Greg A. Woods
+
++1 416 218-0098      VE3TCP      <gwoods@acm.org>      <robohack!woods>
+Planix, Inc. <woods@planix.com>; Secrets of the Weird <woods@weird.com>
+
+From wada@ee.ibaraki.ac.jp  Wed Jun 9 09:05:00 1999
+From: Wada Tatsuaki <wada@ee.ibaraki.ac.jp>
+To: port-alpha@netbsd.org
+Date: Wed, 09 Jun 1999 09:05:00 +0000
+Subject: LAPACK or optimized BLAS for NetBSD-Alpha
+
+Dear NetBSD-Alpha users,
+
+There are some LAPACK and optimized BLAS binary or source codes for Linux-Alpha like:
+
+	http://www.neuro.uni-oldenburg.de/~joe/math/index.html
+
+I'd like to use those or similer code, if it exists, on my NetBSD-Alpha PC164.
+Did someone try to build or to use such an optimized BLAS?
+Any comments or pointers are welcome.
+
+Regards,
+
+Wada.
+
+From wilko@yedi.iaf.nl  Wed Jun 9 19:16:29 1999
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: port-pmax@netbsd.org, port-alpha@netbsd.org
+Date: Wed, 09 Jun 1999 19:16:29 +0000
+Subject: Re: Old DEC software
+
+As Greg A. Woods wrote ...
+> [ On , June 6, 1999 at 03:12:04 (-0400), Nathan J. Williams wrote: ]
+> > Subject: Re: Old DEC software
+> >
+> > Allen Briggs <briggs@ninthwonder.com> writes:
+> > 
+> > > Sorry for the mostly off-topic question...  I'm hoping there are
+> > > some DEC-heads who might be able to help me.  I have a DECServer 300
+> > > terminal server that I want to use as a console server for my NetBSD
+> > > machines (m68k, pmax, alpha, arm32, etc.), but I don't have any boot
+> > > software for it.  Does anyone know where I can find it?  Is it still
+> > > possible to buy it from DEC/Compaq?
+> > > If not, does anyone have a copy floating around some almost forgotten
+> > > corner of a network?
+> > 
+> > 	I have one of these boxes too, and I started a search similar
+> > to yours, until someone pointed out the fact that the boxes speak DEC
+> > LAT on the ethernet port, so unless you have client or translator box
+> > that also speaks LAT, even getting it running isn't actually very
+> > productive. I've also heard it said that some Cisco boxes can do
+> > conversion of LAT or whatever the relevant protocol on top of LAT is
+> > to TCP, so if you have a handy Cisco, the DECserver might be worth
+> > more than a doorstop.
+> 
+> I have some DECserver 90TLs and a 900TM (hooked to a big DEChub900
+> multiswitch backplane, along with associated ethernet switches, hubs,
+> concentrators, etc.), which do speak TCP/IP, and I do have DECserver
+> NAS-v2.2 that does run on them, but do not have FLASH ROMs (though the
+> 900TM has a PCMCIA slot for one) and as a result they make very poor
+> (almost useless) terminal servers because they need a running host to
+> boot from.  I'd been hoping to get rid of all of the screens on *all* of
+> my servers, but unless I can find a compatible FLASH card for the 900TM
+
+We used Mitsubishi cards for the DECserver 900TM. I'll try to look up
+which Mitsubishi part# the blank has.
+
+|   / o / /  _  	 Arnhem, The Netherlands	- Powered by FreeBSD -
+|/|/ / / /( (_) Bulte 	 WWW  : http://www.tcja.nl 	http://www.freebsd.org
+
+From jakecurry@yahoo.com  Wed Jun 9 23:28:47 1999
+From: Jake Curry <jakecurry@yahoo.com>
+To: port-alpha@netbsd.org
+Date: Wed, 09 Jun 1999 23:28:47 +0000
+Subject: None
+
+_________________________________________________________
+Do You Yahoo!?
+Get your free @yahoo.com address at http://mail.yahoo.com
+
+From jakecurry@yahoo.com  Wed Jun 9 23:39:00 1999
+From: Jake Curry <jakecurry@yahoo.com>
+To: port-alpha@netbsd.org
+Date: Wed, 09 Jun 1999 23:39:00 +0000
+Subject: Coda-5.2.2 server port problems
+
+Has anyone had any luck compiling the net/coda5_server port?  I get
+problems with the file lib-src/mlwp/process.s.  It has assembly
+routines for linux/alpha, but none for netbsd.  I was hoping they would
+work anyway, so I changed the #include in process.s to point to
+<alpha/asm.h> for the macros it needed, but the test program dumps core
+immediately.  So no luck there...
+
+I definitely don't know enough about the alpha to have a chance of
+fixing the problem.... has anyone else run into the same problem and
+managed to fix it?  TIA.
+
+
+_________________________________________________________
+Do You Yahoo!?
+Get your free @yahoo.com address at http://mail.yahoo.com
+
+From ross@ghs.com  Wed Jun 9 22:40:48 1999
+From: Ross Harvey <ross@ghs.com>
+To: franklin@elfie.org, port-alpha@netbsd.org
+Date: Wed, 09 Jun 1999 22:40:48 +0000
+Subject: Re: phantom X11 lib
+
+> From: John Franklin <franklin@elfie.org>
+>:::
+> elfie# ./xosview 
+> Shared object "libX11.so.6" not found
+>:::
+
+Ok, good investigation. You covered just about every base, except for one
+thing that would probably have required reading a lot of source:  the loader
+ignores the environment variable for setuid programs, and I suppose xosview
+is setuid.
+
+But note that if you make your xterm setuid, it will STILL find that library.
+That's because xterm is linked with the magic ELF -rpath directive.
+
+You need to do:
+	$ cc  -Wl,-rpath,/usr/X11R6/lib  xosview.o ...
+
+(The reason it doesn't default-in any directory it used while linking, is
+because that's actually not the most common case. Typically, we link out
+of a master build directory or distribution build target, and usually aren't
+installing to / but to the build target dir. Anyway, that's how the ELF
+tools work out of the box.)
+
+These days, the NetBSD Package System does a pretty good job of dealing
+with ELFness, but your 1.3.3 system was from much earlier days.
+
+The NetBSD/alpha faq contains a discussion of exactly this issue, although
+the section is a bit misnamed.  ("I made a shared library and my programs
+can't find it" should probably be "My program can't find a shared library".)
+
+	Ross.Harvey@Computer.org
+
+From davidb@osa.com.au  Thu Jun 10 09:57:42 1999
+From: David Burren <davidb@osa.com.au>
+To: port-pmax@netbsd.org
+Date: Thu, 10 Jun 1999 09:57:42 +0000
+Subject: Re: Old DEC software
+
+"Greg A. Woods" wrote:
+
+> I have some DECserver 90TLs and a 900TM (hooked to a big DEChub900
+> multiswitch backplane, along with associated ethernet switches, hubs,
+> concentrators, etc.), which do speak TCP/IP, and I do have DECserver
+> NAS-v2.2 that does run on them, but do not have FLASH ROMs (though the
+> 900TM has a PCMCIA slot for one) and as a result they make very poor
+> (almost useless) terminal servers because they need a running host to
+> boot from.  I'd been hoping to get rid of all of the screens on *all* of
+> my servers, but unless I can find a compatible FLASH card for the 900TM
+> I'll have to keep a head on at least one of the Unix servers....
+> 
+> Actually I'm still looking for compatible 4MB SIMMs (1MBx36 bit quad
+> CAS, 9 chips, 80ns, DEC Part # 4A-MS40-WB A01, aka DEC 20-41141-05, aka
+> SAMSUNG, KMM5361000B2G-8 9347 SEC) to upgrade some of the 90TLs too.
+
+When I upgraded my DS700 I talked to a RAM supplier and read out the
+Samsung numbers from some DEC parts I had available, and they identified
+them as a standard 72-pin PC SIMM.  However, now I can't recall _which_
+standard...  Sorry.
+
+The tricky thing with the 90TL is the problem of physical space.  The
+SIMMs from the 700 won't fit in, but only due to the location of the
+socket, the surrounding chips, and the proximity of the case.  I think
+the DS90 SIMMs only have chips on one side, for a start.
+
+If you can get someone to open up a 90M and identify its SIMM (I think
+they use the same type) you might be onto a winner.
+__
+David Burren
+
+From woods@most.weird.com  Thu Jun 10 01:57:40 1999
+From: Greg A. Woods <woods@most.weird.com>
+To: port-pmax@netbsd.org
+Date: Thu, 10 Jun 1999 01:57:40 +0000
+Subject: Re: Old DEC software
+
+[ On Thursday, June 10, 1999 at 09:57:42 (+1000), David Burren wrote: ]
+> Subject: Re: Old DEC software
+>
+> When I upgraded my DS700 I talked to a RAM supplier and read out the
+> Samsung numbers from some DEC parts I had available, and they identified
+> them as a standard 72-pin PC SIMM.  However, now I can't recall _which_
+> standard...  Sorry.
+
+Well I know for certain they are "quad-CAS" which isn't quite the normal
+design for a PC SIMM, and of course they require 36-bits which is also
+(unfortunately) somewhat abnormal, at least in the PC world....
+Unfortunately without a data sheet for the proper part it's difficult to
+compare with possible replacements.
+
+> The tricky thing with the 90TL is the problem of physical space.  The
+> SIMMs from the 700 won't fit in, but only due to the location of the
+> socket, the surrounding chips, and the proximity of the case.  I think
+> the DS90 SIMMs only have chips on one side, for a start.
+
+Yes, there is a bit of an issue with physical space, but in my tests
+I've managed to squeezed in even the most improbable fitting SIMMs!  ;-)
+
+> If you can get someone to open up a 90M and identify its SIMM (I think
+> they use the same type) you might be onto a winner.
+
+Oh, I do have a couple of working 4MB SIMMS, but that still leaves more
+than half the units without enough RAM to run the software I have.  The
+data sheets for those I have are long gone from the mfgr's web sites and
+nobody still selling SIMMs knows how to match them with existing parts
+they might have.  I tried ordering some from memoryx.com, but the ones
+he was able to find didn't work.
+
+Thanks for the offer though, and if one of your units is just sitting on
+a shelf (they're really easy to open up!) I'd still appreciate another
+part-# cross-reference -- it's possible DEC used different suppliers at
+different times....
+
+-- 
+							Greg A. Woods
+
++1 416 218-0098      VE3TCP      <gwoods@acm.org>      <robohack!woods>
+Planix, Inc. <woods@planix.com>; Secrets of the Weird <woods@weird.com>
+
+From ross@ghs.com  Thu Jun 10 00:32:54 1999
+From: Ross Harvey <ross@ghs.com>
+To: port-alpha@netbsd.org
+Date: Thu, 10 Jun 1999 00:32:54 +0000
+Subject: Re: phantom X11 lib
+
+> From: John Franklin <franklin@elfie.org>
+>:::
+> I'm pretty sure I've built other things that use shared libraries and
+> don't run into this.  I suppose xosview is one of the few programs
+> that bothers to micromanage its libraries?
+
+Possible reasons include: (1) ELF-aware package.  Even in 1.3.x, some
+packages worked fine with private libraries, e.g., anything that used imake
+or somehow arranged for the X machinery to do the link.  Or (2) because
+/usr/lib is a built-in default. For questionable reasons, /usr/local/lib
+was also, but I believe this changed recently.
+
+> That did it.  Thanks for the tip.  (I think you meant 
+> -rpath=/usr/X11R6/lib, BTW.)
+
+It works either way. (At least in -current.) And I just tried it from the
+-current pkgsrc and note that a third working option is what's actually
+used:
+
+	-Wl,-R/usr/X11R6/lib -Wl,-R/usr/pkg/lib.
+
+>:::
+> That was the other thing that was bothering me.  A NetBSD-1.4/mac68k
+> system built and ran it just fine (well, after I added -DUVM to the 
+> CXXFLAGS.)
+
+Hmm. You "win" twice here. 1.4 pkgsrc, and an a.out (not yet ELF) port.
+Note that pkgsrc doesn't do every package with ELF-aware commands.  Just
+a lot more than it used to, and with a lot of libtool-ing.
+
+	Ross.Harvey@Computer.Org
+
+From simonb@netbsd.org  Thu Jun 10 15:26:29 1999
+From: Simon Burge <simonb@netbsd.org>
+To: franklin@elfie.org
+Date: Thu, 10 Jun 1999 15:26:29 +0000
+Subject: Re: phantom X11 lib
+
+John Franklin wrote:
+
+> This is really starting to piss me off.  What you see below happens with
+> both a 1.6.2 version of xosview and with a freshly compiled 1.7.1 copy.
+> What is wrong with xosview?  Is it just blind?  Am I?  xterm runs fine, 
+> and it needs the exact same "missing" library.  Actually, I don't see
+> this with *any* other program.
+
+The ELF section of the Alpha FAQ should give you the answers you want,
+especially the section on "I made a shared library but my programs can't
+find it".  Sounds like xosview needs -Wl,-R/usr/X11R6/lib on the link
+line.  Look at http://www.NetBSD.ORG/Ports/alpha/faq.html#elf .
+
+Simon.
+
+From franklin@elfie.org  Thu Jun 10 01:07:16 1999
+From: John Franklin <franklin@elfie.org>
+To: port-alpha@netbsd.org
+Date: Thu, 10 Jun 1999 01:07:16 +0000
+Subject: phantom X11 lib
+
+This is really starting to piss me off.  What you see below happens with
+both a 1.6.2 version of xosview and with a freshly compiled 1.7.1 copy.
+What is wrong with xosview?  Is it just blind?  Am I?  xterm runs fine, 
+and it needs the exact same "missing" library.  Actually, I don't see
+this with *any* other program.
+
+Does anyone know what's going on?
+
+elfie# ./xosview 
+Shared object "libX11.so.6" not found
+elfie# uname -a
+NetBSD elfie.org 1.3.3 NetBSD 1.3.3 (CALCIFER) #0: Wed Feb 24 18:21:08 EST 1999     franklin@elfie.perspex.com:/usr/src/sys/arch/alpha/compile/CALCIFER alpha
+elfie# ldd ./xosview
+./xosview:
+         -lc.12 => /usr/lib/libc.so.12
+         -lX11.6 => /usr/X11R6/lib/libX11.so.6
+         -lkvm.5 => /usr/lib/libkvm.so.5
+         -lstdc++.0 => /usr/lib/libstdc++.so.0
+         -lm.0 => /usr/lib/libm.so.0
+elfie# nm -s /usr/X11R6/lib/libX11.so.6
+0000000000000000 a *ABS*
+0000000000000000 a *ABS*
+0000000000000000 a *ABS*
+0000000000000000 a *ABS*
+0000000000000000 a *ABS*
+[snip lots of this]
+0000000000000000 a *ABS*
+0000000000072670 t AppendLEntry
+0000000000072670 t AppendLEntry..ng
+0000000000072730 t AppendLooseLEntry
+0000000000072730 t AppendLooseLEntry..ng
+0000000000079c30 t CIELab_ParseString
+0000000000079c38 t CIELab_ParseString..ng
+[snip bunch more]
+elfie# ldd /usr/X11R6/bin/xterm 
+/usr/X11R6/bin/xterm:
+         -lc.12 => /usr/lib/libc.so.12
+         -lX11.6 => /usr/X11R6/lib/libX11.so.6
+         -lICE.6 => /usr/X11R6/lib/libICE.so.6
+         -lSM.6 => /usr/X11R6/lib/libSM.so.6
+         -lXt.6 => /usr/X11R6/lib/libXt.so.6
+         -lXext.6 => /usr/X11R6/lib/libXext.so.6
+         -lXmu.6 => /usr/X11R6/lib/libXmu.so.6
+         -lXaw.6 => /usr/X11R6/lib/libXaw.so.6
+         -lgnumalloc.0 => /usr/lib/libgnumalloc.so.0
+         -ltermcap.0 => /usr/lib/libtermcap.so.0
+elfie# echo $LD_LIBRARY_PATH 
+/usr/lib:/usr/local/lib:/usr/X11R6/lib
+elfie# 
+
+jf
+-- 
+John Franklin
+franklin@elfie.org
+ICBM: N37 12'54", W80 27'14" Z+2100'
+
+From franklin@elfie.org  Thu Jun 10 02:18:15 1999
+From: John Franklin <franklin@elfie.org>
+To: ross@ghs.com
+Date: Thu, 10 Jun 1999 02:18:15 +0000
+Subject: Re: phantom X11 lib
+
+On Wed, Jun 09, 1999 at 10:40:48PM -0700, Ross Harvey wrote:
+>> From: John Franklin <franklin@elfie.org>
+>>:::
+>> elfie# ./xosview 
+>> Shared object "libX11.so.6" not found
+>>:::
+> 
+> Ok, good investigation. You covered just about every base, except for one
+
+Thank you.
+
+> thing that would probably have required reading a lot of source:  the loader
+> ignores the environment variable for setuid programs, and I suppose xosview
+> is setuid.
+
+It's setgid, actually: needs to be in group kmem.
+
+> But note that if you make your xterm setuid, it will STILL find that library.
+> That's because xterm is linked with the magic ELF -rpath directive.
+
+I'm pretty sure I've built other things that use shared libraries and
+don't run into this.  I suppose xosview is one of the few programs
+that bothers to micromanage its libraries?
+
+> You need to do:
+> 	$ cc  -Wl,-rpath,/usr/X11R6/lib  xosview.o ...
+
+That did it.  Thanks for the tip.  (I think you meant 
+-rpath=/usr/X11R6/lib, BTW.)
+
+> These days, the NetBSD Package System does a pretty good job of dealing
+> with ELFness, but your 1.3.3 system was from much earlier days.
+
+That was the other thing that was bothering me.  A NetBSD-1.4/mac68k
+system built and ran it just fine (well, after I added -DUVM to the 
+CXXFLAGS.)
+
+Oh, for those keeping score, xosview-1.7.0 froze the mac68k-1.4 system
+(three-finger didn't work, but reset switch did), but 1.7.1 works fine.
+Good that 1.7.1 fixed it, bad that a userland (albeit kmem-mucking)
+program can kill a 1.4 system.
+
+When I get a chance, I'll try to find the diff between 1.7.0 and 1.7.1
+that killed it.
+
+> The NetBSD/alpha faq contains a discussion of exactly this issue, although
+> the section is a bit misnamed.  ("I made a shared library and my programs
+> can't find it" should probably be "My program can't find a shared library".)
+
+I read that some time ago when I was looking for another problem.  I think
+the LD_LIBRARY_PATH fixed that one, which is why I was stumped when it
+didn't work on this one.
+
+jf
+-- 
+John Franklin
+franklin@elfie.org
+ICBM: N37 12'54", W80 27'14" Z+2100'
+
+From bouyer@antioche.lip6.fr  Thu Jun 10 13:59:05 1999
+From: Manuel Bouyer <bouyer@antioche.lip6.fr>
+To: port-pmax@NetBSD.org, port-alpha@NetBSD.org
+Date: Thu, 10 Jun 1999 13:59:05 +0000
+Subject: rz24 jumpers settings
+
+Hi,
+not really NetBSD related, although it's to put in a sparc/NetBSD machine :)
+I have found a DEC rz24 disk drive, but not the jupper settings (a
+not-so-quick look at digital's www server didn't give anything).
+If someone have docs about it I'd appreciate if he could give me
+juppers settings (especially SCSI id and wether it's possible to lock the
+drive read-only).
+
+Thanks !
+
+--
+Manuel Bouyer, LIP6, Universite Paris VI.           Manuel.Bouyer@lip6.fr
+--
+
+From tv@pobox.com  Thu Jun 10 07:52:57 1999
+From: Todd Vierling <tv@pobox.com>
+To: franklin@elfie.org
+Date: Thu, 10 Jun 1999 07:52:57 +0000
+Subject: Re: phantom X11 lib
+
+On Thu, 10 Jun 1999, John Franklin wrote:
+
+: > But note that if you make your xterm setuid, it will STILL find that library.
+: > That's because xterm is linked with the magic ELF -rpath directive.
+: 
+: I'm pretty sure I've built other things that use shared libraries and
+: don't run into this.  I suppose xosview is one of the few programs
+: that bothers to micromanage its libraries?
+
+/usr/lib is always searched, and any program that uses Imakefiles (xmkmf)
+will gain the rpath options automagically.
+
+: That did it.  Thanks for the tip.  (I think you meant 
+: -rpath=/usr/X11R6/lib, BTW.)
+
+There's half a dozen ways to say it on the cc command line.  The -Wl, part
+means `pass to the linker'; pkgsrc uses "-Wl,-R/path/name" because that is
+compatible with ELF, a.out, 1.3.x, and 1.4 uniformly.
+
+(a.out 1.4 packages have been built such that you don't have to edit
+ld.so.conf and add /usr/pkg/lib or /usr/X11R6/lib *at all* anymore -- a.out
+can use rpath, too!)
+
+: That was the other thing that was bothering me.  A NetBSD-1.4/mac68k
+: system built and ran it just fine (well, after I added -DUVM to the 
+: CXXFLAGS.)
+
+Because you have /usr/X11R6/lib in /etc/ld.so.conf.  This is, as of 1.4, a
+`taboo' way of doing this.
+
+-- 
+-- Todd Vierling (Personal tv@pobox.com; Bus. todd_vierling@xn.xerox.com)
+
+From kwellsch@link.link-systems.com  Thu Jun 10 09:29:55 1999
+From: Ken Wellsch <kwellsch@link.link-systems.com>
+To: bouyer@antioche.lip6.fr
+Date: Thu, 10 Jun 1999 09:29:55 +0000
+Subject: Re: rz24 jumpers settings
+
+I think this reference should do it (depending on whether it is an RZ24 or
+and RZ24L or ?):
+
+	http://theref.aquascape.com/hard_drives/layouts/hs_dec_rz24.html
+
+This site is often referred to by folks when hunting for jumper settings.
+
+Cheers,
+
+-- Ken
+
+| Hi,
+| not really NetBSD related, although it's to put in a sparc/NetBSD machine :)
+| I have found a DEC rz24 disk drive, but not the jupper settings (a
+| not-so-quick look at digital's www server didn't give anything).
+| If someone have docs about it I'd appreciate if he could give me
+| juppers settings (especially SCSI id and wether it's possible to lock the
+| drive read-only).
+| 
+| Thanks !
+| 
+| --
+| Manuel Bouyer, LIP6, Universite Paris VI.           Manuel.Bouyer@lip6.fr
+| --
+
+From wilko@yedi.iaf.nl  Thu Jun 10 20:55:19 1999
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: wilko@yedi.iaf.nl
+Date: Thu, 10 Jun 1999 20:55:19 +0000
+Subject: Re: Old DEC software
+
+As Wilko Bulte wrote ...
+> As Greg A. Woods wrote ...
+> > [ On , June 6, 1999 at 03:12:04 (-0400), Nathan J. Williams wrote: ]
+> > > Subject: Re: Old DEC software
+> > >
+> > > Allen Briggs <briggs@ninthwonder.com> writes:
+> > > 
+[snip]
+> > I have some DECserver 90TLs and a 900TM (hooked to a big DEChub900
+> > multiswitch backplane, along with associated ethernet switches, hubs,
+> > concentrators, etc.), which do speak TCP/IP, and I do have DECserver
+> > NAS-v2.2 that does run on them, but do not have FLASH ROMs (though the
+> > 900TM has a PCMCIA slot for one) and as a result they make very poor
+> > (almost useless) terminal servers because they need a running host to
+> > boot from.  I'd been hoping to get rid of all of the screens on *all* of
+> > my servers, but unless I can find a compatible FLASH card for the 900TM
+> 
+> We used Mitsubishi cards for the DECserver 900TM. I'll try to look up
+> which Mitsubishi part# the blank has.
+
+And it is a:
+
+Mitsubishi MELCARD MF82M1-GBDAT01 2Mbyte
+
+--
+|   / o / /  _  	 Arnhem, The Netherlands	- Powered by FreeBSD -
+|/|/ / / /( (_) Bulte 	 WWW  : http://www.tcja.nl 	http://www.freebsd.org
+
+From niloc@softimage.com  Fri Jun 11 11:33:57 1999
+From: Niloc <niloc@softimage.com>
+To: port-alpha@netbsd.org
+Date: Fri, 11 Jun 1999 11:33:57 +0000
+Subject: 1.4/Alpha bootable CD
+
+Hi,
+
+For those of you wanting to create a NetBSD/Alpha 1.4 bootable CD
+ from the "cdhdtape" image file and with access to only a Windows 
+based CD writer, here's one way to do it.
+
+Get the free "Nero" demo (v4.0) from http://www.ahead.de and 
+simply go in  File/Burn Image, choose the "cdhdtape" file. 
+Click OK to set options when asked and use:
+Type of image: data mode 1
+Block size: 2048
+Image header (bytes): 0
+Image trailer (bytes): 0
+and leave the "Raw Data", "Scrambled" and "Swapped" checkboxes 
+unchecked.
+
+That will do it.
+
+I noticed that when booting from the CD I got a few "dka400.4.0.6.0 is
+not ready" right after "NetBSD/Alpha 1.4 Primary Boot +"
+but the boot process continued without problems. 
+(I'm running on DEC Alpha Server 400 4/166)
+
+Colin.
+
+From mrg@eterna.com.au  Sun Jun 13 23:05:56 1999
+From: matthew green <mrg@eterna.com.au>
+To: current-users@netbsd.org
+Date: Sun, 13 Jun 1999 23:05:56 +0000
+Subject: ELF modload support!
+
+[ replies set to current-users ]
+
+hi folks.
+
+
+i have commited changes from joda@pdc.kth.se (Johan Danielsson) to enable
+ELF modload support.  joda's code originally was for the Alpha, and i see
+no reason why it would not work now as well as before.  i've only tested
+it for a.out and ELF on the SPARC.
+
+
+ELF is missing symtab loading support, but that is due to support for that
+for a.out being added _after_ the original version of this patch.
+
+
+please log any problems with send-pr!  thanks.
+
+From kwellsch@link.link-systems.com  Sun Jun 13 09:38:07 1999
+From: Ken Wellsch <kwellsch@link.link-systems.com>
+To: current-users@netbsd.org
+Date: Sun, 13 Jun 1999 09:38:07 +0000
+Subject: Re: ELF modload support!
+
+| Date: Sun, 13 Jun 1999 23:05:56 +1000
+| From: matthew green <mrg@eterna.com.au>
+| 
+| i have commited changes from joda@pdc.kth.se (Johan Danielsson) to enable
+| ELF modload support.  joda's code originally was for the Alpha, and i see
+| no reason why it would not work now as well as before.  i've only tested
+| it for a.out and ELF on the SPARC.
+| 
+| ELF is missing symtab loading support, but that is due to support for that
+| for a.out being added _after_ the original version of this patch.
+| 
+| please log any problems with send-pr!  thanks.
+
+On a DEC/Alpha running June 5 -current userland, June 12 kernel, I get
+this trying to build -current as of Sat June 12 and Sun June 13 sup.
+Is this related to the changes mentioned above?
+
+# pwd
+/usr/src/usr.bin/modstat
+# make
+cc -O2  -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Werror   -c modstat.c
+cc1: warnings being treated as errors
+modstat.c: In function `dostat':
+modstat.c:122: warning: field width is not type int (arg 5)
+modstat.c:122: warning: field width is not type int (arg 8)
+modstat.c: In function `main':
+modstat.c:186: warning: field width is not type int (arg 2)
+modstat.c:186: warning: field width is not type int (arg 4)
+*** Error code 1
+
+Stop.
+
+From mrg@eterna.com.au  Sun Jun 13 23:52:28 1999
+From: matthew green <mrg@eterna.com.au>
+To: kwellsch@link.link-systems.com
+Date: Sun, 13 Jun 1999 23:52:28 +0000
+Subject: re: ELF modload support!
+
+On a DEC/Alpha running June 5 -current userland, June 12 kernel, I get
+   this trying to build -current as of Sat June 12 and Sun June 13 sup.
+   Is this related to the changes mentioned above?
+
+
+hmm.. i commited these changes just after i saw the daily sup update
+so i don't think it is in current yet.  there _could_ be problems
+like this but i don't have an alpha running -current handy (yet :)
+to check this out...
+
+From paul@whooppee.com  Sun Jun 13 11:35:19 1999
+From: Paul Goyette <paul@whooppee.com>
+To: current-users@NetBSD.ORG
+Date: Sun, 13 Jun 1999 11:35:19 +0000
+Subject: Errors building xview-lib
+
+Hello - I'm trying to install the xview package(s), and got the
+following error:
+
+rm -f libolgx.so.3.2~ ./xshared/libolgx.so.xs.o
+(cd ./xshared; ld -o ../libolgx.so.3.2~ -shared -Wl,-rpath,/usr/X11R6/lib ?*.o)
+ld: unrecognized option `-Wl,-rpath,/usr/X11R6/lib'
+*** Error code 1
+
+Stop.
+
+Now, I _know_ that all of my headers etc. are correct, 'cuz I just
+reinstalled everything from 1.4 sources.  I even rebuilt all of X, "just
+in case" that was the problem.
+
+The basic problem is that the "-Wl,-rpath" stuff is being handed
+directly to ld in EXTRA_LOAD_FLAGS.  But I can't figure out how that
+gets into the Makefile, since it's not mentioned in the Imakefile!
+
+Any ideas, anyone?
+
+--------------------------------------------------------------------------
+| Paul Goyette      | PGP DSS Key fingerprint:   | E-mail addresses:     |
+| Network Engineer  |   BCD7 5301 9513 58A6 0DBC |  paul@whooppee.com    |
+| and kernel hacker |   91EB ADB1 A280 3B79 9221 |  pgoyette@juniper.net |
+--------------------------------------------------------------------------
+
+From mikeride@prez.org  Sun Jun 13 19:28:51 1999
+From: Michael G. Schabert <mikeride@prez.org>
+To: port-alpha@netbsd.org
+Date: Sun, 13 Jun 1999 19:28:51 +0000
+Subject: booting disk??
+
+Hi all,
+I've come into a perplexing problem...I'm trying to switch my NetBSD setup
+to a different hard drive. I installed all new tarballs (1.4 release), went
+through /etc by hand, transferred the entire /home directory, & have a copy
+of my htdocs on it. I did the "/usr/mdec/installboot /dev/rsd1c
+/usr/mdec/bootxx_ffs" and did copy /usr/mdec/boot over to /mnt. I then
+shutdown, removed the onl HD, removed the resistor to let the new HD be
+SCSI ID 0 & proceeded to power up.I was greeted by:
+
+(boot dka0.0.0.6.0 -flags a)
+block 0 of dka0.0.0.6.0 is not a valid boot block
+bootstrap failure
+
+OK, I thought, maybe I mistyped something while doing the installboot.
+Well, 3 more installboots later (some using /usr/mdec/*, some using
+/mnt/usr/mdec/*) & I'm fairly confident that isn't the case. I've switched
+hard drives a few times on the alpha already, so now I'm really stumped.
+Here's the bottom of the offending disklabel:
+
+#        size   offset     fstype   [fsize bsize   cpg]
+  a:  3400000        0     4.2BSD     1024  8192    16   # (Cyl.    0 - 2361*)
+  b:   311990  3400000       swap                        # (Cyl. 2361*- 2577*)
+  c:  3711990        0     unused        0     0         # (Cyl.    0 - 2577*)
+
+Here's the bottom of the disklabel of the running system:
+
+#        size   offset     fstype   [fsize bsize   cpg]
+  a:  1668000        0     4.2BSD     1024  8192    16   # (Cyl.    0 - 2999)
+  b:   464260  1668000       swap                        # (Cyl. 3000 - 3834)
+  c:  2132260        0     unused        0     0         # (Cyl.    0 - 3834)
+
+
+What are those asterisks for in the bad version?
+
+Any help greatly appreciated...I can't wait to get back to having enough HD
+space to make build again ;-).
+
+System:
+AlphaStation 4/200 166, 80 MBs RAM, running HD 1 GB, bad HD 2 GB or so.
+
+Mike
+Bikers don't *DO* taglines.
+
+From murray@pa.dec.com  Sun Jun 13 16:34:43 1999
+From: Hal Murray <murray@pa.dec.com>
+To: mikeride@prez.org
+Date: Sun, 13 Jun 1999 16:34:43 +0000
+Subject: Re: booting disk??
+
+> What are those asterisks for in the bad version?
+
+I think that means the partition size isn't an even number of cylinders.
+
+
+I'm not a wizard in this area, but the math checks out.
+
+  1668000 / 3000 => 556
+  3400000 / 2361 => 1440.067
+
+From cgd@netbsd.org  Sun Jun 13 17:16:29 1999
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: mikeride@prez.org
+Date: Sun, 13 Jun 1999 17:16:29 +0000
+Subject: Re: booting disk??
+
+"Michael G. Schabert" <mikeride@prez.org> writes:
+> I've come into a perplexing problem...I'm trying to switch my NetBSD setup
+> to a different hard drive. I installed all new tarballs (1.4 release), went
+> through /etc by hand, transferred the entire /home directory, & have a copy
+> of my htdocs on it. I did the "/usr/mdec/installboot /dev/rsd1c
+> /usr/mdec/bootxx_ffs" and did copy /usr/mdec/boot over to /mnt.
+
+Did you by any chance edit the disklabel with 'disklabel -r ...' on
+the second disk after running the installboot?
+
+that installboot command should have done the right thing, but there's
+a known bug in 'disklabel -r' that can clobber boot blocks....
+
+
+FYI: the *'s (partitions unalined w.r.t. cylinder boundaries) are
+almost certainly _not_ the cause of your problem.
+
+
+chris
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From ross@ghs.com  Sun Jun 13 17:21:03 1999
+From: Ross Harvey <ross@ghs.com>
+To: current-users@netbsd.org, paul@whooppee.com
+Date: Sun, 13 Jun 1999 17:21:03 +0000
+Subject: Re: Errors building xview-lib
+
+> From: Paul Goyette <paul@whooppee.com>
+>
+> Hello - I'm trying to install the xview package(s), and got the
+> following error:
+>
+> rm -f libolgx.so.3.2~ ./xshared/libolgx.so.xs.o
+> (cd ./xshared; ld -o ../libolgx.so.3.2~ -shared -Wl,-rpath,/usr/X11R6/lib ?*.o)
+> ld: unrecognized option `-Wl,-rpath,/usr/X11R6/lib'
+> *** Error code 1
+>
+> Stop.
+>
+> Now, I _know_ that all of my headers etc. are correct, 'cuz I just
+> reinstalled everything from 1.4 sources.  I even rebuilt all of X, "just
+> in case" that was the problem.
+>
+> The basic problem is that the "-Wl,-rpath" stuff is being handed
+> directly to ld in EXTRA_LOAD_FLAGS.  But I can't figure out how that
+> gets into the Makefile, since it's not mentioned in the Imakefile!
+>
+> Any ideas, anyone?
+
+It comes indirectly from /usr/X11R6/lib/X11/config and the problem seems
+to be something like this: the xview-config package installs XView.rules
+(and XView.LOTSOFJUNK) over there, and this does a number of things wrong.
+
+Look at line 151 (and 178) of XView.rules.
+
+	1. It shouldn't be redefining the X11 library rules. We already
+	   get them right, if the pkg redefines them only lossage can
+	   result.
+
+	2. There is no reason to pass those args, they are used when
+	   linking programs against shared libraries, not when building
+	   libraries. (And it doesn't seem to do the shared stuff right
+	   at all, not even remotely, yet that's what it seems to be trying
+	   to do.)
+
+	3. It runs $(LD) instead of $(CC)
+
+You can't fix (1) easily, but (2) or (3) should be pretty easy to hack into
+the installed XView.rules file.  I think I will leave actually fixing the
+package to someone else, but I suspect it involves adding a patch (in the
+xview-config pkg) against XView.rules or maybe some of the other config-dir
+stuff. Any pkg hacks around?
+
+	Ross.Harvey@Computer.Org
+
+From mikeride@prez.org  Sun Jun 13 20:52:42 1999
+From: Michael G. Schabert <mikeride@prez.org>
+To: cgd@netbsd.org
+Date: Sun, 13 Jun 1999 20:52:42 +0000
+Subject: Re: booting disk??
+
+>"Michael G. Schabert" <mikeride@prez.org> writes:
+>> I've come into a perplexing problem...I'm trying to switch my NetBSD setup
+>> to a different hard drive. I installed all new tarballs (1.4 release), went
+>> through /etc by hand, transferred the entire /home directory, & have a copy
+>> of my htdocs on it. I did the "/usr/mdec/installboot /dev/rsd1c
+>> /usr/mdec/bootxx_ffs" and did copy /usr/mdec/boot over to /mnt.
+>
+>Did you by any chance edit the disklabel with 'disklabel -r ...' on
+>the second disk after running the installboot?
+>
+>that installboot command should have done the right thing, but there's
+>a known bug in 'disklabel -r' that can clobber boot blocks....
+
+Unfortunately, no, I've never done a disklabel -r in my life...I low-level
+formatted the drive with FWB's hard disk toolkit on my Mac, ran it through
+a gamut of tests, & then hooked it up to the alpha. I then disklabel -i'd
+it, chose the arbitrary 3400000 as leaving plenty for swap, & used a
+calculator for the swapsize. After the disklabel, I did a newfs on sd1a, &
+then proceeded t fill up the drive with the 1.4 release tarballs. After
+unpacking them, I tried doing the installboot stuff.
+
+>FYI: the *'s (partitions unalined w.r.t. cylinder boundaries) are
+>almost certainly _not_ the cause of your problem.
+
+OK, I was just fishing for diffs between the two disklabels ;).
+
+
+If nothing enlightening comes along by tomorrow afternoon, I'll just
+re-reformat & start from scratch...I just .tgz'd my /mnt so I don't have to
+go by & hand-edit /etc again just in case :).
+
+
+Thanks for all help,
+Mike
+Bikers don't *DO* taglines.
+
+From cgd@netbsd.org  Sun Jun 13 17:48:34 1999
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: mikeride@prez.org
+Date: Sun, 13 Jun 1999 17:48:34 +0000
+Subject: Re: booting disk??
+
+hmm.  well, you might try re-running installboot once more, perhaps as
+'installboot -v' (be verbose) and see if it says anything
+interesting...
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From mikeride@prez.org  Sun Jun 13 21:15:11 1999
+From: Michael G. Schabert <mikeride@prez.org>
+To: cgd@netbsd.org
+Date: Sun, 13 Jun 1999 21:15:11 +0000
+Subject: Re: booting disk??
+
+At 8:48 PM -0400 6/13/99, Chris G. Demetriou wrote:
+>hmm.  well, you might try re-running installboot once more, perhaps as
+>'installboot -v' (be verbose) and see if it says anything
+>interesting...
+
+prez# ./installboot -v /dev/rsd1c /mnt/usr/mdec/bootxx_ffs
+disk: /dev/rsd1c
+bootstrap: /mnt/usr/mdec/bootxx_ffs
+bootstrap starting sector: 1
+bootstrap sector count: 14
+new boot block checksum: 0xf59d07492c3a86f8
+writing bootstrap
+writing boot block
+
+Looks somewhat "normal" to these untrained eyes ;-)
+
+Mike
+Bikers don't *DO* taglines.
+
+From cgd@netbsd.org  Sun Jun 13 18:09:35 1999
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: mikeride@prez.org
+Date: Sun, 13 Jun 1999 18:09:35 +0000
+Subject: Re: booting disk??
+
+"Michael G. Schabert" <mikeride@prez.org> writes:
+> bootstrap starting sector: 1
+> bootstrap sector count: 14
+> new boot block checksum: 0xf59d07492c3a86f8
+
+Hmm.  looks reasonable, assuming the checksum is correct (no sane way
+to verify that w/o doing the additions by hand, but it's not like the
+code is complex).
+
+
+> Looks somewhat "normal" to these untrained eyes ;-)
+
+Yah, to these trained eyes, too.
+
+Does the re-installbooted disk boot?  (if you don't know, you can say
+e.g. 'b dka100' to boot off SCSI ID 1...  easier than frobbing jumpers
+8-)
+
+
+The reason that this puzzles me is a return from 'boot' as early as
+the one you got indicates that the alpha console went and read the
+first block of the disk, which contains:
+
+	* NetBSD disklabel, if any, and
+
+	* SRM Boot Block, which in turn contains a few fields and that
+	  checksum.
+
+and, looking at the SRM Boot Block, i.e. the starting sector, sector
+count, boot block flags (always zero for us, iirc), and checksum,
+decided that it wasn't a valid boot block...
+
+Typically that's because the checksum's wrong...
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From mikeride@prez.org  Sun Jun 13 21:49:00 1999
+From: Michael G. Schabert <mikeride@prez.org>
+To: cgd@netbsd.org
+Date: Sun, 13 Jun 1999 21:49:00 +0000
+Subject: Re: booting disk??
+
+>"Michael G. Schabert" <mikeride@prez.org> writes:
+>> bootstrap starting sector: 1
+>> bootstrap sector count: 14
+>> new boot block checksum: 0xf59d07492c3a86f8
+>
+>Hmm.  looks reasonable, assuming the checksum is correct (no sane way
+>to verify that w/o doing the additions by hand, but it's not like the
+>code is complex).
+>
+>
+>> Looks somewhat "normal" to these untrained eyes ;-)
+>
+>Yah, to these trained eyes, too.
+>
+>Does the re-installbooted disk boot?  (if you don't know, you can say
+>e.g. 'b dka100' to boot off SCSI ID 1...  easier than frobbing jumpers
+>8-)
+
+Yeah, that's what I did...shutdown -h now
+
+>>> b dka400 (running HD was SCSI ID 2, so I hadta make new one higher to
+>>>use 'em both)
+
+>The reason that this puzzles me is a return from 'boot' as early as
+>the one you got indicates that the alpha console went and read the
+>first block of the disk, which contains:
+>
+>	* NetBSD disklabel, if any, and
+>
+>	* SRM Boot Block, which in turn contains a few fields and that
+>	  checksum.
+>
+>and, looking at the SRM Boot Block, i.e. the starting sector, sector
+>count, boot block flags (always zero for us, iirc), and checksum,
+>decided that it wasn't a valid boot block...
+>
+>Typically that's because the checksum's wrong...
+
+Hmm, weird...anyone else try doing an installboot with the 1.4 release? I
+freshly downloaded all sets for the new HD, leaving the running system
+alone. Then & had tried using the /usr/mdec from the running system, as
+well as the fresh ones from /mnt/usr/mdec, so I would think that that'd
+solve any problems with checksums being wrong on either just my system or
+just the release tarballs.
+
+About the only thing that I remember doing wrong was that I had forgotten
+the newfs step before my first fsck try...so of course it reported bad
+superblock, wrong magic number. Then I remembered to make the fs, & then
+did an fsck -fp on it, which came out OK. I can't see how that'd affect it,
+but I figure I'll throw that out there.
+
+Chris, I appreciate the attention you've given my dilemma. I'm gonna sleep
+on it & see if anything turns up tomorrow when the collective gets back to
+the office...assuming not, I'll try reformatting tomorrow & seeing if that
+fixes it.
+
+
+Thanks for all your help,
+Mike
+Bikers don't *DO* taglines.
+
+From khym@bga.com  Sun Jun 13 22:47:07 1999
+From: Dave Huang <khym@bga.com>
+To: mikeride@prez.org
+Date: Sun, 13 Jun 1999 22:47:07 +0000
+Subject: Re: booting disk??
+
+On Sun, 13 Jun 1999, Michael G. Schabert wrote:
+> Hmm, weird...anyone else try doing an installboot with the 1.4 release? I
+
+I installed the 1.4 release, which I assume would have run installboot...
+I then upgraded to -current (by compiling the source) and transferred
+everything to another drive (a wide SCSI drive; the original install was
+on a borrowed IDE drive). So, 1.4 and -current installboot seem to be
+working for me...
+
+From Tony.Hernandez@intellon.com  Mon Jun 14 12:29:22 1999
+From: Tony Hernandez <Tony.Hernandez@intellon.com>
+To: port-alpha@netbsd.org
+Date: Mon, 14 Jun 1999 12:29:22 +0000
+Subject: Greetings
+
+Hello all I am new on the list. I was wondering how many of you are using
+the UDE <no-name> DEC alpha computer . Is NetBSD running good on it ?
+
+Cheers
+
+
+--------------------------
+///// Tony Hernandez -----
+-----    MCP , A+    /////
+--------------------------
+
+From cgd@netbsd.org  Mon Jun 14 12:28:14 1999
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: mikeride@prez.org
+Date: Mon, 14 Jun 1999 12:28:14 +0000
+Subject: Re: booting disk??
+
+"Michael G. Schabert" <mikeride@prez.org> writes:
+> Hmm, weird...anyone else try doing an installboot with the 1.4 release?
+
+I beat fairly heavily on installboot and friends, because i severely
+improved them during the release cycle...  I've even installed boxes
+from scratch with them, yes, and obviously others have as well.
+
+
+
+> Chris, I appreciate the attention you've given my dilemma. I'm gonna sleep
+> on it & see if anything turns up tomorrow when the collective gets back to
+> the office...assuming not, I'll try reformatting tomorrow & seeing if that
+> fixes it.
+
+One thing you might do:
+
+(1) re-run installboot -v, and save the output.
+
+(2) after that's done, 'dd if=<disk> of=<file> bs=512 count=1", to
+grab the first block of the disk.
+
+(3) send the uuencoded disk block along with the installboot -v output
+to me, and i'll take a look at them.
+
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From cgd@netbsd.org  Mon Jun 14 17:02:23 1999
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: port-alpha@netbsd.org
+Date: Mon, 14 Jun 1999 17:02:23 +0000
+Subject: Re: booting disk??
+
+FYI, to those of you who were watching this discussion w/ interest:
+
+* there was a bug in installboot(8).
+
+* it's been fixed (updated version should show up in -current
+tomorrow), and a pullup request has been submitted for 1.4.1.
+
+* if you want a fixed installboot binary or the patch to 1.4 to
+fix the problem, send me e-mail.
+
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From cgd@netbsd.org  Mon Jun 14 16:19:58 1999
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: port-alpha@netbsd.org
+Date: Mon, 14 Jun 1999 16:19:58 +0000
+Subject: www/communicator and www/navigator packages for NetBSD/alpha
+
+I've just updated the www/communicator and www/navigator packages so
+that they work on NetBSD/alpha.  They install the Digital UNIX 4.0
+Communicator and Navigator binary distributions.
+
+Obviously, for this to work, you need to have COMPAT_OSF1 enabled with
+my recent updates (i.e. you must be using NetBSD-current or NetBSD
+1.4 with my patches applied), and you have to have an /emul/osf1
+environment set up with the Digital UNIX 4.0 libraries.
+
+As noted previously, if you're interested in getting a copy of the
+COMPAT_OSF1 patches for 1.4, please send me e-mail.
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From HMSEO@sec.samsung.com  Tue Jun 15 15:21:18 1999
+From: Hyung Min SEO <HMSEO@sec.samsung.com>
+To: port-alpha@netbsd.org
+Date: Tue, 15 Jun 1999 15:21:18 +0000
+Subject: Machine Check message on Alpha 164LX
+
+Hello everyone,
+
+Has anyone seen that following error message on Alpha 164LX.
+Our customer were facing following machine check message 
+in the display while setup Net BSD on the LX.
+They are using Net BSD 1.2G on 164LX as a Router application.
+
+------------------------------------------------------------------
+Machine Check :
+
+mces		= 0 X 1
+vector		= 0 X 660
+paran		= 0 X fffffc0000006068
+pc		= 0 X fffffc000023036c
+ra		= 0 X fffffc000037487c
+curproc		= 0 X fffffe008aa75a00
+pid		= 1022, comm = gated
+
+panic : machine check
+  stopped at debugger + 044: ret zero, (ra),
+db>
+----------------------------------------------------------------
+My question is as below.
+
+	- Which bad situation made "machine check" poped up on the display ?
+	- Where does "machine check" come from ? (OS, BIOS, others ?)
+	- Is it possible to figure out specific memory address CPU
+addressed last ?
+	- If  so, how could I find out ?
+
+Any information or any tips would be really appreciate.
+Thanks,
+
+Tai-Whan Choi
+Field Application Engineer
+Alpha CPU Marketing Group
+E-mail : twchoi@sec.samsung.com
+Tel : 82-331-209-3282
+C/P : 82-18-328-4972
+
+From ragge@ludd.luth.se  Tue Jun 15 16:54:28 1999
+From: Anders Magnusson <ragge@ludd.luth.se>
+To: port-alpha@netbsd.org
+Date: Tue, 15 Jun 1999 16:54:28 +0000
+Subject: Anyone got Acroread running?
+
+I just tried to get Acroread running, but it got SIGSYS directly.
+A little ktrace showed:
+
+  7513 acroread CALL  obreak(0x14004a7c0)
+  7513 acroread RET   obreak 0
+  7513 acroread CALL  [-10]
+  7513 acroread PSIG  SIGSYS SIG_DFL
+  7513 acroread NAMI  "acroread.core"
+
+Ehum, syscall -10 doesn't feel quite normal. Is there anyone that can
+interpret this? (or explain what is happening).
+
+-- Ragge
+
+From gallatin@cs.duke.edu  Tue Jun 15 12:05:58 1999
+From: Andrew Gallatin <gallatin@cs.duke.edu>
+To: ragge@ludd.luth.se
+Date: Tue, 15 Jun 1999 12:05:58 +0000
+Subject: Re: Anyone got Acroread running?
+
+Anders Magnusson writes:
+ > I just tried to get Acroread running, but it got SIGSYS directly.
+ > A little ktrace showed:
+ > 
+ >   7513 acroread CALL  obreak(0x14004a7c0)
+ >   7513 acroread RET   obreak 0
+ >   7513 acroread CALL  [-10]
+ >   7513 acroread PSIG  SIGSYS SIG_DFL
+ >   7513 acroread NAMI  "acroread.core"
+ > 
+ > Ehum, syscall -10 doesn't feel quite normal. Is there anyone that can
+ > interpret this? (or explain what is happening).
+
+This is one of those wacky Mach system calls.
+ftp://ftp.netbsd.org/pub/NetBSD-current/src/sys/compat/osf1/README.mach-traps 
+spells out the problem.
+
+In general, apps which are linked to libpthreads.so or libpthread.so
+tend to use mach system calls.  Luckily, not many intersting apps are.
+Acroread is the only productivity app I've found so far which is.
+
+Drew
+------------------------------------------------------------------------------
+Andrew Gallatin, Sr Systems Programmer	http://www.cs.duke.edu/~gallatin
+Duke University				Email: gallatin@cs.duke.edu
+Department of Computer Science		Phone: (919) 660-6590
+
+From abs@anim.dreamworks.com  Tue Jun 15 10:06:27 1999
+From: David Brownlee <abs@anim.dreamworks.com>
+To: gallatin@cs.duke.edu
+Date: Tue, 15 Jun 1999 10:06:27 +0000
+Subject: Re: Anyone got Acroread running?
+
+I'll add a note to this effect to the NetBSD/alpha FAQ. Thanks.
+
+		David/absolute
+
+             -=-  "Promise carved in stone, deeper than the sea"  -=-
+
+On Tue, 15 Jun 1999, Andrew Gallatin wrote:
+
+> 
+> Anders Magnusson writes:
+>  > I just tried to get Acroread running, but it got SIGSYS directly.
+>  > A little ktrace showed:
+>  > 
+>  >   7513 acroread CALL  obreak(0x14004a7c0)
+>  >   7513 acroread RET   obreak 0
+>  >   7513 acroread CALL  [-10]
+>  >   7513 acroread PSIG  SIGSYS SIG_DFL
+>  >   7513 acroread NAMI  "acroread.core"
+>  > 
+>  > Ehum, syscall -10 doesn't feel quite normal. Is there anyone that can
+>  > interpret this? (or explain what is happening).
+> 
+> This is one of those wacky Mach system calls.
+> ftp://ftp.netbsd.org/pub/NetBSD-current/src/sys/compat/osf1/README.mach-traps 
+> spells out the problem.
+> 
+> In general, apps which are linked to libpthreads.so or libpthread.so
+> tend to use mach system calls.  Luckily, not many intersting apps are.
+> Acroread is the only productivity app I've found so far which is.
+> 
+> Drew
+> ------------------------------------------------------------------------------
+> Andrew Gallatin, Sr Systems Programmer	http://www.cs.duke.edu/~gallatin
+> Duke University				Email: gallatin@cs.duke.edu
+> Department of Computer Science		Phone: (919) 660-6590
+>
+
+From chrisr@geeknet.montreal.qc.ca  Tue Jun 15 13:16:21 1999
+From: Chris Rupnik <chrisr@geeknet.montreal.qc.ca>
+To: port-alpha@netbsd.org
+Date: Tue, 15 Jun 1999 13:16:21 +0000
+Subject: exports file and mountd
+
+Hi
+ I have a simple three line exports directory on the alpha (1.4)
+
+/usr/netbsd/hp300
+/usr/netbsd/sun3
+/usr/netbsd/sparc
+
+Now, i get a "Can't change attributes" for the second and third lines.
+The first entry goes through (or reports no error). 
+
+I have looked at the archive, and many people seem to get the error, but
+no fixes.
+
+Note: I had never used NFS exports on alpha before. It was running 1.3.2
+just fine. I though it might be a bug, and upgraded to 1.4 hoping for a
+fix, same on both versions. This is a usability thing right? 
+
+Chris
+
+From bad@ora.de  Tue Jun 15 19:44:05 1999
+From: Christoph Badura <bad@ora.de>
+To: port-alpha@netbsd.org
+Date: Tue, 15 Jun 1999 19:44:05 +0000
+Subject: Re: exports file and mountd
+
+chrisr@geeknet.montreal.qc.ca (Chris Rupnik) writes:
+> I have a simple three line exports directory on the alpha (1.4)
+
+>/usr/netbsd/hp300
+>/usr/netbsd/sun3
+>/usr/netbsd/sparc
+
+>Now, i get a "Can't change attributes" for the second and third lines.
+>The first entry goes through (or reports no error). 
+
+I believe you are being bitten by the constraints mentioned in the
+second paragraph of exports(5).
+
+You probably want to put the three directories on a single line.
+
+-- 
+Christoph Badura					www.netbsd.org
+
+	Anything that can be done in O(N) can be done in O(N^2).
+	-- Ralf Schuettau (after looking at a particular piece of code)
+
+From thorpej@nas.nasa.gov  Tue Jun 15 11:40:43 1999
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: HMSEO@sec.samsung.com
+Date: Tue, 15 Jun 1999 11:40:43 +0000
+Subject: Re: Machine Check message on Alpha 164LX
+
+On Tue, 15 Jun 1999 15:21:18 +0900 
+ Hyung Min SEO <HMSEO@sec.samsung.com> wrote:
+
+ > Hello everyone,
+ > 
+ > Has anyone seen that following error message on Alpha 164LX.
+ > Our customer were facing following machine check message 
+ > in the display while setup Net BSD on the LX.
+ > They are using Net BSD 1.2G on 164LX as a Router application.
+
+NetBSD 1.2G is _quite_ old.  They really ought to upgrade to 1.4,
+which has fixed a significant number of VM problems, etc.
+
+ > ------------------------------------------------------------------
+ > Machine Check :
+ > 
+ > mces		= 0 X 1
+ > vector		= 0 X 660
+ > paran		= 0 X fffffc0000006068
+ > pc		= 0 X fffffc000023036c
+ > ra		= 0 X fffffc000037487c
+ > curproc		= 0 X fffffe008aa75a00
+ > pid		= 1022, comm = gated
+ > 
+ > panic : machine check
+ >   stopped at debugger + 044: ret zero, (ra),
+ > db>
+ > ----------------------------------------------------------------
+ > My question is as below.
+ > 
+ > 	- Which bad situation made "machine check" poped up on the display ?
+
+It could be a number of things... see below.
+
+ > 	- Where does "machine check" come from ? (OS, BIOS, others ?)
+
+The PALcode sends the machine check interrupt to the kernel, which
+panics.
+
+ > 	- Is it possible to figure out specific memory address CPU
+ > addressed last ?
+ > 	- If  so, how could I find out ?
+
+There is a "logout frame" (machine check information) set up by the PALcode.
+It must be decoded in order to determine what happened.  This is both
+CPU (ev4, ev5, etc.) and core-logic (ALCOR, Pyxis, APECS, etc) specific.
+We only have code to decode this on a couple of the server systems in
+NetBSD 1.4.
+
+        -- Jason R. Thorpe <thorpej@nas.nasa.gov>
+
+From thorpej@nas.nasa.gov  Tue Jun 15 11:53:48 1999
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: ragge@ludd.luth.se
+Date: Tue, 15 Jun 1999 11:53:48 +0000
+Subject: Re: Anyone got Acroread running?
+
+On Tue, 15 Jun 1999 16:54:28 +0200 (MET DST) 
+ Anders Magnusson <ragge@ludd.luth.se> wrote:
+
+ > I just tried to get Acroread running, but it got SIGSYS directly.
+ > A little ktrace showed:
+ > 
+ >   7513 acroread CALL  obreak(0x14004a7c0)
+ >   7513 acroread RET   obreak 0
+ >   7513 acroread CALL  [-10]
+ >   7513 acroread PSIG  SIGSYS SIG_DFL
+ >   7513 acroread NAMI  "acroread.core"
+ > 
+ > Ehum, syscall -10 doesn't feel quite normal. Is there anyone that can
+ > interpret this? (or explain what is happening).
+
+That's the task_self() Mach trap.  This one isn't going to be easy... :(
+
+        -- Jason R. Thorpe <thorpej@nas.nasa.gov>
+
+From ross@ghs.com  Tue Jun 15 12:27:09 1999
+From: Ross Harvey <ross@ghs.com>
+To: HMSEO@sec.samsung.com, port-alpha@netbsd.org
+Date: Tue, 15 Jun 1999 12:27:09 +0000
+Subject: Re: Machine Check message on Alpha 164LX
+
+> 
+> panic : machine check
+> vector          = 0 X 660
+
+The 660 vector usually means `memory ECC error', I think. In newer versions
+of NetBSD we decode some of this. It's hard, because DEC doesn't document
+what the codes mean. (#$*#!@@!) Fortunately, we can piece it togther,
+sometimes, using various header files and source code that have been made
+redistributable.
+
+
+	Ross.Harvey@Computer.Org
+
+From tony.hernandez@intellon.com  Tue Jun 15 12:40:43 1999
+From: Tony Hernandez <tony.hernandez@intellon.com>
+To: port-alpha@netbsd.org
+Date: Tue, 15 Jun 1999 12:40:43 +0000
+Subject: Multia UDB + IDE ?
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_000B_01BEB72C.48C0EE00
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+Has anyone found a cable to use an internal 2.5 IDE drive inside the =
+multia ? I know you cant boot from it , but its all I have right now .. =
+any suggestions ? Or maybe a place to get affordable external scsi drive =
+cases ?
+
+Cheers .
+
+Tony Hernandez
+
+------=_NextPart_000_000B_01BEB72C.48C0EE00
+Content-Type: text/html;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META content=3D"text/html; charset=3Dwindows-1252" =
+http-equiv=3DContent-Type>
+<META content=3D"MSHTML 5.00.2013.1310" name=3DGENERATOR></HEAD>
+<BODY>
+<DIV><FONT face=3Dhelvetica size=3D2>Has anyone found a cable to use an =
+internal 2.5=20
+IDE drive inside the multia ? I know you cant boot from it , but its all =
+I have=20
+right now .. any suggestions ? Or maybe a place to get affordable =
+external scsi=20
+drive cases ?</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT face=3Dhelvetica size=3D2>Cheers .</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT face=3Dhelvetica size=3D2>Tony =
+Hernandez</FONT></DIV></BODY></HTML>
+
+------=_NextPart_000_000B_01BEB72C.48C0EE00--
+
+From root@garbled.net  Tue Jun 15 14:46:11 1999
+From: Tim Rightnour <root@garbled.net>
+To: tony.hernandez@intellon.com
+Date: Tue, 15 Jun 1999 14:46:11 +0000
+Subject: RE: Multia UDB + IDE ?
+
+On 15-Jun-99 Tony Hernandez spoke unto us all:
+#  Has anyone found a cable to use an internal 2.5 IDE drive inside the multia
+#  ? I know you cant boot from it , but its all I have right now .. any
+#  suggestions ? Or maybe a place to get affordable external scsi drive cases ?
+
+Supposedly such cables exist.  I've never seen one though.  I would bet that if
+you look at the connector type on the 2.5IDE, and the MB, you could probably buy
+the right 44pin ribbon, and connectors and assemble your own.
+
+Honestly, if you can find the connectors, making your own cables is easy,
+assuming you are at least as smart as a pair of pliers.
+
+---
+Tim Rightnour  -  root@garbled.net
+Free Multi-Platform Operating System: http://www.netbsd.org
+NetBSD Mailing lists on the web: http://mail-index.netbsd.org/mlist
+
+From tony.hernandez@intellon.com  Tue Jun 15 12:58:02 1999
+From: Tony Hernandez <tony.hernandez@intellon.com>
+To: port-alpha@netbsd.org
+Date: Tue, 15 Jun 1999 12:58:02 +0000
+Subject: Multia Hardware Support
+
+Is all the Multia's hardware supported as of 1.4 ? I was reading that the
+floppy was not supported in 1.3.3 any other issues that may arise as far
+hardware support goes ?
+
+Thanks In Advance
+
+Tony Hernandez
+
+From thorpej@nas.nasa.gov  Tue Jun 15 15:07:56 1999
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: tony.hernandez@intellon.com
+Date: Tue, 15 Jun 1999 15:07:56 +0000
+Subject: Re: Multia Hardware Support
+
+On Tue, 15 Jun 1999 12:58:02 -0400 
+ "Tony Hernandez" <tony.hernandez@intellon.com> wrote:
+
+ > Is all the Multia's hardware supported as of 1.4 ? I was reading that the
+ > floppy was not supported in 1.3.3 any other issues that may arise as far
+ > hardware support goes ?
+
+Floppy works in 1.4
+
+        -- Jason R. Thorpe <thorpej@nas.nasa.gov>
+
+From schluntz@agames.com  Tue Jun 15 15:17:54 1999
+From: Sean J. Schluntz <schluntz@agames.com>
+To: port-alpha@netbsd.org
+Date: Tue, 15 Jun 1999 15:17:54 +0000
+Subject: Re: Multia Hardware Support
+
+>Is all the Multia's hardware supported as of 1.4 ? I was reading that the
+>floppy was not supported in 1.3.3 any other issues that may arise as far
+>hardware support goes ?
+
+Floppy support has been added, but you can't boot from an IDE disk (no 
+problem, boot from the floppy ;) Besides that everything should run well. 
+ I'm upgrading this week.
+
+-Sean
+
+---
+Sean J. Schluntz                           schluntz@agames.com
+Sr. Office Systems Administrator                  408-434-5804
+Atari Games Corporation                  http://www.agames.com
+
+Mountain Dew and doughnuts...because breakfast is the most 
+important meal of the day. - ???
+
+From gelbardn@intus.net  Tue Jun 15 14:51:51 1999
+From: Nathan Gelbard <gelbardn@intus.net>
+To: tony.hernandez@intellon.com
+Date: Tue, 15 Jun 1999 14:51:51 +0000
+Subject: Re: Multia UDB + IDE ?
+
+> Has anyone found a cable to use an internal 2.5 IDE drive inside the multia ? I know you cant boot from it , but its all I have right now .. any suggestions ? Or maybe a place to get affordable external scsi drive cases ?
+> 
+
+I recently purchased a mini-IDE to normal-IDE convertor from 
+Cables N' Mor (http://www.cablesnmore.com). It is meant for
+using 2.5" drives w/ a 3.5" IDE controller. 
+I was able to fit a 3.5" SCSI drive in my Multia, so I'll bet  you could
+fit an IDE drive too. its female mini-IDE, male normal-IDE && a male power
+plug.
+
+http://www.cablesnmor.com/f26500.html is the exact part.
+
+No, I dont work for them, I just am glad i found that part!
+It wasn't easy!
+
+
+
+	Nate Gelbard
+	Straylight Research
+	cell: 503.805.1015
+	fax : 516.828.8533
+
+From efoo@crl.dec.com  Tue Jun 15 22:44:35 1999
+From: Edwin Foo <efoo@crl.dec.com>
+To: port-alpha@netbsd.org
+Date: Tue, 15 Jun 1999 22:44:35 +0000
+Subject: serial console problem
+
+Hi,
+
+I've been trying to get my alpha to boot using a serial console without much
+success lately. The SRM console talks to the serial port fine, but as soon
+as I issue the "boot dka0" command the kernel goes off and stops emitting
+output (presumably expecting a VGA card). The box pings fine afterwards, but
+I have no means of logging in remotely since I have yet to make any accounts
+on it, and so I've got this silly chicken-and-egg problem here. =) How can I
+force the kernel to boot single user and output to the serial port instead
+of looking for a VGA card? There is currently no VGA card in the system at
+all.
+
+thanks,
+Edwin
+
+From khym@bga.com  Tue Jun 15 21:51:20 1999
+From: Dave Huang <khym@bga.com>
+To: efoo@crl.dec.com
+Date: Tue, 15 Jun 1999 21:51:20 +0000
+Subject: Re: serial console problem
+
+On Tue, 15 Jun 1999, Edwin Foo wrote:
+> I've been trying to get my alpha to boot using a serial console without much
+> success lately. The SRM console talks to the serial port fine, but as soon
+> as I issue the "boot dka0" command the kernel goes off and stops emitting
+> output (presumably expecting a VGA card). The box pings fine afterwards, but
+
+Have you tried "set console serial" then "init" at the SRM prompt? I'd
+guess that "show console" will say that your console is set to "graphics".
+-- 
+Name: Dave Huang     |   Mammal, mammal / their names are called /
+INet: khym@bga.com   |   they raise a paw / the bat, the cat /
+FurryMUCK: Dahan     |   dolphin and dog / koala bear and hog -- TMBG
+Dahan: Hani G Y+C 23 Y++ L+++ W- C++ T++ A+ E+ S++ V++ F- Q+++ P+ B+ PA+ PL++
+
+From efoo@crl.dec.com  Tue Jun 15 22:54:01 1999
+From: Edwin Foo <efoo@crl.dec.com>
+To: efoo@crl.dec.com
+Date: Tue, 15 Jun 1999 22:54:01 +0000
+Subject: RE: serial console problem
+
+Nope, "show console" definitely shows "serial". However, when I typed "init"
+the board just hung, or at least, it stopped printing out any more output. I
+just did a power-cycle after that, and now I'm in the current state.
+
+-Edwin 
+
+-----Original Message-----
+From: Dave Huang
+To: Edwin Foo
+Cc: 'port-alpha@netbsd.org'
+Sent: 6/15/99 10:51 PM
+Subject: Re: serial console problem
+
+On Tue, 15 Jun 1999, Edwin Foo wrote:
+> I've been trying to get my alpha to boot using a serial console
+without much
+> success lately. The SRM console talks to the serial port fine, but as
+soon
+> as I issue the "boot dka0" command the kernel goes off and stops
+emitting
+> output (presumably expecting a VGA card). The box pings fine
+afterwards, but
+
+Have you tried "set console serial" then "init" at the SRM prompt? I'd
+guess that "show console" will say that your console is set to
+"graphics".
+-- 
+Name: Dave Huang     |   Mammal, mammal / their names are called /
+INet: khym@bga.com   |   they raise a paw / the bat, the cat /
+FurryMUCK: Dahan     |   dolphin and dog / koala bear and hog -- TMBG
+Dahan: Hani G Y+C 23 Y++ L+++ W- C++ T++ A+ E+ S++ V++ F- Q+++ P+ B+ PA+
+PL++
+
+From efoo@crl.dec.com  Tue Jun 15 22:56:36 1999
+From: Edwin Foo <efoo@crl.dec.com>
+To: khym@bga.com
+Date: Tue, 15 Jun 1999 22:56:36 +0000
+Subject: RE: serial console problem
+
+Here's a little example, of what I mean:
+>>>show console
+console                 serial
+>>>set console serial
+>>>init
+>>>boot dka0
+(boot dka0.0.0.5.0)
+block 0 of dka0.0.0.5.0 is a valid boot block
+reading 14 blocks from dka0.0.0.5.0
+bootstrap code read in
+base = 1de000, image_start = 0, image_bytes = 1c00
+initializing HWRPB at 2000
+initializing page table at 1d0000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+And then it just sits there. =) I can tell that the box booted -- I can
+ping, telnet to it, etc., but the console doesn't show a darn thing, and
+since I have no user accounts besides root right now, I can't get in to
+change anything.
+
+-Edwin
+
+From khym@bga.com  Tue Jun 15 22:26:37 1999
+From: Dave Huang <khym@bga.com>
+To: efoo@crl.dec.com
+Date: Tue, 15 Jun 1999 22:26:37 +0000
+Subject: RE: serial console problem
+
+On Tue, 15 Jun 1999, Edwin Foo wrote:
+> Nope, "show console" definitely shows "serial". However, when I typed "init"
+> the board just hung, or at least, it stopped printing out any more output. I
+> just did a power-cycle after that, and now I'm in the current state.
+
+Hmm, in that case I don't know what the problem is... I had a similar
+problem where the console was set to "serial", but I was using the VGA
+card and keyboard. SRM would talk to me, but NetBSD would send its console
+output to the serial port.
+
+From murray@pa.dec.com  Tue Jun 15 23:02:55 1999
+From: Hal Murray <murray@pa.dec.com>
+To: efoo@crl.dec.com
+Date: Tue, 15 Jun 1999 23:02:55 +0000
+Subject: Re: serial console problem
+
+I've installed NetBSD on several Miatas that didn't have any display 
+card.  No troubles.
+
+It might depend upon what type of platform you are using.
+
+Do you have a keyboard plugged in?  If so, try yanking it.
+
+From tege@swox.com  Wed Jun 16 11:06:46 1999
+From: Torbjorn Granlund <tege@swox.com>
+To: core@netbsd.org, webmaster@netbsd.org, port-macppc@netbsd.org,
+Date: Wed, 16 Jun 1999 11:06:46 +0000
+Subject: Incorrect information on www.netbsd.org
+
+NetBSD no longer works on important machines, but www.netbsd.org claims
+otherwise.  I have run NetBSD on my Alphas and Macintoshes for several
+years, but 1.4 just panics on all machines I have tried so far.  My and
+other people's bug reports are silently ignored.
+
+Of course, nobody can demand that you fix bugs unless they pay you to do so.
+But one can ask you not to claim support for machines where the current
+release just plain doesn't work.
+
+Therefore, please stop claiming support for Alpha PC164LX and similar
+systems, as well as support for Macs such as the 9600.  I get reports in
+private mail that there are identical panics for many other Mac systems too.
+(My macppc install instructions are used by many people, and then I get
+report about the install failures.)
+
+NetBSD 1.4 is the first NetBSD release I have come across that has caused me
+any problems whatsoever.  All previous releases have worked great.  But
+NetBSD 1.4 fails to operate at all on the systems I have tried so far.
+
+-- 
+Torbj�rn
+
+From paul@whooppee.com  Wed Jun 16 03:00:53 1999
+From: Paul Goyette <paul@whooppee.com>
+To: tege@swox.com
+Date: Wed, 16 Jun 1999 03:00:53 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+Well, I don;t know what kind of problem you're having, but NetBSD 1.4 is=20
+running just fine on my AlphaPC 164LX.
+
+On 16 Jun 1999, Torbjorn Granlund wrote:
+
+> NetBSD no longer works on important machines, but www.netbsd.org claims
+> otherwise.  I have run NetBSD on my Alphas and Macintoshes for several
+> years, but 1.4 just panics on all machines I have tried so far.  My and
+> other people's bug reports are silently ignored.
+>=20
+> Of course, nobody can demand that you fix bugs unless they pay you to do =
+so.
+> But one can ask you not to claim support for machines where the current
+> release just plain doesn't work.
+>=20
+> Therefore, please stop claiming support for Alpha PC164LX and similar
+> systems, as well as support for Macs such as the 9600.  I get reports in
+> private mail that there are identical panics for many other Mac systems t=
+oo.
+> (My macppc install instructions are used by many people, and then I get
+> report about the install failures.)
+>=20
+> NetBSD 1.4 is the first NetBSD release I have come across that has caused=
+ me
+> any problems whatsoever.  All previous releases have worked great.  But
+> NetBSD 1.4 fails to operate at all on the systems I have tried so far.
+>=20
+> --=20
+> Torbj=F6rn
+>=20
+
+--------------------------------------------------------------------------
+| Paul Goyette      | PGP DSS Key fingerprint:   | E-mail addresses:     |
+| Network Engineer  |   BCD7 5301 9513 58A6 0DBC |  paul@whooppee.com    |
+| and kernel hacker |   91EB ADB1 A280 3B79 9221 |  pgoyette@juniper.net |
+--------------------------------------------------------------------------
+
+From christos@zoulas.com  Wed Jun 16 06:19:13 1999
+From: Christos Zoulas <christos@zoulas.com>
+To: tege@swox.com
+Date: Wed, 16 Jun 1999 06:19:13 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+On Jun 16, 11:06am, tege@swox.com (Torbjorn Granlund) wrote:
+-- Subject: Incorrect information on www.netbsd.org
+
+| NetBSD no longer works on important machines, but www.netbsd.org claims
+| otherwise.  I have run NetBSD on my Alphas and Macintoshes for several
+| years, but 1.4 just panics on all machines I have tried so far.  My and
+| other people's bug reports are silently ignored.
+
+We are sorry that you had such bad luck with 1.4, but I don't think that
+your bug reports are being ignored. We are working on fixing them, but
+sometimes it is difficult to duplicate the bugs on different hardware.
+
+For example I cannot run 1.4 either on two of my machines. One has
+'we' cards and it panics just after it enables ipf, and the other is
+a no name amd-k6 box and it just keeps rebooting at the second stage
+boot blocks. Should I go remove that we support from the i386, when
+it works on so many other machines.
+
+| Of course, nobody can demand that you fix bugs unless they pay you to do so.
+| But one can ask you not to claim support for machines where the current
+| release just plain doesn't work.
+
+This works both ways: In order to stop claiming support for those
+platforms, the portmaster needs to verify that they really don't work
+and it is up to her/him to try to fix the bug, or remove the claims
+of support.
+
+[stuff deleted]
+ 
+| NetBSD 1.4 is the first NetBSD release I have come across that has caused me
+| any problems whatsoever.  All previous releases have worked great.  But
+| NetBSD 1.4 fails to operate at all on the systems I have tried so far.
+
+Again we are sorry, and we hope that we will fix the problems soon.
+
+christos
+
+From mouse@Rodents.Montreal.QC.CA  Wed Jun 16 09:05:10 1999
+From: der Mouse <mouse@Rodents.Montreal.QC.CA>
+To: tege@swox.com
+Date: Wed, 16 Jun 1999 09:05:10 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+> NetBSD no longer works on important machines, but www.netbsd.org
+> claims otherwise.
+
+I guess none of my machines must be "important", then.  I'm running 1.4
+on a 486DLC, a SPARCstation 1+, and an AlphaPC164LX.  Amusingly in view
+of your picking the Alpha as one of the systems to complain about, the
+Alpha is the stablest of the three.
+
+> My and other people's bug reports are silently ignored.
+
+It happens.  I've even had one of mine incorrectly closed by someone
+who glanced at it and missed a critical bit of info, tried something
+based on the subject rather than the "how to reproduce", saw no
+problem, and concluded no problem existed.  (The underlying bug never
+was fixed; it's still in 1.4.  Someday perhaps I'll try to convince
+enough people that it *is* a bug to get a fix committed.)
+
+NetBSD is user-supported.  User.  That means *you too*...as I've been
+told on a couple of occasions when I've started, basically, feeling
+that NetBSD-qua-NetBSD had some kind of responsibility towards me.
+
+If you'd care to send me the PR numbers, I can have a look and see if
+any of them are anything I have any clue about.  I don't know the
+MacPPC, but I have some minor degree of clue wrt the Alpha, and may be
+able to help with MI things.
+
+> NetBSD 1.4 is the first NetBSD release I have come across that has
+> caused me any problems whatsoever.
+
+I'm sorry to hear that.  It has some things I don't like too.  But your
+claim that it flatly "no longer works" does not match my experience.
+As I said, send me the PR numbers and I may be able to help.  (Note
+that I also may not; in particular, I can't debug a problem I can't
+reproduce, and until I try I can't tell whether yours are such.)
+
+					der Mouse
+
+			       mouse@rodents.montreal.qc.ca
+		     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+From tv@pobox.com  Wed Jun 16 09:46:43 1999
+From: Todd Vierling <tv@pobox.com>
+To: tege@swox.com
+Date: Wed, 16 Jun 1999 09:46:43 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+[core@ and webmaster@ are stripped; that is not an appropriate way to flame,
+as if flaming is appropriate at all!]
+
+On 16 Jun 1999, Torbjorn Granlund wrote:
+
+: Therefore, please stop claiming support for Alpha PC164LX 
+
+NetBSD 1.4 works fine on the PC164LX with SRM BIOS.  Many NetBSD developers
+use them on a regular basis.
+
+: systems, as well as support for Macs such as the 9600.
+
+I can't speak for particular machines, but the macppc port is *brand new* as
+of the 1.4 release.  Though its source code has been around through the
+1.3->1.4 development cycle, this is its first public release.  It's far from
+reasonable for you to demand this kind of immediate stability when some
+machines do, in fact, work on the macppc support.  To the general public,
+the macppc port is only a couple months old.
+
+: (My macppc install instructions are used by many people, and then I get
+: report about the install failures.)
+
+Now, *install* problems are a completely separate issue, and have nothing to
+do with the machines on which NetBSD itself operates.  If you would like to
+donate time to make the install system more bulletproof, please do ... we're
+doing the best we can with the manpower available.
+
+: NetBSD 1.4 is the first NetBSD release I have come across that has caused me
+: any problems whatsoever.  All previous releases have worked great.  But
+: NetBSD 1.4 fails to operate at all on the systems I have tried so far.
+
+If you'd like to cite actual problems rather than flame, please open PRs on
+exact problems.
+
+-- 
+-- Todd Vierling (tv@pobox.com)
+
+From chrisr@geeknet.montreal.qc.ca  Wed Jun 16 10:50:52 1999
+From: Chris Rupnik <chrisr@geeknet.montreal.qc.ca>
+To: bad@ora.de
+Date: Wed, 16 Jun 1999 10:50:52 +0000
+Subject: Re: exports file and mountd
+
+Hi 
+ This worked perfectly. Thanks!
+
+Chris
+
+
+On Tue, 15 Jun 1999, Christoph Badura wrote:
+
+> chrisr@geeknet.montreal.qc.ca (Chris Rupnik) writes:
+> > I have a simple three line exports directory on the alpha (1.4)
+> 
+> >/usr/netbsd/hp300
+> >/usr/netbsd/sun3
+> >/usr/netbsd/sparc
+> 
+> >Now, i get a "Can't change attributes" for the second and third lines.
+> >The first entry goes through (or reports no error). 
+> 
+> I believe you are being bitten by the constraints mentioned in the
+> second paragraph of exports(5).
+> 
+> You probably want to put the three directories on a single line.
+> 
+> -- 
+> Christoph Badura					www.netbsd.org
+> 
+> 	Anything that can be done in O(N) can be done in O(N^2).
+> 	-- Ralf Schuettau (after looking at a particular piece of code)
+>
+
+From tege@swox.com  Wed Jun 16 17:16:33 1999
+From: Torbjorn Granlund <tege@swox.com>
+To: tv@pobox.com
+Date: Wed, 16 Jun 1999 17:16:33 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+Todd Vierling <tv@pobox.com> writes:
+
+  [core@ and webmaster@ are stripped; that is not an appropriate way to flame,
+  as if flaming is appropriate at all!]
+  
+I am sorry you think I was flaming.  I like NetBSD and have installed and
+used it for many years.  In all years I have gotten perhaps 2 crashes from
+NetBSD machines.  But NetBSD 1.4 crashes during boot for the machines I have
+tried.  I don't have the full picture of course, but perhaps this is
+pointing to a problem.
+
+  NetBSD 1.4 works fine on the PC164LX with SRM BIOS.  Many NetBSD developers
+  use them on a regular basis.
+  
+OK, but my three alpha machines crash in the same way.  They ran NetBSD
+1.3.2 and 1.3.3, and now run FreeBSD.  (Linux also tried but is no option to
+us.)  I tried several versions of SRM and different configurations.
+
+  : systems, as well as support for Macs such as the 9600.
+
+  I can't speak for particular machines, but the macppc port is *brand new* as
+  of the 1.4 release.  Though its source code has been around through the
+  1.3->1.4 development cycle, this is its first public release.  It's far from
+  reasonable for you to demand this kind of immediate stability when some
+  machines do, in fact, work on the macppc support.  To the general public,
+  the macppc port is only a couple months old.
+  
+I don't "demand" stability.  These are machines that used to run previous
+versions of NetBSD (including snapshorts) but does not run the 1.4 release.
+
+  : (My macppc install instructions are used by many people, and then I get
+  : report about the install failures.)
+  
+  Now, *install* problems are a completely separate issue, and have nothing to
+  do with the machines on which NetBSD itself operates.  If you would like to
+  donate time to make the install system more bulletproof, please do ... we're
+  doing the best we can with the manpower available.
+  
+I think you misunderstand me.  When I first installed NetBSD/macppc there
+were no install instructions.  Port gury Tsubai helped me get the machines
+running by answering lots of questions.  I then wrote install instructions
+as a "thanks for the help".  These instructions are now linked from Tsubai's
+page.
+
+The "install failures" are of the nature that to me indicate kernel bugs.
+I.e., panics.
+
+  : NetBSD 1.4 is the first NetBSD release I have come across that has
+  : caused me any problems whatsoever.  All previous releases have worked
+  : great.  But NetBSD 1.4 fails to operate at all on the systems I have
+  : tried so far.
+  
+  If you'd like to cite actual problems rather than flame, please open PRs on
+  exact problems.
+  
+I am sorry I made you irate.  There are PR's by me and others describing the
+problems I am seeing.  They are in the "open" state.  I did not send in a
+redundant PR for the macppc problems.
+
+-- 
+Torbj�rn
+
+From sommerfeld@orchard.arlington.ma.us  Wed Jun 16 10:52:01 1999
+From: Bill Sommerfeld <sommerfeld@orchard.arlington.ma.us>
+To: root@garbled.net
+Date: Wed, 16 Jun 1999 10:52:01 +0000
+Subject: Re: Multia UDB + IDE ?
+
+I've bought IDE to Laptop-IDE adapters at computer shows in the Boston
+area; I suspect that they're not that hard to find from PC parts-type
+places.  (you need something like this plus an additional kludge to
+put 2.5" drives in a shark..)
+
+					- Bill
+
+From pe@student.lssu.edu  Wed Jun 16 11:12:35 1999
+From: System Admin. <pe@student.lssu.edu>
+To: efoo@crl.dec.com
+Date: Wed, 16 Jun 1999 11:12:35 +0000
+Subject: Re: serial console problem
+
+I happened to me before on FreeBSD/Alpha system. What I did is in
+/etc/ttys change this line:
+
+ttyd0 "/usr/libexec/getty std.9600"   dialup  off secure
+
+to
+
+ttyd0   "/usr/libexec/getty std.9600"   vt220   on secure
+
+this will fix it. I hope it's the same on NetBSD
+
+HTH
+
+pe'
+
+
+------------------------------
+UNIX System Admin.
+Distributed Computing Services
+Lake Superior State University
+650 W. Easterday Ave.
+Sault Ste. Marie. MI
+49783 USA.
+------------------------------
+
+On Tue, 15 Jun 1999, Edwin Foo wrote:
+
+> Hi,
+> 
+> I've been trying to get my alpha to boot using a serial console without much
+> success lately. The SRM console talks to the serial port fine, but as soon
+> as I issue the "boot dka0" command the kernel goes off and stops emitting
+> output (presumably expecting a VGA card). The box pings fine afterwards, but
+> I have no means of logging in remotely since I have yet to make any accounts
+> on it, and so I've got this silly chicken-and-egg problem here. =) How can I
+> force the kernel to boot single user and output to the serial port instead
+> of looking for a VGA card? There is currently no VGA card in the system at
+> all.
+> 
+> thanks,
+> Edwin
+>
+
+From ross@ghs.com  Wed Jun 16 09:57:18 1999
+From: Ross Harvey <ross@ghs.com>
+To: tege@swox.com, tv@pobox.com
+Date: Wed, 16 Jun 1999 09:57:18 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+> From: Torbjorn Granlund <tege@swox.com>
+>:::
+> I am sorry I made you irate.  There are PR's by me and others describing the
+> problems I am seeing.  They are in the "open" state.  I did not send in a
+> redundant PR for the macppc problems.
+
+With respect to your alpha complaints, this is a false statement.
+
+There are no open alpha PR's from you at all, and I don't see any that
+mention the problems you so vaguely hinted at in your flame.
+
+I also save all the email I receive that refers to a pending matter.
+There is not one from you. (Actually, there are no resolved ones from
+you either.)
+
+I have two questions for you:
+
+1. Behind all of these words, is there actually a bug report somewhere?
+
+2. It certainly is possible for it to work for one person and not another,
+   but given the popularity of the 164LX and the number of success stories
+   we have with it, do you really think we should stop claiming support
+   for it? (After all, there are no open PR's, and lots of positive
+   testimony. :-)
+
+
+	Ross.Harvey@Computer.Org
+
+From mouse@Rodents.Montreal.QC.CA  Wed Jun 16 13:08:41 1999
+From: der Mouse <mouse@Rodents.Montreal.QC.CA>
+To: ross@ghs.com
+Date: Wed, 16 Jun 1999 13:08:41 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+>> I am sorry I made you irate.  There are PR's by me and others
+>> describing the problems I am seeing.  They are in the "open" state.
+> With respect to your alpha complaints, this is a false statement.
+
+"That turns out not to be the case."  Try querying PR #7548.
+
+> There are no open alpha PR's from you at all,
+
+7548 is classed as kern, not alpha, and was filed from tege@swox.se,
+not tege@swox.com.  But the Originator field is "Torbjorn Granlund" and
+the State field is "open".
+
+And it does describe a problem such as the post that started this off
+alludes to.  The heart of it is very short on detail; I quote:
+
+| After ncr0 is probed I get this:
+| 
+| ncr0 ...
+| 
+| unexpected machine check
+| 
+|   mccs     = 0x1
+|   vector   = 0x660
+|   param    = 0xfffffc0000006068
+|   pc       = 0xfffffc000049a9f8
+|   ra       = 0xfffffc000049aa04
+|   curproc  = 0xfffffc000084abb8
+| 
+|            pid = 0, comm =
+
+The description of the machine includes no indication what SCSI
+controller is in use, which seems to me to be critical.  An exact quote
+of the messages that do get produced for ncr0 could also be important.
+
+					der Mouse
+
+			       mouse@rodents.montreal.qc.ca
+		     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+From khym@bga.com  Wed Jun 16 12:41:49 1999
+From: Dave Huang <khym@bga.com>
+To: mouse@Rodents.Montreal.QC.CA
+Date: Wed, 16 Jun 1999 12:41:49 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+On Wed, 16 Jun 1999, der Mouse wrote:
+> The description of the machine includes no indication what SCSI
+> controller is in use, which seems to me to be critical.  An exact quote
+> of the messages that do get produced for ncr0 could also be important.
+
+That too, turns out not to be the case :) From the Environment section:
+        scsi:           ASUS SC200/Symbios 810
+
+FWIW, I use a Symbios 53c875 card in my PC164, and it's working fine.
+-- 
+Name: Dave Huang     |   Mammal, mammal / their names are called /
+INet: khym@bga.com   |   they raise a paw / the bat, the cat /
+FurryMUCK: Dahan     |   dolphin and dog / koala bear and hog -- TMBG
+Dahan: Hani G Y+C 23 Y++ L+++ W- C++ T++ A+ E+ S++ V++ F- Q+++ P+ B+ PA+ PL++
+
+From thorpej@nas.nasa.gov  Wed Jun 16 10:55:28 1999
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: tege@swox.com
+Date: Wed, 16 Jun 1999 10:55:28 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+On 16 Jun 1999 11:06:46 +0200 
+ Torbjorn Granlund <tege@swox.com> wrote:
+
+ > NetBSD no longer works on important machines, but www.netbsd.org claims
+ > otherwise.  I have run NetBSD on my Alphas and Macintoshes for several
+ > years, but 1.4 just panics on all machines I have tried so far.  My and
+ > other people's bug reports are silently ignored.
+
+What do you mean?  I haven't heard a single bug report from you regarding
+crashes on Alpha systems.  (And, I read the port-alpha list pretty thoroughly,
+considering that I do most of my development work on Alphas.)
+
+ > Therefore, please stop claiming support for Alpha PC164LX and similar
+ > systems, as well as support for Macs such as the 9600.  I get reports in
+ > private mail that there are identical panics for many other Mac systems too.
+ > (My macppc install instructions are used by many people, and then I get
+ > report about the install failures.)
+ > 
+ > NetBSD 1.4 is the first NetBSD release I have come across that has caused me
+ > any problems whatsoever.  All previous releases have worked great.  But
+ > NetBSD 1.4 fails to operate at all on the systems I have tried so far.
+
+Fails to operate HOW?
+
+        -- Jason R. Thorpe <thorpej@nas.nasa.gov>
+
+From root@garbled.net  Wed Jun 16 11:03:51 1999
+From: Tim Rightnour <root@garbled.net>
+To: tege@swox.com
+Date: Wed, 16 Jun 1999 11:03:51 +0000
+Subject: RE: Incorrect information on www.netbsd.org
+
+On 16-Jun-99 Torbjorn Granlund spoke unto us all:
+#  Therefore, please stop claiming support for Alpha PC164LX and similar
+
+I'm running 1.4 on a PC164LX right this very moment, 
+giauzar                  up  54 days,  12:40,  load average: 1.36 1.23 1.14
+
+with zero problems I might add.
+
+---
+Tim Rightnour  -  root@garbled.net
+Free Multi-Platform Operating System: http://www.netbsd.org
+NetBSD Mailing lists on the web: http://mail-index.netbsd.org/mlist
+
+From cgd@netbsd.org  Wed Jun 16 11:13:21 1999
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: efoo@crl.dec.com
+Date: Wed, 16 Jun 1999 11:13:21 +0000
+Subject: Re: serial console problem
+
+Edwin Foo <efoo@crl.dec.com> writes:
+> Here's a little example, of what I mean:
+> >>>show console
+> console                 serial
+> >>>set console serial
+> >>>init
+> >>>boot dka0
+> (boot dka0.0.0.5.0)
+> block 0 of dka0.0.0.5.0 is a valid boot block
+> reading 14 blocks from dka0.0.0.5.0
+> bootstrap code read in
+> base = 1de000, image_start = 0, image_bytes = 1c00
+> initializing HWRPB at 2000
+> initializing page table at 1d0000
+> initializing machine state
+> setting affinity to the primary CPU
+> jumping to bootstrap code
+> 
+> And then it just sits there. =) I can tell that the box booted -- I can
+> ping, telnet to it, etc., but the console doesn't show a darn thing, and
+> since I have no user accounts besides root right now, I can't get in to
+> change anything.
+
+That's ... really odd.
+
+
+One of the first thing the boot blocks do is use the SRM callbacks to
+open up the console device that SRM names in the HWRPB.  That, and the
+fact that you indicate that when you "init" you see no more output
+makes me think this is a SRM problem.
+
+
+What kind of board is it that you have?  What firmware version?  Have
+you changed other firmware parameters, or the firmware itself, recently?
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From thorpej@nas.nasa.gov  Wed Jun 16 11:29:22 1999
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: tege@swox.com
+Date: Wed, 16 Jun 1999 11:29:22 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+On 16 Jun 1999 17:16:33 +0200 
+ Torbjorn Granlund <tege@swox.com> wrote:
+
+ > I am sorry you think I was flaming.  I like NetBSD and have installed and
+ > used it for many years.  In all years I have gotten perhaps 2 crashes from
+ > NetBSD machines.  But NetBSD 1.4 crashes during boot for the machines I have
+ > tried.  I don't have the full picture of course, but perhaps this is
+ > pointing to a problem.
+
+Ok, so having just done a search, I see your NetBSD/alpha bug was reported
+in the "kern" category.  For the record, Alpha bugs belong in the "port-alpha"
+category.
+
+Machine Check vector 0x660 is often some sort of hardware failure.  But
+in order to find out what really happened, we need to decode some
+info that is ... not documented very well.
+
+If I add some code to do this, and make a new boot floppy, would you
+be willing to test it?
+
+        -- Jason R. Thorpe <thorpej@nas.nasa.gov>
+
+From abs@anim.dreamworks.com  Wed Jun 16 11:26:57 1999
+From: David Brownlee <abs@anim.dreamworks.com>
+To: mouse@Rodents.Montreal.QC.CA
+Date: Wed, 16 Jun 1999 11:26:57 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+On Wed, 16 Jun 1999, der Mouse wrote:
+
+> >> I am sorry I made you irate.  There are PR's by me and others
+> >> describing the problems I am seeing.  They are in the "open" state.
+> > With respect to your alpha complaints, this is a false statement.
+> 
+> "That turns out not to be the case."  Try querying PR #7548.
+> 
+> > There are no open alpha PR's from you at all,
+> 
+> 7548 is classed as kern, not alpha, and was filed from tege@swox.se,
+> not tege@swox.com.  But the Originator field is "Torbjorn Granlund" and
+> the State field is "open".
+
+	(Just a quick note - have just reclassified this under 
+	'port-alpha')
+
+		David/absolute
+
+          -=-  "Give me one last video, just dressed in black"  -=-
+
+From tege@swox.com  Wed Jun 16 22:24:44 1999
+From: Torbjorn Granlund <tege@swox.com>
+To: thorpej@nas.nasa.gov
+Date: Wed, 16 Jun 1999 22:24:44 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+Jason Thorpe <thorpej@nas.nasa.gov> writes:
+
+  Ok, so having just done a search, I see your NetBSD/alpha bug was reported
+  in the "kern" category.  For the record, Alpha bugs belong in the
+  "port-alpha" category.
+  
+OK.  What belongs to kern then?
+
+  Machine Check vector 0x660 is often some sort of hardware failure.  But
+  in order to find out what really happened, we need to decode some
+  info that is ... not documented very well.
+  
+Three machines fail in the same manner, but run other NetBSD versions and
+other OS'es OK.
+
+  If I add some code to do this, and make a new boot floppy, would you
+  be willing to test it?
+  
+I'll test that if it will help fix the bug.  But let's exclude hardware
+failure given that I get the same failure with 3 different machines.
+
+-- 
+Torbj�rn
+
+From carton@Ivy.NET  Wed Jun 16 14:57:18 1999
+From: Miles Nordin <carton@Ivy.NET>
+To: tony.hernandez@intellon.com
+Date: Wed, 16 Jun 1999 14:57:18 +0000
+Subject: Re: Multia UDB + IDE ?
+
+On Tue, 15 Jun 1999, Tony Hernandez wrote:
+
+> Has anyone found a cable to use an internal 2.5 IDE drive inside the
+> multia ? I know you cant boot from it
+
+I'm not sure this is still the case.  You might try the latest firmware,
+and see if it recognizes your IDE controller.  I know that:
+
+ (a) SRM firmware on the higher-end Alpha boards has added IDE support
+ (b) The Linux Cult is precariously booting their little kernels 
+     with ARC firmware on the Multia, which _does_ support IDE.
+
+Attached is one of their messages.  You might ask on axp-list@redhat.com
+if you need more info, or just try updating your firmware and see if it
+works.
+
+If that fails, there is an IDE-to-SCSI converter card you can get that
+piggybacks onto your 2.5" IDE drive and provides a laptop SCSI interface.
+A recent effort to purchase a batch of them from the Japanese company that
+makes seems to have failed (or evaporated), but the large-capacity SCSI
+drives in PowerBook Duo's and 500's often have them, as do some of the
+recent SparcBook drives--Tadpole clearly confesses to using them on a
+certain model of pre-Ultrabook drive module. 
+
+You can sometimes get them in auctions, u.s.w., or scavenge them from a
+Duo that a nearby large corporation was scrapping like i did. My friend
+who works at a Mac dealer also saw one come across his bench, and didn't
+know what it was.  It was attached to a ``replacement'' disk forwarded
+from another store and destined toward an IDE Powerbook.  so you might be
+able to get one from a Mac dealer if you can explain it to them.
+
+-- 
+Miles Nordin / v:1-888-857-2723 fax:+1 530 579-8680
+555 Bryant Street PMB 182 / Palo Alto, CA 94301-1700 / US
+
+Sender: rdong@Alpha.dfc.com
+To: axp-list@redhat.com
+CC: Gyenes Istvan <frts@matef.sch.bme.hu>,
+        Robin Stephenson <robin.stephenson@blackwell.co.uk>
+Subject: Re: UDB firmware update w/o Floppy
+References: <kvwvyzmdn2.fsf@apollo.int.newport.com> <m3lnfectwo.fsf@fnord.blackwell.co.uk>
+From: Rui-Tao Dong ~{6-HpLN~} <ruitao@home.com>
+Date: 28 Apr 1999 22:25:11 -0700
+In-Reply-To: Robin Stephenson's message of "27 Apr 1999 10:08:39 +0100"
+Message-ID: <v5r9p4577s.fsf@Alpha.dfc.com>
+
+
+I finally did it!   The newer firmware recognizes my notebook IDE.  All 
+I need is a new kernel which knows IDE.
+
+I found a bootp installable firmware for noname(decaxppci33_v1_6.exe),
+but it didn't like my UDB (complained about a jumper.)  I did a
+
+unix> mount -t msdos -o loop udbupd38.img /mnt
+
+and found 4 files arc.exe, fwupdate.exe, qsbypass.scr, srm.exe.
+
+Looking at qsbypass.scr, I decided to try the following.
+
+I have a 1.6MB dos partition on my 340MB scsi for milo.  I put arc.exe 
+and srm.exe there.  Because fwupdate.exe doesn't fit,  I put it up on
+a bootp server.  At srm prompt, I did
+
+>>> b -p bootp ewa0
+
+which load up fwupdate.
+
+I then did
+
+update -path fat:arc.exe/dka0 -target arcflash
+
+and then
+
+update -path fat:srm.exe/dka0 -target srmflash
+
+every works just great.
+
+My original UDB died a couple of month back and I bought a replacement 
+from cpumicromart.  As a consequence, I got an extra mini-scsi
+internal cable.  I saw off a few pins on one end of cable and plug in
+the mini-IDE to it.  The slim (12.7mm) drive fits into the floppy
+enclosure perfectly.
+
+
+-- 
+
+Rui-Tao Dong ~{6-HpLN~}	<ruitao@home.com>, Mission Viejo, California
+
+From thorpej@nas.nasa.gov  Wed Jun 16 14:16:19 1999
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: tege@swox.com
+Date: Wed, 16 Jun 1999 14:16:19 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+On 16 Jun 1999 22:24:44 +0200 
+ Torbjorn Granlund <tege@swox.com> wrote:
+
+ > Jason Thorpe <thorpej@nas.nasa.gov> writes:
+ > 
+ >   Ok, so having just done a search, I see your NetBSD/alpha bug was reported
+ >   in the "kern" category.  For the record, Alpha bugs belong in the
+ >   "port-alpha" category.
+ >   
+ > OK.  What belongs to kern then?
+
+Stuff that is MI ... the errors you were getting seem to be pretty
+Alpha-specific.
+
+ >   Machine Check vector 0x660 is often some sort of hardware failure.  But
+ >   in order to find out what really happened, we need to decode some
+ >   info that is ... not documented very well.
+ >   
+ > Three machines fail in the same manner, but run other NetBSD versions and
+ > other OS'es OK.
+ > 
+ >   If I add some code to do this, and make a new boot floppy, would you
+ >   be willing to test it?
+ >   
+ > I'll test that if it will help fix the bug.  But let's exclude hardware
+ > failure given that I get the same failure with 3 different machines.
+
+The initial change won't be to fix the bug, but rather to find out
+precisely what is happening.  Decoding the "logout frame" will dump
+out a large amount of information, which you will then need to e-mail
+to port-alpha (or append to the bug report).
+
+        -- Jason R. Thorpe <thorpej@nas.nasa.gov>
+
+From murray@pa.dec.com  Wed Jun 16 15:24:30 1999
+From: Hal Murray <murray@pa.dec.com>
+To: tege@swox.com
+Date: Wed, 16 Jun 1999 15:24:30 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+> I'll test that if it will help fix the bug.  But let's exclude hardware
+> failure given that I get the same failure with 3 different machines.
+
+There are several types of "hardware failure".  Dead chips (or wires 
+or ...) is the one that most people think of when they hear that 
+term.  Another one is hardware design bugs.
+
+A third is software errors that show up at the hardware level.  For 
+example asking the hardware to do a DMA read from memory that doesn't 
+exist. 
+
+Finding the same problem on 3 similar systems doesn't eliminate a 
+design bug or a software bug.  (It doesn't really eliminate the dead 
+chip problem either, but it does make it pretty unlikely.) 
+
+
+If other people are running OK with systems similar to yours, the 
+obvious place to start looking is the exact hardware configuration.  
+
+
+Next is the exact software setup.  Did you install 1.4 from scratch?  
+(or might there be leftovers from the previous system?)
+
+From sommerfeld@orchard.arlington.ma.us  Wed Jun 16 16:35:02 1999
+From: Bill Sommerfeld <sommerfeld@orchard.arlington.ma.us>
+To: thorpej@nas.nasa.gov
+Date: Wed, 16 Jun 1999 16:35:02 +0000
+Subject: Re: Anyone got Acroread running?
+
+> That's the task_self() Mach trap.  This one isn't going to be easy... :(
+
+Well, if I recall correctly, task_self() was sort of the mach
+equivalent of getpid().  it's probably easy.  it's the other task_*
+calls that will be.. more interesting.
+
+					- Bill
+
+From cgd@netbsd.org  Wed Jun 16 17:29:38 1999
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: sommerfeld@orchard.arlington.ma.us
+Date: Wed, 16 Jun 1999 17:29:38 +0000
+Subject: Re: Anyone got Acroread running?
+
+Bill Sommerfeld <sommerfeld@orchard.arlington.ma.us> writes:
+> > That's the task_self() Mach trap.  This one isn't going to be easy... :(
+> 
+> Well, if I recall correctly, task_self() was sort of the mach
+> equivalent of getpid().  it's probably easy.  it's the other task_*
+> calls that will be.. more interesting.
+
+by all means, go to it!  8-)
+
+FWIW, acroread was one of the first things i tried after i got
+Navigator up and running.
+
+Unfortunately, it does a lot more than just task_self (i stubbed the
+calls out to just print a message and return), though I forget what
+all it does exactly...  easy for interested parties to figure out.
+
+
+chris
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From tege@swox.com  Thu Jun 17 10:29:25 1999
+From: Torbjorn Granlund <tege@swox.com>
+To: murray@pa.dec.com
+Date: Thu, 17 Jun 1999 10:29:25 +0000
+Subject: Re: Incorrect information on www.netbsd.org
+
+Hal Murray <murray@pa.dec.com> writes:
+
+  Next is the exact software setup.  Did you install 1.4 from scratch?  
+  (or might there be leftovers from the previous system?)
+  
+Yes.  The machine check happens during boot from the install floppies.  
+
+-- 
+Torbj�rn
+
+From simonb@netbsd.org  Fri Jun 18 15:20:34 1999
+From: Simon Burge <simonb@netbsd.org>
+To: port-alpha@netbsd.org
+Date: Fri, 18 Jun 1999 15:20:34 +0000
+Subject: htonl and longs
+
+Hi 64-bit peoples,
+
+I'm looking at making the fortune data files byte-order and word-size
+independant, and came across the following in fortune's .dat convertor:
+
+	simonpc:games/fortune/strfile 32> grep str_version *
+	strfile.c:      Tbl.str_version = VERSION;
+	strfile.c:      Tbl.str_version = htonl(Tbl.str_version);
+	strfile.h:      unsigned long   str_version;            /* version number */
+
+Given that htonl is defined to work on the equivalent of u_int32_t's and
+unsigned longs are 64 bits, and I right in assuming that the behaviour
+of this bit of code is bogus at best?
+
+Simon.
+
+From tv@pobox.com  Fri Jun 18 09:28:51 1999
+From: Todd Vierling <tv@pobox.com>
+To: simonb@netbsd.org
+Date: Fri, 18 Jun 1999 09:28:51 +0000
+Subject: Re: htonl and longs
+
+On Fri, 18 Jun 1999, Simon Burge wrote:
+
+: I'm looking at making the fortune data files byte-order and word-size
+: independant, and came across the following in fortune's .dat convertor:
+: 
+: 	simonpc:games/fortune/strfile 32> grep str_version *
+: 	strfile.c:      Tbl.str_version = VERSION;
+: 	strfile.c:      Tbl.str_version = htonl(Tbl.str_version);
+: 	strfile.h:      unsigned long   str_version;            /* version number */
+: 
+: Given that htonl is defined to work on the equivalent of u_int32_t's and
+: unsigned longs are 64 bits, and I right in assuming that the behaviour
+: of this bit of code is bogus at best?
+
+htonl works on longs, not u_int32_t's.  This may sound Odd at first, but
+it's absolutely true.
+
+On a little-endian ILP32 machine, the integer 0x11223344 is represented by
+0x44332211 in memory, and is stored as 0x11223344 after running through
+htonl() (this is the usual, expected behavior).
+
+On little-endian LP64, it's a little more strange.  The integer 0x11223344
+is represented by 0x4433221100000000 in memory, and after running through
+htonl(), becomes 0x0000000011223344.
+
+If the unsigned long above should be machine, independent, then the htonl()
+has to be calculated on a *LOCAL* long variable (otherwise you'll lose the
+necessary 32 bits on the first store), and then stored into a u_int32_t in
+the structure.
+
+htonl() is NOT intended to do anything but work with `unsigned long' in a
+networking interpretation.  Other code that uses it should be shot with
+great vengeance.
+
+This reminds me ... I'd like to raise my own objection to {h,n}to{n,h}q()
+as you described a need for generic, NOT network-stack-only, interpretation
+of 64-bit reversal.  This was brought up before, and it was generally
+decided that a new naming scheme for generic functions, expressed in terms
+of bswap*(), and capable of converting to and from both big and little
+endian, was needed.
+
+-- 
+-- Todd Vierling (tv@pobox.com)
+
+From simonb@netbsd.org  Fri Jun 18 23:46:40 1999
+From: Simon Burge <simonb@netbsd.org>
+To: tv@pobox.com
+Date: Fri, 18 Jun 1999 23:46:40 +0000
+Subject: Re: htonl and longs
+
+Todd Vierling wrote:
+
+> On Fri, 18 Jun 1999, Simon Burge wrote:
+> 
+> : I'm looking at making the fortune data files byte-order and word-size
+> : independant, and came across the following in fortune's .dat convertor:
+> : 
+> : 	simonpc:games/fortune/strfile 32> grep str_version *
+> : 	strfile.c:      Tbl.str_version = VERSION;
+> : 	strfile.c:      Tbl.str_version = htonl(Tbl.str_version);
+> : 	strfile.h:      unsigned long   str_version;            /* version number */
+> : 
+> : Given that htonl is defined to work on the equivalent of u_int32_t's and
+> : unsigned longs are 64 bits, and I right in assuming that the behaviour
+> : of this bit of code is bogus at best?
+> 
+> htonl works on longs, not u_int32_t's.  This may sound Odd at first, but
+> it's absolutely true.
+
+That doesn't gell with <xxxx/endian.h>.  From the alpha endian.h:
+
+	typedef u_int32_t in_addr_t;
+	typedef u_int16_t in_port_t;
+
+	__BEGIN_DECLS
+	in_addr_t       htonl __P((in_addr_t)) __attribute__((__const__));
+	in_port_t       htons __P((in_port_t)) __attribute__((__const__));
+	in_addr_t       ntohl __P((in_addr_t)) __attribute__((__const__));
+	in_port_t       ntohs __P((in_port_t)) __attribute__((__const__));
+	__END_DECLS
+
+The actual problem that lead me to this was code using htonl() on an
+off_t (which is 64 bits).
+
+> htonl() is NOT intended to do anything but work with `unsigned long' in a
+> networking interpretation.  Other code that uses it should be shot with
+> great vengeance.
+
+The strfile(8) manpage mentions that all fields of a certain header are
+in "network byte order".  Maybe that should be "xxx endian" instead,
+probably big endian because that's "closest" to network byte order...
+
+[reply to ?to?q() on tech-userlevel.]
+
+Simon.
+
+From mouse@Rodents.Montreal.QC.CA  Fri Jun 18 09:49:06 1999
+From: der Mouse <mouse@Rodents.Montreal.QC.CA>
+To: port-alpha@netbsd.org
+Date: Fri, 18 Jun 1999 09:49:06 +0000
+Subject: Re: htonl and longs
+
+> : 	strfile.c:      Tbl.str_version = htonl(Tbl.str_version);
+> : 	strfile.h:      unsigned long   str_version;            /* version number */
+
+> htonl works on longs, not u_int32_t's.
+
+That's not what the manpage says:
+
+     in_addr_t
+     htonl(in_addr_t host32);
+[...]
+     in_addr_t
+     ntohl(in_addr_t net32);
+[...]
+DESCRIPTION
+     These routines convert 16 and 32 bit quantities between network byte or�
+     der and host byte order. The types in_addr_t and in_port_t are defined by
+     X/Open as:
+
+           typedef u_int32_t in_addr_t;
+           typedef u_int16_t in_port_t;
+
+Given their historical use, for converting 16 and 32 bit quantities for
+network protocols, this is IMO the right thing, despite the unfortunate
+naming scheme.
+
+					der Mouse
+
+			       mouse@rodents.montreal.qc.ca
+		     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+From thorpej@nas.nasa.gov  Fri Jun 18 09:36:52 1999
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: tv@pobox.com
+Date: Fri, 18 Jun 1999 09:36:52 +0000
+Subject: Re: htonl and longs
+
+On Fri, 18 Jun 1999 09:28:51 -0400 (EDT) 
+ Todd Vierling <tv@pobox.com> wrote:
+
+ > htonl works on longs, not u_int32_t's.  This may sound Odd at first, but
+ > it's absolutely true.
+
+Incorrect.  htonl() is prototype'd to take in in_addr_t, which is a u_int32_t.
+
+        -- Jason R. Thorpe <thorpej@nas.nasa.gov>
+
+From ross@ghs.com  Fri Jun 18 10:11:58 1999
+From: Ross Harvey <ross@ghs.com>
+To: simonb@netbsd.org, tv@pobox.com
+Date: Fri, 18 Jun 1999 10:11:58 +0000
+Subject: Re: htonl and longs
+
+> From: Todd Vierling <tv@pobox.com>
+>
+> : I'm looking at making the fortune data files byte-order and word-size
+> : independant, and came across the following in fortune's .dat convertor:
+> : 
+> : 	simonpc:games/fortune/strfile 32> grep str_version *
+> : 	strfile.c:      Tbl.str_version = VERSION;
+> : 	strfile.c:      Tbl.str_version = htonl(Tbl.str_version);
+> : 	strfile.h:      unsigned long   str_version;            /* version number */
+> : 
+> : Given that htonl is defined to work on the equivalent of u_int32_t's and
+> : unsigned longs are 64 bits, and I right in assuming that the behaviour
+> : of this bit of code is bogus at best?
+>
+> htonl works on longs, not u_int32_t's.  This may sound Odd at first, but
+> it's absolutely true.
+>
+> On a little-endian ILP32 machine, the integer 0x11223344 is represented by
+> 0x44332211 in memory, and is stored as 0x11223344 after running through
+> htonl() (this is the usual, expected behavior).
+>
+> On little-endian LP64, it's a little more strange.  The integer 0x11223344
+> is represented by 0x4433221100000000 in memory, and after running through
+> htonl(), becomes 0x0000000011223344.
+>
+> If the unsigned long above should be machine, independent, then the htonl()
+> has to be calculated on a *LOCAL* long variable (otherwise you'll lose the
+> necessary 32 bits on the first store), and then stored into a u_int32_t in
+> the structure.
+
+Interesting theory...I'm kind of intrigued as to how you got there.
+
+Those are what I call ``legacy longs'', or 32-bit objects. It's just a bad
+name, these days. (This is all because DEC called int16_t a ``word'' on
+the VAX, darn it!)
+
+Even if you do call htonl(3) on a real alpha long, it still does what you
+expect, and does everything in the low order 32 bits.
+
+	0x0000000011223344	<->	0x0000000044332211
+	0x11223344		<->	0x44332211
+
+The only time you see something like 0x4433221100000000 is if you are
+looking at an LP64 long or ILP32 ``long long'' from a foreign and opposite
+swizzle machine. But this doesn't actually happen in any network code I've
+seen, and in any case it isn't valid input to htonl which will completely
+butcher it, leaving you with zero as it swizzles just the lower 32 bits.
+
+	Ross.Harvey@Computer.Org
+
+From eric.wutzke@sercon.de  Mon Jun 21 11:48:00 1999
+From: None <eric.wutzke@sercon.de>
+To: port-alpha@netbsd.org
+Date: Mon, 21 Jun 1999 11:48:00 +0000
+Subject: Installing NetBSD and Linux on the same Harddisk
+
+Hi !
+
+I'm a NetBSD and also Alpha-Newbie. I managed it to install RedHat Linux
+5.2 on it and want to install NetBSD aswell. I've got a DEC Multia with an
+4GB 3,5" internal U-SCSI-HD. Is it possible to install Linux and NetBSD on
+the same Harddisk and boot them somehow ? Thank's a lot :)
+
+    Eric
+
+From mikeride@prez.org  Mon Jun 21 09:35:48 1999
+From: Michael G. Schabert <mikeride@prez.org>
+To: port-alpha@netbsd.org
+Date: Mon, 21 Jun 1999 09:35:48 +0000
+Subject: -current?
+
+(posted to port-alpha & current-users)
+System: AlphaStation 4/200 166Mhz
+
+Hi all,
+Is anyone else having trouble compiling -current? I had been running 1.4
+release, & went to go -current. First, I compiled a new kernel & rebooted.
+So far so good. Then I tried to make build, where it churned for hours &
+then stopped. I had lost connection before it finished, so it was compiling
+without a terminal, so I couldn't see where it ended. I supped the next
+day's sources, & compiled a new kernel, but that one wouldn't compile...it
+died with either a pmap or uvm problem. I read Jason say that something
+related was fixed for the following day's sup, so I waited & again supped.
+This time, kernel compiled, & worked (1.4D)...back to the userland. Now
+it's failing with:
+
+cc1: warnings being treated as errors
+/usr/src/gnu/usr.bin/gawk/../../dist/gawk/getopt.c: In function
+`_getopt_internal':
+/usr/src/gnu/usr.bin/gawk/../../dist/gawk/getopt.c:606: warning: type
+mismatch in implicit declaration for built-in function `strlen'
+
+It first failed with that 2 days ago, so I waited until yesterday,
+resupped, & tried compiling again...but JUST USERLAND (I left the previous
+day's kernel). It failed the make the same way. Is there something wrong on
+my system, or is this a known problem?
+
+Thanks,
+Mike
+Bikers don't *DO* taglines.
+
+From nathanw@MIT.EDU  Mon Jun 21 11:27:09 1999
+From: Nathan J. Williams <nathanw@MIT.EDU>
+To: mikeride@prez.org
+Date: Mon, 21 Jun 1999 11:27:09 +0000
+Subject: Re: -current?
+
+<mikeride@prez.org> (Michael G. Schabert) writes:
+
+> cc1: warnings being treated as errors
+> /usr/src/gnu/usr.bin/gawk/../../dist/gawk/getopt.c: In function
+> `_getopt_internal':
+> /usr/src/gnu/usr.bin/gawk/../../dist/gawk/getopt.c:606: warning: type
+> mismatch in implicit declaration for built-in function `strlen'
+
+	I've been seeing this as well. I believe our gcc internally
+prototypes strlen as 'size_t strlen(char *)', and size_t is a ulong; of
+course, the default implicit declaration has an int return type, so
+this doesn't match. I'm just not sure what kind of fix would be
+appropriate; whatever it is should be submittable back to the FSF, so
+just throwing in "#include <string.h>" isn't it, even if it's wrapped
+with ifdefs. I need to do some more digging on this.
+
+	- Nathan
+
+From tv@pobox.com  Mon Jun 21 19:34:40 1999
+From: Todd Vierling <tv@pobox.com>
+To: nathanw@MIT.EDU
+Date: Mon, 21 Jun 1999 19:34:40 +0000
+Subject: Re: -current?
+
+On 21 Jun 1999, Nathan J. Williams wrote:
+
+: > /usr/src/gnu/usr.bin/gawk/../../dist/gawk/getopt.c: In function
+: > `_getopt_internal':
+: > /usr/src/gnu/usr.bin/gawk/../../dist/gawk/getopt.c:606: warning: type
+: > mismatch in implicit declaration for built-in function `strlen'
+
+: I'm just not sure what kind of fix would be
+: appropriate;
+
+Make getopt.c include <string.h> based on HAVE_STRING_H.
+
+-- 
+-- Todd Vierling (tv@pobox.com)
+
+From nathanw@MIT.EDU  Mon Jun 21 19:35:23 1999
+From: Nathan J. Williams <nathanw@MIT.EDU>
+To: tv@pobox.com
+Date: Mon, 21 Jun 1999 19:35:23 +0000
+Subject: Re: -current?
+
+Todd Vierling <tv@pobox.com> writes:
+
+> : > /usr/src/gnu/usr.bin/gawk/../../dist/gawk/getopt.c: In function
+> : > `_getopt_internal':
+> : > /usr/src/gnu/usr.bin/gawk/../../dist/gawk/getopt.c:606: warning: type
+> : > mismatch in implicit declaration for built-in function `strlen'
+> 
+> : I'm just not sure what kind of fix would be
+> : appropriate;
+> 
+> Make getopt.c include <string.h> based on HAVE_STRING_H.
+
+That occurred to me, but I ran into this in getopt.c:
+
+#ifdef  __GNU_LIBRARY__
+/* We want to avoid inclusion of string.h with non-GNU libraries
+   because there are many ways it can cause trouble.
+   On some systems, it contains special magic macros that don't work
+   in GCC.  */
+#include <string.h>
+
+Apparantly they have some weird constraints that make that the wrong
+answer.
+
+	- Nathan
+
+From tv@pobox.com  Mon Jun 21 19:48:26 1999
+From: Todd Vierling <tv@pobox.com>
+To: nathanw@MIT.EDU
+Date: Mon, 21 Jun 1999 19:48:26 +0000
+Subject: Re: -current?
+
+On 21 Jun 1999, Nathan J. Williams wrote:
+
+: That occurred to me, but I ran into this in getopt.c:
+: 
+: #ifdef  __GNU_LIBRARY__
+
+`Fine, then.'  ;)  Make this:
+
+#if defined(__GNU_LIBRARY__) || defined(__NetBSD__)
+
+: /* We want to avoid inclusion of string.h with non-GNU libraries
+:    because there are many ways it can cause trouble.
+:    On some systems, it contains special magic macros that don't work
+:    in GCC.  */
+
+...Which I think is a completely bogus message, unless they're referring to
+very old gcc2 or gcc1....
+
+-- 
+-- Todd Vierling (tv@pobox.com)
+
+From martin@rumolt.teuto.de  Tue Jun 22 07:12:46 1999
+From: Martin Husemann <martin@rumolt.teuto.de>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 22 Jun 1999 07:12:46 +0000
+Subject: Where to buy in Germany?
+
+Sorry for this slightly off-topic question, please answer in private E-Mail,
+I'll summarize to the list if there is interest...
+
+I tried to get some kind of NetBSD-running alpha hardware, but failed
+miserably. Most dealers listed by the manufacturers web sites don't even
+answer e-mails. Maybe I should pretend to buy dozens of that machines :-(
+
+Can anyone point me to some place shipping fast, relatively cheap, alpha
+hardware to Germany? I was looking at the 164LX board, or something like
+that, or maybe a dual processor system, in the hope we will support it
+anytime in the near future.
+
+
+Thank you,
+
+
+Martin
+
+From mikeride@prez.org  Tue Jun 22 22:11:29 1999
+From: Michael G. Schabert <mikeride@prez.org>
+To: port-alpha@netbsd.org
+Date: Tue, 22 Jun 1999 22:11:29 +0000
+Subject: "yes" curiousity
+
+[This is general NetBSD, & not alpha specific]
+
+Hi guys,
+As I was doing a make build, I happened to watch as it was doing stuff in
+/usr/src/usr.bin...& was curious when I saw this thing called "yes". So I
+read the manpage. When I read it, I thought to myself "now that seems
+really stupid. Why would anyone want to do that?" So, being the
+sometimes-adventurous sort, I went ahead and typed "yes".
+
+That brings me full circle to my original thought...that seems awfully
+stupid. Why would anyone want to do that?
+
+It took me forever to get my ctrl-c command through, what with the
+incessant scrolling & all. Is there actually an application for such a
+command, or did I miss something?
+
+Mike
+Bikers don't *DO* taglines.
+
+From thorpej@nas.nasa.gov  Tue Jun 22 19:00:59 1999
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mikeride@prez.org
+Date: Tue, 22 Jun 1999 19:00:59 +0000
+Subject: Re: "yes" curiousity
+
+On Tue, 22 Jun 1999 22:11:29 -0400 
+ "Michael G. Schabert" <mikeride@prez.org> wrote:
+
+ > It took me forever to get my ctrl-c command through, what with the
+ > incessant scrolling & all. Is there actually an application for such a
+ > command, or did I miss something?
+
+mmm, yes | fsck
+
+        -- Jason R. Thorpe <thorpej@nas.nasa.gov>
+
+From paul@gromit.dlib.vt.edu  Tue Jun 22 22:04:24 1999
+From: Paul Mather <paul@gromit.dlib.vt.edu>
+To: mikeride@prez.org
+Date: Tue, 22 Jun 1999 22:04:24 +0000
+Subject: Re: "yes" curiousity
+
+On Tue, 22 Jun 1999, Michael G. Schabert wrote:
+
+=> Hi guys,
+=> As I was doing a make build, I happened to watch as it was doing stuff in
+=> /usr/src/usr.bin...& was curious when I saw this thing called "yes". So I
+=> read the manpage. When I read it, I thought to myself "now that seems
+=> really stupid. Why would anyone want to do that?" So, being the
+=> sometimes-adventurous sort, I went ahead and typed "yes".
+=> 
+=> That brings me full circle to my original thought...that seems awfully
+=> stupid. Why would anyone want to do that?
+=> 
+=> It took me forever to get my ctrl-c command through, what with the
+=> incessant scrolling & all. Is there actually an application for such a
+=> command, or did I miss something?
+
+Although the NetBSD man page for "yes" doesn't provide a possible raison
+d'etre for this command, the Digital Unix folks do (they even provide an
+[albeit contrived] example):
+
+yes(1)                                                       yes(1)
+
+NAME
+  yes - Affirms repetitively
+
+SYNOPSIS
+
+  yes [explication]
+
+DESCRIPTION
+
+  The yes command repeatedly outputs y, or the locale's equivalent of a y,
+  or, if specified, explication.  (The LC_MESSAGES variable determines the
+  locale's equivalent of y or n (for yes/no queries)).
+
+  The yes command is useful for providing continuous input to a program.
+  Terminate output by pressing the Interrupt key sequence.
+
+ENVIRONMENT VARIABLES
+
+  LC_CTYPE Determines the behavior of character classes used in the extended
+           regular expression defined for the yesexpr locale keyword in the
+           LC_MESSAGES category.
+
+  LC_MESSAGES
+           Determines the locale for the processing of affirmative responses.
+
+EXAMPLES
+
+  To delete all files in a directory (using the rm command) and automatically
+  send an affirmative response to the request for confirmation, enter:
+
+       yes | rm -i *
+
+
+
+
+Cheers,
+
+Paul.
+
+e-mail: paul@gromit.dlib.vt.edu
+
+"I don't live today; maybe tomorrow..."
+	--- James Marshall Hendrix
+
+From fb@enteract.com  Tue Jun 22 21:18:16 1999
+From: Frederick Bruckman <fb@enteract.com>
+To: mikeride@prez.org
+Date: Tue, 22 Jun 1999 21:18:16 +0000
+Subject: Re: "yes" curiousity
+
+On Tue, 22 Jun 1999, Michael G. Schabert wrote:
+
+> As I was doing a make build, I happened to watch as it was doing stuff in
+> /usr/src/usr.bin...& was curious when I saw this thing called "yes". So I
+> read the manpage. When I read it, I thought to myself "now that seems
+> really stupid. Why would anyone want to do that?" So, being the
+> sometimes-adventurous sort, I went ahead and typed "yes".
+> 
+> That brings me full circle to my original thought...that seems awfully
+> stupid. Why would anyone want to do that?
+> 
+> It took me forever to get my ctrl-c command through, what with the
+> incessant scrolling & all. Is there actually an application for such a
+> command, or did I miss something?
+
+It's for scripting commands that insist on prompting the user. e.g.
+
+yes | rm -iR ~/ 2>&1 /dev/null
+
+!!
+
+From thorpej@nas.nasa.gov  Tue Jun 22 19:21:00 1999
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: simonb@NetBSD.ORG
+Date: Tue, 22 Jun 1999 19:21:00 +0000
+Subject: Re: "yes" curiousity
+
+On Wed, 23 Jun 1999 12:06:57 +1000 
+ Simon Burge <simonb@NetBSD.ORG> wrote:
+
+ > > On Tue, 22 Jun 1999 22:11:29 -0400 
+ > >  "Michael G. Schabert" <mikeride@prez.org> wrote:
+ > > 
+ > >  > It took me forever to get my ctrl-c command through, what with the
+ > >  > incessant scrolling & all. Is there actually an application for such a
+ > >  > command, or did I miss something?
+ > > 
+ > > mmm, yes | fsck
+ > 
+ > Or "fsck -y" ????
+
+How long has the -y option been there?
+
+        -- Jason R. Thorpe <thorpej@nas.nasa.gov>
+
+From mikeride@prez.org  Tue Jun 22 22:41:54 1999
+From: Michael G. Schabert <mikeride@prez.org>
+To: port-alpha@netbsd.org
+Date: Tue, 22 Jun 1999 22:41:54 +0000
+Subject: Re: "yes" curiousity
+
+>It's for scripting commands that insist on prompting the user. e.g.
+>
+>yes | rm -iR ~/ 2>&1 /dev/null
+>
+>!!
+
+Umm, why would you use iR with yes, when you can just use R?
+
+Similarly, with the fsck thing...first you're using the command & forcing
+it to ask...but then you're going on to force it to not wait for an answer.
+Seems oxymoronic to me :)
+
+So if it's piped through another command, will it automatically shut up
+when that command's through asking? In using yes with no pipes, it just
+scrolled the hell outta my telnet session.
+Bikers don't *DO* taglines.
+
+From mikeride@prez.org  Tue Jun 22 22:44:00 1999
+From: Michael G. Schabert <mikeride@prez.org>
+To: port-alpha@netbsd.org
+Date: Tue, 22 Jun 1999 22:44:00 +0000
+Subject: Re: "yes" curiousity
+
+>On Wed, 23 Jun 1999 12:06:57 +1000
+> Simon Burge <simonb@NetBSD.ORG> wrote:
+>
+> > > On Tue, 22 Jun 1999 22:11:29 -0400
+> > >  "Michael G. Schabert" <mikeride@prez.org> wrote:
+> > >
+> > >  > It took me forever to get my ctrl-c command through, what with the
+> > >  > incessant scrolling & all. Is there actually an application for such a
+> > >  > command, or did I miss something?
+> > >
+> > > mmm, yes | fsck
+> >
+> > Or "fsck -y" ????
+>
+>How long has the -y option been there?
+
+Hmm, 2 or 3 years minimum I would think...at least I think that it was
+there when I was actively using the mac-68k port. (or was that
+tongue-in-cheek rhetoric?)
+
+Mike
+Bikers don't *DO* taglines.
+
+From thorpej@nas.nasa.gov  Tue Jun 22 19:36:12 1999
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: simonb@NetBSD.ORG
+Date: Tue, 22 Jun 1999 19:36:12 +0000
+Subject: Re: "yes" curiousity
+
+On Wed, 23 Jun 1999 12:27:50 +1000 
+ Simon Burge <simonb@NetBSD.ORG> wrote:
+
+ > > How long has the -y option been there?
+ > 
+ > The oldest thing I can find is Genix (BSD4.1), and it's there...
+
+Hm.. yes(1) appeared in 4.0.. maybe 4.1 introduced "fsck -y" :-)
+
+I'm mostly being silly now... but I do recall having to use that
+particular construct on some system that didn't have "-y" for fsck...
+
+...I just can't remember which system that might have been... sigh.
+
+        -- Jason R. Thorpe <thorpej@nas.nasa.gov>
+
+From ross@ghs.com  Tue Jun 22 20:01:14 1999
+From: Ross Harvey <ross@ghs.com>
+To: simonb@netbsd.org, thorpej@nas.nasa.gov
+Date: Tue, 22 Jun 1999 20:01:14 +0000
+Subject: Re: "yes" curiousity
+
+> From: Simon Burge <simonb@netbsd.org>
+>:::
+> The oldest thing I can find is Genix (BSD4.1), and it's there...
+
+You have a working Genix box?!
+
+From simonb@netbsd.org  Wed Jun 23 12:06:57 1999
+From: Simon Burge <simonb@netbsd.org>
+To: thorpej@nas.nasa.gov
+Date: Wed, 23 Jun 1999 12:06:57 +0000
+Subject: Re: "yes" curiousity
+
+Jason Thorpe wrote:
+
+> On Tue, 22 Jun 1999 22:11:29 -0400 
+>  "Michael G. Schabert" <mikeride@prez.org> wrote:
+> 
+>  > It took me forever to get my ctrl-c command through, what with the
+>  > incessant scrolling & all. Is there actually an application for such a
+>  > command, or did I miss something?
+> 
+> mmm, yes | fsck
+
+Or "fsck -y" ????
+
+Simon.
+
+From simonb@NetBSD.ORG  Wed Jun 23 12:27:50 1999
+From: Simon Burge <simonb@NetBSD.ORG>
+To: thorpej@nas.nasa.gov
+Date: Wed, 23 Jun 1999 12:27:50 +0000
+Subject: Re: "yes" curiousity
+
+Jason Thorpe wrote:
+
+> On Wed, 23 Jun 1999 12:06:57 +1000 
+>  Simon Burge <simonb@NetBSD.ORG> wrote:
+> 
+>  > > On Tue, 22 Jun 1999 22:11:29 -0400 
+>  > >  "Michael G. Schabert" <mikeride@prez.org> wrote:
+>  > > 
+>  > >  > It took me forever to get my ctrl-c command through, what with the
+>  > >  > incessant scrolling & all. Is there actually an application for such a
+>  > >  > command, or did I miss something?
+>  > > 
+>  > > mmm, yes | fsck
+>  > 
+>  > Or "fsck -y" ????
+> 
+> How long has the -y option been there?
+
+The oldest thing I can find is Genix (BSD4.1), and it's there...
+
+Simon.
+
+From simonb@NetBSD.ORG  Wed Jun 23 12:41:04 1999
+From: Simon Burge <simonb@NetBSD.ORG>
+To: thorpej@nas.nasa.gov
+Date: Wed, 23 Jun 1999 12:41:04 +0000
+Subject: Re: "yes" curiousity
+
+Jason Thorpe wrote:
+
+> On Wed, 23 Jun 1999 12:27:50 +1000 
+>  Simon Burge <simonb@NetBSD.ORG> wrote:
+> 
+>  > > How long has the -y option been there?
+>  > 
+>  > The oldest thing I can find is Genix (BSD4.1), and it's there...
+> 
+> Hm.. yes(1) appeared in 4.0.. maybe 4.1 introduced "fsck -y" :-)
+> 
+> I'm mostly being silly now... but I do recall having to use that
+> particular construct on some system that didn't have "-y" for fsck...
+> 
+> ...I just can't remember which system that might have been... sigh.
+
+Ahh, probably one of those funny SysV variants that some people are
+forced to use every now and then :-)
+
+Simon.
+
+From simonb@netbsd.org  Wed Jun 23 13:37:27 1999
+From: Simon Burge <simonb@netbsd.org>
+To: ross@ghs.com
+Date: Wed, 23 Jun 1999 13:37:27 +0000
+Subject: Re: "yes" curiousity
+
+Ross Harvey wrote:
+
+> > From: Simon Burge <simonb@netbsd.org>
+> >:::
+> > The oldest thing I can find is Genix (BSD4.1), and it's there...
+> 
+> You have a working Genix box?!
+
+Sadly no, just the tapes (well, a tar file.  The tapes are long gone
+too)...
+
+Simon.
+
+From mouse@Rodents.Montreal.QC.CA  Wed Jun 23 00:55:47 1999
+From: der Mouse <mouse@Rodents.Montreal.QC.CA>
+To: port-alpha@netbsd.org
+Date: Wed, 23 Jun 1999 00:55:47 +0000
+Subject: Re: "yes" curiousity
+
+> [...], I went ahead and typed "yes".
+
+> That brings me full circle to my original thought...that seems
+> awfully stupid.
+
+It is, as you discovered.  About as useful as typing "cat".
+
+Okay, but seriously... :-)
+
+I've yet to see anyone provide a non-contrived use of "yes".
+
+So, let me do so.  This is a real script, in real use, created to fill
+a real need.  The idea is to try to catch media errors on new tapes by
+writing them to EOT with junk.  As the tapes are about 4 gig long, it's
+no practical to just have a single file which gets dumped to the tape.
+
+Here's the script.  All you need to know about catblock is that it
+copies its input to its output in a certain way, and does something
+useful when sent SIGUSR1.
+
+#! /bin/sh
+PATH=/home/shamash/mouse/sun4/hacks:$PATH
+export PATH
+cd /home/shamash/mouse/sun4/tmp
+junkfile=junk.10M
+case $# in
+	1)	;;
+	*)	echo Usage: $0 config-name 1>&2
+		exit 1
+		;;
+esac
+config="$1"
+( exec 3>&1
+  yes cat\ $junkfile |
+	sh -e |
+	sh -c 'echo $$ 1>&3; exec catblock -c 32768' \
+	> /local/backup/dev/$config/dev 2> junk-log.$config
+) | ( read pid; sleep 10; while kill -USR1 $pid; do sleep 300; done )
+
+					der Mouse
+
+			       mouse@rodents.montreal.qc.ca
+		     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+From mikeride@prez.org  Wed Jun 23 02:53:36 1999
+From: Michael G. Schabert <mikeride@prez.org>
+To: port-alpha@netbsd.org
+Date: Wed, 23 Jun 1999 02:53:36 +0000
+Subject: string.h?
+
+I just got around to going through with the make build today, after
+changing the ifdef as Todd mentioned for getopt.c (gawk) to include
+string.h. Now it made it past there, but this time, it crapped out on
+/usr/src/sys/kern/subr_extent.c with a similar error about memset. I did a
+quick grep for memset in string.h, & sure enough it was there. So I did a
+grep for string.h in subr_extent.c & found that it wasn't present at all. I
+threw in an #include <string.h> and then cut'n'pasted the exact "cc" line
+that was printed last before the error, & it compiled subr_extent.c just
+fine.
+
+Why do I have to manually include string.h in these files? Is something
+screwy on my system, or were they overlooked or something? I would think
+that if they're crapping on my alpha that they'd be crapping on everyone's
+alpha... assuming that it's a md thing as far as the difference of opinion
+for the implicit definition of built-in functions (str* and mem* seem to be
+the biggest culprits).
+
+(& to make matters worse, I keep typing make build before my brain
+remembers to do make update)
+
+
+Mike, who's still kicking himself for not jumping on those 533 Mhz 164's
+Bikers don't *DO* taglines.
+
+From fb@enteract.com  Wed Jun 23 02:17:41 1999
+From: Frederick Bruckman <fb@enteract.com>
+To: mikeride@prez.org
+Date: Wed, 23 Jun 1999 02:17:41 +0000
+Subject: Re: "yes" curiousity
+
+On Tue, 22 Jun 1999, Michael G. Schabert wrote:
+
+> >It's for scripting commands that insist on prompting the user. e.g.
+> >
+> >yes | rm -iR ~/ 2>&1 /dev/null
+> >
+> >!!
+> 
+> Umm, why would you use iR with yes, when you can just use R?
+> 
+> Similarly, with the fsck thing...first you're using the command & forcing
+> it to ask...but then you're going on to force it to not wait for an answer.
+> Seems oxymoronic to me :)
+
+The example is contrived. There may not be any commands in netbsd that
+really need it. Some nameless, popular, inferior, OS's tend to second
+guess the user at ever turn ( "are you sure...?"), so installer scripts on
+dos CDs tend to have a lot of files called "y" and "yy" containing just a
+single letter or two, without which the script breaks!
+
+> So if it's piped through another command, will it automatically shut up
+> when that command's through asking? In using yes with no pipes, it just
+> scrolled the hell outta my telnet session.
+> Bikers don't *DO* taglines.
+
+Of course, "yes" is killed when the pipe closes. Your problem is that your
+computer's too fast. Try it on a mac68k. :)
+
+From khym@bga.com  Wed Jun 23 02:20:09 1999
+From: Dave Huang <khym@bga.com>
+To: mikeride@prez.org
+Date: Wed, 23 Jun 1999 02:20:09 +0000
+Subject: Re: string.h?
+
+On Wed, 23 Jun 1999, Michael G. Schabert wrote:
+> Why do I have to manually include string.h in these files? Is something
+> screwy on my system, or were they overlooked or something? I would think
+> that if they're crapping on my alpha that they'd be crapping on everyone's
+> alpha... assuming that it's a md thing as far as the difference of opinion
+
+I had the same problem with gawk's getopt.c, but subr_extent.c compiles
+fine for me... why was "make build" compiling that anyways? I thought
+that was only compiled when making a kernel. 'cuz subr_extent.c
+#includes <sys/systm.h> if _KERNEL is defined, and systm.h has a
+prototype for memset.
+-- 
+Name: Dave Huang     |   Mammal, mammal / their names are called /
+INet: khym@bga.com   |   they raise a paw / the bat, the cat /
+FurryMUCK: Dahan     |   dolphin and dog / koala bear and hog -- TMBG
+Dahan: Hani G Y+C 23 Y++ L+++ W- C++ T++ A+ E+ S++ V++ F- Q+++ P+ B+ PA+ PL++
+
+From carinapaez@stones.com  Wed Jun 23 04:52:18 1999
+From: Carina P�ez <carinapaez@stones.com>
+To: Mart�n@spanky.harenet.net
+Date: Wed, 23 Jun 1999 04:52:18 +0000
+Subject: ...habl� por tel�fono todo lo que quieras
+
+�hola!, navegando encontr� un nuevo servicio de "callback" por el que
+las llamadas internacionales te cuestan hasta un 70% menos! y se
+puede usar con un tel�fono com�n, un modem, un fax, y hasta con
+el celular. te mandan factura detallada cada mes, estado de cuenta
+autom�tico al instante y 99 memorias para discado r�pido.
+lo estuve probando ya con amigos de distintas partes del mundo,
+y anda a la perfecci�n.
+si quer�s ver las tarifas, mand� un e-mail en blanco a
+<intlphone@stones.com> 
+y te mandar�n la informaci�n completa en minutos.
+si no, pod�s escribirles directamente a aemendoz@hotmail.com
+deciles que te recomend� carina, y te explicar�n personalmente todo el
+sistema en detalle.
+besitos,
+
+carina
+ICQ #39660855
+
+From marianag@thedorm.com  Wed Jun 23 04:52:03 1999
+From: Mariana <marianag@thedorm.com>
+To: Jorge@spanky.harenet.net
+Date: Wed, 23 Jun 1999 04:52:03 +0000
+Subject: para vos, que imprim�s mucho :-)
+
+sab�as que en realidad, cuando compr�s tinta para la impresora, la mayor parte del costo es por la "marca", porque en realidad la tinta es much�simo m�s barata?
+dando vueltas por la red, encontr� una empresa que vende recargas de excelente calidad: contra 37 d�lares que suele salir un cartucho, recargarlo sale 9. y venden
+tambi�n recargas l�ser para todas las marcas a muy buen precio. 
+si est�s en argentina (o por consultas para el resto de latinoam�rica), los encontr�s en "Refill": venezuela 4122 9� A Cap. Fed.  tel/fax4-981-8178, 
+e-mail: refill@pweb.com.ar; o en su p�gina web http://www.newroad.com.ar/refill.
+espero que te sirva :-). saluditos,
+
+mariana
+ICQ #39000288
+
+From khym@bga.com  Wed Jun 23 03:02:06 1999
+From: Dave Huang <khym@bga.com>
+To: port-alpha@netbsd.org, tech-toolchain@netbsd.org
+Date: Wed, 23 Jun 1999 03:02:06 +0000
+Subject: cc doesn't pass -mev56 to as when -mcpu=ev56?
+
+When compiling stuff with -mcpu=ev56, cc isn't passing -mev56 to the
+assembler, which sounds broken to me...
+
+For example, if I try to compile the following with -mcpu=ev56:
+  void bla(void) { char c = *(char *)0; }
+
+I get:
+/tmp/cci8ePHl.s: Assembler messages:
+/tmp/cci8ePHl.s:17: Error: macro requires $at register while noat in effect
+/tmp/cci8ePHl.s:18: Error: macro requires $at register while noat in effect
+
+Lines 17 and 18 are:
+        ldbu $1,0($31)
+        stb $1,16($15)
+which I guess are BWX opcodes...
+
+So how do I get this to work? Something about ASM_SPEC in
+dist/gcc/config/alpha/netbsd.h?
+
+-- 
+Name: Dave Huang     |   Mammal, mammal / their names are called /
+INet: khym@bga.com   |   they raise a paw / the bat, the cat /
+FurryMUCK: Dahan     |   dolphin and dog / koala bear and hog -- TMBG
+Dahan: Hani G Y+C 23 Y++ L+++ W- C++ T++ A+ E+ S++ V++ F- Q+++ P+ B+ PA+ PL++
+
+From khym@bga.com  Wed Jun 23 03:23:34 1999
+From: Dave Huang <khym@bga.com>
+To: port-alpha@netbsd.org, tech-toolchain@netbsd.org
+Date: Wed, 23 Jun 1999 03:23:34 +0000
+Subject: Re: cc doesn't pass -mev56 to as when -mcpu=ev56?
+
+On Wed, 23 Jun 1999, Dave Huang wrote:
+> When compiling stuff with -mcpu=ev56, cc isn't passing -mev56 to the
+> assembler, which sounds broken to me...
+
+Hmm, I suppose I should mention that I'm running NetBSD-current/alpha :)
+
+From tls@rek.tjls.com  Wed Jun 23 04:45:50 1999
+From: Thor Lancelot Simon <tls@rek.tjls.com>
+To: port-vax@netbsd.org, port-alpha@netbsd.org, port-sparc64@netbsd.org
+Date: Wed, 23 Jun 1999 04:45:50 +0000
+Subject: Announce: *trial* AnonCVS server available
+
+[Please note that I have restricted the lists I've sent this to in an attempt
+ to keep traffic on my server down while it's still being tested.  Please
+ don't forward this to one of the higher-traffic/higher-subscription lists
+ or to Usenet.]
+
+I've put up a trial AnonCVS server for the NetBSD source repository.  It is
+available by SSH and by CVS "pserver" protocol at whitelodge.twinpeaks.com.
+
+The CVSROOT is bob@whitelodge.twinpeaks.com:/cvsroot.  Should you prefer to
+use the unencrypted "pserver" protocol, you can set your CVSROOT to
+:pserver:bob@whitelodge.twinpeaks.com:/cvsroot.  pserver mode requires a
+password; that password is "bob".
+
+This is a trial service, and I don't guarantee that it will be up reliably,
+nor do I guarantee that it will be up indefinitely.  It's on one of my
+personal machines, using borrowed bandwidth, and I will almost certainly
+have to take it down for some time to move it if it becomes popular.
+
+A note on modules: the "src" module is an alias that contains all of the
+NetBSD sources that are not export-restricted.  The "cryptosrc-us" module
+contains the export-restricted sources -- DO NOT fetch this module if you
+are not in the U.S. or Canada, or are otherwise restricted by U.S. or
+other law or regulation from obtaining it.  The "src-crypto-us" module
+is the union of "src" and "cryptosrc-us"; the same requirement applies,
+do not fetch the "src-crypto-us" module if it is export-restricted from
+the U.S. to you.
+
+That said... enjoy!
+
+-- 
+Thor Lancelot Simon	                                      tls@rek.tjls.com
+	"And where do all these highways go, now that we are free?"
+
+From tls@rek.tjls.com  Wed Jun 23 04:57:45 1999
+From: Thor Lancelot Simon <tls@rek.tjls.com>
+To: khym@bga.com
+Date: Wed, 23 Jun 1999 04:57:45 +0000
+Subject: Re: cc doesn't pass -mev56 to as when -mcpu=ev56?
+
+On Wed, Jun 23, 1999 at 03:02:06AM -0500, Dave Huang wrote:
+> When compiling stuff with -mcpu=ev56, cc isn't passing -mev56 to the
+> assembler, which sounds broken to me...
+
+Yes, it is.
+
+-Wa,-m21164a will do the trick, by the way -- thanks to Ross for pointing this
+out to me.  But it shouldn't be required, of course.
+
+From khym@bga.com  Wed Jun 23 04:44:18 1999
+From: Dave Huang <khym@bga.com>
+To: tls@rek.tjls.com
+Date: Wed, 23 Jun 1999 04:44:18 +0000
+Subject: Re: cc doesn't pass -mev56 to as when -mcpu=ev56?
+
+On Wed, 23 Jun 1999, Thor Lancelot Simon wrote:
+> -Wa,-m21164a will do the trick, by the way -- thanks to Ross for
+> pointing this out to me.  But it shouldn't be required, of course.
+
+Ah, cool... I had forgotten about -Wa... I decided to mess around with
+ASM_SPECS, and came up with this... I don't know if it's right, but it
+works for me :)
+
+--- /usr/src/gnu/dist/gcc/config/alpha/netbsd.h	Wed Nov 18 06:14:03 1998
++++ netbsd.h	Wed Jun 23 03:16:47 1999
+@@ -87,7 +87,7 @@
+    necessary on the Alpha. */
+ 
+ #undef ASM_SPEC
+-#define ASM_SPEC " %|"
++#define ASM_SPEC " %| %{mcpu=ev4|mcpu=21064:-mev4} %{mcpu=ev5|mcpu=21164:-mev5} %{mcpu=ev56|mcpu=21164a:-mev56} %{mcpu=pca56|mcpu=21164pc|mcpu=21164PC:-mpca56} %{mcpu=ev6|mcpu=21264:-mev6}"
+ 
+ /* Provide a LINK_SPEC appropriate for a NetBSD/alpha ELF target.  Only
+    the linker emulation and -O options are Alpha-specific.  The rest are
+
+From tv@pobox.com  Wed Jun 23 09:44:57 1999
+From: Todd Vierling <tv@pobox.com>
+To: khym@bga.com
+Date: Wed, 23 Jun 1999 09:44:57 +0000
+Subject: Re: cc doesn't pass -mev56 to as when -mcpu=ev56?
+
+On Wed, 23 Jun 1999, Dave Huang wrote:
+
+: > -Wa,-m21164a will do the trick, by the way -- thanks to Ross for
+: > pointing this out to me.  But it shouldn't be required, of course.
+: 
+: Ah, cool... I had forgotten about -Wa... I decided to mess around with
+: ASM_SPECS, and came up with this... I don't know if it's right, but it
+: works for me :)
+
+This looks `OK' to me (where `OK' is sort of a shoulder shrug).
+
+-- 
+-- Todd Vierling (tv@pobox.com)
+
+From tv@pobox.com  Wed Jun 23 10:02:55 1999
+From: Todd Vierling <tv@pobox.com>
+To: mikeride@prez.org
+Date: Wed, 23 Jun 1999 10:02:55 +0000
+Subject: Re: string.h?
+
+On Wed, 23 Jun 1999, Michael G. Schabert wrote:
+
+: Why do I have to manually include string.h in these files?
+
+Because our egcs compiler is set to require more strict prototyping of
+functions like strcpy() and memset(), which take arguments that can be
+wrongly sized on, say, LP64 platforms if not prototyped ahead of time.
+
+This code was written long before gcc2.8, and is compiled primarily on i386
+(Lunix) boxes.
+
+: (& to make matters worse, I keep typing make build before my brain
+: remembers to do make update)
+
+Put UPDATE=1 in /etc/mk.conf.  ;)
+
+-- 
+-- Todd Vierling (tv@pobox.com)
+
+From thorpej@nas.nasa.gov  Wed Jun 23 08:03:04 1999
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: khym@bga.com
+Date: Wed, 23 Jun 1999 08:03:04 +0000
+Subject: Re: string.h?
+
+On Wed, 23 Jun 1999 02:20:09 -0500 (CDT) 
+ Dave Huang <khym@bga.com> wrote:
+
+ > I had the same problem with gawk's getopt.c, but subr_extent.c compiles
+ > fine for me... why was "make build" compiling that anyways? I thought
+ > that was only compiled when making a kernel. 'cuz subr_extent.c
+ > #includes <sys/systm.h> if _KERNEL is defined, and systm.h has a
+ > prototype for memset.
+
+The GNU people seem to forget <string.h> ... often.  You'd think they'd
+make sure prototypes are always in scope... oh well.
+
+Anyhow, someone will check in a fix for gawk's getopt soon, I'm sure.
+
+Regarding subr_extent.c... there is a regression test for it in
+src/regress, and you'll note that the file itself is set up to build
+in a userland testing harness.
+
+        -- Jason R. Thorpe <thorpej@nas.nasa.gov>
+
+From lennart@augustsson.net  Wed Jun 23 11:06:49 1999
+From: Lennart Augustsson <lennart@augustsson.net>
+To: mikeride@prez.org
+Date: Wed, 23 Jun 1999 11:06:49 +0000
+Subject: Re: "yes" curiousity
+
+"Michael G. Schabert" wrote:
+
+> [This is general NetBSD, & not alpha specific]
+>
+> Hi guys,
+> As I was doing a make build, I happened to watch as it was doing stuff in
+> /usr/src/usr.bin...& was curious when I saw this thing called "yes". So I
+> read the manpage. When I read it, I thought to myself "now that seems
+> really stupid. Why would anyone want to do that?" So, being the
+> sometimes-adventurous sort, I went ahead and typed "yes".
+>
+> That brings me full circle to my original thought...that seems awfully
+> stupid. Why would anyone want to do that?
+
+I've used it many times, and I appreciate it. :-)
+
+Here's an example (from memory) using it with adb when you want a long
+trace of instructions to stare at:
+
+  yes :s | adb foo
+
+I'm not sure I've ever used it with the default output.
+
+    -- Lennart
+
+From khym@bga.com  Wed Jun 23 13:12:41 1999
+From: Dave Huang <khym@bga.com>
+To: thorpej@nas.nasa.gov
+Date: Wed, 23 Jun 1999 13:12:41 +0000
+Subject: Re: string.h?
+
+On Wed, 23 Jun 1999, Jason Thorpe wrote:
+> Regarding subr_extent.c... there is a regression test for it in
+> src/regress, and you'll note that the file itself is set up to build
+> in a userland testing harness.
+
+Ah, okay... I don't have any of the regress stuff. I guess the #ifdef
+_KERNEL should've tipped me off that it was supposed to be compilable
+in a userland environment :)
+
+From cohentl@clarkson.edu  Wed Jun 23 20:22:50 1999
+From: Todd Cohen <cohentl@clarkson.edu>
+To: port-alpha@netbsd.org
+Date: Wed, 23 Jun 1999 20:22:50 +0000
+Subject: None
+
+ok, I sent the other day and didn't get any feedback(unless i missed it?)
+and i tried yesterdays sup with the same problems.. this is on an Alpha
+doing a make build
+
+cc -O2  -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith
+-Werror 
+ -DHASSETPROCTITLE -DSKEY -c /usr/src/libexec/ftpd/../../bin/ls/cmp.c
+cc -O2  -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith
+-Werror 
+ -DHASSETPROCTITLE -DSKEY -c /usr/src/libexec/ftpd/../../bin/ls/print.c
+cc -O2  -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith
+-Werror 
+ -DHASSETPROCTITLE -DSKEY -c
+/usr/src/libexec/ftpd/../../bin/ls/stat_flags.c
+cc -O2  -Wall -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith
+-Werror 
+ -DHASSETPROCTITLE -DSKEY -c util.c
+cc1: warnings being treated as errors
+In file included from util.c:55:
+extern.h:50: warning: `struct timeval' declared inside parameter list
+extern.h:50: warning: its scope is only this definition or declaration,
+extern.h:50: warning: which is probably not what you want.
+util.c: In function `logcmd':
+util.c:71: number of arguments doesn't match prototype
+extern.h:50: prototype declaration
+*** Error code 1
+
+Stop.
+*** Error code 1
+
+Stop.
+*** Error code 1
+
+Stop.
+*** Error code 1
+
+Stop.
+
+
+---------------------------------------------------
+http://www.clarkson.edu/~cohentl
+"You can use divine intervention to solve the problem if you need to."
+- Coleman, 1998
+"Sometimes crazy things happen in circuits." - Muku, 1999
+---------------------------------------------------
+
+From christos@zoulas.com  Thu Jun 24 01:24:08 1999
+From: Christos Zoulas <christos@zoulas.com>
+To: port-alpha@netbsd.org
+Date: Thu, 24 Jun 1999 01:24:08 +0000
+Subject: Re: (none)
+
+In article <Pine.A41.3.96.990623202136.32136A-100000@polaris.clarkson.edu>,
+Todd Cohen <cohentl@clarkson.edu> wrote:
+>ok, I sent the other day and didn't get any feedback(unless i missed it?)
+>and i tried yesterdays sup with the same problems.. this is on an Alpha
+>doing a make build
+
+try sup -o you might have stale files around.
+
+christos
+
+From elric@mabelode.imrryr.org  Thu Jun 24 01:41:23 1999
+From: R. C. Dowdeswell <elric@mabelode.imrryr.org>
+To: mikeride@prez.org
+Date: Thu, 24 Jun 1999 01:41:23 +0000
+Subject: Re: "yes" curiousity
+
+Well, I might be a bit late on this thread, but my favourite use of
+yes was back in 95 or 96 when Windows 95 came out, and a friend was
+talking about how it never crashed and he showed me his nifty ZBserver
+(or some such) which was a 16bit web server.
+
+$ yes | tr '\012' ' ' | telnet his.machine.edu 80
+
+His cursor seemed to stop moving, and finally his machine managed to
+reboot.
+
+On 930103889 seconds since the Beginning of the UNIX epoch
+"Michael G. Schabert" wrote:
+>
+>[This is general NetBSD, & not alpha specific]
+>
+>Hi guys,
+>As I was doing a make build, I happened to watch as it was doing stuff in
+>/usr/src/usr.bin...& was curious when I saw this thing called "yes". So I
+>read the manpage. When I read it, I thought to myself "now that seems
+>really stupid. Why would anyone want to do that?" So, being the
+>sometimes-adventurous sort, I went ahead and typed "yes".
+>
+>That brings me full circle to my original thought...that seems awfully
+>stupid. Why would anyone want to do that?
+>
+>It took me forever to get my ctrl-c command through, what with the
+>incessant scrolling & all. Is there actually an application for such a
+>command, or did I miss something?
+>
+>Mike
+>Bikers don't *DO* taglines.
+>
+
+ == Roland Dowdeswell                      http://www.Imrryr.ORG/~elric/  ==
+ == The Unofficial NetBSD Web Pages        http://www.Imrryr.ORG/NetBSD/  ==
+
+From gallatin@cs.duke.edu  Fri Jun 25 22:07:23 1999
+From: Andrew Gallatin <gallatin@cs.duke.edu>
+To: freebsd-alpha@freebsd.org
+Date: Fri, 25 Jun 1999 22:07:23 +0000
+Subject: DEC Server 530x?
+
+Anybody know what the heck an AlphaServer1200 is? Is it a scaled down
+rawhide? I ask because a NECX is selling something called the 'Digital
+Server 5300' with a 400Mhz 21164 for $800USD. 
+
+According to some of the old DEC info, the 5300 was formerly known as
+the 'AlphaServer 1200 for Windows NT.'  And according to some linux
+documentation I've seen, a 1200 is the 'TINCUP' variation of the
+rawhide family. (http://www.redhat.com/support/docs/rhl/alpha/rh52-hardware-alpha-3.html)
+
+Anybody know if 
+
+a) SRM will run on a 5300
+b) NetBSD will run on a 5300 (or a 1200) as if it were a normal rawhide?
+c) the 5300, like the AS1200, can accept a second CPU?
+
+Thanks,
+
+Drew
+
+------------------------------------------------------------------------------
+Andrew Gallatin, Sr Systems Programmer	http://www.cs.duke.edu/~gallatin
+Duke University				Email: gallatin@cs.duke.edu
+Department of Computer Science		Phone: (919) 660-6590
+
+From wilko@yedi.iaf.nl  Sat Jun 26 11:48:47 1999
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: gallatin@cs.duke.edu
+Date: Sat, 26 Jun 1999 11:48:47 +0000
+Subject: Re: DEC Server 530x?
+
+As Andrew Gallatin wrote ...
+> 
+> Anybody know what the heck an AlphaServer1200 is? Is it a scaled down
+> rawhide? I ask because a NECX is selling something called the 'Digital
+> Server 5300' with a 400Mhz 21164 for $800USD. 
+> 
+> According to some of the old DEC info, the 5300 was formerly known as
+> the 'AlphaServer 1200 for Windows NT.'  And according to some linux
+
+A, a 'whitebox' Alpha.
+
+> documentation I've seen, a 1200 is the 'TINCUP' variation of the
+> rawhide family. (http://www.redhat.com/support/docs/rhl/alpha/rh52-hardware-alpha-3.html)
+> 
+> Anybody know if 
+> 
+> a) SRM will run on a 5300
+
+It could very well be that it does not. It is from the days DEC tried
+to seperately price NT and 'real' Alphas.
+
+> b) NetBSD will run on a 5300 (or a 1200) as if it were a normal rawhide?
+> c) the 5300, like the AS1200, can accept a second CPU?
+
+I will check this for you with my AXP-guru colleague. Will be monday before
+I can followup.
+
+Wilko
+--
+|   / o / /  _  	 Arnhem, The Netherlands	- Powered by FreeBSD -
+|/|/ / / /( (_) Bulte 	 WWW  : http://www.tcja.nl 	http://www.freebsd.org
+
+From oskar@unna.ping.de  Sat Jun 26 20:19:52 1999
+From: Jan-Hinrich Fessel <oskar@unna.ping.de>
+To: thorpej@nas.nasa.gov
+Date: Sat, 26 Jun 1999 20:19:52 +0000
+Subject: Re: "yes" curiousity
+
+--==_Exmh_386202816P
+Content-Type: text/plain; charset=us-ascii
+
+In message <199906230236.TAA12947@lestat.nas.nasa.gov>you write:
+> On Wed, 23 Jun 1999 12:27:50 +1000 
+>  Simon Burge <simonb@NetBSD.ORG> wrote:
+> 
+>  > > How long has the -y option been there?
+>  > 
+>  > The oldest thing I can find is Genix (BSD4.1), and it's there...
+> 
+> Hm.. yes(1) appeared in 4.0.. maybe 4.1 introduced "fsck -y" :-)
+
+I was just about to throw away my manual hardcopy printout of my version VII.  
+I thought it had no use anymore, but now I can clearly see:
+/etc/fsck [ -y ] ...
+Printed 6/14/83
+
+Gruesse
+       Oskar
+
+
+
+--==_Exmh_386202816P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP MESSAGE-----
+Version: 2.6.3i
+
+iQCVAwUBN3UZyLA63tqjeAhZAQFYEwP6ArWuul2NovVxP1+ble0hbna5o4BS1YQ/
+0/oFrIZFcwVicExoh6/OaLOwMgAZrLD2SQQKsPb15djt5G0QSuayboO9oJH54+xP
+QwuFVHKC0tK9viqP8FzNVp1H9yhRCbOYqi8LfJbUwvOnB8mL08hdFgwviCLfCaLQ
+YvPrFkN6O4c=
+=fR32
+-----END PGP MESSAGE-----
+
+--==_Exmh_386202816P--
+
+From paul@whooppee.com  Sat Jun 26 13:22:03 1999
+From: Paul Goyette <paul@whooppee.com>
+To: port-alpha@netbsd.org
+Date: Sat, 26 Jun 1999 13:22:03 +0000
+Subject: OSF/1 Libraries - where can I get them?
+
+I've got my nice little Alpha box up and running NetBSD 1.4 (thanks
+in large part to the help from this list).  Now, I'd like to get
+Navigator running.  But the package says it requires that I have
+the OSF/1 libraries loaded.  So, where are they?  :)
+
+Thanks!
+
+--------------------------------------------------------------------------
+| Paul Goyette      | PGP DSS Key fingerprint:   | E-mail addresses:     |
+| Network Engineer  |   BCD7 5301 9513 58A6 0DBC |  paul@whooppee.com    |
+| and kernel hacker |   91EB ADB1 A280 3B79 9221 |  pgoyette@juniper.net |
+--------------------------------------------------------------------------
+
+From mikeride@prez.org  Sat Jun 26 16:54:28 1999
+From: Michael G. Schabert <mikeride@prez.org>
+To: port-alpha@netbsd.org
+Date: Sat, 26 Jun 1999 16:54:28 +0000
+Subject: netatalk
+
+Hi,
+I compiled netatalk (from pkgsrc, even though it's not asun's) on my alpha,
+& when I go to my Mac's chooser, prez shows up. I can log in with
+user/password, but when it goes to let me choose what volumes to log onto,
+no volumes are listed. Has anyone run netatalk on an alpha, and/or run into
+this problem? I tried the netatalk faq-o-matic, the "real" netatalk faq,
+looking through the netatalk-admins mailing list for the past year. For
+this problem, the solution is always listed as "make sure your lokin user
+(a) has a valid shell, and (b) has read permissions on AppleVoolumes file.
+Both are true. There also was 1 message in the mailing list archive where a
+guy asked if anyone had run it on an alpha. There was no response to that
+message.
+
+/usr/pkg/etc/AppleVolumes.system
+/usr/pkg/etc/AppleVolumes/default
+~/AppleVolumes
+
+all exist, & I've tried putting:
+/usr/ASftp      ASftp
+into each of them. /usr/ASftp DOES exist.
+
+TIA for any insight/advise
+
+Mike
+Bikers don't *DO* taglines.
+
+From ross@ghs.com  Sat Jun 26 14:30:39 1999
+From: Ross Harvey <ross@ghs.com>
+To: mikeride@prez.org, port-alpha@netbsd.org
+Date: Sat, 26 Jun 1999 14:30:39 +0000
+Subject: Re: netatalk
+
+> [ netatalk problems ]
+
+In a case like this, I usually try it on an i386 to see if it works there,
+and to check for pilot error.
+
+If it does work on i386, in _exactly_ the same test, then I would look through
+the source for LP64 red flags like `long' in protocol structures (indeed,
+`long' anywhere) and I might turn on the various egcs warnings and clean
+up the package...
+
+Sorry for the vague response...
+
+	Ross.Harvey@Computer.Org
+
+From cgd@netbsd.org  Sat Jun 26 14:36:27 1999
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: paul@whooppee.com
+Date: Sat, 26 Jun 1999 14:36:27 +0000
+Subject: Re: OSF/1 Libraries - where can I get them?
+
+Paul Goyette <paul@whooppee.com> writes:
+> So, where are they?  :)
+
+On your favorite (properly licensed!) Digital UNIX install media...
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From khym@bga.com  Sat Jun 26 16:55:23 1999
+From: Dave Huang <khym@bga.com>
+To: cgd@netbsd.org
+Date: Sat, 26 Jun 1999 16:55:23 +0000
+Subject: Re: OSF/1 Libraries - where can I get them?
+
+On 26 Jun 1999, Chris G. Demetriou wrote:
+> Paul Goyette <paul@whooppee.com> writes:
+> > So, where are they?  :)
+> 
+> On your favorite (properly licensed!) Digital UNIX install media...
+
+I just got this "inform" magazine from Compaq, and I see they have a
+hobbyist program where you can get a free OpenVMS license for personal
+use... too bad they don't have anything like that for Tru64.
+
+I also see that if you order now, you can save $20,000 on a EV6 (21264)
+to EV67 upgrade for your AlphaServer. Only $45,000! Oy :) For that kind
+of money, I'd expect a couple of computers, not an upgrade board :)
+
+From abs@anim.dreamworks.com  Sun Jun 27 17:11:36 1999
+From: David Brownlee <abs@anim.dreamworks.com>
+To: mda@mhri.edu.au
+Date: Sun, 27 Jun 1999 17:11:36 +0000
+Subject: Re: netatalk
+
+On Mon, 28 Jun 1999, Matthew Aldous wrote:
+
+> It may have been me. I became totally frustrated when I couldn't find
+> an easier *userland* way to find pkgsrc distributions that *didn't* 
+> require you to be running current. 
+> 
+> I may have time to try again - can anyone tell me how to 
+> retrieve pkgsrc packages for 1.4, not "current"? Alternatively,
+> is any able to confirm that DDP, or DHCPD, *should* work over
+> FDDI?
+
+	The pkgsrc distribution should work with -current _and_ 1.4, and
+	to a large extent 1.3.X. If you find anything in pkgsrc that doesn't
+	work with 1.4 please report it - its a bug :)
+
+		David/absolute
+
+                  -=-  Resentment is a renewable resource  -=-
+
+From mda@mhri.edu.au  Mon Jun 28 09:50:47 1999
+From: Matthew Aldous <mda@mhri.edu.au>
+To: mikeride@prez.org
+Date: Mon, 28 Jun 1999 09:50:47 +0000
+Subject: Re: netatalk
+
+> 
+> Hi,
+> I compiled netatalk (from pkgsrc, even though it's not asun's) on my alpha,
+
+I was totally unable to get netatalk working under 1.3 (due to changes
+in the kernel - something returning INF, instead of 0) on my alpha - I had
+the same problems listed below. I'm hoping netatalk might work with 1.4,
+but I've not had a chance to try.
+
+I then tried netatalk under Linux, but found a further problem with
+my FDDI cards. (which I presumed may have caused some problems with
+NetBSD). From what I could gather, there was no DDP support over
+FDDI, nor DHCPD support. 
+
+> this problem? I tried the netatalk faq-o-matic, the "real" netatalk faq,
+> looking through the netatalk-admins mailing list for the past year. For
+> this problem, the solution is always listed as "make sure your lokin user
+> (a) has a valid shell, and (b) has read permissions on AppleVoolumes file.
+> Both are true. There also was 1 message in the mailing list archive where a
+> guy asked if anyone had run it on an alpha. There was no response to that
+> message.
+
+It may have been me. I became totally frustrated when I couldn't find
+an easier *userland* way to find pkgsrc distributions that *didn't* 
+require you to be running current. 
+
+I may have time to try again - can anyone tell me how to 
+retrieve pkgsrc packages for 1.4, not "current"? Alternatively,
+is any able to confirm that DDP, or DHCPD, *should* work over
+FDDI?
+
+thanks in advance,
+matthew.
+
+From wilko@yedi.iaf.nl  Mon Jun 28 19:37:25 1999
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: wilko@yedi.iaf.nl
+Date: Mon, 28 Jun 1999 19:37:25 +0000
+Subject: Re: DEC Server 530x?
+
+As Wilko Bulte wrote ...
+> As Andrew Gallatin wrote ...
+> > 
+> > Anybody know what the heck an AlphaServer1200 is? Is it a scaled down
+> > rawhide? I ask because a NECX is selling something called the 'Digital
+> > Server 5300' with a 400Mhz 21164 for $800USD. 
+> > 
+> > According to some of the old DEC info, the 5300 was formerly known as
+> > the 'AlphaServer 1200 for Windows NT.'  And according to some linux
+> 
+> A, a 'whitebox' Alpha.
+> 
+> > documentation I've seen, a 1200 is the 'TINCUP' variation of the
+> > rawhide family. (http://www.redhat.com/support/docs/rhl/alpha/rh52-hardware-alpha-3.html)
+> > 
+> > Anybody know if 
+> > 
+> > a) SRM will run on a 5300
+> 
+> It could very well be that it does not. It is from the days DEC tried
+> to seperately price NT and 'real' Alphas.
+> 
+> > b) NetBSD will run on a 5300 (or a 1200) as if it were a normal rawhide?
+> > c) the 5300, like the AS1200, can accept a second CPU?
+> 
+> I will check this for you with my AXP-guru colleague. Will be monday before
+> I can followup.
+
+He will do some additional digging. There have been a limited number of
+cpus that really could not run SRM. Most of the whiteboxes can be brought to
+SRM using a failsafe bootfloppy. He started mumbling that he needed to
+check some docs.
+
+Stay tuned for more info.
+
+--
+|   / o / /  _  	 Arnhem, The Netherlands	- Powered by FreeBSD -
+|/|/ / / /( (_) Bulte 	 WWW  : http://www.tcja.nl 	http://www.freebsd.org
+
+From tobi@bland.fido.de  Tue Jun 29 23:42:26 1999
+From: Tobias Ernst <tobi@bland.fido.de>
+To: port-alpha@netbsd.org
+Date: Tue, 29 Jun 1999 23:42:26 +0000
+Subject: fat and sane support
+
+Hallo!
+
+We are administering a computer lab of 17 500au and 12 DECstation 3000
+workstations running DEC Unix 4.0e. Unfortunately, DEC Unix does not support
+two things that we require. The one is attaching a scanner, probably with sane
+- DEC Unix simply does not have the generic SCSI device driver. The other is
+mounting ZIP disks with FAT/VFAT. We can only use mtools, but they show some
+severe bugs on that platform.
+
+The idea is to transform one of the 3000 stations into a server that can mount
+ZIP disks and export them via NFS, and that is running saned so that the DEC
+Unix clients can access the scanner with the sane client. We know that all this
+is possible with Linux (I am using a setup like this at home on a UDB Multia),
+only that Linux does not run on the 3000 stations because of TurboChannel (?),
+and we do not want to sacrifice one of the fast 500au boxes for this task. So I
+took on the chance to promote the BSD platform and suggested to install NetBSD
+on one of those stations :-).
+
+The question is if the NetBSD kernel has support for mounting FAT/VFAT
+partitions (including long file names with VFAT, that would be important), if
+this will work on the DEC 3000 station with a SCSI ZIP drive, and if sane will
+run on NetBSD and be able to use the 3000 SCSI interface (whatever that is - is
+it a NCR like in the Multia?).
+
+If it is possible, I would give it a try next weekend. Which NetBSD release
+should I take? Simply the latest stable one, or are there special
+considerations?
+
+Kind regards,
+Tobias.
+
+From efoo@crl.dec.com  Wed Jun 30 13:12:37 1999
+From: Edwin Foo <efoo@crl.dec.com>
+To: port-alpha@netbsd.org
+Date: Wed, 30 Jun 1999 13:12:37 +0000
+Subject: netbsd/alpha 1.4 panics
+
+Has anyone seen problems with alphas mysteriously dying after a couple of
+dozen hours of operation? I'm seeing panics to the effect of "vref instead
+of vget" (or perhaps the other way around) on my machine. This is with a
+stock 1.4 installation, GENERIC kernel, etc.. I am using a DE450 Tulip
+ethernet card and NCR SCSI card, and no video card.
+
+Grepping through the source shows "vref" and "vget" only showing up together
+in the NFS code. But I'm not running any NFS servers or clients, so I
+suspect I'm barking up the wrong tree. Is this something that has been seen
+in the past? I'm aware that the NCR driver is a little buggy, but it doesn't
+appear to be a disk problem so far. I seem to be able to hasten a crash if I
+do lots of file transfers, i.e. FTP, but no one application is a known
+culprit. So I'm wondering if it could be the network driver.
+
+One other area I'm guessing could be a culprit is my use of UW-SCSI drives
+with a non-UW-SCSI card. I had been planning to use a SymBios 53c875-based
+UW-SCSI card, but that wouldn't boot, so I had to go back to an older
+53c810-based one. Could that be it?
+
+So, my options, I think, are (a) switch ethernet cards to a 3COM 3c900,
+and/or (b) I have an adaptec 2940UW, and hang a small boot drive off of the
+NCR just to get the machine start with. If anyone has ideas on how to get
+this machine to stay up without dying I'd really appreciate it.
+
+thanks,
+Edwin
+
+ps: here's the relevant parts of dmesg
+
+de0 at pci0 dev 5 function 0
+de0: interrupting at eb164 irq 9
+de0: DEC DE450-CA 21041 [10Mb/s] pass 1.1
+de0: address 00:00:f8:07:00:c8
+ncr0: interrupting at eb164 irq 8
+ncr0: minsync=25, maxsync=206, maxoffs=8, 16 dwords burst, normal dma fifo
+ncr0: single-ended, open drain IRQ driver
+ncr0: restart (scsi reset).
+scsibus0 at ncr0: 8 targets, 8 luns per target
+sd0(ncr0:0:0): 10.0 MB/s (100 ns, offset 8)
+sd1(ncr0:1:0): 10.0 MB/s (100 ns, offset 8)
+probe(ncr0:4:1): 10.0 MB/s (100 ns, offset 8)
+
+From wrstuden@nas.nasa.gov  Wed Jun 30 11:22:16 1999
+From: Bill Studenmund <wrstuden@nas.nasa.gov>
+To: efoo@crl.dec.com
+Date: Wed, 30 Jun 1999 11:22:16 +0000
+Subject: Re: netbsd/alpha 1.4 panics
+
+On Wed, 30 Jun 1999, Edwin Foo wrote:
+
+> Has anyone seen problems with alphas mysteriously dying after a couple of
+> dozen hours of operation? I'm seeing panics to the effect of "vref instead
+> of vget" (or perhaps the other way around) on my machine. This is with a
+> stock 1.4 installation, GENERIC kernel, etc.. I am using a DE450 Tulip
+> ethernet card and NCR SCSI card, and no video card.
+
+What you're seeing is the panic in the vref() call in sys/kern/vfs_subr.c.
+Code somewhere called vref when it should have called vget.
+
+Do you get dropped into ddb when this happens (or do you reboot)?
+
+If so, try the 't' command. I think it worked in ddb in 1.4 on alpha. :-)
+
+You should see a list of routines. Copy them down (if you get them) and
+EMail them to us.
+
+Take care,
+
+Bill
+
+From ross@ghs.com  Wed Jun 30 11:36:13 1999
+From: Ross Harvey <ross@ghs.com>
+To: efoo@crl.dec.com, wrstuden@nas.nasa.gov
+Date: Wed, 30 Jun 1999 11:36:13 +0000
+Subject: Re: netbsd/alpha 1.4 panics
+
+> From: Bill Studenmund <wrstuden@nas.nasa.gov>
+>
+> > Has anyone seen problems with alphas mysteriously dying after a couple of
+> > dozen hours of operation? I'm seeing panics to the effect of "vref instead
+> > of vget" (or perhaps the other way around) on my machine. This is with a
+> > stock 1.4 installation, GENERIC kernel, etc.. I am using a DE450 Tulip
+> > ethernet card and NCR SCSI card, and no video card.
+>
+> What you're seeing is the panic in the vref() call in sys/kern/vfs_subr.c.
+> Code somewhere called vref when it should have called vget.
+>
+> Do you get dropped into ddb when this happens (or do you reboot)?
+>
+> If so, try the 't' command. I think it worked in ddb in 1.4 on alpha. :-)
+>
+> You should see a list of routines. Copy them down (if you get them) and
+> EMail them to us.
+
+The 1.4 kernel doesn't have the stack backtrace code, but you can
+grab a 1.4D GENERIC from:
+
+	ftp://ftp.netbsd.org/pub/NetBSD/arch/alpha/misc/netbsd.gz
+
+Ross.Harvey@Computer.Org
+

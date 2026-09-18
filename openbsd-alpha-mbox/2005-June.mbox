@@ -1,0 +1,245 @@
+From openbsd-alpha  Thu Jun 30 22:59:03 2005
+From: Jason Crawford <jasonrcrawford () gmail ! com>
+Date: Thu, 30 Jun 2005 22:59:03 +0000
+To: openbsd-alpha
+Subject: Re: GCC3
+Message-Id: <5d683828050630155952f18afd () mail ! gmail ! com>
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=112017296023501
+
+I do not know when Alpha will be moving to GCC3 (if ever) but in order
+to see which archs are using GCC3 vs. GCC2, just look at
+/usr/share/mk/bsd.own.mk, as that's where it does the check for which
+arch you're using and sets USE_GCC3 accordingly. So far Alpha, m68k,
+m88k, SPARC, and VAX are not using GCC3, everything else is.
+
+Jason
+
+On 6/30/05, William Ahern <william@25thandclement.com> wrote:
+> Are there plans to move the alpha arch to GCC3? I'm sorely missing new C99
+> features like compound literals and named member initialization. I have
+> quite a bit of code written at work which I am now allowed to release
+> publicly--not OpenBSD specific, though--but much of it won't compile without
+> the above features.
+> 
+> Are Alpha and VAX the last using GCC2 in OpenBSD?
+> 
+> - Bill
+
+From openbsd-alpha  Wed Jun 01 17:14:37 2005
+From: Richard Henderson <rth () twiddle ! net>
+Date: Wed, 01 Jun 2005 17:14:37 +0000
+To: openbsd-alpha
+Subject: [rfc] a new read-only plt format
+Message-Id: <20050601171437.GA4180 () twiddle ! net>
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=111765252014135
+
+I've recently created a new plt format for Alpha.  The main feature of
+this new format is that the plt code is read-only.  This was a requirement
+for SELinux, which does not allow executable pages to become writable,
+or writable pages to become executable.  As side effects, the plt table
+itself is smaller, allows more entries than before, and requires saving
+fewer registers.
+
+Support for this new plt format is in binutils head.  I'm writing to the
+other free alpha os'es so that they can experiment with the new format
+and if there are tweaks that need to be made, they can be made right away
+before it gets deployed to real users.
+
+The dynamic linker receives the following information:
+
+If the new format is in use, a _DYNAMIC tag DT_ALPHA_PLTRO exits.
+
+The DT_PLTGOT tag points to the .got.plt section.  This section is
+16 bytes long.  The first word should be filled in with the runtime
+resolution entry point; the second word should be filled in with the
+dynamic linker cookie.  This is the same information that was placed
+in words 3 and 4 of the plt in the old format.
+
+On entry to the runtime resolution entry point, $27 contains the 
+address of the entry point, $28 contains the dynamic linker cookie,
+and $25 contains the offset of relocation entry in .rela.plt.
+
+When resolving the relocation, the *only* thing that needs to happen
+is to write to the word indicated by the relocation.  The plt should
+not be modified.  Obviously.
+
+A sample entry point routine is appended.
+
+One complication of this is that we now clobber more registers than
+we did before, which means that the division routines cannot go through
+the plt anymore.  There are two things that are done to make this work.
+
+First, libc should be modified such that the division routines are *not*
+marked STT_FUNC.  The linker only creates plt entries for things marked
+functions.  With this change, all existing object files are correctly
+handled, *provided* that they are in fact linked against libc eventually.
+This is by far the common case.
+
+Marking the division routines as something other than STT_FUNC is done
+by *not* using the .ent/.end markers for the division routines.  Instead,
+you'll want to write
+
+	.globl	__divq
+	.type	__divq,@notype
+	.usepv	__divq,no
+__divq:
+	...
+	.size	__divq,.-__divq
+
+In addition, you'll want to use the .cfi_* directives to write unwind
+info appropriate to your implementation so that the debugger can 
+properly step over your routine.  This is slightly less convenient than
+the .ent/.end markers, but in my case .frame wasn't adequate to properly
+describe the unwinding and I'd already been using .cfi directives.
+
+Second, a new relocation marker has been added, !lituse_jsrdirect.  This
+relocation is similar to !lituse_jsr, except that it prevents the linker
+from creating a plt entry for the symbol.  Top-of-branch of gcc 3.4, 
+4.0, and 4.1 have been modified to make use of this relocation when 
+invoking the division routines.  I dunno how much in the way of hand-coded
+assembler you have that might make use of general division; probably none
+at all.
+
+Comments?  Questions?
+
+
+
+r~
+
+
+
+/* void * _dl_fixup (void *cookie, long reloc_offset, void *caller) */
+
+#define FRAMESIZE       14*8
+
+	.align  4
+        .globl  _dl_runtime_resolve_new
+        .ent    _dl_runtime_resolve_new
+_dl_runtime_resolve:
+        .frame  $30, FRAMESIZE, $26, 0
+        .mask   0x4000000, 0
+
+        ldah    $29, 0($27)             !gpdisp!1
+        lda     $30, -FRAMESIZE($30)
+        stq     $26, 0*8($30)
+        stq     $16, 2*8($30)
+
+        stq     $17, 3*8($30)
+        lda     $29, 0($29)             !gpdisp!1
+        stq     $18, 4*8($30)
+        mov     $28, $16                /* link_map from .got.plt */
+
+        stq     $19, 5*8($30)
+        mov     $25, $17                /* offset of reloc entry */
+        stq     $20, 6*8($30)
+        mov     $26, $18                /* return address */
+
+        stq     $21, 7*8($30)
+        stt     $f16, 8*8($30)
+        stt     $f17, 9*8($30)
+        stt     $f18, 10*8($30)
+
+        stt     $f19, 11*8($30)
+        stt     $f20, 12*8($30)
+        stt     $f21, 13*8($30)
+        .prologue 2
+
+        bsr     $26, _dl_fixup          !samegp
+        mov     $0, $27
+
+        ldq     $26, 0*8($30)
+        ldq     $16, 2*8($30)
+        ldq     $17, 3*8($30)
+        ldq     $18, 4*8($30)
+        ldq     $19, 5*8($30)
+        ldq     $20, 6*8($30)
+        ldq     $21, 7*8($30)
+        ldt     $f16, 8*8($30)
+        ldt     $f17, 9*8($30)
+        ldt     $f18, 10*8($30)
+        ldt     $f19, 11*8($30)
+        ldt     $f20, 12*8($30)
+        ldt     $f21, 13*8($30)
+        lda     $30, FRAMESIZE($30)
+        jmp     $31, ($27), 0
+        .end    _dl_runtime_resolve
+
+From openbsd-alpha  Fri Jul 01 11:33:31 2005
+From: Marcos Latas <carvalholatas () gmail ! com>
+Date: Fri, 01 Jul 2005 11:33:31 +0000
+To: openbsd-alpha
+Subject: Re: GCC3
+Message-Id: <9027bfae05070104333e45eecd () mail ! gmail ! com>
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=112021765103156
+
+On 7/1/05, Martin Reindl <mreindl@catai.org> wrote:
+> William Ahern <william@25thandClement.com> wrote:
+> 
+> > Are there plans to move the alpha arch to GCC3? I'm sorely missing new
+> > C99 features like compound literals and named member initialization. I
+> > have quite a bit of code written at work which I am now allowed to
+> > release publicly--not OpenBSD specific, though--but much of it won't
+> > compile without the above features.
+> 
+> You can still install and use an newer gcc from ports.
+> 
+> 
+
+Why isn't it possible on amd64? I mean, why isn't it possible to
+compile gcc 3.4 or even 4.0 from ports on amd64?
+
+From openbsd-alpha  Fri Jul 01 11:27:25 2005
+From: Martin Reindl <mreindl () catai ! org>
+Date: Fri, 01 Jul 2005 11:27:25 +0000
+To: openbsd-alpha
+Subject: Re: GCC3
+Message-Id: <20050701132725.58b66657.mreindl () catai ! org>
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=112021738531451
+
+William Ahern <william@25thandClement.com> wrote:
+
+> Are there plans to move the alpha arch to GCC3? I'm sorely missing new
+> C99 features like compound literals and named member initialization. I
+> have quite a bit of code written at work which I am now allowed to
+> release publicly--not OpenBSD specific, though--but much of it won't
+> compile without the above features.
+
+You can still install and use an newer gcc from ports.
+
+From openbsd-alpha  Fri Jul 01 01:34:35 2005
+From: Jolan Luff <jolan () protection ! cx>
+Date: Fri, 01 Jul 2005 01:34:35 +0000
+To: openbsd-alpha
+Subject: Re: GCC3
+Message-Id: <20050701013435.GA18244 () static ! protection ! cx>
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=112018198201495
+
+On Thu, Jun 30, 2005 at 03:26:33PM -0700, William Ahern wrote:
+> Are there plans to move the alpha arch to GCC3? I'm sorely missing new C99
+> features like compound literals and named member initialization. I have
+> quite a bit of code written at work which I am now allowed to release
+> publicly--not OpenBSD specific, though--but much of it won't compile without
+> the above features.
+> 
+> Are Alpha and VAX the last using GCC2 in OpenBSD?
+
+Someone is/was working on it.
+
+From openbsd-alpha  Thu Jun 30 22:26:33 2005
+From: William Ahern <william () 25thandClement ! com>
+Date: Thu, 30 Jun 2005 22:26:33 +0000
+To: openbsd-alpha
+Subject: GCC3
+Message-Id: <20050630222633.GA24764 () wilbur ! 25thandClement ! com>
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=112017100903531
+
+Are there plans to move the alpha arch to GCC3? I'm sorely missing new C99
+features like compound literals and named member initialization. I have
+quite a bit of code written at work which I am now allowed to release
+publicly--not OpenBSD specific, though--but much of it won't compile without
+the above features.
+
+Are Alpha and VAX the last using GCC2 in OpenBSD?
+
+- Bill
+

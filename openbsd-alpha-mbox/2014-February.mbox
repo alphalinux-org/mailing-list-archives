@@ -1,0 +1,227 @@
+From openbsd-alpha  Wed Feb 19 21:50:42 2014
+From: Maurice Janssen <maurice () z74 ! net>
+Date: Wed, 19 Feb 2014 21:50:42 +0000
+To: openbsd-alpha
+Subject: Re: USB on ES40
+Message-Id: <20140219215041.GA29297 () xs4all ! nl>
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=139284670000801
+
+On Tue, Feb 18, 2014 at 09:30:41PM +0000, Miod Vallat wrote:
+>  If your alpha has both an sio0 device and an ohci0 device, please test
+>this (against HEAD... build GENERIC.MP if you have a multiprocessor
+>system!), and report whether there is a change in USB behaviour.
+
+Hi Miod,
+
+I'd like to try your patch on an XP1000, but I'm strugling a bit because
+I don't want to touch the hard drive (sd0) that is currently installed in
+the machine (with 5.4-stable on it).
+I installed the latest snapshot on a USB stick (sd1), but the machine
+obviously can't boot direcyly from it.
+When I copy the kernel from sd1 to sd0 I can easily boot, but then of course
+it thinks sd0a is the root fs (and panics because it can't run init from
+5.4 on a 5.5-current kernel due to the time_t changes).
+
+As far as I know there is no easy way to tell the kernel that the root fs
+is sd1a, like giving a boot flag from the SRM console.
+
+Without a running current system, I can't compile a kernel with the patch.
+So what are my options, besides putting another scsi disk in the machine?
+
+If you can send me a bsd.rd with the patch, I can try to boot it and mount
+the USB-stick (or even install the latest snapshot on it, to end up in the
+same state as I'm in now, but then at least I can test the working of the
+USB system).
+
+-- 
+Maurice
+
+From openbsd-alpha  Tue Feb 18 21:30:41 2014
+From: Miod Vallat <miod () online ! fr>
+Date: Tue, 18 Feb 2014 21:30:41 +0000
+To: openbsd-alpha
+Subject: USB on ES40
+Message-Id: <20140218213041.GQ19985 () tazenat ! gentiane ! org>
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=139275908700770
+
+Hello,
+
+  there seem to be a few alpha systems where the USB ports do not behave
+correctly. One of these is the ES40, where it is often necessary to
+disable ohci to be able to use the system.
+
+  I have spent some time pulling hair[0] and trying to figure out why
+the USB controller would trigger an interrupt storm, even with no
+devices plugged.
+
+  It turns out that, for some better deeply buried reason, the USB
+interrupt on all high-end alpha systems (at least Tsunami [1] and Titan
+[2] systems, but probably also Marvel [3]) is routed through the ISA
+bridge, and is shown to the kernel as an ISA interrupt.
+
+  Some systems (XP1000, DS20) do not lie further and expose a PCI
+interrupt (level triggered) with an ISA interrupt vector number, and
+everything is fine. But other systems, such as the ES40, work so hard
+masquerading the USB interrupt as an ISA interrupt than it seems to
+become an edge-triggered interrupt. There lies madness, and this is why
+interrupt storms occur on ES40 due to the USB controller, unless it is
+disabled in the kernel (boot -fl c to the rescue!)
+
+  The following diff attempts to recognize systems where the USB
+interrupt is edge triggered, and prevent the interrupt controller logic
+to smartly set it as level triggered. This allows me to use the USB
+ports of my ES40 (tested with an USB keyboard and a MAXINT-in-one smart
+card reader).
+
+  If your alpha has both an sio0 device and an ohci0 device, please test
+this (against HEAD... build GENERIC.MP if you have a multiprocessor
+system!), and report whether there is a change in USB behaviour.
+
+Thanks,
+Miod
+
+[0] Don't worry, my non-white hair situation has been critical for
+    years, with no hope even in the long term undyed future.
+[1] CS20, DS10/20, ES40, XP900/1000, DP264, UP* too
+[2] DS15/25, ES45
+[3] ES47/80, GS160, oh wait we don't run on these yet, but if you have
+    one and are willing to test kernels, pleas*e get in touch with me...
+
+Index: pci/sio_pic.c
+===================================================================
+RCS file: /cvs/src/sys/arch/alpha/pci/sio_pic.c,v
+retrieving revision 1.36
+diff -u -p -r1.36 sio_pic.c
+--- pci/sio_pic.c	18 Feb 2014 19:37:33 -0000	1.36
++++ pci/sio_pic.c	18 Feb 2014 21:12:53 -0000
+@@ -116,6 +116,15 @@ u_int8_t initial_ocw1[2];
+ u_int8_t initial_elcr[2];
+ #endif
+ 
++/*
++ * Overrides for ELCR settings.
++ * These are used on ES40 and similar systems suffering from a PCI USB HCI
++ * interrupt being routed through the ISA logic with actual logic to
++ * make it behave an edge-triggered interrupt, although PCI interrupts are
++ * supposed to be level-triggered.
++ */
++u_int8_t elcr_override[2] = { 0x00, 0x00 };
++
+ void		sio_setirqstat(int, int, int);
+ int		sio_intr_alloc(void *, int, int, int *);
+ int		sio_intr_check(void *, int, int);
+@@ -135,6 +144,9 @@ bus_space_handle_t sio_ioh_elcr;
+ int
+ i82378_setup_elcr()
+ {
++	int device, maxndevs;
++	pcitag_t tag;
++	pcireg_t id;
+ 	int rv;
+ 
+ 	/*
+@@ -145,12 +157,30 @@ i82378_setup_elcr()
+ 
+ 	rv = bus_space_map(sio_iot, 0x4d0, 2, 0, &sio_ioh_elcr);
+ 
+-	if (rv == 0) {
+-		sio_read_elcr = i82378_read_elcr;
+-		sio_write_elcr = i82378_write_elcr;
++	if (rv != 0)
++		return 0;
++
++	sio_read_elcr = i82378_read_elcr;
++	sio_write_elcr = i82378_write_elcr;
++
++	/*
++	 * Search PCI configuration space for an ALI M5237 USB controller
++	 * on the first bus.
++	 */
++
++	maxndevs = pci_bus_maxdevs(sio_pc, 0);
++
++	for (device = 0; device < maxndevs; device++) {
++		tag = pci_make_tag(sio_pc, 0, device, 0);
++		id = pci_conf_read(sio_pc, tag, PCI_ID_REG);
++
++		if (id == PCI_ID_CODE(PCI_VENDOR_ALI, PCI_PRODUCT_ALI_M5237)) {
++			elcr_override[10 / 8] |= 1 << (10 % 8);
++			break;
++		}
+ 	}
+ 
+-	return (rv);
++	return (0);
+ }
+ 
+ u_int8_t
+@@ -203,31 +233,13 @@ cy82c693_setup_elcr()
+ 		tag = pci_make_tag(sio_pc, 0, device, 0);
+ 		id = pci_conf_read(sio_pc, tag, PCI_ID_REG);
+ 
+-		/* Invalid vendor ID value? */
+-		if (PCI_VENDOR(id) == PCI_VENDOR_INVALID)
+-			continue;
+-		/* XXX Not invalid, but we've done this ~forever. */
+-		if (PCI_VENDOR(id) == 0)
+-			continue;
+-
+-		if (PCI_VENDOR(id) != PCI_VENDOR_CONTAQ ||
+-		    PCI_PRODUCT(id) != PCI_PRODUCT_CONTAQ_82C693)
+-			continue;
+-
+-		/*
+-		 * Found one!
+-		 */
+-
+-#if 0
+-		printf("cy82c693_setup_elcr: found 82C693 at device %d\n",
+-		    device);
+-#endif
+-
+-		sio_cy82c693_handle = cy82c693_init(sio_iot);
+-		sio_read_elcr = cy82c693_read_elcr;
+-		sio_write_elcr = cy82c693_write_elcr;
+-
+-		return (0);
++		if (id ==
++		    PCI_ID_CODE(PCI_VENDOR_CONTAQ, PCI_PRODUCT_CONTAQ_82C693)) {
++			sio_cy82c693_handle = cy82c693_init(sio_iot);
++			sio_read_elcr = cy82c693_read_elcr;
++			sio_write_elcr = cy82c693_write_elcr;
++			return (0);
++		}
+ 	}
+ 
+ 	/*
+@@ -300,13 +312,18 @@ sio_setirqstat(irq, enabled, type)
+ 		ocw1[icu] |= 1 << bit;
+ 
+ 	/*
+-	 * interrupt type select: set bit to get level-triggered.
++	 * interrupt type select: set bit to get level-triggered...
+ 	 */
+ 	if (type == IST_LEVEL)
+ 		elcr[icu] |= 1 << bit;
+ 	else
+ 		elcr[icu] &= ~(1 << bit);
+ 
++	/*
++	 * ...unless we pretend to know better.
++	 */
++	elcr[icu] &= ~elcr_override[icu];
++
+ #ifdef not_here
+ 	/* see the init function... */
+ 	ocw1[0] &= ~0x04;		/* always enable IRQ2 on first PIC */
+@@ -325,9 +342,6 @@ sio_intr_setup(pc, iot)
+ 	pci_chipset_tag_t pc;
+ 	bus_space_tag_t iot;
+ {
+-#ifdef notyet
+-	char *cp;
+-#endif
+ 	int i;
+ 
+ 	sio_iot = iot;
+

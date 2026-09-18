@@ -1,0 +1,2769 @@
+From openbsd-alpha  Mon Feb 25 07:12:16 2002
+From: cyber <cyber () netbsd ! org>
+Date: Mon, 25 Feb 2002 07:12:16 +0000
+To: openbsd-alpha
+Subject: Hi,alpha,congratulations
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=101462120318272
+
+From openbsd-alpha  Thu Feb 21 09:15:54 2002
+From: Nils Frohberg <nilsf () tako ! de>
+Date: Thu, 21 Feb 2002 09:15:54 +0000
+To: openbsd-alpha
+Subject: patch for Powerstorm 4D20 cards
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=101428325805267
+
+hi,
+
+the old patch still had a few problems with the ramdac and dotclock
+settings. with the new patch i can also run resolutions above 800x600.
+(in retrospect, i must have been very lucky to get a screen on the
+previous patch without a panic).
+
+users of other tga cards will only benefit of the increased console
+screen, which isn't fixed to 80x34 anymore.
+
+enjoy,
+--nils
+
+
+diff -uNr dev.old/ic/ibm561.c dev/ic/ibm561.c
+--- dev.old/ic/ibm561.c	Thu Jan  1 01:00:00 1970
++++ dev/ic/ibm561.c	Thu Feb 21 09:36:54 2002
+@@ -0,0 +1,528 @@
++/* $NetBSD: ibm561.c,v 1.1 2001/12/12 07:46:48 elric Exp $ */
++
++/*-
++ * Copyright (c) 2001 The NetBSD Foundation, Inc.
++ * All rights reserved.
++ *
++ * This code is derived from software contributed to The NetBSD Foundation
++ * by Roland C. Dowdeswell of Ponte, Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. All advertising materials mentioning features or use of this software
++ *    must display the following acknowledgement:
++ *	This product includes software developed by the NetBSD
++ *	Foundation, Inc. and its contributors.
++ * 4. Neither the name of The NetBSD Foundation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
++ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
++ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include <sys/param.h>
++#include <sys/systm.h>
++#include <sys/device.h>
++#include <sys/buf.h>
++#include <sys/kernel.h>
++#include <sys/malloc.h>
++
++#include <uvm/uvm_extern.h>
++
++#include <dev/pci/pcivar.h>
++#include <dev/ic/ibm561reg.h>
++#include <dev/ic/ibm561var.h>
++#include <dev/ic/ramdac.h>
++
++#include <dev/wscons/wsconsio.h>
++
++/*
++ * Functions exported via the RAMDAC configuration table.
++ */
++void	ibm561_init __P((struct ramdac_cookie *));
++int	ibm561_set_cmap __P((struct ramdac_cookie *,
++	    struct wsdisplay_cmap *));
++int	ibm561_get_cmap __P((struct ramdac_cookie *,
++	    struct wsdisplay_cmap *));
++int	ibm561_set_cursor __P((struct ramdac_cookie *,
++	    struct wsdisplay_cursor *));
++int	ibm561_get_cursor __P((struct ramdac_cookie *,
++	    struct wsdisplay_cursor *));
++int	ibm561_set_curpos __P((struct ramdac_cookie *,
++	    struct wsdisplay_curpos *));
++int	ibm561_get_curpos __P((struct ramdac_cookie *,
++	    struct wsdisplay_curpos *));
++int	ibm561_get_curmax __P((struct ramdac_cookie *,
++	    struct wsdisplay_curpos *));
++int	ibm561_set_dotclock __P((struct ramdac_cookie *,
++	    unsigned));
++
++/* XXX const */
++struct ramdac_funcs ibm561_funcsstruct = {
++	"IBM561",
++	ibm561_register,
++	ibm561_init,
++	ibm561_set_cmap,
++	ibm561_get_cmap,
++	ibm561_set_cursor,
++	ibm561_get_cursor,
++	ibm561_set_curpos,
++	ibm561_get_curpos,
++	ibm561_get_curmax,
++	NULL,			/* check_curcmap; not needed */
++	NULL,			/* set_curcmap; not needed */
++	NULL,			/* get_curcmap; not needed */
++	ibm561_set_dotclock, /* XXX */
++};
++
++/*
++ * Private data.
++ */
++struct ibm561data {
++	void            *cookie;
++
++	int             (*ramdac_sched_update) __P((void *, void (*)(void *)));
++	void            (*ramdac_wr) __P((void *, u_int, u_int8_t));
++	u_int8_t        (*ramdac_rd) __P((void *, u_int));
++
++#define CHANGED_CURCMAP		0x0001	/* cursor cmap */
++#define CHANGED_CMAP		0x0002	/* color map */
++#define CHANGED_WTYPE		0x0004	/* window types */
++#define CHANGED_DOTCLOCK	0x0008	/* dot clock */
++#define CHANGED_ALL		0x000f	/* or of all above */
++	u_int8_t	changed;
++
++	/* dotclock parameters */
++	u_int8_t	vco_div;
++	u_int8_t	pll_ref;
++	u_int8_t	div_dotclock;
++
++	/* colormaps et al. */
++	u_int8_t	curcmap_r[2];
++	u_int8_t	curcmap_g[2];
++	u_int8_t	curcmap_b[2];
++
++	u_int8_t	cmap_r[IBM561_NCMAP_ENTRIES];
++	u_int8_t	cmap_g[IBM561_NCMAP_ENTRIES];
++	u_int8_t	cmap_b[IBM561_NCMAP_ENTRIES];
++
++	u_int16_t	gamma_r[IBM561_NGAMMA_ENTRIES];
++	u_int16_t	gamma_g[IBM561_NGAMMA_ENTRIES];
++	u_int16_t	gamma_b[IBM561_NGAMMA_ENTRIES];
++
++	u_int16_t	wtype[IBM561_NWTYPES];
++};
++
++/*
++ * private functions
++ */
++void	ibm561_update __P((void *));
++static void ibm561_load_cmap(struct ibm561data *);
++static void ibm561_load_dotclock(struct ibm561data *);
++static void ibm561_regbegin(struct ibm561data *, u_int16_t);
++static void ibm561_regcont(struct ibm561data *, u_int16_t, u_int8_t);
++static void ibm561_regcont10bit(struct ibm561data *, u_int16_t, u_int16_t);
++static void ibm561_regwr(struct ibm561data *, u_int16_t, u_int8_t);
++
++struct ramdac_funcs *
++ibm561_funcs(void)
++{
++	return &ibm561_funcsstruct;
++}
++
++struct ramdac_cookie *
++ibm561_register(v, sched_update, wr, rd)
++	void *v;
++	int (*sched_update)(void *, void (*)(void *));
++	void (*wr)(void *, u_int, u_int8_t);
++	u_int8_t (*rd)(void *, u_int);
++{
++	struct ibm561data *data;
++
++	data = malloc(sizeof *data, M_DEVBUF, M_WAITOK); // XXX |M_ZERO);
++	data->cookie = v;
++	data->ramdac_sched_update = sched_update;
++	data->ramdac_wr = wr;
++	data->ramdac_rd = rd;
++	return (struct ramdac_cookie *)data;
++}
++
++/*
++ * This function exists solely to provide a means to init
++ * the RAMDAC without first registering.  It is useful for
++ * initializing the console early on.
++ */
++
++struct ibm561data *saved_console_data;
++
++void
++ibm561_cninit(v, sched_update, wr, rd, dotclock)
++	void *v;
++	int (*sched_update)(void *, void (*)(void *));
++	void (*wr)(void *, u_int, u_int8_t);
++	u_int8_t (*rd)(void *, u_int);
++	u_int dotclock;
++{
++	struct ibm561data tmp, *data = &tmp;
++	memset(data, 0x0, sizeof *data);
++	data->cookie = v;
++	data->ramdac_sched_update = sched_update;
++	data->ramdac_wr = wr;
++	data->ramdac_rd = rd;
++	ibm561_set_dotclock((struct ramdac_cookie *)data, dotclock);
++	saved_console_data = data;
++	ibm561_init((struct ramdac_cookie *)data);
++	saved_console_data = NULL;
++}
++
++void
++ibm561_init(rc)
++	struct ramdac_cookie *rc;
++{
++	struct	ibm561data *data = (struct ibm561data *)rc;
++	int	i;
++
++	/* XXX this is _essential_ */
++
++	ibm561_load_dotclock(data);
++
++	/* XXXrcd: bunch of magic of which I have no current clue */
++	ibm561_regwr(data, IBM561_CONFIG_REG1, 0x2a);
++	ibm561_regwr(data, IBM561_CONFIG_REG3, 0x41);
++	ibm561_regwr(data, IBM561_CONFIG_REG4, 0x20);
++
++	/* initialize the card a bit */
++	ibm561_regwr(data, IBM561_SYNC_CNTL, 0x1);
++	ibm561_regwr(data, IBM561_CONFIG_REG2, 0x19);
++
++	ibm561_regwr(data, IBM561_CONFIG_REG1, 0x2a);
++	ibm561_regwr(data, IBM561_CONFIG_REG4, 0x20);
++
++	ibm561_regbegin(data, IBM561_WAT_SEG_REG);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regbegin(data, IBM561_CHROMAKEY0);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++
++	ibm561_regwr(data, IBM561_CURS_CNTL_REG, 0x00); /* XXX off? */
++
++	/* cursor `hot spot' registers */
++	ibm561_regbegin(data, IBM561_HOTSPOT_REG);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++
++	/* VRAM Mask Registers (diagnostics) */
++	ibm561_regbegin(data, IBM561_VRAM_MASK_REG);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++
++	/* let's set up some decent default colour maps and gammas */
++	for (i=0; i < IBM561_NCMAP_ENTRIES; i++)
++		data->cmap_r[i] = data->cmap_g[i] = data->cmap_b[i] = 0xff;
++	data->cmap_r[0]   = data->cmap_g[0]   = data->cmap_b[0]   = 0x00;
++	data->cmap_r[256] = data->cmap_g[256] = data->cmap_b[256] = 0x00;
++	data->cmap_r[512] = data->cmap_g[512] = data->cmap_b[512] = 0x00;
++	data->cmap_r[768] = data->cmap_g[768] = data->cmap_b[768] = 0x00;
++
++	data->gamma_r[0] = data->gamma_g[0] = data->gamma_b[0] = 0x00;
++	for (i=0; i < IBM561_NGAMMA_ENTRIES; i++)
++		data->gamma_r[i] = data->gamma_g[i] = data->gamma_b[i] = 0xff;
++
++	for (i=0; i < IBM561_NWTYPES; i++)
++		data->wtype[i] = 0x0036;
++	data->wtype[1] = 0x0028;
++
++	/* the last step: */
++	data->changed = CHANGED_ALL;
++	data->ramdac_sched_update(data->cookie, ibm561_update);
++}
++
++int
++ibm561_set_cmap(rc, cmapp)
++	struct ramdac_cookie *rc;
++	struct wsdisplay_cmap *cmapp;
++{
++	struct ibm561data *data = (struct ibm561data *)rc;
++	int count;
++	int index;
++	int s;
++
++	if ((u_int)cmapp->index >= IBM561_NCMAP_ENTRIES ||
++	    ((u_int)cmapp->index + (u_int)cmapp->count) > IBM561_NCMAP_ENTRIES)
++		return (EINVAL);
++	if (!uvm_useracc(cmapp->red, cmapp->count, B_READ) ||
++	    !uvm_useracc(cmapp->green, cmapp->count, B_READ) ||
++	    !uvm_useracc(cmapp->blue, cmapp->count, B_READ))
++		return (EFAULT);
++
++	s = spltty();
++	index = cmapp->index;
++	count = cmapp->count;
++	copyin(cmapp->red, &data->cmap_r[index], count);
++	copyin(cmapp->green, &data->cmap_g[index], count);
++	copyin(cmapp->blue, &data->cmap_b[index], count);
++	data->changed |= CHANGED_CMAP;
++	data->ramdac_sched_update(data->cookie, ibm561_update);
++	splx(s);
++	return (0);
++}
++
++int
++ibm561_get_cmap(rc, cmapp)
++	struct ramdac_cookie *rc;
++	struct wsdisplay_cmap *cmapp;
++{
++	struct ibm561data *data = (struct ibm561data *)rc;
++	int error;
++	int count;
++	int index;
++
++	if ((u_int)cmapp->index >= IBM561_NCMAP_ENTRIES ||
++	    ((u_int)cmapp->index + (u_int)cmapp->count) > IBM561_NCMAP_ENTRIES)
++		return (EINVAL);
++	count = cmapp->count;
++	index = cmapp->index;
++	error = copyout(&data->cmap_r[index], cmapp->red, count);
++	if (error)
++		return (error);
++	error = copyout(&data->cmap_g[index], cmapp->green, count);
++	if (error)
++		return (error);
++	error = copyout(&data->cmap_b[index], cmapp->blue, count);
++	return (error);
++}
++
++/*
++ * XXX:
++ *  I am leaving these functions returning EINVAL, as they are
++ *  not strictly necessary for the correct functioning of the
++ *  card and in fact are not used on the other TGA variants, except
++ *  they are exported via ioctl(2) to userland, which does not in
++ *  fact use them.
++ */
++
++int
++ibm561_set_cursor(rc, cursorp)
++	struct ramdac_cookie *rc;
++	struct wsdisplay_cursor *cursorp;
++{
++	return EINVAL;
++}
++
++int
++ibm561_get_cursor(rc, cursorp)
++	struct ramdac_cookie *rc;
++	struct wsdisplay_cursor *cursorp;
++{
++	return EINVAL;
++}
++
++int
++ibm561_set_curpos(rc, curposp)
++	struct ramdac_cookie *rc;
++	struct wsdisplay_curpos *curposp;
++{
++	return EINVAL;
++}
++
++int
++ibm561_get_curpos(rc, curposp)
++	struct ramdac_cookie *rc;
++	struct wsdisplay_curpos *curposp;
++{
++	return EINVAL;
++}
++
++int
++ibm561_get_curmax(rc, curposp)
++	struct ramdac_cookie *rc;
++	struct wsdisplay_curpos *curposp;
++{
++	return EINVAL;
++}
++
++int
++ibm561_set_dotclock(rc, dotclock)
++	struct ramdac_cookie *rc;
++	unsigned dotclock;
++{
++	struct ibm561data *data = (struct ibm561data *)rc;
++
++	/* XXXrcd:  a couple of these are a little hazy, vis a vis
++	 *          check 175MHz and 202MHz, which are wrong...
++	 */
++	switch (dotclock) {
++	case  25175000: data->vco_div = 0x3e; data->pll_ref = 0x09; break;
++	case  31500000: data->vco_div = 0x17; data->pll_ref = 0x05; break;
++	case  40000000: data->vco_div = 0x42; data->pll_ref = 0x06; break;
++	case  50000000: data->vco_div = 0x45; data->pll_ref = 0x05; break;
++	case  65000000: data->vco_div = 0xac; data->pll_ref = 0x0c; break;
++	case  69000000: data->vco_div = 0xa9; data->pll_ref = 0x0b; break;
++	case  74000000: data->vco_div = 0x9c; data->pll_ref = 0x09; break;
++	case  75000000: data->vco_div = 0x93; data->pll_ref = 0x08; break;
++	case 103994000: data->vco_div = 0x96; data->pll_ref = 0x06; break;
++	case 108180000: data->vco_div = 0xb8; data->pll_ref = 0x08; break;
++	case 110000000: data->vco_div = 0xba; data->pll_ref = 0x08; break;
++	case 119840000: data->vco_div = 0x82; data->pll_ref = 0x04; break;
++	case 130808000: data->vco_div = 0xc8; data->pll_ref = 0x08; break;
++	case 135000000: data->vco_div = 0xc1; data->pll_ref = 0x07; break;
++	case 175000000: data->vco_div = 0xe2; data->pll_ref = 0x07; break;
++	case 202500000: data->vco_div = 0xe2; data->pll_ref = 0x07; break;
++	default:
++		return EINVAL;
++	}
++
++	data->div_dotclock = 0xb0;
++	data->changed |= CHANGED_DOTCLOCK;
++	return 0;
++}
++
++/*
++ * Internal Functions
++ */
++
++void
++ibm561_update(vp)
++	void *vp;
++{
++	struct ibm561data *data = (struct ibm561data *)vp;
++	int	i;
++
++	/* XXX see comment above ibm561_cninit() */
++	if (!data)
++		data = saved_console_data;
++
++	if (data->changed & CHANGED_WTYPE) {
++		ibm561_regbegin(data, IBM561_FB_WINTYPE);
++		for (i=0; i < IBM561_NWTYPES; i++)
++			ibm561_regcont10bit(data, IBM561_CMD_FB_WAT, data->wtype[i]);
++
++		/* XXXrcd:  quick hack here for AUX FB table */
++		ibm561_regbegin(data, IBM561_AUXFB_WINTYPE);
++		for (i=0; i < IBM561_NWTYPES; i++)
++			ibm561_regcont(data, IBM561_CMD, 0x04);
++
++		/* XXXrcd:  quick hack here for OL WAT table */
++		ibm561_regbegin(data, IBM561_OL_WINTYPE);
++		for (i=0; i < IBM561_NWTYPES; i++)
++			ibm561_regcont10bit(data, IBM561_CMD_FB_WAT, 0x0231);
++
++		/* XXXrcd:  quick hack here for AUX OL WAT table */
++		ibm561_regbegin(data, IBM561_AUXOL_WINTYPE);
++		for (i=0; i < IBM561_NWTYPES; i++)
++			ibm561_regcont(data, IBM561_CMD, 0x0c);
++	}
++
++	if (data->changed & CHANGED_CMAP)
++		ibm561_load_cmap(data);
++
++	/* XXX:  I am not sure in what situations it is safe to
++	 *       change the dotclock---hope this is good.
++	 */
++	if (data->changed & CHANGED_DOTCLOCK)
++		ibm561_load_dotclock(data);
++}
++
++static void
++ibm561_load_cmap(struct ibm561data *data)
++{
++	int	i;
++
++	ibm561_regbegin(data, IBM561_CMAP_TABLE);
++	for (i=0; i < IBM561_NCMAP_ENTRIES; i++) {
++		ibm561_regcont(data, IBM561_CMD_CMAP, data->cmap_r[i]);
++		ibm561_regcont(data, IBM561_CMD_CMAP, data->cmap_g[i]);
++		ibm561_regcont(data, IBM561_CMD_CMAP, data->cmap_b[i]);
++	}
++
++	ibm561_regbegin(data, IBM561_RED_GAMMA_TABLE);
++	for (i=0; i < 256; i++)
++		ibm561_regcont10bit(data, IBM561_CMD_GAMMA, data->gamma_r[i]);
++
++	ibm561_regbegin(data, IBM561_GREEN_GAMMA_TABLE);
++	for (i=1; i < 256; i++)
++		ibm561_regcont10bit(data, IBM561_CMD_GAMMA, data->gamma_g[i]);
++
++	ibm561_regbegin(data, IBM561_BLUE_GAMMA_TABLE);
++	for (i=1; i < 256; i++)
++		ibm561_regcont10bit(data, IBM561_CMD_GAMMA, data->gamma_b[i]);
++
++}
++
++static void
++ibm561_load_dotclock(struct ibm561data *data)
++{
++	/* XXX [nf]
++	 * OpenBSD doesn't currently use any ramdac info
++	 */
++	//return;
++
++	/* XXX
++	 * we should probably be more pro-active here, but it shouldn't
++	 * actually happen...
++	 */
++	if (!data->vco_div || !data->pll_ref || ! data->div_dotclock) {
++		panic("ibm561_load_dotclock: called uninitialized");
++	}
++
++	ibm561_regwr(data, IBM561_PLL_VCO_DIV,  data->vco_div);
++	ibm561_regwr(data, IBM561_PLL_REF_REG, data->pll_ref);
++	ibm561_regwr(data, IBM561_DIV_DOTCLCK, data->div_dotclock);
++}
++
++static void
++ibm561_regcont10bit(struct ibm561data *data, u_int16_t reg, u_int16_t val)
++{
++	data->ramdac_wr(data->cookie, IBM561_CMD_GAMMA, (val >> 2) & 0xff);
++	data->ramdac_wr(data->cookie, IBM561_CMD_GAMMA, (val & 0x3) << 6);
++}
++
++static void
++ibm561_regbegin(struct ibm561data *data, u_int16_t reg)
++{
++	data->ramdac_wr(data->cookie, IBM561_ADDR_LOW, reg & 0xff);
++	data->ramdac_wr(data->cookie, IBM561_ADDR_HIGH, (reg >> 8) & 0xff);
++}
++
++static void
++ibm561_regcont(struct ibm561data *data, u_int16_t reg, u_int8_t val)
++{
++	data->ramdac_wr(data->cookie, reg, val);
++}
++
++static void
++ibm561_regwr(struct ibm561data *data, u_int16_t reg, u_int8_t val)
++{
++	ibm561_regbegin(data, reg);
++	ibm561_regcont(data, IBM561_CMD, val);
++}
+diff -uNr dev.old/ic/ibm561reg.h dev/ic/ibm561reg.h
+--- dev.old/ic/ibm561reg.h	Thu Jan  1 01:00:00 1970
++++ dev/ic/ibm561reg.h	Thu Feb 21 09:36:54 2002
+@@ -0,0 +1,80 @@
++/* $NetBSD: ibm561reg.h,v 1.1 2001/12/12 07:46:48 elric Exp $ */
++
++/*-
++ * Copyright (c) 2001 The NetBSD Foundation, Inc.
++ * All rights reserved.
++ *
++ * This code is derived from software contributed to The NetBSD Foundation
++ * by Roland C. Dowdeswell of Ponte, Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. All advertising materials mentioning features or use of this software
++ *    must display the following acknowledgement:
++ *	This product includes software developed by the NetBSD
++ *	Foundation, Inc. and its contributors.
++ * 4. Neither the name of The NetBSD Foundation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
++ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
++ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#define IBM561_ADDR_LOW			0x00
++#define IBM561_ADDR_HIGH		0x01
++#define IBM561_CMD			0x02
++#define IBM561_CMD_FB_WAT		0x03
++#define IBM561_CMD_CMAP			0x03
++#define IBM561_CMD_GAMMA		0x03
++
++#define IBM561_CONFIG_REG1		0x0001
++#define IBM561_CONFIG_REG2		0x0002
++#define IBM561_CONFIG_REG3		0x0003
++#define IBM561_CONFIG_REG4		0x0004
++
++#define IBM561_SYNC_CNTL		0x0020
++#define IBM561_PLL_VCO_DIV		0x0021
++#define IBM561_PLL_REF_REG		0x0022
++#define IBM561_CURS_CNTL_REG		0x0030
++#define IBM561_HOTSPOT_REG		0x0034
++#define IBM561_VRAM_MASK_REG		0x0050
++#define IBM561_DIV_DOTCLCK		0x0082
++#define IBM561_FB_WINTYPE		0x1000
++#define IBM561_AUXFB_WINTYPE		0x0e00
++#define IBM561_OL_WINTYPE		0x1400
++#define IBM561_AUXOL_WINTYPE		0x0f00
++#define IBM561_CMAP_TABLE		0x4000
++#define IBM561_RED_GAMMA_TABLE		0x3000
++#define IBM561_GREEN_GAMMA_TABLE	0x3400
++#define IBM561_BLUE_GAMMA_TABLE		0x3800
++
++#define IBM561_CHROMAKEY0		0x0010
++#define IBM561_CHROMAKEY1		0x0011
++#define IBM561_CHROMAKEYMASK0		0x0012
++#define IBM561_CHROMAKEYMASK1		0x0013
++
++#define IBM561_WAT_SEG_REG		0x0006
++
++#define IBM561_NCMAP_ENTRIES		1024
++#define IBM561_NGAMMA_ENTRIES		256
++
++/* we actually have 1024 of them, but I am just
++ * going define a few, so this is good.
++ */
++#define IBM561_NWTYPES			16
+diff -uNr dev.old/ic/ibm561var.h dev/ic/ibm561var.h
+--- dev.old/ic/ibm561var.h	Thu Jan  1 01:00:00 1970
++++ dev/ic/ibm561var.h	Thu Feb 21 09:36:54 2002
+@@ -0,0 +1,47 @@
++/* $NetBSD: ibm561var.h,v 1.1 2001/12/12 07:46:48 elric Exp $ */
++
++/*-
++ * Copyright (c) 2001 The NetBSD Foundation, Inc.
++ * All rights reserved.
++ *
++ * This code is derived from software contributed to The NetBSD Foundation
++ * by Roland C. Dowdeswell of Ponte, Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. All advertising materials mentioning features or use of this software
++ *    must display the following acknowledgement:
++ *	This product includes software developed by the NetBSD
++ *	Foundation, Inc. and its contributors.
++ * 4. Neither the name of The NetBSD Foundation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
++ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
++ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++struct ramdac_funcs *ibm561_funcs(void);
++struct ramdac_cookie *ibm561_register __P((void *,
++	int (*)(void *, void (*)(void *)),
++	void (*)(void *, u_int, u_int8_t),
++	u_int8_t (*)(void *, u_int)));
++void ibm561_cninit __P((void *,
++	int (*)(void *, void (*)(void *)),
++	void (*)(void *, u_int, u_int8_t),
++	u_int8_t (*)(void *, u_int), u_int));
+diff -uNr dev.old/ic/ramdac.h dev/ic/ramdac.h
+--- dev.old/ic/ramdac.h	Thu Feb 21 09:32:23 2002
++++ dev/ic/ramdac.h	Thu Feb 21 09:36:09 2002
+@@ -76,6 +76,10 @@
+ 		    struct wsdisplay_cursor *));
+ 	int	(*ramdac_get_curcmap) __P((struct ramdac_cookie *,
+ 		    struct wsdisplay_cursor *));
++
++	/* XXXrcd:  new test code for setting the DOTCLOCK */
++	int	(*ramdac_set_dotclock) __P((struct ramdac_cookie *,
++		    unsigned));
+ };
+ 
+ #endif
+diff -uNr dev.old/pci/files.pci dev/pci/files.pci
+--- dev.old/pci/files.pci	Thu Feb 21 09:32:47 2002
++++ dev/pci/files.pci	Thu Feb 21 09:36:10 2002
+@@ -22,6 +22,7 @@
+ file	dev/pci/tga_conf.c		tga
+ file	dev/ic/bt463.c			tga
+ file	dev/ic/bt485.c			tga
++file	dev/ic/ibm561.c			tga
+ 
+ # Cypress 82c693 hyperCache(tm) Stand-Alone PCI Peripheral Controller
+ # with USB.  This is a combo chip:
+diff -uNr dev.old/pci/tga.c dev/pci/tga.c
+--- dev.old/pci/tga.c	Thu Feb 21 09:32:53 2002
++++ dev/pci/tga.c	Thu Feb 21 09:42:32 2002
+@@ -1,5 +1,5 @@
+ /* $OpenBSD: tga.c,v 1.10 2001/11/06 19:53:19 miod Exp $ */
+-/* $NetBSD: tga.c,v 1.31 2001/02/11 19:34:58 nathanw Exp $ */
++/* $NetBSD: tga.c,v 1.38 2001/12/12 07:50:05 elric Exp $ */
+ 
+ /*
+  * Copyright (c) 1995, 1996 Carnegie-Mellon University.
+@@ -80,6 +80,8 @@
+ const struct tga_conf *tga_getconf __P((int));
+ void	tga_getdevconfig __P((bus_space_tag_t memt, pci_chipset_tag_t pc,
+ 	    pcitag_t tag, struct tga_devconfig *dc));
++struct monitor *tga_getmonitor __P((struct tga_devconfig *dc));
++unsigned tga_getdotclock __P((struct tga_devconfig *dc));
+ 
+ struct tga_devconfig tga_console_dc;
+ 
+@@ -381,7 +383,9 @@
+ 		return;
+ 	}
+ 	dc->dc_rinfo.ri_wsfcookie = cookie;
+-	rasops_init(rip, 34, 80);
++	/* XXX [nf] fill screen size, no fixed console anymore */
++	rasops_init(rip, dc->dc_ht / rip->ri_font->fontheight,
++			dc->dc_wid / rip->ri_font->fontwidth);
+ 	
+ 	/* add our accelerated functions */
+ 	/* XXX shouldn't have to do this; rasops should leave non-NULL 
+@@ -501,6 +505,12 @@
+ 		sc->sc_dc->dc_ramdac_cookie = 
+ 			sc->sc_dc->dc_ramdac_funcs->ramdac_register(sc->sc_dc, 
+ 			tga_sched_update, tga2_ramdac_wr, tga2_ramdac_rd);
++
++		/* XXX [nf] load the ramdac stuff */
++		if (sc->sc_dc->dc_tgaconf->ramdac_funcs != bt485_funcs)
++			(*sc->sc_dc->dc_ramdac_funcs->ramdac_set_dotclock)
++				(sc->sc_dc->dc_ramdac_cookie,
++				 tga_getdotclock(sc->sc_dc));
+ 	}
+ 
+ 	DPRINTF("tgaattach: sc->sc_dc->dc_ramdac_cookie = 0x%016llx\n",
+@@ -1536,7 +1546,13 @@
+ 	int m;
+ {
+ 
+-	tga2_ics9110_wr(dc, decmonitors[m].dotclock);
++	/* XXX [nf] check if Powerstorm card,
++	 * and postpone the ramdac setting, else do it the old way
++	 */
++	if (dc->dc_tga_type == TGA_TYPE_POWERSTORM_4D20)
++		tga2_ics9110_wr(dc, 143000000);
++	else
++		tga2_ics9110_wr(dc, decmonitors[m].dotclock);
+ #if 0
+ 	TGAWREG(dc, TGA_REG_VHCR, 
+ 	     ((decmonitors[m].hbp / 4) << 21) |
+@@ -1606,6 +1622,8 @@
+ 		N = 0x60; M = 0x32; V = 0x1; X = 0x1; R = 0x2; break;
+ 	case 202500000:
+ 		N = 0x60; M = 0x32; V = 0x1; X = 0x1; R = 0x2; break;
++	case 143000000:  /* XXX [nf] dummy */
++		N = 0x03; M = 0x03; V = 0x1; X = 0x1; R = 0x3; break;
+ 	default:
+ 		panic("unrecognized clock rate %d\n", dotclock);
+ 	}
+@@ -1633,4 +1651,19 @@
+ 		&clock); /* XXX */
+ 	bus_space_write_4(dc->dc_memt, clock, 0, 0x0);
+ 	bus_space_barrier(dc->dc_memt, clock, 0, 0, BUS_SPACE_BARRIER_WRITE);
++}
++
++	/* XXX [nf] stuff to get dotclock data */
++struct monitor *
++tga_getmonitor(dc)
++	struct tga_devconfig *dc;
++{
++	return &decmonitors[(~TGARREG(dc, TGA_REG_GREV) >> 16) & 0x0f];
++}
++
++unsigned
++tga_getdotclock(dc)
++	struct tga_devconfig *dc;
++{
++	return tga_getmonitor(dc)->dotclock;
+ }
+diff -uNr dev.old/pci/tga_conf.c dev/pci/tga_conf.c
+--- dev.old/pci/tga_conf.c	Thu Feb 21 09:32:53 2002
++++ dev/pci/tga_conf.c	Thu Feb 21 09:42:32 2002
+@@ -1,5 +1,5 @@
+ /* $OpenBSD: tga_conf.c,v 1.4 2001/03/18 04:37:21 nate Exp $ */
+-/* $NetBSD: tga_conf.c,v 1.3 2000/03/12 05:32:29 nathanw Exp $ */
++/* $NetBSD: tga_conf.c,v 1.5 2001/11/13 07:48:49 lukem Exp $ */
+ 
+ /*
+  * Copyright (c) 1995, 1996 Carnegie-Mellon University.
+@@ -37,6 +37,7 @@
+ 
+ #include <dev/ic/bt485var.h>
+ #include <dev/ic/bt463var.h>
++#include <dev/ic/ibm561var.h>
+ 
+ #undef KB
+ #define KB		* 1024
+@@ -114,6 +115,17 @@
+ 		1,	{ 16 MB,    0 },	{ 8 MB,    0 },
+ 		1,	{ 24 MB,    0 },	{ 8 MB,    0 },
+ 	},
++ 	/* XXX [nf] TGA_TYPE_POWERSTORM_4D20
++ 	 * These numbers may be incorrect */
++ 	{
++ 		"PS4d20",
++ 		ibm561_funcs,
++ 		32,
++ 		32 MB,
++ 		16 KB,
++ 		1,	{ 16 MB,    0 },	{ 8 MB,    0 },
++ 		1,	{ 24 MB,    0 },	{ 8 MB,    0 },
++	},
+ };
+ 
+ #undef KB
+@@ -123,15 +135,20 @@
+ tga_identify(dc)
+ 	struct tga_devconfig *dc;
+ {
++	/* XXX [nf] check card type */
+ 	int type;
+ 	int gder;
++ 	int grev;
+ 	int deep, addrmask, wide;
++ 	int tga2;
+ 
+ 	gder = TGARREG(dc, TGA_REG_GDER);
++ 	grev = TGARREG(dc, TGA_REG_GREV);
+ 
+ 	deep = (gder & 0x1) != 0; /* XXX */
+ 	addrmask = (gder >> 2) & 0x7; /* XXX */
+ 	wide = (gder & 0x200) == 0; /* XXX */
++ 	tga2 = (grev & 0x20) != 0;
+ 
+ 
+ 	type = TGA_TYPE_UNKNOWN;
+@@ -159,6 +176,10 @@
+ 		}
+ 	} else {
+ 		/* 32bpp frame buffer */
++ 		if (addrmask == 0x00 && tga2 && wide) {
++ 			/* XXX [nf] Powerstorm */
++ 			type = TGA_TYPE_POWERSTORM_4D20;
++ 		}
+ 
+ 		if (addrmask == 0x3) {
+ 			/* 16MB core map; T32-04 or T32-08 */
+@@ -170,7 +191,7 @@
+ 		} else if (addrmask == 0x7) {
+ 			/* 32MB core map; T32-88 */
+ 
+-			if (wide)			/* sanity */
++ 			if (wide && !tga2)		/* sanity */
+ 				type = TGA_TYPE_T32_88;
+ 		}
+ 	}
+diff -uNr dev.old/pci/tgavar.h dev/pci/tgavar.h
+--- dev.old/pci/tgavar.h	Thu Feb 21 09:32:58 2002
++++ dev/pci/tgavar.h	Thu Feb 21 09:42:32 2002
+@@ -111,7 +111,8 @@
+ #define	TGA_TYPE_T32_04		4	/* 32bpp, 4MB */
+ #define	TGA_TYPE_T32_08		5	/* 32bpp, 8MB */
+ #define	TGA_TYPE_T32_88		6	/* 32bpp, 16MB */
+-#define	TGA_TYPE_UNKNOWN	7	/* unknown */
++#define	TGA_TYPE_POWERSTORM_4D20	7	/* unknown */
++#define	TGA_TYPE_UNKNOWN	8	/* unknown */
+ 
+ #define	DEVICE_IS_TGA(class, id)					\
+ 	    (((PCI_VENDOR(id) == PCI_VENDOR_DEC &&			\
+From openbsd-alpha  Sat Feb 16 10:59:29 2002
+From: Hans-Werner Schlote <H.Schlote () suffix ! de>
+Date: Sat, 16 Feb 2002 10:59:29 +0000
+To: openbsd-alpha
+Subject: Re: 3c905b on DPW
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=101385717727707
+
+Hi Wolfgang,
+
+I ripped a SIS900 out of a PC - that one is doing a fine job in the
+DPW since. Maybe the OpenBSD page statements are just in the wrong
+order - the maybes work the tested ones don't ;-)))
+
+As SCSI controller I use a Dawicontrol. That one works fine, too. I
+had problems with it in a PC so that I'm very happy at the moment to
+have found a good place for it.
+
+Regards
+
+	Hans
+
+On Fri, Feb 15, 2002 at 08:09:39PM +0100, Wolfgang Rupp wrote:
+> On Sunday 10 February 2002 20:42, Hans-Werner Schlote wrote:
+> > Did you hear of somebody getting a DEC PW with a second NIC to work?
+> 
+> Me, but not a 3com card. My PWS500 got a 21141 based D-Link 10/100 card
+> as secondary NIC in a 32bit slot. Other cards in the machine are Elsa
+> Gloria graphics and a noname Symbios875 controller. SRM is happy, and
+> I am, too :)
+> 
+> An original DEC tu card and a D-Link 530CT (10Mbit 21041) also worked.
+> Be careful with Tulip cards. Some seem borken by design. The PWS
+> refuses to accept the noname Tulips I ordered last year. All of them.
+> In a PC these run fine. ("Intel 21143")
+> 
+> I don't run OpenBSD on the PWS, so I can't say about that combination.
+> 
+> Wolfgang
+
+-- 
+SUFFIX Informatik GmbH  |  Hans-Werner Schlote
+Bueltenweg 27e          |  e-mail: H.Schlote@suffix.de
+38106 Braunschweig      |  Tel.: +49 (0)531 / 233 80 88
+Germany                 |  Fax : +49 (0)531 / 233 80 90
+From openbsd-alpha  Wed Feb 13 11:17:56 2002
+From: Nils Frohberg <nilsf () tako ! de>
+Date: Wed, 13 Feb 2002 11:17:56 +0000
+To: openbsd-alpha
+Subject: Re: DEC Powerstorm 4D20
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=101359905002825
+
+* Miod Vallat <miod@online.fr> [020213 01:49]:
+> > sorry, my bad. here it is again (this time hopefully correct)
+> Well, still not correct, but much easier to fix.
+> 
+> With this patch, and on this card:
+> tga0 at pci0 dev 13 function 0 "DEC 21030" rev 0x03: DC21030 step C, board type T8-02
+> tga0: 1280 x 1024, 8bpp, Bt485 RAMDAC
+> tga0: interrupting at isa irq 9
+> wsdisplay0 at tga0: console (std, vt100 emulation)
+> 
+> ... i have a nice full screen 160x64 console and no problem so far.
+> 
+> Miod
+
+it's been running here for a day now:
+tga0 at pci0 dev 6 function 0 "DEC TGA2" rev 0x22: TGA2 pass 2, board type PS4d20
+tga0: 800 x 600, 32bpp, IBM561 RAMDAC
+tga0: interrupting at eb164 irq 0
+wsdisplay0 at tga0: console (std, vt100 emulation)
+
+since this is the first patch i send, maybe a little help on how to do
+it ``correctly''? :)
+
+and if someone knows an online documentation for the powerstorm cards,
+i'd be happy to know it's location. searches have brought up mainly
+netbsd pages.
+
+-- 
+Nils Frohberg
+GPG Key: email nilsf@tako.de with Subject: GET GPG KEY
+GPG Key: http://www.nils-frohberg.de/gpgpub.txt
+
+"The truth is, that those who have never entered upon scientific pursuits
+ know not a tithe about the poetry by which they are surrounded."
+                                                       -- Herbert Spencer
+From openbsd-alpha  Sun Feb 03 22:11:58 2002
+From: naddy () mips ! inka ! de (Christian Weisgerber)
+Date: Sun, 03 Feb 2002 22:11:58 +0000
+To: openbsd-alpha
+Subject: Re: Success Re: IEEE FP support
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=101277542906975
+
+Diana Eichert <deicher@sandia.gov> wrote:
+
+> I just wanted to publicly give thanks to Peter Valchev 
+> for adding support of IEEE FP to the Alpha architecture.
+
+I don't want to slight Peter's achievement here, but in all fairness
+it should be pointed out that (so my understanding) this has been
+lifted wholesale from NetBSD.
+
+-- 
+Christian "naddy" Weisgerber                          naddy@mips.inka.de
+From openbsd-alpha  Fri Feb 15 19:09:39 2002
+From: Wolfgang Rupp <rupp () chello ! at>
+Date: Fri, 15 Feb 2002 19:09:39 +0000
+To: openbsd-alpha
+Subject: Re: 3c905b on DPW
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=101380000825170
+
+On Sunday 10 February 2002 20:42, Hans-Werner Schlote wrote:
+> Did you hear of somebody getting a DEC PW with a second NIC to work?
+
+Me, but not a 3com card. My PWS500 got a 21141 based D-Link 10/100 card
+as secondary NIC in a 32bit slot. Other cards in the machine are Elsa
+Gloria graphics and a noname Symbios875 controller. SRM is happy, and
+I am, too :)
+
+An original DEC tu card and a D-Link 530CT (10Mbit 21041) also worked.
+Be careful with Tulip cards. Some seem borken by design. The PWS
+refuses to accept the noname Tulips I ordered last year. All of them.
+In a PC these run fine. ("Intel 21143")
+
+I don't run OpenBSD on the PWS, so I can't say about that combination.
+
+Wolfgang
+From openbsd-alpha  Sun Feb 10 19:42:08 2002
+From: Hans-Werner Schlote <H.Schlote () suffix ! de>
+Date: Sun, 10 Feb 2002 19:42:08 +0000
+To: openbsd-alpha
+Subject: Re: 3c905b on DPW
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=101338492419920
+
+Hi Joshua,
+
+thanks for your response.
+Unfortunately the card works in none of the other slots either. Same
+error in the other secondary slots and if I move it to primary (64bit)
+slot the SRM tells me that an unknown card is installed and I shall
+remove it and power cycle the system.
+
+If the card is installed in one of the slots that gets me booting the
+system 'arp -a' hangs, trying to add an alias to the 3Com
+interface hangs, ...
+
+Did you hear of somebody getting a DEC PW with a second NIC to work?
+
+Regards and thanks
+
+	Hans
+
+On Sun, Feb 10, 2002 at 01:01:55PM -0600, Joshua Stein wrote:
+> > I'm trying to get OpenBSD running on a DEC PW 500a.
+> > As the supported hw/peripherals list states that 3com
+> > cards, i.e. 3c905b are supported I'm trying to use this as a secondary
+> > interface. However all I get is a "xl0 watchdog timeout".
+> 
+> Try moving the card to another PCI slot.
+
+-- 
+SUFFIX Informatik GmbH  |  Hans-Werner Schlote
+Bueltenweg 27e          |  e-mail: H.Schlote@suffix.de
+38106 Braunschweig      |  Tel.: +49 (0)531 / 233 80 88
+Germany                 |  Fax : +49 (0)531 / 233 80 90
+From openbsd-alpha  Sun Feb 10 18:57:31 2002
+From: Hans-Werner Schlote <H.Schlote () suffix ! de>
+Date: Sun, 10 Feb 2002 18:57:31 +0000
+To: openbsd-alpha
+Subject: 3c905b on DPW
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=101338576824810
+
+Hi all,
+
+I'm trying to get OpenBSD running on a DEC PW 500a.
+As the supported hw/peripherals list states that 3com
+cards, i.e. 3c905b are supported I'm trying to use this as a secondary
+interface. However all I get is a "xl0 watchdog timeout".
+
+Searching with google resulted in several other people with the same
+problem but no solution.
+
+Any help greatly appreciated.
+
+If the 3com cards are not supported, which ones are?
+
+Thanks in advance
+
+       harvey
+
+-- 
+SUFFIX Informatik GmbH  |  Hans-Werner Schlote
+Bueltenweg 27e          |  e-mail: H.Schlote@suffix.de
+38106 Braunschweig      |  Tel.: +49 (0)531 / 233 80 88
+Germany                 |  Fax : +49 (0)531 / 233 80 90
+From openbsd-alpha  Wed Feb 13 00:50:57 2002
+From: Miod Vallat <miod () online ! fr>
+Date: Wed, 13 Feb 2002 00:50:57 +0000
+To: openbsd-alpha
+Subject: Re: DEC Powerstorm 4D20
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=101356131230369
+
+> sorry, my bad. here it is again (this time hopefully correct)
+Well, still not correct, but much easier to fix.
+
+With this patch, and on this card:
+tga0 at pci0 dev 13 function 0 "DEC 21030" rev 0x03: DC21030 step C, board type T8-02
+tga0: 1280 x 1024, 8bpp, Bt485 RAMDAC
+tga0: interrupting at isa irq 9
+wsdisplay0 at tga0: console (std, vt100 emulation)
+
+... i have a nice full screen 160x64 console and no problem so far.
+
+Miod
+From openbsd-alpha  Tue Feb 12 23:05:26 2002
+From: Nils Frohberg <nilsf () tako ! de>
+Date: Tue, 12 Feb 2002 23:05:26 +0000
+To: openbsd-alpha
+Subject: Re: DEC Powerstorm 4D20
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=101355514916638
+
+sorry, my bad. here it is again (this time hopefully correct)
+
+
+* Miod Vallat <miod@online.fr> [020212 22:02]:
+> > anyhow, this is still a bit of a mess, so maybe someone could test it
+> > on his box? diffs appended below sig.
+> If you really want people to play with your diff, I strongly advise you
+> to use an email client that does not convert tabs to spaces behind your
+> back.
+> 
+> Miod
+
+-- 
+Nils Frohberg
+GPG Key: email nilsf@tako.de with Subject: GET GPG KEY
+GPG Key: http://www.nils-frohberg.de/gpgpub.txt
+
+"The truth is, that those who have never entered upon scientific pursuits
+ know not a tithe about the poetry by which they are surrounded."
+                                                       -- Herbert Spencer
+
+
+diff -uN dev.old/ic/ibm561.c dev/ic/ibm561.c
+--- dev.old/ic/ibm561.c	Thu Jan  1 01:00:00 1970
++++ dev/ic/ibm561.c	Tue Feb 12 14:54:48 2002
+@@ -0,0 +1,523 @@
++/* $NetBSD: ibm561.c,v 1.1 2001/12/12 07:46:48 elric Exp $ */
++
++/*-
++ * Copyright (c) 2001 The NetBSD Foundation, Inc.
++ * All rights reserved.
++ *
++ * This code is derived from software contributed to The NetBSD Foundation
++ * by Roland C. Dowdeswell of Ponte, Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. All advertising materials mentioning features or use of this software
++ *    must display the following acknowledgement:
++ *	This product includes software developed by the NetBSD
++ *	Foundation, Inc. and its contributors.
++ * 4. Neither the name of The NetBSD Foundation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
++ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
++ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include <sys/param.h>
++#include <sys/systm.h>
++#include <sys/device.h>
++#include <sys/buf.h>
++#include <sys/kernel.h>
++#include <sys/malloc.h>
++
++#include <uvm/uvm_extern.h>
++
++#include <dev/pci/pcivar.h>
++#include <dev/ic/ibm561reg.h>
++#include <dev/ic/ibm561var.h>
++#include <dev/ic/ramdac.h>
++
++#include <dev/wscons/wsconsio.h>
++
++/*
++ * Functions exported via the RAMDAC configuration table.
++ */
++void	ibm561_init __P((struct ramdac_cookie *));
++int	ibm561_set_cmap __P((struct ramdac_cookie *,
++	    struct wsdisplay_cmap *));
++int	ibm561_get_cmap __P((struct ramdac_cookie *,
++	    struct wsdisplay_cmap *));
++int	ibm561_set_cursor __P((struct ramdac_cookie *,
++	    struct wsdisplay_cursor *));
++int	ibm561_get_cursor __P((struct ramdac_cookie *,
++	    struct wsdisplay_cursor *));
++int	ibm561_set_curpos __P((struct ramdac_cookie *,
++	    struct wsdisplay_curpos *));
++int	ibm561_get_curpos __P((struct ramdac_cookie *,
++	    struct wsdisplay_curpos *));
++int	ibm561_get_curmax __P((struct ramdac_cookie *,
++	    struct wsdisplay_curpos *));
++int	ibm561_set_dotclock __P((struct ramdac_cookie *,
++	    unsigned));
++
++/* XXX const */
++struct ramdac_funcs ibm561_funcsstruct = {
++	"IBM561",
++	ibm561_register,
++	ibm561_init,
++	ibm561_set_cmap,
++	ibm561_get_cmap,
++	ibm561_set_cursor,
++	ibm561_get_cursor,
++	ibm561_set_curpos,
++	ibm561_get_curpos,
++	ibm561_get_curmax,
++	NULL,			/* check_curcmap; not needed */
++	NULL,			/* set_curcmap; not needed */
++	NULL,			/* get_curcmap; not needed */
++	// ibm561_set_dotclock, /* smaller struct than in NetBSD XXX */
++};
++
++/*
++ * Private data.
++ */
++struct ibm561data {
++	void            *cookie;
++
++	int             (*ramdac_sched_update) __P((void *, void (*)(void *)));
++	void            (*ramdac_wr) __P((void *, u_int, u_int8_t));
++	u_int8_t        (*ramdac_rd) __P((void *, u_int));
++
++#define CHANGED_CURCMAP		0x0001	/* cursor cmap */
++#define CHANGED_CMAP		0x0002	/* color map */
++#define CHANGED_WTYPE		0x0004	/* window types */
++#define CHANGED_DOTCLOCK	0x0008	/* dot clock */
++#define CHANGED_ALL		0x000f	/* or of all above */
++	u_int8_t	changed;
++
++	/* dotclock parameters */
++	u_int8_t	vco_div;
++	u_int8_t	pll_ref;
++	u_int8_t	div_dotclock;
++
++	/* colormaps et al. */
++	u_int8_t	curcmap_r[2];
++	u_int8_t	curcmap_g[2];
++	u_int8_t	curcmap_b[2];
++
++	u_int8_t	cmap_r[IBM561_NCMAP_ENTRIES];
++	u_int8_t	cmap_g[IBM561_NCMAP_ENTRIES];
++	u_int8_t	cmap_b[IBM561_NCMAP_ENTRIES];
++
++	u_int16_t	gamma_r[IBM561_NGAMMA_ENTRIES];
++	u_int16_t	gamma_g[IBM561_NGAMMA_ENTRIES];
++	u_int16_t	gamma_b[IBM561_NGAMMA_ENTRIES];
++
++	u_int16_t	wtype[IBM561_NWTYPES];
++};
++
++/*
++ * private functions
++ */
++void	ibm561_update __P((void *));
++static void ibm561_load_cmap(struct ibm561data *);
++static void ibm561_load_dotclock(struct ibm561data *);
++static void ibm561_regbegin(struct ibm561data *, u_int16_t);
++static void ibm561_regcont(struct ibm561data *, u_int16_t, u_int8_t);
++static void ibm561_regcont10bit(struct ibm561data *, u_int16_t, u_int16_t);
++static void ibm561_regwr(struct ibm561data *, u_int16_t, u_int8_t);
++
++struct ramdac_funcs *
++ibm561_funcs(void)
++{
++	return &ibm561_funcsstruct;
++}
++
++struct ramdac_cookie *
++ibm561_register(v, sched_update, wr, rd)
++	void *v;
++	int (*sched_update)(void *, void (*)(void *));
++	void (*wr)(void *, u_int, u_int8_t);
++	u_int8_t (*rd)(void *, u_int);
++{
++	struct ibm561data *data;
++
++	data = malloc(sizeof *data, M_DEVBUF, M_WAITOK); // XXX |M_ZERO);
++	data->cookie = v;
++	data->ramdac_sched_update = sched_update;
++	data->ramdac_wr = wr;
++	data->ramdac_rd = rd;
++	return (struct ramdac_cookie *)data;
++}
++
++/*
++ * This function exists solely to provide a means to init
++ * the RAMDAC without first registering.  It is useful for
++ * initializing the console early on.
++ */
++
++struct ibm561data *saved_console_data;
++
++void
++ibm561_cninit(v, sched_update, wr, rd, dotclock)
++	void *v;
++	int (*sched_update)(void *, void (*)(void *));
++	void (*wr)(void *, u_int, u_int8_t);
++	u_int8_t (*rd)(void *, u_int);
++	u_int dotclock;
++{
++	struct ibm561data tmp, *data = &tmp;
++	memset(data, 0x0, sizeof *data);
++	data->cookie = v;
++	data->ramdac_sched_update = sched_update;
++	data->ramdac_wr = wr;
++	data->ramdac_rd = rd;
++	ibm561_set_dotclock((struct ramdac_cookie *)data, dotclock);
++	saved_console_data = data;
++	ibm561_init((struct ramdac_cookie *)data);
++	saved_console_data = NULL;
++}
++
++void
++ibm561_init(rc)
++	struct ramdac_cookie *rc;
++{
++	struct	ibm561data *data = (struct ibm561data *)rc;
++	int	i;
++
++	/* XXX this is _essential_ */
++
++	ibm561_load_dotclock(data);
++
++	/* XXXrcd: bunch of magic of which I have no current clue */
++	ibm561_regwr(data, IBM561_CONFIG_REG1, 0x2a);
++	ibm561_regwr(data, IBM561_CONFIG_REG3, 0x41);
++	ibm561_regwr(data, IBM561_CONFIG_REG4, 0x20);
++
++	/* initialize the card a bit */
++	ibm561_regwr(data, IBM561_SYNC_CNTL, 0x1);
++	ibm561_regwr(data, IBM561_CONFIG_REG2, 0x19);
++
++	ibm561_regwr(data, IBM561_CONFIG_REG1, 0x2a);
++	ibm561_regwr(data, IBM561_CONFIG_REG4, 0x20);
++
++	ibm561_regbegin(data, IBM561_WAT_SEG_REG);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regbegin(data, IBM561_CHROMAKEY0);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++
++	ibm561_regwr(data, IBM561_CURS_CNTL_REG, 0x00); /* XXX off? */
++
++	/* cursor `hot spot' registers */
++	ibm561_regbegin(data, IBM561_HOTSPOT_REG);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0x00);
++
++	/* VRAM Mask Registers (diagnostics) */
++	ibm561_regbegin(data, IBM561_VRAM_MASK_REG);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++	ibm561_regcont(data, IBM561_CMD, 0xff);
++
++	/* let's set up some decent default colour maps and gammas */
++	for (i=0; i < IBM561_NCMAP_ENTRIES; i++)
++		data->cmap_r[i] = data->cmap_g[i] = data->cmap_b[i] = 0xff;
++	data->cmap_r[0]   = data->cmap_g[0]   = data->cmap_b[0]   = 0x00;
++	data->cmap_r[256] = data->cmap_g[256] = data->cmap_b[256] = 0x00;
++	data->cmap_r[512] = data->cmap_g[512] = data->cmap_b[512] = 0x00;
++	data->cmap_r[768] = data->cmap_g[768] = data->cmap_b[768] = 0x00;
++
++	data->gamma_r[0] = data->gamma_g[0] = data->gamma_b[0] = 0x00;
++	for (i=0; i < IBM561_NGAMMA_ENTRIES; i++)
++		data->gamma_r[i] = data->gamma_g[i] = data->gamma_b[i] = 0xff;
++
++	for (i=0; i < IBM561_NWTYPES; i++)
++		data->wtype[i] = 0x0036;
++	data->wtype[1] = 0x0028;
++
++	/* the last step: */
++	data->changed = CHANGED_ALL;
++	data->ramdac_sched_update(data->cookie, ibm561_update);
++}
++
++int
++ibm561_set_cmap(rc, cmapp)
++	struct ramdac_cookie *rc;
++	struct wsdisplay_cmap *cmapp;
++{
++	struct ibm561data *data = (struct ibm561data *)rc;
++	int count;
++	int index;
++	int s;
++
++	if ((u_int)cmapp->index >= IBM561_NCMAP_ENTRIES ||
++	    ((u_int)cmapp->index + (u_int)cmapp->count) > IBM561_NCMAP_ENTRIES)
++		return (EINVAL);
++	if (!uvm_useracc(cmapp->red, cmapp->count, B_READ) ||
++	    !uvm_useracc(cmapp->green, cmapp->count, B_READ) ||
++	    !uvm_useracc(cmapp->blue, cmapp->count, B_READ))
++		return (EFAULT);
++
++	s = spltty();
++	index = cmapp->index;
++	count = cmapp->count;
++	copyin(cmapp->red, &data->cmap_r[index], count);
++	copyin(cmapp->green, &data->cmap_g[index], count);
++	copyin(cmapp->blue, &data->cmap_b[index], count);
++	data->changed |= CHANGED_CMAP;
++	data->ramdac_sched_update(data->cookie, ibm561_update);
++	splx(s);
++	return (0);
++}
++
++int
++ibm561_get_cmap(rc, cmapp)
++	struct ramdac_cookie *rc;
++	struct wsdisplay_cmap *cmapp;
++{
++	struct ibm561data *data = (struct ibm561data *)rc;
++	int error;
++	int count;
++	int index;
++
++	if ((u_int)cmapp->index >= IBM561_NCMAP_ENTRIES ||
++	    ((u_int)cmapp->index + (u_int)cmapp->count) > IBM561_NCMAP_ENTRIES)
++		return (EINVAL);
++	count = cmapp->count;
++	index = cmapp->index;
++	error = copyout(&data->cmap_r[index], cmapp->red, count);
++	if (error)
++		return (error);
++	error = copyout(&data->cmap_g[index], cmapp->green, count);
++	if (error)
++		return (error);
++	error = copyout(&data->cmap_b[index], cmapp->blue, count);
++	return (error);
++}
++
++/*
++ * XXX:
++ *  I am leaving these functions returning EINVAL, as they are
++ *  not strictly necessary for the correct functioning of the
++ *  card and in fact are not used on the other TGA variants, except
++ *  they are exported via ioctl(2) to userland, which does not in
++ *  fact use them.
++ */
++
++int
++ibm561_set_cursor(rc, cursorp)
++	struct ramdac_cookie *rc;
++	struct wsdisplay_cursor *cursorp;
++{
++	return EINVAL;
++}
++
++int
++ibm561_get_cursor(rc, cursorp)
++	struct ramdac_cookie *rc;
++	struct wsdisplay_cursor *cursorp;
++{
++	return EINVAL;
++}
++
++int
++ibm561_set_curpos(rc, curposp)
++	struct ramdac_cookie *rc;
++	struct wsdisplay_curpos *curposp;
++{
++	return EINVAL;
++}
++
++int
++ibm561_get_curpos(rc, curposp)
++	struct ramdac_cookie *rc;
++	struct wsdisplay_curpos *curposp;
++{
++	return EINVAL;
++}
++
++int
++ibm561_get_curmax(rc, curposp)
++	struct ramdac_cookie *rc;
++	struct wsdisplay_curpos *curposp;
++{
++	return EINVAL;
++}
++
++int
++ibm561_set_dotclock(rc, dotclock)
++	struct ramdac_cookie *rc;
++	unsigned dotclock;
++{
++	struct ibm561data *data = (struct ibm561data *)rc;
++
++	/* XXXrcd:  a couple of these are a little hazy, vis a vis
++	 *          check 175MHz and 202MHz, which are wrong...
++	 */
++	switch (dotclock) {
++	case  25175000: data->vco_div = 0x3e; data->pll_ref = 0x09; break;
++	case  31500000: data->vco_div = 0x17; data->pll_ref = 0x05; break;
++	case  40000000: data->vco_div = 0x42; data->pll_ref = 0x06; break;
++	case  50000000: data->vco_div = 0x45; data->pll_ref = 0x05; break;
++	case  65000000: data->vco_div = 0xac; data->pll_ref = 0x0c; break;
++	case  69000000: data->vco_div = 0xa9; data->pll_ref = 0x0b; break;
++	case  74000000: data->vco_div = 0x9c; data->pll_ref = 0x09; break;
++	case  75000000: data->vco_div = 0x93; data->pll_ref = 0x08; break;
++	case 103994000: data->vco_div = 0x96; data->pll_ref = 0x06; break;
++	case 108180000: data->vco_div = 0xb8; data->pll_ref = 0x08; break;
++	case 110000000: data->vco_div = 0xba; data->pll_ref = 0x08; break;
++	case 119840000: data->vco_div = 0x82; data->pll_ref = 0x04; break;
++	case 130808000: data->vco_div = 0xc8; data->pll_ref = 0x08; break;
++	case 135000000: data->vco_div = 0xc1; data->pll_ref = 0x07; break;
++	case 175000000: data->vco_div = 0xe2; data->pll_ref = 0x07; break;
++	case 202500000: data->vco_div = 0xe2; data->pll_ref = 0x07; break;
++	default:
++		return EINVAL;
++	}
++
++	data->div_dotclock = 0xb0;
++	data->changed |= CHANGED_DOTCLOCK;
++	return 0;
++}
++
++/*
++ * Internal Functions
++ */
++
++void
++ibm561_update(vp)
++	void *vp;
++{
++	struct ibm561data *data = (struct ibm561data *)vp;
++	int	i;
++
++	/* XXX see comment above ibm561_cninit() */
++	if (!data)
++		data = saved_console_data;
++
++	if (data->changed & CHANGED_WTYPE) {
++		ibm561_regbegin(data, IBM561_FB_WINTYPE);
++		for (i=0; i < IBM561_NWTYPES; i++)
++			ibm561_regcont10bit(data, IBM561_CMD_FB_WAT, data->wtype[i]);
++
++		/* XXXrcd:  quick hack here for AUX FB table */
++		ibm561_regbegin(data, IBM561_AUXFB_WINTYPE);
++		for (i=0; i < IBM561_NWTYPES; i++)
++			ibm561_regcont(data, IBM561_CMD, 0x04);
++
++		/* XXXrcd:  quick hack here for OL WAT table */
++		ibm561_regbegin(data, IBM561_OL_WINTYPE);
++		for (i=0; i < IBM561_NWTYPES; i++)
++			ibm561_regcont10bit(data, IBM561_CMD_FB_WAT, 0x0231);
++
++		/* XXXrcd:  quick hack here for AUX OL WAT table */
++		ibm561_regbegin(data, IBM561_AUXOL_WINTYPE);
++		for (i=0; i < IBM561_NWTYPES; i++)
++			ibm561_regcont(data, IBM561_CMD, 0x0c);
++	}
++
++	if (data->changed & CHANGED_CMAP)
++		ibm561_load_cmap(data);
++
++	/* XXX:  I am not sure in what situations it is safe to
++	 *       change the dotclock---hope this is good.
++	 */
++	if (data->changed & CHANGED_DOTCLOCK)
++		ibm561_load_dotclock(data);
++}
++
++static void
++ibm561_load_cmap(struct ibm561data *data)
++{
++	int	i;
++
++	ibm561_regbegin(data, IBM561_CMAP_TABLE);
++	for (i=0; i < IBM561_NCMAP_ENTRIES; i++) {
++		ibm561_regcont(data, IBM561_CMD_CMAP, data->cmap_r[i]);
++		ibm561_regcont(data, IBM561_CMD_CMAP, data->cmap_g[i]);
++		ibm561_regcont(data, IBM561_CMD_CMAP, data->cmap_b[i]);
++	}
++
++	ibm561_regbegin(data, IBM561_RED_GAMMA_TABLE);
++	for (i=0; i < 256; i++)
++		ibm561_regcont10bit(data, IBM561_CMD_GAMMA, data->gamma_r[i]);
++
++	ibm561_regbegin(data, IBM561_GREEN_GAMMA_TABLE);
++	for (i=1; i < 256; i++)
++		ibm561_regcont10bit(data, IBM561_CMD_GAMMA, data->gamma_g[i]);
++
++	ibm561_regbegin(data, IBM561_BLUE_GAMMA_TABLE);
++	for (i=1; i < 256; i++)
++		ibm561_regcont10bit(data, IBM561_CMD_GAMMA, data->gamma_b[i]);
++
++}
++
++static void
++ibm561_load_dotclock(struct ibm561data *data)
++{
++	/* XXX
++	 * we should probably be more pro-active here, but it shouldn't
++	 * actually happen...
++	 */
++	if (!data->vco_div || !data->pll_ref || ! data->div_dotclock) {
++		panic("ibm561_load_dotclock: called uninitialized");
++	}
++
++	ibm561_regwr(data, IBM561_PLL_VCO_DIV,  data->vco_div);
++	ibm561_regwr(data, IBM561_PLL_REF_REG, data->pll_ref);
++	ibm561_regwr(data, IBM561_DIV_DOTCLCK, data->div_dotclock);
++}
++
++static void
++ibm561_regcont10bit(struct ibm561data *data, u_int16_t reg, u_int16_t val)
++{
++	data->ramdac_wr(data->cookie, IBM561_CMD_GAMMA, (val >> 2) & 0xff);
++	data->ramdac_wr(data->cookie, IBM561_CMD_GAMMA, (val & 0x3) << 6);
++}
++
++static void
++ibm561_regbegin(struct ibm561data *data, u_int16_t reg)
++{
++	data->ramdac_wr(data->cookie, IBM561_ADDR_LOW, reg & 0xff);
++	data->ramdac_wr(data->cookie, IBM561_ADDR_HIGH, (reg >> 8) & 0xff);
++}
++
++static void
++ibm561_regcont(struct ibm561data *data, u_int16_t reg, u_int8_t val)
++{
++	data->ramdac_wr(data->cookie, reg, val);
++}
++
++static void
++ibm561_regwr(struct ibm561data *data, u_int16_t reg, u_int8_t val)
++{
++	ibm561_regbegin(data, reg);
++	ibm561_regcont(data, IBM561_CMD, val);
++}
+diff -uN dev.old/ic/ibm561reg.h dev/ic/ibm561reg.h
+--- dev.old/ic/ibm561reg.h	Thu Jan  1 01:00:00 1970
++++ dev/ic/ibm561reg.h	Tue Feb 12 14:34:25 2002
+@@ -0,0 +1,80 @@
++/* $NetBSD: ibm561reg.h,v 1.1 2001/12/12 07:46:48 elric Exp $ */
++
++/*-
++ * Copyright (c) 2001 The NetBSD Foundation, Inc.
++ * All rights reserved.
++ *
++ * This code is derived from software contributed to The NetBSD Foundation
++ * by Roland C. Dowdeswell of Ponte, Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. All advertising materials mentioning features or use of this software
++ *    must display the following acknowledgement:
++ *	This product includes software developed by the NetBSD
++ *	Foundation, Inc. and its contributors.
++ * 4. Neither the name of The NetBSD Foundation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
++ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
++ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#define IBM561_ADDR_LOW			0x00
++#define IBM561_ADDR_HIGH		0x01
++#define IBM561_CMD			0x02
++#define IBM561_CMD_FB_WAT		0x03
++#define IBM561_CMD_CMAP			0x03
++#define IBM561_CMD_GAMMA		0x03
++
++#define IBM561_CONFIG_REG1		0x0001
++#define IBM561_CONFIG_REG2		0x0002
++#define IBM561_CONFIG_REG3		0x0003
++#define IBM561_CONFIG_REG4		0x0004
++
++#define IBM561_SYNC_CNTL		0x0020
++#define IBM561_PLL_VCO_DIV		0x0021
++#define IBM561_PLL_REF_REG		0x0022
++#define IBM561_CURS_CNTL_REG		0x0030
++#define IBM561_HOTSPOT_REG		0x0034
++#define IBM561_VRAM_MASK_REG		0x0050
++#define IBM561_DIV_DOTCLCK		0x0082
++#define IBM561_FB_WINTYPE		0x1000
++#define IBM561_AUXFB_WINTYPE		0x0e00
++#define IBM561_OL_WINTYPE		0x1400
++#define IBM561_AUXOL_WINTYPE		0x0f00
++#define IBM561_CMAP_TABLE		0x4000
++#define IBM561_RED_GAMMA_TABLE		0x3000
++#define IBM561_GREEN_GAMMA_TABLE	0x3400
++#define IBM561_BLUE_GAMMA_TABLE		0x3800
++
++#define IBM561_CHROMAKEY0		0x0010
++#define IBM561_CHROMAKEY1		0x0011
++#define IBM561_CHROMAKEYMASK0		0x0012
++#define IBM561_CHROMAKEYMASK1		0x0013
++
++#define IBM561_WAT_SEG_REG		0x0006
++
++#define IBM561_NCMAP_ENTRIES		1024
++#define IBM561_NGAMMA_ENTRIES		256
++
++/* we actually have 1024 of them, but I am just
++ * going define a few, so this is good.
++ */
++#define IBM561_NWTYPES			16
+diff -uN dev.old/ic/ibm561var.h dev/ic/ibm561var.h
+--- dev.old/ic/ibm561var.h	Thu Jan  1 01:00:00 1970
++++ dev/ic/ibm561var.h	Tue Feb 12 14:34:25 2002
+@@ -0,0 +1,47 @@
++/* $NetBSD: ibm561var.h,v 1.1 2001/12/12 07:46:48 elric Exp $ */
++
++/*-
++ * Copyright (c) 2001 The NetBSD Foundation, Inc.
++ * All rights reserved.
++ *
++ * This code is derived from software contributed to The NetBSD Foundation
++ * by Roland C. Dowdeswell of Ponte, Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. All advertising materials mentioning features or use of this software
++ *    must display the following acknowledgement:
++ *	This product includes software developed by the NetBSD
++ *	Foundation, Inc. and its contributors.
++ * 4. Neither the name of The NetBSD Foundation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
++ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
++ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++struct ramdac_funcs *ibm561_funcs(void);
++struct ramdac_cookie *ibm561_register __P((void *,
++	int (*)(void *, void (*)(void *)),
++	void (*)(void *, u_int, u_int8_t),
++	u_int8_t (*)(void *, u_int)));
++void ibm561_cninit __P((void *,
++	int (*)(void *, void (*)(void *)),
++	void (*)(void *, u_int, u_int8_t),
++	u_int8_t (*)(void *, u_int), u_int));
+diff -u dev.old/pci/files.pci dev/pci/files.pci
+--- dev.old/pci/files.pci	Tue Feb 12 16:58:49 2002
++++ dev/pci/files.pci	Tue Feb 12 14:44:04 2002
+@@ -22,6 +22,7 @@
+ file	dev/pci/tga_conf.c		tga
+ file	dev/ic/bt463.c			tga
+ file	dev/ic/bt485.c			tga
++file	dev/ic/ibm561.c			tga
+ 
+ # Cypress 82c693 hyperCache(tm) Stand-Alone PCI Peripheral Controller
+ # with USB.  This is a combo chip:
+diff -u dev.old/pci/tga.c dev/pci/tga.c
+--- dev.old/pci/tga.c	Tue Feb 12 16:56:04 2002
++++ dev/pci/tga.c	Tue Feb 12 16:36:16 2002
+@@ -381,7 +381,10 @@
+ 		return;
+ 	}
+ 	dc->dc_rinfo.ri_wsfcookie = cookie;
+-	rasops_init(rip, 34, 80);
++	/* fill screen size */
++	rasops_init(rip, dc->dc_ht / rip->ri_font->fontheight,
++			dc->dc_wid / rip->ri_font->fontwidth);
++	// rasops_init(rip, 34, 80);
+ 	
+ 	/* add our accelerated functions */
+ 	/* XXX shouldn't have to do this; rasops should leave non-NULL 
+diff -u dev.old/pci/tga_conf.c dev/pci/tga_conf.c
+--- dev.old/pci/tga_conf.c	Tue Feb 12 16:56:03 2002
++++ dev/pci/tga_conf.c	Tue Feb 12 14:34:52 2002
+@@ -1,3 +1,4 @@
++/* $NetBSD: tga_conf.c,v 1.5 2001/11/13 07:48:49 lukem Exp $ */
+ /* $OpenBSD: tga_conf.c,v 1.4 2001/03/18 04:37:21 nate Exp $ */
+ /* $NetBSD: tga_conf.c,v 1.3 2000/03/12 05:32:29 nathanw Exp $ */
+ 
+@@ -37,6 +38,7 @@
+ 
+ #include <dev/ic/bt485var.h>
+ #include <dev/ic/bt463var.h>
++#include <dev/ic/ibm561var.h>
+ 
+ #undef KB
+ #define KB		* 1024
+@@ -114,6 +116,17 @@
+ 		1,	{ 16 MB,    0 },	{ 8 MB,    0 },
+ 		1,	{ 24 MB,    0 },	{ 8 MB,    0 },
+ 	},
++ 	/* TGA_TYPE_POWERSTORM_4D20 */
++ 	/* XXX: These numbers may be incorrect */
++ 	{
++ 		"PS4d20",
++ 		ibm561_funcs,
++ 		32,
++ 		32 MB,
++ 		16 KB,
++ 		1,	{ 16 MB,    0 },	{ 8 MB,    0 },
++ 		1,	{ 24 MB,    0 },	{ 8 MB,    0 },
++	},
+ };
+ 
+ #undef KB
+@@ -125,17 +138,20 @@
+ {
+ 	int type;
+ 	int gder;
++ 	int grev;
+ 	int deep, addrmask, wide;
++ 	int tga2;
+ 
+ 	gder = TGARREG(dc, TGA_REG_GDER);
++ 	grev = TGARREG(dc, TGA_REG_GREV);
+ 
+ 	deep = (gder & 0x1) != 0; /* XXX */
+ 	addrmask = (gder >> 2) & 0x7; /* XXX */
+ 	wide = (gder & 0x200) == 0; /* XXX */
++ 	tga2 = (grev & 0x20) != 0;
+ 
+ 
+ 	type = TGA_TYPE_UNKNOWN;
+-				type = TGA_TYPE_T8_01;
+ 
+ 	if (!deep) {
+ 		/* 8bpp frame buffer */
+@@ -160,6 +176,10 @@
+ 		}
+ 	} else {
+ 		/* 32bpp frame buffer */
++ 		if (addrmask == 0x00 && tga2 && wide) {
++ 			/* My PowerStorm 4d20 shows up this way? */
++ 			type = TGA_TYPE_POWERSTORM_4D20;
++ 		}
+ 
+ 		if (addrmask == 0x3) {
+ 			/* 16MB core map; T32-04 or T32-08 */
+@@ -171,7 +191,7 @@
+ 		} else if (addrmask == 0x7) {
+ 			/* 32MB core map; T32-88 */
+ 
+-			if (wide)			/* sanity */
++ 			if (wide && !tga2)			/* sanity */
+ 				type = TGA_TYPE_T32_88;
+ 		}
+ 	}
+@@ -189,4 +209,3 @@
+ 
+ 	return (NULL);
+ }
+-
+diff -u dev.old/pci/tgavar.h dev/pci/tgavar.h
+--- dev.old/pci/tgavar.h	Tue Feb 12 16:56:03 2002
++++ dev/pci/tgavar.h	Tue Feb 12 14:36:00 2002
+@@ -111,7 +111,8 @@
+ #define	TGA_TYPE_T32_04		4	/* 32bpp, 4MB */
+ #define	TGA_TYPE_T32_08		5	/* 32bpp, 8MB */
+ #define	TGA_TYPE_T32_88		6	/* 32bpp, 16MB */
+-#define	TGA_TYPE_UNKNOWN	7	/* unknown */
++#define	TGA_TYPE_POWERSTORM_4D20	7	/* unknown */
++#define	TGA_TYPE_UNKNOWN	8	/* unknown */
+ 
+ #define	DEVICE_IS_TGA(class, id)					\
+ 	    (((PCI_VENDOR(id) == PCI_VENDOR_DEC &&			\
+From openbsd-alpha  Tue Feb 12 21:02:44 2002
+From: Miod Vallat <miod () online ! fr>
+Date: Tue, 12 Feb 2002 21:02:44 +0000
+To: openbsd-alpha
+Subject: Re: DEC Powerstorm 4D20
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=101354766629042
+
+> anyhow, this is still a bit of a mess, so maybe someone could test it
+> on his box? diffs appended below sig.
+If you really want people to play with your diff, I strongly advise you
+to use an email client that does not convert tabs to spaces behind your
+back.
+
+Miod
+From openbsd-alpha  Tue Feb 12 17:20:37 2002
+From: Nils Frohberg <nilsf () tako ! de>
+Date: Tue, 12 Feb 2002 17:20:37 +0000
+To: openbsd-alpha
+Subject: DEC Powerstorm 4D20
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=101353443224071
+
+hi,
+
+i just started getting some of the newest netbsd tga code to run on
+my openbsd box. up to now i only used elric's updates so that my
+powerstorm would be recognized, and removed the fixed text-console
+size (80x34 iirc) in order to use the full resolution. since i don't
+have any documentation on the card apart from tga(4), i'm still kind
+of puzzling about some stuff. e.g., i got the card to work in 640x480
+and 800x600, but nothing above (although my screen should be able to
+display 1280x1024 at 75h, 60h easily).
+
+anyhow, this is still a bit of a mess, so maybe someone could test it
+on his box? diffs appended below sig.
+
+--nils
+
+btw, got X to run on it too :), and maybe someone has a hint for me
+on how to hanlde the copyright notices? i just left the original ones
+in the files up to now
+
+-- 
+Nils Frohberg
+GPG Key: email nilsf@tako.de with Subject: GET GPG KEY
+GPG Key: http://www.nils-frohberg.de/gpgpub.txt
+
+"The truth is, that those who have never entered upon scientific pursuits
+ know not a tithe about the poetry by which they are surrounded."
+                                                       -- Herbert Spencer
+
+
+diff -uN dev.old/ic/ibm561.c dev/ic/ibm561.c
+--- dev.old/ic/ibm561.c Thu Jan  1 01:00:00 1970
++++ dev/ic/ibm561.c     Tue Feb 12 14:54:48 2002
+@@ -0,0 +1,523 @@
++/* $NetBSD: ibm561.c,v 1.1 2001/12/12 07:46:48 elric Exp $ */
++
++/*-
++ * Copyright (c) 2001 The NetBSD Foundation, Inc.
++ * All rights reserved.
++ *
++ * This code is derived from software contributed to The NetBSD Foundation
++ * by Roland C. Dowdeswell of Ponte, Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. All advertising materials mentioning features or use of this software
++ *    must display the following acknowledgement:
++ *     This product includes software developed by the NetBSD
++ *     Foundation, Inc. and its contributors.
++ * 4. Neither the name of The NetBSD Foundation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
++ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
++ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include <sys/param.h>
++#include <sys/systm.h>
++#include <sys/device.h>
++#include <sys/buf.h>
++#include <sys/kernel.h>
++#include <sys/malloc.h>
++
++#include <uvm/uvm_extern.h>
++
++#include <dev/pci/pcivar.h>
++#include <dev/ic/ibm561reg.h>
++#include <dev/ic/ibm561var.h>
++#include <dev/ic/ramdac.h>
++
++#include <dev/wscons/wsconsio.h>
++
++/*
++ * Functions exported via the RAMDAC configuration table.
++ */
++void   ibm561_init __P((struct ramdac_cookie *));
++int    ibm561_set_cmap __P((struct ramdac_cookie *,
++           struct wsdisplay_cmap *));
++int    ibm561_get_cmap __P((struct ramdac_cookie *,
++           struct wsdisplay_cmap *));
++int    ibm561_set_cursor __P((struct ramdac_cookie *,
++           struct wsdisplay_cursor *));
++int    ibm561_get_cursor __P((struct ramdac_cookie *,
++           struct wsdisplay_cursor *));
++int    ibm561_set_curpos __P((struct ramdac_cookie *,
++           struct wsdisplay_curpos *));
++int    ibm561_get_curpos __P((struct ramdac_cookie *,
++           struct wsdisplay_curpos *));
++int    ibm561_get_curmax __P((struct ramdac_cookie *,
++           struct wsdisplay_curpos *));
++int    ibm561_set_dotclock __P((struct ramdac_cookie *,
++           unsigned));
++
++/* XXX const */
++struct ramdac_funcs ibm561_funcsstruct = {
++       "IBM561",
++       ibm561_register,
++       ibm561_init,
++       ibm561_set_cmap,
++       ibm561_get_cmap,
++       ibm561_set_cursor,
++       ibm561_get_cursor,
++       ibm561_set_curpos,
++       ibm561_get_curpos,
++       ibm561_get_curmax,
++       NULL,                   /* check_curcmap; not needed */
++       NULL,                   /* set_curcmap; not needed */
++       NULL,                   /* get_curcmap; not needed */
++       // ibm561_set_dotclock, /* smaller struct than in NetBSD XXX */
++};
++ 
++/*
++ * Private data.
++ */
++struct ibm561data {
++       void            *cookie;
++ 
++       int             (*ramdac_sched_update) __P((void *, void (*)(void *)));
++       void            (*ramdac_wr) __P((void *, u_int, u_int8_t));
++       u_int8_t        (*ramdac_rd) __P((void *, u_int));
++ 
++#define CHANGED_CURCMAP                0x0001  /* cursor cmap */
++#define CHANGED_CMAP           0x0002  /* color map */
++#define CHANGED_WTYPE          0x0004  /* window types */
++#define CHANGED_DOTCLOCK       0x0008  /* dot clock */
++#define CHANGED_ALL            0x000f  /* or of all above */
++       u_int8_t        changed;
++   
++       /* dotclock parameters */
++       u_int8_t        vco_div;
++       u_int8_t        pll_ref;
++       u_int8_t        div_dotclock;
++
++       /* colormaps et al. */
++       u_int8_t        curcmap_r[2];
++       u_int8_t        curcmap_g[2];
++       u_int8_t        curcmap_b[2];
++
++       u_int8_t        cmap_r[IBM561_NCMAP_ENTRIES];
++       u_int8_t        cmap_g[IBM561_NCMAP_ENTRIES];
++       u_int8_t        cmap_b[IBM561_NCMAP_ENTRIES];
++
++       u_int16_t       gamma_r[IBM561_NGAMMA_ENTRIES];
++       u_int16_t       gamma_g[IBM561_NGAMMA_ENTRIES];
++       u_int16_t       gamma_b[IBM561_NGAMMA_ENTRIES];
++  
++       u_int16_t       wtype[IBM561_NWTYPES];
++}; 
++
++/*
++ * private functions
++ */
++void   ibm561_update __P((void *));
++static void ibm561_load_cmap(struct ibm561data *);   
++static void ibm561_load_dotclock(struct ibm561data *);
++static void ibm561_regbegin(struct ibm561data *, u_int16_t);
++static void ibm561_regcont(struct ibm561data *, u_int16_t, u_int8_t);
++static void ibm561_regcont10bit(struct ibm561data *, u_int16_t, u_int16_t);
++static void ibm561_regwr(struct ibm561data *, u_int16_t, u_int8_t);
++
++struct ramdac_funcs *
++ibm561_funcs(void)
++{
++       return &ibm561_funcsstruct;
++}
++
++struct ramdac_cookie *
++ibm561_register(v, sched_update, wr, rd)  
++       void *v; 
++       int (*sched_update)(void *, void (*)(void *));
++       void (*wr)(void *, u_int, u_int8_t);
++       u_int8_t (*rd)(void *, u_int);
++{
++       struct ibm561data *data;
++       
++       data = malloc(sizeof *data, M_DEVBUF, M_WAITOK); // XXX |M_ZERO);
++       data->cookie = v; 
++       data->ramdac_sched_update = sched_update;
++       data->ramdac_wr = wr;
++       data->ramdac_rd = rd;
++       return (struct ramdac_cookie *)data;
++}
++  
++/*
++ * This function exists solely to provide a means to init
++ * the RAMDAC without first registering.  It is useful for
++ * initializing the console early on.
++ */
++       
++struct ibm561data *saved_console_data;
++       
++void
++ibm561_cninit(v, sched_update, wr, rd, dotclock)
++       void *v;
++       int (*sched_update)(void *, void (*)(void *));
++       void (*wr)(void *, u_int, u_int8_t);
++       u_int8_t (*rd)(void *, u_int);
++       u_int dotclock;
++{
++       struct ibm561data tmp, *data = &tmp;
++       memset(data, 0x0, sizeof *data);
++       data->cookie = v;
++       data->ramdac_sched_update = sched_update;
++       data->ramdac_wr = wr;
++       data->ramdac_rd = rd;
++       ibm561_set_dotclock((struct ramdac_cookie *)data, dotclock);
++       saved_console_data = data;
++       ibm561_init((struct ramdac_cookie *)data);
++       saved_console_data = NULL;
++}
++
++void
++ibm561_init(rc)
++       struct ramdac_cookie *rc;
++{
++       struct  ibm561data *data = (struct ibm561data *)rc;
++       int     i;
++
++       /* XXX this is _essential_ */
++       
++       ibm561_load_dotclock(data);
++
++       /* XXXrcd: bunch of magic of which I have no current clue */
++       ibm561_regwr(data, IBM561_CONFIG_REG1, 0x2a);
++       ibm561_regwr(data, IBM561_CONFIG_REG3, 0x41);
++       ibm561_regwr(data, IBM561_CONFIG_REG4, 0x20);
++
++       /* initialize the card a bit */
++       ibm561_regwr(data, IBM561_SYNC_CNTL, 0x1);
++       ibm561_regwr(data, IBM561_CONFIG_REG2, 0x19);
++
++       ibm561_regwr(data, IBM561_CONFIG_REG1, 0x2a);
++       ibm561_regwr(data, IBM561_CONFIG_REG4, 0x20);
++
++       ibm561_regbegin(data, IBM561_WAT_SEG_REG);
++       ibm561_regcont(data, IBM561_CMD, 0x00);
++       ibm561_regcont(data, IBM561_CMD, 0x00);
++       ibm561_regcont(data, IBM561_CMD, 0x00);
++       ibm561_regcont(data, IBM561_CMD, 0x00);
++       ibm561_regbegin(data, IBM561_CHROMAKEY0);
++       ibm561_regcont(data, IBM561_CMD, 0x00);
++       ibm561_regcont(data, IBM561_CMD, 0x00);
++       ibm561_regcont(data, IBM561_CMD, 0x00);
++       ibm561_regcont(data, IBM561_CMD, 0x00);
++       
++       ibm561_regwr(data, IBM561_CURS_CNTL_REG, 0x00); /* XXX off? */
++       
++       /* cursor `hot spot' registers */
++       ibm561_regbegin(data, IBM561_HOTSPOT_REG);
++       ibm561_regcont(data, IBM561_CMD, 0x00);
++       ibm561_regcont(data, IBM561_CMD, 0x00);
++       ibm561_regcont(data, IBM561_CMD, 0xff);
++       ibm561_regcont(data, IBM561_CMD, 0x00);
++       ibm561_regcont(data, IBM561_CMD, 0xff);
++       ibm561_regcont(data, IBM561_CMD, 0x00);
++  
++       /* VRAM Mask Registers (diagnostics) */
++       ibm561_regbegin(data, IBM561_VRAM_MASK_REG);
++       ibm561_regcont(data, IBM561_CMD, 0xff);
++       ibm561_regcont(data, IBM561_CMD, 0xff);
++       ibm561_regcont(data, IBM561_CMD, 0xff);
++       ibm561_regcont(data, IBM561_CMD, 0xff);
++       ibm561_regcont(data, IBM561_CMD, 0xff);
++       ibm561_regcont(data, IBM561_CMD, 0xff);
++       ibm561_regcont(data, IBM561_CMD, 0xff);
++
++       /* let's set up some decent default colour maps and gammas */
++       for (i=0; i < IBM561_NCMAP_ENTRIES; i++)
++               data->cmap_r[i] = data->cmap_g[i] = data->cmap_b[i] = 0xff;
++       data->cmap_r[0]   = data->cmap_g[0]   = data->cmap_b[0]   = 0x00;
++       data->cmap_r[256] = data->cmap_g[256] = data->cmap_b[256] = 0x00;
++       data->cmap_r[512] = data->cmap_g[512] = data->cmap_b[512] = 0x00;
++       data->cmap_r[768] = data->cmap_g[768] = data->cmap_b[768] = 0x00;
++   
++       data->gamma_r[0] = data->gamma_g[0] = data->gamma_b[0] = 0x00;
++       for (i=0; i < IBM561_NGAMMA_ENTRIES; i++)
++               data->gamma_r[i] = data->gamma_g[i] = data->gamma_b[i] = 0xff;
++       
++       for (i=0; i < IBM561_NWTYPES; i++)
++               data->wtype[i] = 0x0036;
++       data->wtype[1] = 0x0028;
++
++       /* the last step: */
++       data->changed = CHANGED_ALL;
++       data->ramdac_sched_update(data->cookie, ibm561_update);
++}
++
++int 
++ibm561_set_cmap(rc, cmapp)
++       struct ramdac_cookie *rc;
++       struct wsdisplay_cmap *cmapp;
++{
++       struct ibm561data *data = (struct ibm561data *)rc;
++       int count;
++       int index;
++       int s;
++       
++       if ((u_int)cmapp->index >= IBM561_NCMAP_ENTRIES ||
++           ((u_int)cmapp->index + (u_int)cmapp->count) > IBM561_NCMAP_ENTRIES)
++               return (EINVAL);
++       if (!uvm_useracc(cmapp->red, cmapp->count, B_READ) ||
++           !uvm_useracc(cmapp->green, cmapp->count, B_READ) ||
++           !uvm_useracc(cmapp->blue, cmapp->count, B_READ))
++               return (EFAULT);
++       
++       s = spltty();
++       index = cmapp->index;
++       count = cmapp->count;
++       copyin(cmapp->red, &data->cmap_r[index], count);
++       copyin(cmapp->green, &data->cmap_g[index], count);
++       copyin(cmapp->blue, &data->cmap_b[index], count);
++       data->changed |= CHANGED_CMAP;
++       data->ramdac_sched_update(data->cookie, ibm561_update);
++       splx(s);
++       return (0);
++}
++       
++int    
++ibm561_get_cmap(rc, cmapp)
++       struct ramdac_cookie *rc;
++       struct wsdisplay_cmap *cmapp;
++{
++       struct ibm561data *data = (struct ibm561data *)rc;
++       int error;
++       int count;
++       int index;
++       
++       if ((u_int)cmapp->index >= IBM561_NCMAP_ENTRIES ||
++           ((u_int)cmapp->index + (u_int)cmapp->count) > IBM561_NCMAP_ENTRIES)
++               return (EINVAL);
++       count = cmapp->count;
++       index = cmapp->index;
++       error = copyout(&data->cmap_r[index], cmapp->red, count);
++       if (error)
++               return (error);
++       error = copyout(&data->cmap_g[index], cmapp->green, count);
++       if (error)
++               return (error);
++       error = copyout(&data->cmap_b[index], cmapp->blue, count);
++       return (error);
++}
++               
++/*
++ * XXX:
++ *  I am leaving these functions returning EINVAL, as they are
++ *  not strictly necessary for the correct functioning of the
++ *  card and in fact are not used on the other TGA variants, except
++ *  they are exported via ioctl(2) to userland, which does not in
++ *  fact use them.
++ */
++       
++int
++ibm561_set_cursor(rc, cursorp)
++       struct ramdac_cookie *rc;
++       struct wsdisplay_cursor *cursorp;
++{
++       return EINVAL;
++}
++ 
++int
++ibm561_get_cursor(rc, cursorp)
++       struct ramdac_cookie *rc;
++       struct wsdisplay_cursor *cursorp;
++{
++       return EINVAL;
++}
++       
++int
++ibm561_set_curpos(rc, curposp)
++       struct ramdac_cookie *rc;
++       struct wsdisplay_curpos *curposp;
++{
++       return EINVAL;
++}
++           
++int
++ibm561_get_curpos(rc, curposp) 
++       struct ramdac_cookie *rc;
++       struct wsdisplay_curpos *curposp;
++{
++       return EINVAL;
++}
++       
++int
++ibm561_get_curmax(rc, curposp)
++       struct ramdac_cookie *rc;
++       struct wsdisplay_curpos *curposp;
++{
++       return EINVAL;
++}      
++       
++int
++ibm561_set_dotclock(rc, dotclock)
++       struct ramdac_cookie *rc;
++       unsigned dotclock;
++{
++       struct ibm561data *data = (struct ibm561data *)rc;
++       
++       /* XXXrcd:  a couple of these are a little hazy, vis a vis
++        *          check 175MHz and 202MHz, which are wrong...
++        */
++       switch (dotclock) {
++       case  25175000: data->vco_div = 0x3e; data->pll_ref = 0x09; break;
++       case  31500000: data->vco_div = 0x17; data->pll_ref = 0x05; break;
++       case  40000000: data->vco_div = 0x42; data->pll_ref = 0x06; break;
++       case  50000000: data->vco_div = 0x45; data->pll_ref = 0x05; break;
++       case  65000000: data->vco_div = 0xac; data->pll_ref = 0x0c; break;
++       case  69000000: data->vco_div = 0xa9; data->pll_ref = 0x0b; break;
++       case  74000000: data->vco_div = 0x9c; data->pll_ref = 0x09; break;
++       case  75000000: data->vco_div = 0x93; data->pll_ref = 0x08; break;
++       case 103994000: data->vco_div = 0x96; data->pll_ref = 0x06; break;
++       case 108180000: data->vco_div = 0xb8; data->pll_ref = 0x08; break;
++       case 110000000: data->vco_div = 0xba; data->pll_ref = 0x08; break;
++       case 119840000: data->vco_div = 0x82; data->pll_ref = 0x04; break;
++       case 130808000: data->vco_div = 0xc8; data->pll_ref = 0x08; break;
++       case 135000000: data->vco_div = 0xc1; data->pll_ref = 0x07; break;
++       case 175000000: data->vco_div = 0xe2; data->pll_ref = 0x07; break;
++       case 202500000: data->vco_div = 0xe2; data->pll_ref = 0x07; break;
++       default:
++               return EINVAL;
++       }
++ 
++       data->div_dotclock = 0xb0;
++       data->changed |= CHANGED_DOTCLOCK;
++       return 0;
++}
++
++/*
++ * Internal Functions
++ */
++ 
++void
++ibm561_update(vp)
++       void *vp;
++{
++       struct ibm561data *data = (struct ibm561data *)vp;
++       int     i;
++ 
++       /* XXX see comment above ibm561_cninit() */
++       if (!data)
++               data = saved_console_data;
++
++       if (data->changed & CHANGED_WTYPE) {
++               ibm561_regbegin(data, IBM561_FB_WINTYPE);
++               for (i=0; i < IBM561_NWTYPES; i++)
++                       ibm561_regcont10bit(data, IBM561_CMD_FB_WAT, data->wtype[i]);
++           
++               /* XXXrcd:  quick hack here for AUX FB table */
++               ibm561_regbegin(data, IBM561_AUXFB_WINTYPE);
++               for (i=0; i < IBM561_NWTYPES; i++)
++                       ibm561_regcont(data, IBM561_CMD, 0x04);
++ 
++               /* XXXrcd:  quick hack here for OL WAT table */
++               ibm561_regbegin(data, IBM561_OL_WINTYPE);
++               for (i=0; i < IBM561_NWTYPES; i++)
++                       ibm561_regcont10bit(data, IBM561_CMD_FB_WAT, 0x0231);
++
++               /* XXXrcd:  quick hack here for AUX OL WAT table */
++               ibm561_regbegin(data, IBM561_AUXOL_WINTYPE);
++               for (i=0; i < IBM561_NWTYPES; i++)
++                       ibm561_regcont(data, IBM561_CMD, 0x0c);
++       }
++       
++       if (data->changed & CHANGED_CMAP)
++               ibm561_load_cmap(data);
++       
++       /* XXX:  I am not sure in what situations it is safe to
++        *       change the dotclock---hope this is good.
++        */
++       if (data->changed & CHANGED_DOTCLOCK)
++               ibm561_load_dotclock(data);
++}
++          
++static void
++ibm561_load_cmap(struct ibm561data *data)
++{
++       int     i;
++       
++       ibm561_regbegin(data, IBM561_CMAP_TABLE);
++       for (i=0; i < IBM561_NCMAP_ENTRIES; i++) {
++               ibm561_regcont(data, IBM561_CMD_CMAP, data->cmap_r[i]);
++               ibm561_regcont(data, IBM561_CMD_CMAP, data->cmap_g[i]);
++               ibm561_regcont(data, IBM561_CMD_CMAP, data->cmap_b[i]);
++       }
++ 
++       ibm561_regbegin(data, IBM561_RED_GAMMA_TABLE);
++       for (i=0; i < 256; i++)
++               ibm561_regcont10bit(data, IBM561_CMD_GAMMA, data->gamma_r[i]);
++       
++       ibm561_regbegin(data, IBM561_GREEN_GAMMA_TABLE);
++       for (i=1; i < 256; i++)
++               ibm561_regcont10bit(data, IBM561_CMD_GAMMA, data->gamma_g[i]);
++        
++       ibm561_regbegin(data, IBM561_BLUE_GAMMA_TABLE);
++       for (i=1; i < 256; i++)   
++               ibm561_regcont10bit(data, IBM561_CMD_GAMMA, data->gamma_b[i]);
++       
++}
++
++static void
++ibm561_load_dotclock(struct ibm561data *data)
++{  
++       /* XXX
++        * we should probably be more pro-active here, but it shouldn't
++        * actually happen...
++        */
++       if (!data->vco_div || !data->pll_ref || ! data->div_dotclock) {
++               panic("ibm561_load_dotclock: called uninitialized");
++       }
++ 
++       ibm561_regwr(data, IBM561_PLL_VCO_DIV,  data->vco_div);
++       ibm561_regwr(data, IBM561_PLL_REF_REG, data->pll_ref);
++       ibm561_regwr(data, IBM561_DIV_DOTCLCK, data->div_dotclock);
++}
++       
++static void
++ibm561_regcont10bit(struct ibm561data *data, u_int16_t reg, u_int16_t val)
++{
++       data->ramdac_wr(data->cookie, IBM561_CMD_GAMMA, (val >> 2) & 0xff);
++       data->ramdac_wr(data->cookie, IBM561_CMD_GAMMA, (val & 0x3) << 6);
++}
++               
++static void
++ibm561_regbegin(struct ibm561data *data, u_int16_t reg)
++{
++       data->ramdac_wr(data->cookie, IBM561_ADDR_LOW, reg & 0xff);
++       data->ramdac_wr(data->cookie, IBM561_ADDR_HIGH, (reg >> 8) & 0xff);
++}
++   
++static void
++ibm561_regcont(struct ibm561data *data, u_int16_t reg, u_int8_t val)
++{
++       data->ramdac_wr(data->cookie, reg, val);  
++}
++        
++static void
++ibm561_regwr(struct ibm561data *data, u_int16_t reg, u_int8_t val)
++{
++       ibm561_regbegin(data, reg);
++       ibm561_regcont(data, IBM561_CMD, val);
++}
+diff -uN dev.old/ic/ibm561reg.h dev/ic/ibm561reg.h
+--- dev.old/ic/ibm561reg.h      Thu Jan  1 01:00:00 1970
++++ dev/ic/ibm561reg.h  Tue Feb 12 14:34:25 2002
+@@ -0,0 +1,80 @@
++/* $NetBSD: ibm561reg.h,v 1.1 2001/12/12 07:46:48 elric Exp $ */
++
++/*-
++ * Copyright (c) 2001 The NetBSD Foundation, Inc.
++ * All rights reserved.
++ *     
++ * This code is derived from software contributed to The NetBSD Foundation
++ * by Roland C. Dowdeswell of Ponte, Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without 
++ * modification, are permitted provided that the following conditions 
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. All advertising materials mentioning features or use of this software
++ *    must display the following acknowledgement:
++ *     This product includes software developed by the NetBSD
++ *     Foundation, Inc. and its contributors.
++ * 4. Neither the name of The NetBSD Foundation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *     
++ * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
++ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
++ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++ 
++#define IBM561_ADDR_LOW                        0x00
++#define IBM561_ADDR_HIGH               0x01
++#define IBM561_CMD                     0x02
++#define IBM561_CMD_FB_WAT              0x03
++#define IBM561_CMD_CMAP                        0x03
++#define IBM561_CMD_GAMMA               0x03
++
++#define IBM561_CONFIG_REG1             0x0001
++#define IBM561_CONFIG_REG2             0x0002
++#define IBM561_CONFIG_REG3             0x0003
++#define IBM561_CONFIG_REG4             0x0004
++               
++#define IBM561_SYNC_CNTL               0x0020
++#define IBM561_PLL_VCO_DIV             0x0021
++#define IBM561_PLL_REF_REG             0x0022
++#define IBM561_CURS_CNTL_REG           0x0030
++#define IBM561_HOTSPOT_REG             0x0034
++#define IBM561_VRAM_MASK_REG           0x0050
++#define IBM561_DIV_DOTCLCK             0x0082
++#define IBM561_FB_WINTYPE              0x1000
++#define IBM561_AUXFB_WINTYPE           0x0e00
++#define IBM561_OL_WINTYPE              0x1400
++#define IBM561_AUXOL_WINTYPE           0x0f00    
++#define IBM561_CMAP_TABLE              0x4000
++#define IBM561_RED_GAMMA_TABLE         0x3000
++#define IBM561_GREEN_GAMMA_TABLE       0x3400
++#define IBM561_BLUE_GAMMA_TABLE                0x3800
++ 
++#define IBM561_CHROMAKEY0              0x0010
++#define IBM561_CHROMAKEY1              0x0011
++#define IBM561_CHROMAKEYMASK0          0x0012
++#define IBM561_CHROMAKEYMASK1          0x0013
++
++#define IBM561_WAT_SEG_REG             0x0006
++
++#define IBM561_NCMAP_ENTRIES           1024
++#define IBM561_NGAMMA_ENTRIES          256
++
++/* we actually have 1024 of them, but I am just
++ * going define a few, so this is good.
++ */
++#define IBM561_NWTYPES                 16
+diff -uN dev.old/ic/ibm561var.h dev/ic/ibm561var.h
+--- dev.old/ic/ibm561var.h      Thu Jan  1 01:00:00 1970
++++ dev/ic/ibm561var.h  Tue Feb 12 14:34:25 2002
+@@ -0,0 +1,47 @@
++/* $NetBSD: ibm561var.h,v 1.1 2001/12/12 07:46:48 elric Exp $ */
++
++/*-
++ * Copyright (c) 2001 The NetBSD Foundation, Inc.
++ * All rights reserved.
++ *     
++ * This code is derived from software contributed to The NetBSD Foundation
++ * by Roland C. Dowdeswell of Ponte, Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without 
++ * modification, are permitted provided that the following conditions 
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. All advertising materials mentioning features or use of this software
++ *    must display the following acknowledgement:
++ *     This product includes software developed by the NetBSD
++ *     Foundation, Inc. and its contributors.
++ * 4. Neither the name of The NetBSD Foundation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *     
++ * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
++ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
++ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++ 
++struct ramdac_funcs *ibm561_funcs(void);
++struct ramdac_cookie *ibm561_register __P((void *,
++       int (*)(void *, void (*)(void *)),
++       void (*)(void *, u_int, u_int8_t),
++       u_int8_t (*)(void *, u_int)));
++void ibm561_cninit __P((void *,
++       int (*)(void *, void (*)(void *)),
++       void (*)(void *, u_int, u_int8_t),
++       u_int8_t (*)(void *, u_int), u_int));
+diff -u dev.old/pci/files.pci dev/pci/files.pci
+--- dev.old/pci/files.pci       Tue Feb 12 16:58:49 2002
++++ dev/pci/files.pci   Tue Feb 12 14:44:04 2002
+@@ -22,6 +22,7 @@
+ file   dev/pci/tga_conf.c              tga
+ file   dev/ic/bt463.c                  tga
+ file   dev/ic/bt485.c                  tga
++file   dev/ic/ibm561.c                 tga
+
+ # Cypress 82c693 hyperCache(tm) Stand-Alone PCI Peripheral Controller
+ # with USB.  This is a combo chip:
+diff -u dev.old/pci/tga.c dev/pci/tga.c
+--- dev.old/pci/tga.c   Tue Feb 12 16:56:04 2002
++++ dev/pci/tga.c       Tue Feb 12 16:36:16 2002
+@@ -381,7 +381,10 @@
+                return;
+        }
+        dc->dc_rinfo.ri_wsfcookie = cookie;
+-       rasops_init(rip, 34, 80);
++       /* fill screen size */
++       rasops_init(rip, dc->dc_ht / rip->ri_font->fontheight,
++                       dc->dc_wid / rip->ri_font->fontwidth);
++       // rasops_init(rip, 34, 80);
+
+        /* add our accelerated functions */
+        /* XXX shouldn't have to do this; rasops should leave non-NULL
+diff -u dev.old/pci/tga_conf.c dev/pci/tga_conf.c
+--- dev.old/pci/tga_conf.c      Tue Feb 12 16:56:03 2002
++++ dev/pci/tga_conf.c  Tue Feb 12 14:34:52 2002
+@@ -1,3 +1,4 @@
++/* $NetBSD: tga_conf.c,v 1.5 2001/11/13 07:48:49 lukem Exp $ */
+ /* $OpenBSD: tga_conf.c,v 1.4 2001/03/18 04:37:21 nate Exp $ */
+ /* $NetBSD: tga_conf.c,v 1.3 2000/03/12 05:32:29 nathanw Exp $ */
+
+@@ -37,6 +38,7 @@
+
+ #include <dev/ic/bt485var.h>
+ #include <dev/ic/bt463var.h>
++#include <dev/ic/ibm561var.h>
+
+ #undef KB
+ #define KB             * 1024
+@@ -114,6 +116,17 @@
+                1,      { 16 MB,    0 },        { 8 MB,    0 },
+                1,      { 24 MB,    0 },        { 8 MB,    0 },
+        },
++       /* TGA_TYPE_POWERSTORM_4D20 */
++       /* XXX: These numbers may be incorrect */
++       {
++               "PS4d20",
++               ibm561_funcs,
++               32,
++               32 MB,
++               16 KB,
++               1,      { 16 MB,    0 },        { 8 MB,    0 },
++               1,      { 24 MB,    0 },        { 8 MB,    0 },
++       },
+ };
+
+ #undef KB
+@@ -125,17 +138,20 @@
+ {
+        int type;
+        int gder;
++       int grev;
+        int deep, addrmask, wide;
++       int tga2;
+
+        gder = TGARREG(dc, TGA_REG_GDER);
++       grev = TGARREG(dc, TGA_REG_GREV);
+
+        deep = (gder & 0x1) != 0; /* XXX */
+        addrmask = (gder >> 2) & 0x7; /* XXX */
+        wide = (gder & 0x200) == 0; /* XXX */
++       tga2 = (grev & 0x20) != 0;
+
+
+        type = TGA_TYPE_UNKNOWN;
+-                               type = TGA_TYPE_T8_01;
+ 
+        if (!deep) {
+                /* 8bpp frame buffer */
+@@ -160,6 +176,10 @@
+                }
+        } else {
+                /* 32bpp frame buffer */
++               if (addrmask == 0x00 && tga2 && wide) {
++                       /* My PowerStorm 4d20 shows up this way? */
++                       type = TGA_TYPE_POWERSTORM_4D20;
++               }
+
+                if (addrmask == 0x3) {
+                        /* 16MB core map; T32-04 or T32-08 */  
+@@ -171,7 +191,7 @@
+                } else if (addrmask == 0x7) {
+                        /* 32MB core map; T32-88 */
+
+-                       if (wide)                       /* sanity */
++                       if (wide && !tga2)                      /* sanity */
+                                type = TGA_TYPE_T32_88;
+                }
+        }
+@@ -189,4 +209,3 @@
+
+        return (NULL);
+ } 
+-
+diff -u dev.old/pci/tgavar.h dev/pci/tgavar.h
+--- dev.old/pci/tgavar.h        Tue Feb 12 16:56:03 2002
++++ dev/pci/tgavar.h    Tue Feb 12 14:36:00 2002
+@@ -111,7 +111,8 @@
+ #define        TGA_TYPE_T32_04         4       /* 32bpp, 4MB */
+ #define        TGA_TYPE_T32_08         5       /* 32bpp, 8MB */
+ #define        TGA_TYPE_T32_88         6       /* 32bpp, 16MB */
+-#define        TGA_TYPE_UNKNOWN        7       /* unknown */
++#define        TGA_TYPE_POWERSTORM_4D20        7       /* unknown */
++#define        TGA_TYPE_UNKNOWN        8       /* unknown */
+
+ #define        DEVICE_IS_TGA(class, id)
+\
+            (((PCI_VENDOR(id) == PCI_VENDOR_DEC &&                      \
+From openbsd-alpha  Sun Feb 03 19:27:45 2002
+From: "Diana Eichert" <deicher () sandia ! gov>
+Date: Sun, 03 Feb 2002 19:27:45 +0000
+To: openbsd-alpha
+Subject: Success Re: IEEE FP support
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=101276447813057
+
+I just wanted to publicly give thanks to Peter Valchev 
+for adding support of IEEE FP to the Alpha architecture.
+
+Peter thanks alot.
+
+diana

@@ -1,0 +1,3210 @@
+From rat@cynical.org  Sun Aug 4 14:31:11 1996
+From: The Terminator rAT <rat@cynical.org>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 04 Aug 1996 14:31:11 +0000
+Subject: DEC Multia/166 Video Shift
+
+Greetings!  I am the proud owner of a DEC Multia/166 running NetBSD 1.2A.
+The machine runs well, but the video output has three distinct horizontal
+offsets and widths.  The Alpha is connected to a MAG 19" multisync monitor.
+I have adjusted the horizontal width and offset on the monitor to display
+the console correctly (i.e. full width and height and centered).
+
+When the machine is booted, the SRM console prompt appears offset to the
+left of the screen by several character widths, as is the initial boot 
+loader output.
+
+After the NetBSD kernel changes the console to "Sun" mode, the text is 
+shifted to the right a bit.  The text of the boot messages is correctly
+centered on the screen (because I've adjusted the monitor to do so).
+
+Upon starting X, the X server screen extends off the left and right of the
+monitor screen.  The change is large enough that I cannot adjust my monitor
+to fit the entire screen into the phosphor area.
+
+The vertical height/offset seems to remain unchanged through these three
+changes.  The actual horizontal offset seems to vary slightly each time the
+machine is booted.
+
+I have tried playing with the '-dpi xxx' flag on the Xserver to attempt to
+fix this problem, without success.  Without a '-dpi 100' switch, xdpyinfo
+returns a 90x90 dpi.  This problem occurred both with my own machine, and
+also with the machine Jason Thorpe lent me (thanks!).
+
+Is anyone else seeing this problem?  Can anyone suggest a fix for it?  I'm
+really getting tired of playing with the offsets on the monitor everytime
+I switch between X, the console and the boot ROM.
+
+Thanks!
+
+	-rAT
+
+O----O The Terminator rAT - rat@cynical.org - The Cynical Software Foundation
+ \oO/
+==\/==                            Oiwuetnbiset!
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Sun Aug 4 19:05:53 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: rat@cynical.org
+Date: Sun, 04 Aug 1996 19:05:53 +0000
+Subject: Re: DEC Multia/166 Video Shift
+
+> Greetings!  I am the proud owner of a DEC Multia/166 running NetBSD 1.2A.
+> The machine runs well, but the video output has three distinct horizontal
+> offsets and widths.  The Alpha is connected to a MAG 19" multisync monitor.
+> I have adjusted the horizontal width and offset on the monitor to display
+> the console correctly (i.e. full width and height and centered).
+> 
+> When the machine is booted, the SRM console prompt appears offset to the
+> left of the screen by several character widths, as is the initial boot 
+> loader output.
+> 
+> After the NetBSD kernel changes the console to "Sun" mode, the text is 
+> shifted to the right a bit.  The text of the boot messages is correctly
+> centered on the screen (because I've adjusted the monitor to do so).
+> 
+> Upon starting X, the X server screen extends off the left and right of the
+> monitor screen.  The change is large enough that I cannot adjust my monitor
+> to fit the entire screen into the phosphor area.
+> 
+> The vertical height/offset seems to remain unchanged through these three
+> changes.  The actual horizontal offset seems to vary slightly each time the
+> machine is booted.
+> 
+> I have tried playing with the '-dpi xxx' flag on the Xserver to attempt to
+> fix this problem, without success.  Without a '-dpi 100' switch, xdpyinfo
+> returns a 90x90 dpi.  This problem occurred both with my own machine, and
+> also with the machine Jason Thorpe lent me (thanks!).
+> 
+> Is anyone else seeing this problem?  Can anyone suggest a fix for it?  I'm
+> really getting tired of playing with the offsets on the monitor everytime
+> I switch between X, the console and the boot ROM.
+
+I'm not entirely sure that I understand your problems, but the
+difference between the way the kernel/X server and the console think
+of the frame buffer is (from tga.c):
+
+        if ((dc->dc_regs[TGA_REG_VHCR] & 0x00000001) != 0 &&    /* XXX */
+            (dc->dc_regs[TGA_REG_VHCR] & 0x80000000) != 0) {    /* XXX */
+                dc->dc_wid -= 4;
+                /*
+                 * XXX XXX turning off 'odd' shouldn't be necesssary,
+                 * XXX XXX but i can't make X work with the weird size.
+                 */
+                dc->dc_regs[TGA_REG_VHCR] &= ~0x80000001;
+                dc->dc_rowbytes =
+                    dc->dc_wid * (dc->dc_tgaconf->tgac_phys_depth / 8);
+        }
+
+
+The TGA has this nifty feature that apparently gains some speedups for
+vertical lines (i think) by offsetting each row by 32 bits (4 pixels),
+by including 4 pixels at the end of each row of frame buffer memory
+that doen't appear on the screen.
+
+The console firmware uses this feature.  I couldn't figure out how to
+get the generic CFB code in the X server to accomodate it on a 64-bit
+system (it wanted the row size to be a multiple of 64 bits on a 64 bit
+system), so i disabled it.
+
+
+X and the kernel share the same space; adjust it for the X server (if
+you can) and it should be fine for the kernel.  (note that the sun
+console font area MIGHT NOT reach the left and right sides of your
+screen!)
+
+
+As far as i know, changing the 'dpi' setting on the X server has no
+real effect.  (it may change font selection, or something, but i
+dunno.)  Your X server screen size will always be the size reported in
+your boot messages, i.e. probably 1280 x 1024, if i remember your
+dmesg output correctly.
+
+I suppose the 'right way' to calibrate your monitor is something like:
+
+	(1) make the SRM console/boot block messages be close to the
+	    left side of the screen (i.e. by adjusting left/right),
+	    and then,
+
+	(2) make the kernel message window centered in the screen,
+	    i.e. by using horizontal shrink/expand.
+
+	(3) repeat (1) and (2) until both are fine w/o adjustment.
+
+Once both of those conditions are true at the same time (i figure that
+2 might screw up 1, depending on your monitor), things should be
+'right', and the X root weave should be more or less centered on your
+display, and occupy the whole width of the display.  "tweak to taste."
+8-)
+
+
+
+chris
+
+From rat@cynical.org  Sun Aug 4 21:02:39 1996
+From: The Terminator rAT <rat@cynical.org>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 04 Aug 1996 21:02:39 +0000
+Subject: D'oh!  (was DEC Multia/166 Video Shift)
+
+D'oh!  Well, I just went off for a bit, and I wasn't sure if I'd left the
+X video-blanker on, so I turned off my monitor.  When I powered it back up,
+the X screen came up centered and fitting within the screen boundaries.
+
+I'd say it's something my monitor isn't grokking.  Sorry to have bothered 
+y'all...
+
+Now, another stupid question/observation :
+
+How come the only keys on my spiffo ALPS keyboard that auto-repeat under X
+are the damn Windows95(tm) flying windows keys?  I've used 'xev' to watch
+the events, and it's true.  I hold down the space bar, I get one event
+(KeyPress Space) when I push it down, and one (KeyRelease Space) when I
+release it. I hold down the SPIFFO Windows key, and I get KeyPress /
+KeyRelease messages as fast as the XTerm window can scroll.
+
+Weird -- I think it's the keyboard, though.  I assume the autorepeat 
+works on other machines, yeah?
+
+Thanks!
+
+	-rAT
+
+O----O The Terminator rAT - rat@cynical.org - The Cynical Software Foundation
+ \oO/
+==\/==                            Oiwuetnbiset!
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Mon Aug 5 03:13:43 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: rat@cynical.org
+Date: Mon, 05 Aug 1996 03:13:43 +0000
+Subject: Re: D'oh! (was DEC Multia/166 Video Shift)
+
+> Now, another stupid question/observation :
+> 
+> How come the only keys on my spiffo ALPS keyboard that auto-repeat under X
+> are the damn Windows95(tm) flying windows keys?  I've used 'xev' to watch
+> the events, and it's true.  I hold down the space bar, I get one event
+> (KeyPress Space) when I push it down, and one (KeyRelease Space) when I
+> release it. I hold down the SPIFFO Windows key, and I get KeyPress /
+> KeyRelease messages as fast as the XTerm window can scroll.
+> 
+> Weird -- I think it's the keyboard, though.  I assume the autorepeat 
+> works on other machines, yeah?
+
+Works great on the TC machines...  OH, WAIT, they don't have _any_
+keyboard support...  8-)
+
+No (and i thought this was documented someplace), key repeat on
+machines with PC-style keyboards does not work.  Actually, that's not
+entirely true; 'normal' key repeat does not work.  Because of a bogon
+in the way i coded the keyboard driver, repetition of keys which use
+the 'extended' keyboard code does happen.  I seem to recall that that
+ends up being the keypad number keys (or some keys on the keypad), and
+apparently your Windows Key, too.
+
+
+The model was:
+
+	'kbd' layer sits on top of real keyboard driver, and does
+	key translation and key	repeat if the console is in 'tty'
+	mode, else passes data on as 'events.'
+
+	real keyboard driver passes single data items up to kbd
+	layer from intr routine, which can either be placed into
+	events or translated by a driver-provided routine into
+	a string (representing that keystroke).
+
+	real keyboard driver would disable all hardware key repeat.
+
+	the 'kbd' layer would handle key repeat (with finely
+	tunable parameters) for the console tty (by replaying
+	the last keystroke string returned by the translation
+	function).
+
+	the X server would handle key repeat (however it wanted
+	to) for X.
+
+I spent a lot of time trying to disable hardware key repeat, only
+to find out that it can't actually be done on PC keyboards.  The
+implementation i ended up with basically didn't repeat multiples of
+the same key code byte -- but that doesn't deal with the fact
+that some keys, e.g. your windows key, use multi-byte codes.
+That should be relatively easy to fix, i've just not done it yet.
+
+I never wrote the support into the X server for doing the right thing.
+The keyboard code in the X server is ... interesting.  Let's just say
+"shortest path to running server."  8-)  I didn't and still don't
+understand X server internals, so making X's internal key repeat
+mechanism do the right thing is currently beyond me.  I was happy just
+to make modifier keys work.  (you know, shift and control?  they took
+about a half a day... 8-)
+
+
+At some point, i got disgusted with the state of it all, and had many
+other time demands dropped on my head, and so i've not touched it for
+a while.  (I've still not actually convinced my employer that key
+repeat is, in fact, a useful feature, or at least, useful enough that
+I should be given the amount of time necessary to fix it, in the face
+of other demands...)
+
+
+So, in a nutshell, what you're seeing is the 'normal' behaviour,
+abnormal as it is.
+
+
+
+chris
+
+From rat@cynical.org  Mon Aug 5 11:12:05 1996
+From: The Terminator rAT <rat@cynical.org>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 05 Aug 1996 11:12:05 +0000
+Subject: Dump/restore bug?
+
+[Hi Chris!]
+
+Is there a known bug in dump/restore on NetBSD/alpha 1.2A?  If not, is 
+anyone else using it successfully?
+
+	xaos (root) /u1 4% dump 0f /u1/var.dump /var
+	  DUMP: Date of this level 0 dump: Mon Aug  5 11:02:34 1996
+	  DUMP: Date of last level 0 dump: the epoch
+	  DUMP: Dumping /dev/rsd1e (/var) to /u1/var.dump
+	  DUMP: mapping (Pass I) [regular files]
+	  DUMP: mapping (Pass II) [directories]
+	  DUMP: estimated 828 tape blocks on 0.02 tape(s).
+	  DUMP: dumping (Pass III) [directories]
+	  DUMP: dumping (Pass IV) [regular files]
+	  DUMP: DUMP: 826 tape blocks on 1 volumes(s)
+	  DUMP: Closing /u1/var.dump
+	  DUMP: DUMP IS DONE
+	xaos (root) /u1 5% restore tvf /u1/var.dump
+	Verify tape and initialize maps
+	Tape block size is 32
+	Checksum error 244734, inode 0 file (null)
+	Tape is not a dump tape
+	xaos (root) /u1 6% uname -a
+	NetBSD 1.2A alpha
+
+Might this be a 64-bit problem?
+
+O----O The Terminator rAT - rat@cynical.org - The Cynical Software Foundation
+ \oO/
+==\/==                            Oiwuetnbiset!
+
+From jkatz@in.net  Mon Aug 5 13:39:04 1996
+From: Jon Katz <jkatz@in.net>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 05 Aug 1996 13:39:04 +0000
+Subject: UDB serial pinout (was:Re: Printing and Redhat) (fwd)
+
+Someone on the  list was talking about prlems with serial out on 
+Multia/UDB/Easy WWW Server. Here's a pointer with some help from the 
+Linux guys.
+
+-Jon
+jkatz@in.net        President and CEO, Internet Consulting by Jon
+Voice: +1 317.823.8221	Fax: +1 317.823.8184
+9010 Anchor Bay Drive, Indianapolis, IN 46236
+Personal: http://www.in.net/~jkatz
+Resume:   http://www.in.net/~jkatz/I-need-a-job.html
+HOW-TO:   http://www.in.net/~jkatz/win95/Linux-HOWTO.html
+**
+
+---------- Forwarded message ----------
+Date: Mon, 5 Aug 1996 17:53:30 +0100
+From: Alastair Martin <alastair@annex.co.uk>
+To: axp-list@redhat.com
+Subject: UDB serial pinout (was:Re: Printing and Redhat)
+
+
+
+The Y cable pinout, plus lots of other UDB stuff can be found on the web
+at http://www.annex.co.uk/systems/udb.html
+
+If people are looking for any other info please mail me direct and I will
+get the info incorporated into the above pages.
+
+Sometime later this week I hope to have the first draft of a UDB specific
+FAQ ready for review, if there are any questions you would like to see in
+there please let me know by mail to alastair@annex.co.uk
+
+Cheers,
+
+Alastair Martin
+
+Annex Technology Europe Ltd
+9 Horseshoe Park                                Voice +44 118 984 1207
+Pangbourne                                      Fax   +44 118 984 1217
+Reading                                         Email alastair@annex.co.uk
+Berks RG8 7JW                                   http://www.annex.co.uk
+
+--
+To unsubscribe: mail -s unsubscribe axp-list-request@redhat.com < /dev/null
+
+
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Mon Aug 5 16:27:13 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: rat@cynical.org
+Date: Mon, 05 Aug 1996 16:27:13 +0000
+Subject: Re: Dump/restore bug?
+
+> [Hi Chris!]
+
+HI!
+
+> Is there a known bug in dump/restore on NetBSD/alpha 1.2A?  If not, is 
+> anyone else using it successfully?
+>
+> [ ... ]
+>
+> Might this be a 64-bit problem?
+
+It probably is.
+
+I don't dump my Alpha systems, since i don't have easy access to tape
+drives and since other machines which i can easily NFS mount are
+backed up by a third party.  8-)
+
+
+
+chris
+
+From karlstad@jwhp.spa.umn.edu  Mon Aug 5 18:16:33 1996
+From: Rolf Karlstad <karlstad@jwhp.spa.umn.edu>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 05 Aug 1996 18:16:33 +0000
+Subject: EB164, PALcode revision, Booting NetBSD
+
+Well, I finally got that EB164 based alpha, and have had, as yet, no luck 
+getting it to boot.  I can think of several reasons for this, but I think
+I had better lay out my hardware and software revisions before updating 
+console revisions, etc.
+
+What I have:
+	DEC EB164 motherboard - 300mhz 21164 processor, DECchip 21171 chipset.
+	cirrus logic 5430 VGA (PCI)  DEC 21040-AA ethernet (PCI)  
+	NCR 53c810 SCSI (PCI)  128 MB RAM, 2 MB 10ns cache, 2-4GB Qtm Atlas
+Software revisions:  (I really hope that this is the problem)
+	SRM console revision  X4.3-2326 Aug 29 1995 08:54:13
+	VMS PALcode V1.15-0, OSF PALcode V1.19-0
+(this seems quite a bit older than what I have seen documented in the mailing 
+lists).
+
+What I have done:
+	dd'ed the rz25 image to one of the 4 GB disks, under NetBSD-i386,
+the only wierdness about this was that I had to use rsd0d instead of what I 
+would have expected, which would be, of course, rrz0c under OSF or rsd0c under
+any other UNIX, but that seems like a i386 implementation detail, not a hangup.
+	seeting environment variables seems to have no effect on the boot, here
+is what happens.
+
+	boot dka0.0.0.9.0 -file netbsd -flags s
+block 0 of dka0.0.0.9.0 is a vilid boot block
+reading 15 blocks from dka0.0.0.9.0
+bootstrap code read in
+base = 11c000, image_start = 0, image_bytes = 1e00
+initializing HWPRB at 2000
+initialing page table at 10e000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+(flash, flash, flash (screen, also keyboard lights)
+
+>>>    (this is a SRM console prompt) (ie, no luck)
+
+Well, if anyone can suggest anything, thanks much.
+
+Rolf Karlstad karlstad@jwhp.spa.umn.edu
+
+TLASES, JJJDKDKDKDK
+
+From hhh@dill.lcs.mit.edu  Mon Aug 5 22:26:11 1996
+From: Henry Houh <hhh@dill.lcs.mit.edu>
+To: rat@cynical.org
+Date: Mon, 05 Aug 1996 22:26:11 +0000
+Subject: Re: Dump/restore bug?
+
+>  Is there a known bug in dump/restore on NetBSD/alpha 1.2A?  If not, is 
+>  anyone else using it successfully?
+
+I hadn't tried to restore until now - though I have been dumping it,
+the dumps seem to be corrupted.  I also get the following errors on
+all but level 0 dumps, though I'm not sure these are related to dump:
+
+DUMPING paprika
+  DUMP: Date of this level 4 dump: Thu Aug  1 05:05:08 1996
+  DUMP: Date of last level 2 dump: Wed Jul 31 04:57:41 1996
+  DUMP: Dumping /dev/rsd1e (/export/home) to standard output
+  DUMP: mapping (Pass I) [regular files]
+  DUMP: mapping (Pass II) [directories]
+  DUMP: corrupted directory, inumber 3
+  DUMP: corrupted directory, inumber 7
+  DUMP: corrupted directory, inumber 14
+  DUMP: corrupted directory, inumber 26
+  DUMP: corrupted directory, inumber 31
+  DUMP: corrupted directory, inumber 45
+....lots and lots of deletions
+  DUMP: corrupted directory, inumber 42458
+  DUMP: corrupted directory, inumber 198896
+  DUMP: estimated 448 tape blocks.
+  DUMP: dumping (Pass III) [directories]
+  DUMP: dumping (Pass IV) [regular files]
+  DUMP: DUMP: 423 tape blocks
+  DUMP: level 4 dump on Thu Aug  1 05:05:08 1996
+  DUMP: DUMP IS DONE
+ 70.7%
+190+71 records in
+3+1 records out
+
+I'm moving all my stuff to an NFS mounted disk - thanks for pointing
+out what I should have checked a while ago...
+
+Henry
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Mon Aug 5 21:06:05 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: karlstad@jwhp.spa.umn.edu
+Date: Mon, 05 Aug 1996 21:06:05 +0000
+Subject: Re: EB164, PALcode revision, Booting NetBSD
+
+> Well, I finally got that EB164 based alpha, and have had, as yet, no luck 
+> getting it to boot.  I can think of several reasons for this, but I think
+> I had better lay out my hardware and software revisions before updating 
+> console revisions, etc.
+> 
+> What I have:
+> 	DEC EB164 motherboard - 300mhz 21164 processor, DECchip 21171 chipset.
+> 	cirrus logic 5430 VGA (PCI)  DEC 21040-AA ethernet (PCI)  
+> 	NCR 53c810 SCSI (PCI)  128 MB RAM, 2 MB 10ns cache, 2-4GB Qtm Atlas
+> Software revisions:  (I really hope that this is the problem)
+> 	SRM console revision  X4.3-2326 Aug 29 1995 08:54:13
+> 	VMS PALcode V1.15-0, OSF PALcode V1.19-0
+> (this seems quite a bit older than what I have seen documented in the mailing 
+> lists).
+
+That may be it, but i doubt it...
+
+
+> 	boot dka0.0.0.9.0 -file netbsd -flags s
+> block 0 of dka0.0.0.9.0 is a vilid boot block
+> reading 15 blocks from dka0.0.0.9.0
+> bootstrap code read in
+> base = 11c000, image_start = 0, image_bytes = 1e00
+> initializing HWPRB at 2000
+> initialing page table at 10e000
+> initializing machine state
+> setting affinity to the primary CPU
+> jumping to bootstrap code
+> 
+> (flash, flash, flash (screen, also keyboard lights)
+> 
+> >>>    (this is a SRM console prompt) (ie, no luck)
+
+I'd be interested in seeing what goes on during that 'flash flash
+flash' bit...  is it possible for you to hook your machine up with a
+serial console, and see what the console output is?
+
+If you can do that, it probably won't make much difference now but
+will help immensely if my guess (below) is correct.
+
+
+> Well, if anyone can suggest anything, thanks much.
+
+(you're not going to like this answer... 8-)
+
+It looks like (from examining a Digital UNIX
+/usr/include/machine/cpuconf.h) the EB164 is a different system type
+than anything currently supported by NetBSD.
+
+What that means is that some -- anywhere from a couple to a large
+number -- of the low-level details about how that machine's hardware
+is wired (most likely PCI device locations, interrupt mapping, and
+memory mapping) are different than the other systems we currently
+support.
+
+Given that there is already 21164/21171 support in the tree (though,
+it's currently a bit broken in a couple of ways, and needs to be
+cleaned up a bit), it shouldn't be impossibly hard to make a kernel go
+on your machine.  However, it does require a non-trivial amount of
+work.
+
+
+
+What this boils down to: i'd bet that NetBSD/Alpha will not currently
+run on your system.  With a bit of time, and the right documentation
+(the EB164 design docs, i.e. the documentation that says how the
+hardware and firmware works), somebody familiar with the code could
+_make_ it work in a relatively short amount of time.
+
+I don't currently have that documentation...  do you?
+
+I'd be willing to do at least part of the work, to make the hardware
+go, if i could get that documentation...  (*smirk*  and if someone
+wanted to give me one of those boards, i'm sure i could find it in my
+heart make it go, and i'd even make it a high priority...  8-)
+
+
+
+chris
+
+From rat@cynical.org  Wed Aug 7 10:46:00 1996
+From: The Terminator rAT <rat@cynical.org>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 07 Aug 1996 10:46:00 +0000
+Subject: 1280x1024 on a DEC Multia/166?
+
+Hi!  Does anyone know how to set the Multia/166 to do 1280x1024 video?  I
+am currently running with 1024x768 and I really miss the extra landscape.
+
+I heard that there's a jumper on the motherboard that can be moved to
+enable 1280x1024.  Anyone where that jumper is?
+
+Thanks!
+
+	-rAT
+
+O----O The Terminator rAT - rat@cynical.org - The Cynical Software Foundation
+ \oO/
+==\/==                            Oiwuetnbiset!
+
+From rat@nas.nasa.gov  Wed Aug 7 13:33:48 1996
+From: The Terminator rAT <rat@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 07 Aug 1996 13:33:48 +0000
+Subject: SRM Firmware diskette?
+
+Hi, does anyone have an SRM firmware diskette that I could get an image
+of?  I got a new Alpha, but it has the Linux firmware on it.  I can
+use the menus in the ROM to load a new firmware image off floppy.  I think.
+
+Thanks!!!
+
+	-rAT
+
+O----O rat@nosferatu.nas.nasa.gov
+ \Oo/     http://nosferatu.nas.nasa.gov/~rat/
+==\/==           Test Signature : Do NOT Delete
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Wed Aug 7 17:03:00 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 07 Aug 1996 17:03:00 +0000
+Subject: Multia/UDB video resolution/refresh rate jumpers...
+
+Niklas Hallqvist says that the jumpers are:
+
+Beside the TGA memory, four arranged like:
+
+	back of machine
+
+		2  1
+		2  1
+
+		8  4
+		8  4
+
+	front of machine
+
+
+(actually, he said something different, but a bit of cross-checking
+with other TGA board docs indicates that the numberings above are the
+right ones. 8-)
+
+Anyway, the settings are and/or seem to be (table typed in from the
+ZLXp-E[123] owner's guide):
+
+setting	pixel freq	resolution	refresh rate	Notes
+	(MHz)				(Hz)
+------- ----------	----------	------------	-----
+0	130		1280x1024	72		1
+1	119		1280x1024	66		1
+2	108		1280x1024	60		1
+3	104		1152x900	72		1
+4	93		1152x900	66		1
+5	75		1024x768	70		1 (default)
+6	74		1024x768	72		1
+7	69		1024x864	60		2
+8	65		1024x768	60
+9	50		800x600		72
+10	40		800x600		60
+11	32		640x480		72
+12	25		640x480		60
+13	135		1280x1024	75
+14	110		1280x1024	60		1
+15	... reserved ...				3
+
+1: Niklas and his monitor experimentally confirmed these
+2: Niklas and his monitor experimentally determined that this was
+   actually:
+	??		1152x900	60
+3: Niklas and his monitor experimentally determined that this was
+   actually:
+	??		1280x1024	72
+
+
+I'd trust the table except for the entry for setting 7 -- see note
+2.  I'm not sure i'd use setting 15.
+
+
+
+
+chris
+
+From patj@noc.icinet.net  Thu Aug 8 10:06:48 1996
+From: Pat Jensen <patj@noc.icinet.net>
+To: rat@cynical.org
+Date: Thu, 08 Aug 1996 10:06:48 +0000
+Subject: Re: DEC Multia/166 Video Shift
+
+I had the same problem on my DEC EasyWebServer running NetBSD, supposedly
+there are some motherboard jumpers you can set to kick it down to a lower
+res.  My question is - why does the NT console work and the SRM console not?
+
+-Pat
+
+On Sun, 4 Aug 1996, The Terminator rAT wrote:
+
+> Greetings!  I am the proud owner of a DEC Multia/166 running NetBSD 1.2A.
+> The machine runs well, but the video output has three distinct horizontal
+> offsets and widths.  The Alpha is connected to a MAG 19" multisync monitor.
+> I have adjusted the horizontal width and offset on the monitor to display
+> the console correctly (i.e. full width and height and centered).
+> 
+> When the machine is booted, the SRM console prompt appears offset to the
+> left of the screen by several character widths, as is the initial boot 
+> loader output.
+> 
+> After the NetBSD kernel changes the console to "Sun" mode, the text is 
+> shifted to the right a bit.  The text of the boot messages is correctly
+> centered on the screen (because I've adjusted the monitor to do so).
+> 
+> Upon starting X, the X server screen extends off the left and right of the
+> monitor screen.  The change is large enough that I cannot adjust my monitor
+> to fit the entire screen into the phosphor area.
+> 
+> The vertical height/offset seems to remain unchanged through these three
+> changes.  The actual horizontal offset seems to vary slightly each time the
+> machine is booted.
+> 
+> I have tried playing with the '-dpi xxx' flag on the Xserver to attempt to
+> fix this problem, without success.  Without a '-dpi 100' switch, xdpyinfo
+> returns a 90x90 dpi.  This problem occurred both with my own machine, and
+> also with the machine Jason Thorpe lent me (thanks!).
+> 
+> Is anyone else seeing this problem?  Can anyone suggest a fix for it?  I'm
+> really getting tired of playing with the offsets on the monitor everytime
+> I switch between X, the console and the boot ROM.
+> 
+> Thanks!
+> 
+> 	-rAT
+> 
+> O----O The Terminator rAT - rat@cynical.org - The Cynical Software Foundation
+>  \oO/
+> ==\/==                            Oiwuetnbiset!
+>
+
+From bdi@thecore.com  Tue Aug 13 22:31:32 1996
+From: Christopher Rossi <bdi@thecore.com>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 13 Aug 1996 22:31:32 +0000
+Subject: Newbie help
+
+Hi all,
+
+As you all have guessed I'm new here and I need some help.  I have a DEC =
+Alpha 3000/300 and I need to know EXACTLY (if possible) which files I =
+need to get and where i can most easily get them in order to install =
+NetBSD on my system,  and I need to know how to get rid of my old OS of =
+Digital Unix 2.0. =20
+
+TIA and I hope that some day I will be of assistance to you!
+
+Chris Rossi
+bdi@thecore.com
+
+From abenner@montana.avicom.net  Fri Aug 16 10:42:19 1996
+From: Aaron Benner <abenner@montana.avicom.net>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 16 Aug 1996 10:42:19 +0000
+Subject: remote booting Alpha Multia
+
+Hello, on the advice of a friend I'm writing to you all for help.  If
+the CC sends duplicates I apologize.  I just wanted to cover my
+bases. 
+
+The situation is this.  I have recently started working for a company
+and have been handed a DEC Multia (Universal Desktop Box) which they
+requested I install NetBSD on to free us from the vile chains of DEC.
+The distribution package won't particularly work for us unless we
+cannabalize several machines due to a lack of hardware.  We simply
+don't have a spare disk we can dd the package onto, and don't really
+have the space on another machine to attach the Multia's drive, not to
+mention not wanting to tear apart such a tightly packed box.
+
+As a go-around I suggested we remote boot the Multia from the SRM
+console off of my i386-NetBSD1.1 box.  I had the diskspace to unpack
+the bin.tar.gz and etc.tar.gz distributions, and someplace to store
+the unzippped version of the kernel on the distribution site.
+
+(I ftp'd all files from
+ftp://ftp.netbsd.org/pub/NetBSD/arch/alpha/)
+
+All is well, we have the dec sending a broadcast packet and it will
+tftp the kernel over, however when the kernel tries to start up the
+machine kicks back to the SRM console.
+
+What it looks like to me is we either have a kernel not suited to the
+mahcine, are missing a magic number (don't know if dec uses those or
+not), or the the kernel we have is not capable of a remote boot.
+
+Any help you could give me would be most appreciated.
+
+--Aaron Benner
+*****************************************************************************
+|                   Aaron Benner .o0o. Avicom Inc.                          |
+|             abenner@avicom.net .o0o. http://www.avicom.net/abenner        |
+*****************************************************************************
+
+From bdi@thecore.com  Sun Aug 18 15:44:21 1996
+From: Mark Rossi <bdi@thecore.com>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 18 Aug 1996 15:44:21 +0000
+Subject: Got the files, now what?
+
+Hi all,
+
+I got the binaries off the net finally!!!  Now what do I have to do (in =
+very detailed instructions if possible :)) to get rid of my DU2.0 and =
+install NetBSD 1.1 on my DEC Alpha 3000/300LX.
+
+TIA
+Chris Rossi
+bdi@thecore.com
+
+From wulf@hotdog.satech.net.au  Mon Aug 19 01:14:13 1996
+From: Berndt Josef Wulf <wulf@hotdog.satech.net.au>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 19 Aug 1996 01:14:13 +0000
+Subject: AXPpci Xserver, SCSI a.o.
+
+Hi,
+
+are there any new developments on the Xserver which supports PCI-VGA
+cards on AXPpci based systems (e.g. Diamond Stealth S3 Trio 64)? 
+
+I installed RH-Linux-3.03 which supports this type of card
+and I am wondering if there is a chance seeing it running under
+NetBSD....
+
+Also, is there support for any other SCSI controller besides the one
+which comes with the system? Anyone using the ccd device? I like to
+try setting up 4x1GB drives for the spooling area using the ccd device
+with mirror option enabled.
+
+For those who like to know:
+
+I am running this system as a fileserver on a LAN for the past
+few month with following packages installed and running:
+
+INN-1.4unoff4, squid-1.1alpha6, xntpd3.5f, samba-1.9.15p8, msql-1.0.14
+xs-httpd-2.3, ircii-2.8.16beta, elm-2.4pl25 and tin-1.22 etc. pp.
+I like to hear from anyone who succesfully compiled any other
+packages... I then will compile a list of all packages known to work
+on the netbsd/alpha platform....
+
+
+
+cheerio Berndt
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@hotdog.satech.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.2Beta
+
+From abenner@montana.avicom.net  Fri Aug 23 16:32:14 1996
+From: Aaron Benner <abenner@montana.avicom.net>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 23 Aug 1996 16:32:14 +0000
+Subject: Installing Boot Blocks on New Disks
+
+Reply To: abenner@montana.avicom.net
+
+
+I've gotten my Multia running NetBSD/Alpha, and am trying to add on
+some more disk, which I would like to make bootable. (Just in case the
+primary disk goes down)  On an i386 machine I understand how to do
+this using disklabel.  The problem I'm having is that on the alpha
+disklabel doesn't seem to support the writing of boot blocks, and the
+only other option I found ,installboot, doesn't want to work either.
+When I try;
+
+/usr/mdec/installboot -v boot bootxx /dev/rsd1c
+
+I get:
+
+boot: boot
+proto: bootxx
+device: /dev/rsd1c
+boot block info locator at offset 0xd50
+boot block info at offset 0xea0
+max number of blocks: 939
+boot: block numbers: 1952867956 -398430614 -521871664 -1975462710
+1212211440
+installboot: indirect block: devread: read: Invalid argument
+boot: block numbers (indirect): 
+
+I'm at a real loss here.  I've also tried downloading the source for
+both disklabel and installboot (as part of the 1.2_current sys tree)
+and doing a clean make and install of the binaries for both programs
+and for the images I was using.
+
+Anyone have any suggestions?  Means to my end?
+
+Thanks,
+Aaron
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Fri Aug 23 22:55:06 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: abenner@montana.avicom.net
+Date: Fri, 23 Aug 1996 22:55:06 +0000
+Subject: Re: Installing Boot Blocks on New Disks
+
+> Reply To: abenner@montana.avicom.net
+> I've gotten my Multia running NetBSD/Alpha, and am trying to add on
+> some more disk, which I would like to make bootable. (Just in case the
+> primary disk goes down)  On an i386 machine I understand how to do
+> this using disklabel.  The problem I'm having is that on the alpha
+> disklabel doesn't seem to support the writing of boot blocks, and the
+> only other option I found ,installboot, doesn't want to work either.
+
+The Alpha installboot is like the sparc installboot...  which means:
+
+> When I try;
+> 
+> /usr/mdec/installboot -v boot bootxx /dev/rsd1c
+
+This won't work.
+
+the 'boot' you specify has to be on sd1.  i.e. say you have sd1a
+mounted on /mnt, you would do something like:
+
+cd /usr/mdec
+cp boot /mnt/boot
+./installboot -v /mnt/boot bootxx /dev/rsd1c
+
+This is actually a hack; it's more correct to say "/dev/rsd1a", but
+the "kernel security" features in 4.4BSD derivatives prevent that from
+working, if they're enabled.
+
+You'll note that this means that:
+	(1) part of the boot blocks live in the file system, and
+	(2) you need a file system on a disk, containing at least
+	    the /boot and a kernel, in order to boot from that
+	    disk, and
+	(3) currently, you can't boot from kernels in any partition
+	    other than 'a'.
+For your purposes, some of those facts may be irrelevant.  8-)
+
+
+chris
+
+From bdi@thecore.com  Sat Aug 24 12:45:02 1996
+From: Master_B <bdi@thecore.com>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 24 Aug 1996 12:45:02 +0000
+Subject: booting
+
+Hi all,
+I FINALLY got the disk image onto disk but i cant seem to be able to
+boot up!!! does anyone know how to boot NetBSD 1.1 in single user mode
+for the first time?
+
+TIA
+
+Chris
+bdi@thecore.com
+
+From bdi@thecore.com  Sat Aug 24 12:51:46 1996
+From: Master_B <bdi@thecore.com>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 24 Aug 1996 12:51:46 +0000
+Subject: I forgot
+
+hey all,
+
+I forgot to mention that i have a DEC Alpha 3000/300LX and i keep
+getting the error 
+
+open error: 2
+
+when i try to boot using
+
+boot dka200 -fi netbsd -fl "-s"
+
+thanx all
+
+bdi@thecore.com
+
+From wulf@hotdog.satech.net.au  Sun Aug 25 08:46:53 1996
+From: Berndt Josef Wulf <wulf@hotdog.satech.net.au>
+To: bdi@thecore.com
+Date: Sun, 25 Aug 1996 08:46:53 +0000
+Subject: Re: booting
+
+Master_B wrote
+> 
+> Hi all,
+> I FINALLY got the disk image onto disk but i cant seem to be able to
+> boot up!!! does anyone know how to boot NetBSD 1.1 in single user mode
+> for the first time?
+> 
+> TIA
+> 
+> Chris
+> bdi@thecore.com
+> 
+
+Set the boot flat to -s for single user mode and -a for multi user
+mode. This should do the trick ;)
+
+
+cheerio Berndt
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@hotdog.satech.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.2Beta
+
+From cimaxp1!jb@werple.net.au  Sun Aug 25 12:14:05 1996
+From: John Birrell <cimaxp1!jb@werple.net.au>
+To: thecore.com!bdi@melb.werple.net.au
+Date: Sun, 25 Aug 1996 12:14:05 +0000
+Subject: Re: I forgot
+
+> hey all,
+> 
+> I forgot to mention that i have a DEC Alpha 3000/300LX and i keep
+> getting the error 
+> 
+> open error: 2
+
+Is this output from the SRM console?
+
+> 
+> when i try to boot using
+> 
+> boot dka200 -fi netbsd -fl "-s"
+
+Does the SRM 'show device' command list device dka200?
+
+> 
+> thanx all
+> 
+> bdi@thecore.com
+> 
+
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au                          119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From cimaxp1!jb@werple.net.au  Sun Aug 25 12:05:26 1996
+From: John Birrell <cimaxp1!jb@werple.net.au>
+To: thecore.com!bdi@melb.werple.net.au
+Date: Sun, 25 Aug 1996 12:05:26 +0000
+Subject: Re: booting
+
+> Hi all,
+> I FINALLY got the disk image onto disk but i cant seem to be able to
+> boot up!!! does anyone know how to boot NetBSD 1.1 in single user mode
+> for the first time?
+
+Are you saying that you got to single user? Or have you been unable to
+boot the kernel?
+
+If you can't boot the kernel, are you sure that the disk installation
+is OK?
+
+> 
+> TIA
+> 
+> Chris
+> bdi@thecore.com
+> 
+
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au                          119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Sun Aug 25 00:04:06 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: bdi@thecore.com
+Date: Sun, 25 Aug 1996 00:04:06 +0000
+Subject: Re: I forgot
+
+> when i try to boot using
+> 
+> boot dka200 -fi netbsd -fl "-s"
+
+As an addendum: you should just be able to use
+	boot dka200
+
+if you're booting a recent snapshot, or, if not:
+
+	boot dka200 -fl "-s" 
+
+
+the netbsd boot blocks understand that they should be booting /netbsd.
+you only need to use -fi if you're booting an alternate kernel.
+
+
+cgd
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Sun Aug 25 00:01:46 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: bdi@thecore.com
+Date: Sun, 25 Aug 1996 00:01:46 +0000
+Subject: Re: I forgot
+
+> hey all,
+> 
+> I forgot to mention that i have a DEC Alpha 3000/300LX and i keep
+> getting the error 
+> 
+> open error: 2
+> 
+> when i try to boot using
+> 
+> boot dka200 -fi netbsd -fl "-s"
+
+put "netbsd" in quotes.  i.e.:
+
+	boot dka200 -fi "netbsd" -fl "-s"
+
+the various versions of DEC firmware i've seen are ... rather
+inconsistent about what quoting they require.  It's likely that it's
+trying NETBSD, rather than netbsd, because you didn't use quotes; that
+error 2 is ENOENT, i.e. the file requested couldn't be found.
+
+Did the boot blocks print anything before that error?  (i seem to
+recall that they used to print out the name of the kernel they were
+loading, but i'm not sure if that's changed.)
+
+
+
+
+cgd
+
+From qv@iol.unh.edu  Sun Aug 25 12:55:00 1996
+From: Quaizar Vohra <qv@iol.unh.edu>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 25 Aug 1996 12:55:00 +0000
+Subject: savecore
+
+Hi,
+	I am trying to debug a kernel on an alpha 3000, 300. When the
+system crashes, and I reboot, savecore complains about bad device
+
+> bad dev 809
+
+Can someone help with the details about configuring savecore. I
+rather have no understanding of how savecore works.
+
+Also when I try to compile the current version of ddb, I get 
+warnings and errors. Is there a patch or something I am missing.
+I have an alpha running NetBSD which I booted from the rz25 disk
+image and then compiled current sources.
+
+Also if someone can give me adequate pointers about getting
+info. about kernel debugging, it would be a great help. Atleast
+some idea of where to start from. I would be deeply indebted.
+
+
+Thanks in advance.
+Quaizar
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Sun Aug 25 19:48:41 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: qv@iol.unh.edu
+Date: Sun, 25 Aug 1996 19:48:41 +0000
+Subject: Re: savecore
+
+> 	I am trying to debug a kernel on an alpha 3000, 300. When the
+> system crashes, and I reboot, savecore complains about bad device
+
+"you're not going to like these answers..."
+
+> > bad dev 809
+> 
+> Can someone help with the details about configuring savecore. I
+> rather have no understanding of how savecore works.
+
+savecore currently does not work on NetBSD/Alpha.
+
+
+> Also when I try to compile the current version of ddb, I get 
+> warnings and errors. Is there a patch or something I am missing.
+> I have an alpha running NetBSD which I booted from the rz25 disk
+> image and then compiled current sources.
+
+and neither does DDB.
+
+
+> Also if someone can give me adequate pointers about getting
+> info. about kernel debugging, it would be a great help. Atleast
+> some idea of where to start from. I would be deeply indebted.
+
+I use printf to track down repeatable problems.
+
+To track down randomly-occuring crashes:
+
+	(1) note the PC and RA printed on panic, and
+
+	(2) when you reboot, run GDB on the "netbsd.gdb"
+	    produced by your kernel build.  then 'disass'
+	    the PC and RA provided.  that will at least
+	    tell you where the kernel crashed, and (in
+	    many cases, though definitely not always)
+	    what function called that function.
+
+If you're sufficiently tricky, you can figure out where
+the kernel crashed, down the to exact source line...
+I do this by (in gdb) saying: break <file:line>, noting
+the resulting address, and looking for a pair of lines
+whose addresses in the code bracket the crashing address.
+
+
+I really should get DDB working...  but i don't have much time to work
+on Alpha stuff, these days, and _my_ machines don't crash.  8-)
+There's also the fact that if i wanted to make DDB work well, i'd have
+to teach it about ECOFF symbols, and i just Don't want to deal with
+that.
+
+If the crashes you're seeing are in 'stock' kernels that i've
+supplied, then i'd be (very) interested in helping you find the
+problem, especially if it's repeatable.  If that's the case,
+please get in touch with me privately.
+
+
+chris
+
+From John.C.Hayward@wheaton.edu  Mon Aug 26 11:19:58 1996
+From: John C. Hayward <John.C.Hayward@wheaton.edu>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 26 Aug 1996 11:19:58 +0000
+Subject: Any experince with this alpha?
+
+Dear Alpha People,
+   It looks like DEC is dumping some alphas and various vendors are selling
+these systems.  Does anyone have experince with the following system:
+=====
+ 166 alpha (UDB by Digital Equipment)
+21066 motherboard
+256K cache
+24MB RAM
+2MB VRAM
+340MB hard drive
+1.44Mb floppy
+1 PCI slot
+2 PCMCIA slots
+10baseT/10base2 ethernet on board
+16 bit sound w/speaker on board
+PS/2 type keyboard
+3 button mouse
+====
+In particular does X run well on this machine (I guess the video is built 
+into the mother board).  Also it appears that there is built in SCSI for
+the hard drive but I cannot tell.
+
+Is 24MB enough space for a alpha (I know it is a RISC processor and has
+64 bit words so my guess is it would take more memory than a 32 bit 
+processor).
+
+Does the current alpha port of NetBSD support PCMCIA cards - I would need to 
+have a modem (ppp) and know there are PCMCIA cards - I don't see serial on 
+the board.
+
+I can get this system (without monitor) for $800 which seems like a good
+bang for the buck.  
+
+I've used NetBSD on the i386 and pmax.
+
+From templin@nas.nasa.gov  Mon Aug 26 10:26:20 1996
+From: Fred L. Templin <templin@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG, John.C.Hayward@wheaton.edu
+Date: Mon, 26 Aug 1996 10:26:20 +0000
+Subject: Re: Any experince with this alpha?
+
+> Dear Alpha People,
+>    It looks like DEC is dumping some alphas and various vendors are selling
+> these systems.  Does anyone have experince with the following system:
+
+John,
+
+We have a bunch of these here at NASA Ames Research Center. They're known
+as the "DEC Multia", and we're running NetBSD on them. I've been using mine
+strictly for kernel hacking (I'm playing with the NRL IPv6 implementation),
+so I don't even run X11. But, my officemate got X running on his and it
+seems to be working fine. Another guy in our group who has one seems to
+feel that 24MB of RAM is too small, and is looking into buying additional
+memory. But, the biggest drawback is the dinky 355MB Toshiba internal hard
+drive. It's just barely big enough to fit the entire NetBSD distribution,
+so all of us here have hooked up larger external SCSI drives to boot from
+because space is so tight on the Toshiba. Anyway, I still havn't gotten
+down to heavy-duty applications on my Multia yet, but hopefully these
+cursory observations will be helpful. One thing that's for sure though;
+at $800 the price is right!
+
+Regards,
+
+Fred
+templin@nas.nasa.gov
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Mon Aug 26 13:56:31 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: John.C.Hayward@wheaton.edu
+Date: Mon, 26 Aug 1996 13:56:31 +0000
+Subject: Re: Any experince with this alpha?
+
+> In particular does X run well on this machine (I guess the video is built 
+> into the mother board).  Also it appears that there is built in SCSI for
+> the hard drive but I cannot tell.
+
+"yes."
+
+
+> Is 24MB enough space for a alpha (I know it is a RISC processor and has
+> 64 bit words so my guess is it would take more memory than a 32 bit 
+> processor).
+
+in my opinion, 24MB is not enough.
+
+I ordered a couple of those machines, and also got 2 16MB simms for
+each.  (note that the machines have 4 SIMM slots, and the 24MB of
+memory they include is split into 2 8MB SIMMS and 2 4MB SIMMS, so
+if you do that, you'll end up with 48MB RAM and 2 4MB SIMMS left over.)
+
+
+> Does the current alpha port of NetBSD support PCMCIA cards - I would need to 
+> have a modem (ppp) and know there are PCMCIA cards - I don't see serial on 
+> the board.
+
+There is serial,  in fact, there are two serial ports, crammed into
+one DB-25 cable.  A pointer to the pinout for that cable appeared a
+while ago on this list -- check the list archives.
+
+
+PCMCIA support currently does not exist for the alpha.
+
+
+> I can get this system (without monitor) for $800 which seems like a good
+> bang for the buck.  
+
+probably without monitor or keyboard, actually.  8-)
+
+It's an OK deal, i'd say.  They're not incredibly speedy machines.
+I'd guess that an intel box would beat them in terms of
+price/performance, but i can't say for sure.
+
+I bought two, because i wanted to get a couple alphas that I could work
+with at home.  I have absolutely no desire to buy intel CPUs or to buy
+any variety of M$ software...
+
+
+
+
+chris
+
+From rat@nas.nasa.gov  Mon Aug 26 11:49:00 1996
+From: The Terminator rAT <rat@nas.nasa.gov>
+To: John.C.Hayward@wheaton.edu
+Date: Mon, 26 Aug 1996 11:49:00 +0000
+Subject: Re: Any experince with this alpha?
+
+"John C. Hayward" writes:
+ >    It looks like DEC is dumping some alphas and various vendors are selling
+ > these systems.  Does anyone have experince with the following system:
+
+Yes.  I have one running at home.  It is the third machine (XAOS-III) to
+come through my place in about three months.  The first two fried within 2
+weeks of booting them (one flat died, the other's console displays
+fireworks and dies...)
+
+On the other hand, we have several of them floating around here at NAS,
+and nobody else seems to have any problems with them.  (Must be my
+"golden"  touch ;^)
+
+They seem to run a bit hot (sometimes painful to the touch) but seem to 
+be well engineered to get rid of the heat.  I suspect my microwave over 
+heat-related problems for the death of my two machines...
+
+And, NetBSD/alpha runs quite well.  I have found a few odd bugs (dump /
+restore currently don't work, for instance) but for the most part it's 
+very stable and happy.  Good job, Chris!
+
+ > In particular does X run well on this machine (I guess the video is built 
+
+Yes.  1280x1024/256 looks very nice.  The X server (at least the one
+supplied by Chris Demetriou) is slow on memcpy operations (window moves,
+image update, etc) but very snappy otherwise.
+
+AFAIK, it is completely unoptimized for the hardware and does everything
+via memcpy calls. 
+
+In short: There is room for improvement, but it works well, and is (more
+or less) comfortably usable.
+
+ > into the mother board).  Also it appears that there is built in SCSI for
+ > the hard drive but I cannot tell.
+
+Yes.  I have a 2G disk connected to the outboard, as well as the little 
+340 disk inside.  They coexist peacefully.
+
+ > Is 24MB enough space for a alpha (I know it is a RISC processor and has
+
+It will run, but (esp. since there are no shared libraries on the Alpha
+(yet)) it will get eaten pretty darn quick.  I built a copy of Mosaic that
+was 18MB.  I stripped it down to only a tiny 12MB but it crashes...
+
+I have 48MB in my machine, and NetBSD seems to run just fine with that.
+
+ > Does the current alpha port of NetBSD support PCMCIA cards - I would need to 
+
+I don't know about either of these -- it's on a lan at my house.
+
+ > I can get this system (without monitor) for $800 which seems like a good
+ > bang for the buck.  
+
+Yes.  It makes a good little workstation (especially compared to PC-class
+machines of similar power (586/90-ish I think).  They are also very small,
+which was a big win with my S.O., who doesn't find old computer hardware 
+to be very decorative...  ;^)  In fact, she described it as "cute"...  ;^)
+
+Be sure to order it with the SRM console (although the ARC firmware has an
+option to switch to the SRM firmware -- only took me three weeks to
+discover that one) and if you order it from Computer Guys, get the free
+RedHat Linux frisbee.  ;^)
+
+	-rAT
+
+O----O   A Concise Guide To Some Common Objects Seen From Very, Very Far Away :
+ \oO/       Motorcycle  Cheeseburger  Zen Buddhist  Fred's Bar And Grill
+==\/==           .            .             .                 .
+
+From bdi@thecore.com  Mon Aug 26 15:33:56 1996
+From: Master_B <bdi@thecore.com>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 26 Aug 1996 15:33:56 +0000
+Subject: Booted up.. now what?
+
+Hi all,
+
+I got the system to boot NetBsd/Alpha on my DEC Alpha 3000/300LX.
+
+Now what do I have to do to keep things moving?
+
+What files do i have to create and how, and anything i might have to
+untar would be nice :).  
+
+Thanx for all your help!!!!!
+
+Chris
+bdi@thecore.com
+
+From John.C.Hayward@wheaton.edu  Mon Aug 26 14:44:23 1996
+From: John C. Hayward <John.C.Hayward@wheaton.edu>
+To: sma@nas.nasa.gov
+Date: Mon, 26 Aug 1996 14:44:23 +0000
+Subject: Re: Any experince with this alpha?
+
+First thanks to Steve and the several others who responded.
+On Mon, 26 Aug 1996, Steve M. Acheson wrote:
+> - The floppy might not be supported yet (means: I couldn't get it working but I
+>    didn't try hard either).
+> - Ethernet works well, and on boot senses what media.
+This is probably documented somewhere but how do you install if you don't
+have working floppy?  via ethernet and bootp or mop?
+...
+> It uses TGA (dec special) that supports up to 1280x1024 in several modes, 
+> configured by jumpers on the Motherboard (you'll need a good monitor for some 
+> freq's).  As for well, I'm not sure what you are comparing it to.  It runs and 
+> we've got most X apps running easily so far (those that we have ported anyway).
+...
+Can someone give pointers to documentation to TGA or give freqs which are
+supported so I can see if my present monitor will work?
+
+Thanks in advance.
+johnh...
+
+From sma@nas.nasa.gov  Mon Aug 26 12:57:18 1996
+From: Steve M. Acheson <sma@nas.nasa.gov>
+To: John.C.Hayward@wheaton.edu
+Date: Mon, 26 Aug 1996 12:57:18 +0000
+Subject: Re: Any experince with this alpha?
+
+> This is probably documented somewhere but how do you install if you don't
+> have working floppy?  via ethernet and bootp or mop?
+
+Nope, no network 'boot' is available AFAIK.  You need to have another machine 
+that you can write scsi disks with, dd the image onto a disk, and then move 
+that disk to the multia and boot from it, disklabel the multia's disk, etc.
+
+> Can someone give pointers to documentation to TGA or give freqs which are
+> supported so I can see if my present monitor will work?
+
+Chris posted these settings a while back, so you can look through the archive 
+for them, or send me email directly and I'll forward you a copy.
+
+Satch
+
+From niklas@appli.se  Mon Aug 26 22:20:00 1996
+From: Niklas Hallqvist <niklas@appli.se>
+To: John.C.Hayward@wheaton.edu
+Date: Mon, 26 Aug 1996 22:20:00 +0000
+Subject: Re: Any experince with this alpha?
+
+On Mon, 26 Aug 1996, John C. Hayward wrote:
+
+> Dear Alpha People,
+>    It looks like DEC is dumping some alphas and various vendors are selling
+> these systems.  Does anyone have experince with the following system:
+> =====
+>  166 alpha (UDB by Digital Equipment)
+> 21066 motherboard
+> 256K cache
+> 24MB RAM
+> 2MB VRAM
+> 340MB hard drive
+> 1.44Mb floppy
+> 1 PCI slot
+> 2 PCMCIA slots
+> 10baseT/10base2 ethernet on board
+> 16 bit sound w/speaker on board
+> PS/2 type keyboard
+> 3 button mouse
+> ====
+
+This sounds like the Multia, which indeed runs NetBSD well.
+
+> In particular does X run well on this machine (I guess the video is built 
+> into the mother board).  Also it appears that there is built in SCSI for
+> the hard drive but I cannot tell.
+
+Yes X runs OK as does SCSI
+
+> 
+> Is 24MB enough space for a alpha (I know it is a RISC processor and has
+> 64 bit words so my guess is it would take more memory than a 32 bit 
+> processor).
+
+It is low-end for an alpha, but it does work.. I thought I had to put 
+more memory in it immediately, but so far I have managed with 24MB, just
+running X with a few x-terms and single-process compiler runs.. and it's 
+not very painful.
+
+> 
+> Does the current alpha port of NetBSD support PCMCIA cards - I would need to 
+> have a modem (ppp) and know there are PCMCIA cards - I don't see serial on 
+> the board.
+
+No PCMCIA support.  If this is a Multia it has serial though..
+
+> 
+> I can get this system (without monitor) for $800 which seems like a good
+> bang for the buck.  
+
+Is this "computer guys"?  There was where I got mine from, and I have had 
+no problems with mine.  However several other people in NetBSD land has 
+also got systems from them with various success.  All in all, I've got 
+the impression that they might not be the best ones on technical matters, 
+but that they have been very helpful with replacement parts and guarantee 
+trade-ins.. i.e no fuzz..
+
+> I've used NetBSD on the i386 and pmax.
+
+Then by all means you should run NetBSD on your alpha too, you'll feel
+at home.
+
+Niklas Hallqvist       Phone: +46-(0)31-40 75 00  Home: +46-(0)31-41 93 95
+Applitron Datasystem   Fax:   +46-(0)31-83 39 50  Home: +46-(0)31-41 93 96
+Molndalsvagen 95       Email: niklas@appli.se     GSM:  +46-(0)70-714 10 35
+S-412 63  GOTEBORG     WWW:   Here
+Sweden		       IRC:   niklas (#NetBSD)
+
+From sma@nas.nasa.gov  Mon Aug 26 13:57:09 1996
+From: Steve M. Acheson <sma@nas.nasa.gov>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Mon, 26 Aug 1996 13:57:09 +0000
+Subject: Re: Any experince with this alpha?
+
+> I've heard of no problems like this...  And have used it with several
+> HP drives...
+
+Hmm, I think it was thorpej that actually pointed this out to Fred (after 
+several hours of frustration, etc :-)
+
+> I bought my machines with larger disks.  8-)
+
+The problem here is that DEC sells a few different models, and one is with 
+bigger disk, but the gotcha is that you lose the PCI slot.  It's cheap to get 
+a 3.5" disk external with all the speed/space you need.  It's nice to be able 
+to drop a 100Mb/s Ether card into the PCI slot, among other things...  You do 
+this at home right :-)
+ 
+> "oh yeah.
+
+Until we get a couple more developers on the alpha port, it would seem that you are the stuckee, Chris :-)
+
+Satch
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Mon Aug 26 16:42:53 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: John.C.Hayward@wheaton.edu
+Date: Mon, 26 Aug 1996 16:42:53 +0000
+Subject: Re: Any experince with this alpha?
+
+> > I ordered a couple of those machines, and also got 2 16MB simms for
+> Are the sims the same kind (72 pin with/wo parity) which are readily 
+> available for the PC market?
+
+yes.
+
+
+> > > I can get this system (without monitor) for $800 which seems like a good
+> > > bang for the buck.  
+> > 
+> > probably without monitor or keyboard, actually.  8-)
+> The keyboard LK411 (108 Key, Digital layout) Keyboard
+> is included in this price.
+
+really?  That's a better deal than I got...  8-)
+
+
+> > It's an OK deal, i'd say.  They're not incredibly speedy machines.
+> > I'd guess that an intel box would beat them in terms of
+> > price/performance, but i can't say for sure.
+> 
+> The 166MZ Pentium Pro chip is about $600 on the net.
+> The 166MZ Pentium chip is about $800.  (I think Intel is trying to get
+> people on to the Pentium Pro).
+> 
+> [ ... ]
+>
+> Is it possible that the 166MHZ Alpha perform at 69 SPECint92 (97 * 166/233)
+> while the 100MHZ regular Pentium performs at 138 SPECint92 (_Twice_ the 
+> speed?)
+
+In a nutshell, yes.
+
+(0) processor cycle time and performance are not necessarily related.
+
+(1) from what I understand, the 21066 apparently (due to design flaws)
+    has some serious performance limitations, but i don't know
+    exactly what they are.
+
+(2) the Multia/UDB/whatever typically only has 256k of cache.  From
+    all indications i've seen, this is too small a cache for good
+    performance on an Alpha.  Note that most of DEC's 21064-generation
+    workstations ship with 512k cache, and the rest ship with a 2M or
+    larger cache...  
+
+
+
+Chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Mon Aug 26 16:29:54 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: sma@nas.nasa.gov
+Date: Mon, 26 Aug 1996 16:29:54 +0000
+Subject: Re: Any experince with this alpha?
+
+>I've got NetBSD up and running on several of the alpha's here at NASA and on 
+>my personal one at home.  Chris Demetriou has done most (all?) of the support 
+>work for getting the UDB/alpha port working so far.
+
+Jeff Hsu did the original work of making NetBSD/Alpha go on the
+AXPpci, which is the generic system family which the Multia/UDB is
+part of.
+
+I wrote the (vast majority of the) base NetBSD/Alpha machine-dependent
+code, and substantially reworked AXPpci CPU support since Jeff
+originally wrote it.
+
+
+> Here's the prob's with the system:
+> 
+> No Shared libraries yet.  Needs people to do development
+
+Yup.
+
+
+> - X works, but isn't really as fast as it could be as Chris just hacked 
+> support.
+
+right.  The video hardware is actually pretty good (nice acceleration
+features), but the X server support is the absolute minimum to make it
+go.
+
+
+> - SCSI works fine except with HP drives (NCR SCSI doens't like HP)
+
+I've heard of no problems like this...  And have used it with several
+HP drives...
+
+
+> - The PCI slot is supported, but he PCMCIA (PC-Card) slots are not.
+
+correct.
+
+
+> - 24 meg just isn't enough to run X and compile under as well.
+
+I'd second this.
+
+
+> - As Fred pointed out (I'm the other he refered to) the Disk is way to small,
+>    you'll need a lot more.  If you strip the binaries, remove un-needed files 
+>    (your choice) you can get the system and X to all fit with about 6 meg of 
+>    disk left (your MB might vary).
+
+I bought my machines with larger disks.  8-)
+
+
+> - The floppy might not be supported yet (means: I couldn't get it working but I
+>    didn't try hard either).
+
+Not currently supported.
+
+
+> - Ethernet works well, and on boot senses what media.
+> - Sound card isn't supported.
+
+Both correct.
+
+
+> Well, I hope that helps you decide.  The system is fast (for $800) and runs 
+> well.  I've got 1.2Beta kernel up and running and it seems stable (no 
+> crashes!).
+
+The thing that I like most about these systems, actually, is that
+they're _tiny_, and very well integrated.  I can stack my pair of
+them, and they fit into almost zero space...
+
+
+> Feel free to ask more questions if you have any...  And I'm sure that Chris 
+> will correct anything I've botched :-)
+
+"oh yeah.
+
+
+chris
+
+From John.C.Hayward@wheaton.edu  Mon Aug 26 15:33:38 1996
+From: John C. Hayward <John.C.Hayward@wheaton.edu>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Mon, 26 Aug 1996 15:33:38 +0000
+Subject: Re: Any experince with this alpha?
+
+First - Thanks to all the work Chris has done on the Alpha port (and 
+previously when he was part of core)
+
+On Mon, 26 Aug 1996, Chris G Demetriou wrote:
+
+...
+> I ordered a couple of those machines, and also got 2 16MB simms for
+Are the sims the same kind (72 pin with/wo parity) which are readily 
+available for the PC market?
+
+> > I can get this system (without monitor) for $800 which seems like a good
+> > bang for the buck.  
+> 
+> probably without monitor or keyboard, actually.  8-)
+The keyboard LK411 (108 Key, Digital layout) Keyboard
+is included in this price.
+
+> It's an OK deal, i'd say.  They're not incredibly speedy machines.
+> I'd guess that an intel box would beat them in terms of
+> price/performance, but i can't say for sure.
+
+The 166MZ Pentium Pro chip is about $600 on the net.
+The 166MZ Pentium chip is about $800.  (I think Intel is trying to get
+people on to the Pentium Pro).
+
+However I checked out what benchmarks on the Intel processors are
+(http://www.tdl.com/~netex/cpu/cpu.html)
+======================================
+Pentium(R) Pro Processor Benchmarks
+
+            Corrected    Corrected
+            SPECint92* SPECint_base92*
+150MHz        245.0        229.1
+166MHz        293.1        274.7
+180MHz        288.6        269.5
+200MHz        320.2        298.2
+
+Results measured on Intel Alder systems. 
+
+Pentium(R) Processor Systems
+
+            Corrected      Corrected
+            SPECint92*   SPECint_base92*
+100MHz        137.7          126.2
+120MHz        157.3          143.6
+133MHz        174.2          160.5
+150MHz        181.4          165.2
+166MHz        197.5          181.6
+=============================================================
+While Dec-Alphas 21066A micro processor:
+(http://www.digital.com/info/semiconductor/dsc-21066a.html)
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Best-in-class performance 
+              233-MHz, 166-MHz, and 100-MHz operation 
+              Superscalar (dual issue) 
+              Peak instruction execution rate of 466 MIPS (233 MHz) 
+              High-performance benchmarks
+              97 SPECint92 (estimated) (233)
+              112 SPECfp92 (estimated) (233)
+              189.5 V2.1 Dhrystone MIPS (233)
+              89.8 V2.1 Dhrystone MIPS (100)
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Is it possible that the 166MHZ Alpha perform at 69 SPECint92 (97 * 166/233)
+while the 100MHZ regular Pentium performs at 138 SPECint92 (_Twice_ the 
+speed?)
+
+johnh...
+
+From sma@nas.nasa.gov  Mon Aug 26 11:35:02 1996
+From: Steve M. Acheson <sma@nas.nasa.gov>
+To: John.C.Hayward@wheaton.edu
+Date: Mon, 26 Aug 1996 11:35:02 +0000
+Subject: Re: Any experince with this alpha?
+
+Hi John,
+
+Well, there are several answers to your questions, so I'll try to give you 
+enough info to decide on your own.
+
+I've got NetBSD up and running on several of the alpha's here at NASA and on 
+my personal one at home.  Chris Demetriou has done most (all?) of the support 
+work for getting the UDB/alpha port working so far.
+
+Here's the prob's with the system:
+
+No Shared libraries yet.  Needs people to do development
+- X works, but isn't really as fast as it could be as Chris just hacked 
+support.
+- SCSI works fine except with HP drives (NCR SCSI doens't like HP)
+- The PCI slot is supported, but he PCMCIA (PC-Card) slots are not.
+- 24 meg just isn't enough to run X and compile under as well.
+- As Fred pointed out (I'm the other he refered to) the Disk is way to small,
+   you'll need a lot more.  If you strip the binaries, remove un-needed files 
+   (your choice) you can get the system and X to all fit with about 6 meg of 
+   disk left (your MB might vary).
+- The floppy might not be supported yet (means: I couldn't get it working but I
+   didn't try hard either).
+- Ethernet works well, and on boot senses what media.
+- Sound card isn't supported.
+
+For your specific questions:
+>In particular does X run well on this machine (I guess the video is built 
+>into the mother board).
+
+It uses TGA (dec special) that supports up to 1280x1024 in several modes, 
+configured by jumpers on the Motherboard (you'll need a good monitor for some 
+freq's).  As for well, I'm not sure what you are comparing it to.  It runs and 
+we've got most X apps running easily so far (those that we have ported anyway).
+
+There are two serial ports on the system, but only one db25.  You need a 
+special breakout cable (spec's are avail on the net).  The ports should 
+support 16550a speeds easily.
+
+Some Web sites to check out about the hardware are: 
+
+http://www.surf.com/~rfox/index.htm
+http://www.annex.co.uk/systems/udbspec.html
+
+Well, I hope that helps you decide.  The system is fast (for $800) and runs 
+well.  I've got 1.2Beta kernel up and running and it seems stable (no 
+crashes!).
+
+Feel free to ask more questions if you have any...  And I'm sure that Chris 
+will correct anything I've botched :-)
+
+Satch
+-- 
+======================================================
+Steve Acheson                         415-604-4495
+Sterling Software                     sma@nas.nasa.gov
+NASA Ames
+Moffett Field, Ca 94035-1000
+
+From thorpej@nas.nasa.gov  Mon Aug 26 14:57:41 1996
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: sma@nas.nasa.gov
+Date: Mon, 26 Aug 1996 14:57:41 +0000
+Subject: Re: Any experince with this alpha?
+
+On Mon, 26 Aug 1996 13:57:09 -0700 
+ "Steve M. Acheson" <sma@nas.nasa.gov> wrote:
+
+ > > I've heard of no problems like this...  And have used it with several
+ > > HP drives...
+ > 
+ > Hmm, I think it was thorpej that actually pointed this out to Fred (after 
+ > several hours of frustration, etc :-)
+
+Indeed, I returned an HP disk and shelled out the extra for a Fujitsu (my 
+fav! :-) ... I don't recall the exact model.
+
+ -- save the ancient forests - http://www.bayarea.net/~thorpej/forest/ -- 
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From John.C.Hayward@wheaton.edu  Mon Aug 26 17:27:47 1996
+From: John C. Hayward <John.C.Hayward@wheaton.edu>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Mon, 26 Aug 1996 17:27:47 +0000
+Subject: Re: Any experince with this alpha?
+
+On Mon, 26 Aug 1996, Chris G Demetriou wrote:
+
+> > > I ordered a couple of those machines, and also got 2 16MB simms for
+> > Are the sims the same kind (72 pin with/wo parity) which are readily 
+> > available for the PC market?
+> 
+> yes.
+Great!
+
+> > > It's an OK deal, i'd say.  They're not incredibly speedy machines.
+> > > I'd guess that an intel box would beat them in terms of
+> > > price/performance, but i can't say for sure.
+> > 
+> > The 166MZ Pentium Pro chip is about $600 on the net.
+> > The 166MZ Pentium chip is about $800.  (I think Intel is trying to get
+> > people on to the Pentium Pro).
+> > 
+> > [ ... ]
+> >
+> > Is it possible that the 166MHZ Alpha perform at 69 SPECint92 (97 * 166/233)
+> > while the 100MHZ regular Pentium performs at 138 SPECint92 (_Twice_ the 
+> > speed?)
+> 
+> In a nutshell, yes.
+Bummer :-{
+> 
+> (0) processor cycle time and performance are not necessarily related.
+Granted - RISC vs CISC
+> 
+> (1) from what I understand, the 21066 apparently (due to design flaws)
+>     has some serious performance limitations, but i don't know
+>     exactly what they are.
+Too bad.
+> 
+> (2) the Multia/UDB/whatever typically only has 256k of cache.  From
+>     all indications i've seen, this is too small a cache for good
+>     performance on an Alpha.  Note that most of DEC's 21064-generation
+>     workstations ship with 512k cache, and the rest ship with a 2M or
+>     larger cache...  
+With 64bit word and RISC arch 256k would not be as effective when compared
+to a 32bit word CISC.
+> 
+> 
+> 
+> Chris
+
+Wish this Alpha was close to performance of the Pentium Pro.  For $800 to
+get a case, good graphics card, SCSI controler (even though the disk is 
+small), eithernet, etc. it looks like a great deal - except if the
+processor is going to be at the 50MZ Pentium speed.
+
+I'll have to think about this some more.
+
+johnh...
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Mon Aug 26 19:10:46 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: simonb@telstra.com.au
+Date: Mon, 26 Aug 1996 19:10:46 +0000
+Subject: Re: Any experince with this alpha?
+
+> Chris - do you know if a LK401 keyboard works on these?  We have a few
+> of them lying around.
+
+I've never tried it, but i Sincerely doubt it.  They use standard
+PC-style keyboards with PS/2 keyboard connectors.
+
+(For an lk[24]01 to work, at minimum you'd need a keyboard connector
+adapter, and i don't even know if they speak the same protocol...  but
+i doubt it.)
+
+
+
+chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Mon Aug 26 19:13:03 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: John.C.Hayward@wheaton.edu
+Date: Mon, 26 Aug 1996 19:13:03 +0000
+Subject: Re: Any experince with this alpha?
+
+> Wish this Alpha was close to performance of the Pentium Pro.  For $800 to
+> get a case, good graphics card, SCSI controler (even though the disk is 
+> small), eithernet, etc. it looks like a great deal - except if the
+> processor is going to be at the 50MZ Pentium speed.
+
+Right.  Like i said: my main motivation was that I wanted to have a
+couple of alphas at home.  The fact that they were tightly integrated
+(in a tiny box 8-) made it even better.
+
+Really, overall, it's a fair deal but not one that i'd call "great."
+
+
+chris
+
+From adamg@microsoft.com  Mon Aug 26 16:10:28 1996
+From: Adam Glass <adamg@microsoft.com>
+To: John.C.Hayward@wheaton.edu
+Date: Mon, 26 Aug 1996 16:10:28 +0000
+Subject: RE: Any experince with this alpha?
+
+>
+>The 166MZ Pentium Pro chip is about $600 on the net.
+>The 166MZ Pentium chip is about $800.  (I think Intel is trying to get
+>people on to the Pentium Pro).
+
+I wouldn't normally butt in but the price quotes were a little out of
+wack on the Pro, mainly that you can get a 200mhz Pro for that
+price.....
+
+p5-166			$402
+p5-200			$740
+p6-200 w/256k cache      $569
+
+http://www.thechipmerchant.com/prices.htm
+
+later,
+Adam Glass
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Mon Aug 26 19:50:10 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: gallatin@CS.Duke.EDU
+Date: Mon, 26 Aug 1996 19:50:10 +0000
+Subject: Re: Any experince with this alpha?
+
+> I think I can confirm this -- As I recall, the 3000/300LX is a 125Mhz
+> 21064 w/256K of cache.  My former employer had a pair of them, and
+> they were noticably slower than a 100Mhz Mustang, which has a 21064a
+> w/512k cache.
+
+Of course, there are several other categories in which the Mustang
+beats the Pelica+ (3000/300LX):
+
+	(1) The Pelica+'s 21064 CPU only has 8k on-chip cache, while
+	    the Mustang's 21064A has 16k.
+
+	(2) The Pelica+ has only a 12.5MHz TurboChannel, while
+	    the Mustaing has what can more or less be considered
+	    a "normal" PCI implementation.  (Hey, everybody remember
+	    how dog-slow the Maxine was?  DEC decided to build another
+	    machine like that! 8-) 
+
+	(3) Both the SCSI and ethernet in the Mustang are
+	    significantly 'smarter' than the ones in the Pelica+
+	    (and other TC-based systems).
+
+
+
+chris
+
+From gallatin@CS.Duke.EDU  Mon Aug 26 19:43:52 1996
+From: Andrew Gallatin <gallatin@CS.Duke.EDU>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Mon, 26 Aug 1996 19:43:52 +0000
+Subject: Re: Any experince with this alpha?
+
+Chris G. Demetriou writes:
+ > 
+ > (2) the Multia/UDB/whatever typically only has 256k of cache.  From
+ >     all indications i've seen, this is too small a cache for good
+ >     performance on an Alpha.  Note that most of DEC's 21064-generation
+ >     workstations ship with 512k cache, and the rest ship with a 2M or
+ >     larger cache...  
+
+I think I can confirm this -- As I recall, the 3000/300LX is a 125Mhz
+21064 w/256K of cache.  My former employer had a pair of them, and
+they were noticably slower than a 100Mhz Mustang, which has a 21064a
+w/512k cache.
+
+Drew
+------------------------------------------------------------------------------
+Duke University				Internet:	gallatin@cs.duke.edu
+Department of Computer Science		Phone:		(919) 660-6590
+
+From matt@lkg.dec.com  Mon Aug 26 20:45:21 1996
+From: Matt Thomas <matt@lkg.dec.com>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 26 Aug 1996 20:45:21 +0000
+Subject: Re: Any experince with this alpha?
+
+> As a small data point, here are some numbers for a TurboChannel sfb
+> (which uses an earlier generation of the chip that the multia uses)
+> running on a DECstation 5000/260 (R4400).  With an XFree86/X11R6 X
+> server (which treats the sfb as a dumb framebuffer) I get around 20k
+> xstones.  With the DEC supplied X server, this jumps to over 120k
+> xstones.
+
+Digital has supplied to the XFree86 folks the accelerated ddx layer for
+the TGA X server (primarily for Linux).  If anyone is really interested
+in a fast X server, I suggest you talk to them.
+
+This also means with little effort you can have a fast X server for SFB
+based systems (Flamingo/Sandpiper or DECstations 5000) since the TGA and
+SFB chipsets are very similar (mostly just different buses).  [Of course,
+this begs the question of why we TGA console but no SFB console under
+NetBSD/alpha.]
+-- 
+Matt Thomas               Internet:   matt@3am-software.com
+3am Software Foundry      WWW URL:    http://www.3am-software.com/bio/matt.html
+Westford, MA              Disclaimer: I disavow all knowledge of this message
+
+From jonathan@DSG.Stanford.EDU  Mon Aug 26 19:12:31 1996
+From: Jonathan Stone <jonathan@DSG.Stanford.EDU>
+To: matt@lkg.dec.com
+Date: Mon, 26 Aug 1996 19:12:31 +0000
+Subject: Re: Any experince with this alpha?
+
+In message <199608262045.UAA29122@whydos.lkg.dec.com>Matt Thomas writes
+>
+>> As a small data point, here are some numbers for a TurboChannel sfb
+>> (which uses an earlier generation of the chip that the multia uses)
+>> running on a DECstation 5000/260 (R4400).  With an XFree86/X11R6 X
+>> server (which treats the sfb as a dumb framebuffer) I get around 20k
+>> xstones.  With the DEC supplied X server, this jumps to over 120k
+>> xstones.
+>
+>Digital has supplied to the XFree86 folks the accelerated ddx layer for
+>the TGA X server (primarily for Linux).  If anyone is really interested
+>in a fast X server, I suggest you talk to them.
+
+It's ... nice... that the accelearated ddx layer is available.
+I'd kind of hoped to aim for an Xws-like user/kernel interface (as X11R6
+and I think R5 used on Ultrix) on NetBSD/pmax and NetBSD/vax.  That may
+not be compatible with whatever user/kernel interface XFree86 has.
+
+It also doesn't help with the turbochannel PixelStamp/ i860 2-d and
+3-d framebuffers (PMAG-C, -D, -E, iirc), which also aren't yet
+supported by netbsd on any platform.
+
+>
+>This also means with little effort you can have a fast X server for SFB
+>based systems (Flamingo/Sandpiper or DECstations 5000) since the TGA and
+>SFB chipsets are very similar (mostly just different buses). 
+
+I thought the TGA functionality was a strict superset of the sfb?
+
+> [Of course,
+>this begs the question of why we TGA console but no SFB console under
+>NetBSD/alpha.]
+
+No lk-201-to-ASCII translation (and no mechanism to redirect
+scc input streams to such translation) in the Alpha kernel.
+
+The SFB  is a supported console on TC pmaxes.  Pmaxes use the
+rcons "machine-independent"   glass-tty-on-framebuffer interface.
+Alphas use wscons, which is richer and can handle (S)VGA text modes
+as well as raw pixels.  If I had any spare time, NetBSD/vax would get
+rcons-based fb support for the pmax-like 3100 framebuffer, qvss, and
+qdss.  If anyone _really_ wants to kill off qvss-style in-kernel
+pointer-tracing and cursor-sprite movement and shared-memory
+input-event ring-buffer, now is the time to speak. I'm afraid it
+may still make sense on microvax-IIs, for performance reasons.
+(anyone  really want vaxstation-100 support? I hope not..)
+
+From John.C.Hayward@wheaton.edu  Mon Aug 26 22:21:32 1996
+From: John C. Hayward <John.C.Hayward@wheaton.edu>
+To: adamg@microsoft.com
+Date: Mon, 26 Aug 1996 22:21:32 +0000
+Subject: RE: Any experince with this alpha?
+
+On Mon, 26 Aug 1996, Adam Glass wrote:
+
+> >
+> >The 166MZ Pentium Pro chip is about $600 on the net.
+> >The 166MZ Pentium chip is about $800.  (I think Intel is trying to get
+> >people on to the Pentium Pro).
+> 
+> I wouldn't normally butt in but the price quotes were a little out of
+> wack on the Pro, mainly that you can get a 200mhz Pro for that
+> price.....
+My typo.  The prices I was looking at was the 200MHZ chips not 166MHZ
+Your prices are better than I found.
+Thanks for the correction.
+johnh...
+> 
+> p5-166			$402
+> p5-200			$740
+> p6-200 w/256k cache      $569
+> 
+> http://www.thechipmerchant.com/prices.htm
+> 
+> later,
+> Adam Glass
+> 
+>
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Mon Aug 26 23:50:22 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: matt@lkg.dec.com
+Date: Mon, 26 Aug 1996 23:50:22 +0000
+Subject: Re: Any experince with this alpha?
+
+> > As a small data point, here are some numbers for a TurboChannel sfb
+> > (which uses an earlier generation of the chip that the multia uses)
+> > running on a DECstation 5000/260 (R4400).  With an XFree86/X11R6 X
+> > server (which treats the sfb as a dumb framebuffer) I get around 20k
+> > xstones.  With the DEC supplied X server, this jumps to over 120k
+> > xstones.
+> 
+> Digital has supplied to the XFree86 folks the accelerated ddx layer for
+> the TGA X server (primarily for Linux).  If anyone is really interested
+> in a fast X server, I suggest you talk to them.
+
+Uh:
+
+	(1) as of the last public source release, i couldn't find
+	    any TGA sources in the XF86 public distribution.
+
+	(2) i'm on their beta list, and i've yet to see TGA support
+	    listed among their patches.
+
+	(3) with respect to how they're planning to do server support
+	    for the Alpha in general, i've sent several pieces of
+	    mail inquiring, and never received a response from anyone
+	    other than users, who pretty much said "works great on
+	    linux."  It was suggested at one point that there should
+	    be an XFreeAXP server, which i agree with, given my desire
+	    to support 'wacked out' frame buffers (i.e. various TC
+	    stuf), that makes little sense in the 'normal' XFree86
+	    tree, and also given my desire to support LK-series
+	    keyboards on TC machines (which makes absolutely no sense
+	    in the context of XFree86).  As far as I can tell, the
+	    "strategy" is to hack XFree86 linux sources until they
+	    work on the Alpha.  That doesn't make any sense for
+	    NetBSD/Alpha, since the i386 and Alpha console code
+	    is so different, and given my previously stated desires.
+
+	(4) many of the hacks mentioned in (3) were, as of the last
+	    time i looked at the source code (~3.1.2E) of the form
+	    that they would not be portable to different machines in
+	    the Alpha family that NetBSD/Alpha currently supports.
+	    In particular, they were hard-coding address ranges
+	    for PCI dense memory, and the values that they were using
+	    worked on the 2106x, but would not work on the 21164.
+
+In other words:
+
+As of the last time I looked, XFree86 supports various PCI VGA boards
+on the Alpha, but does not support TGA, and the means used to support
+those VGA boards were both inadqeuate for the purposes of
+NetBSD/Alpha, and ill-thought-out.
+
+(If somebody from the XF86 group takes issue with this
+characterization, uh, well, you can start your reply by responding to the
+questions and points that i raised in my message to axp@Xfree86.org,
+dated June 26, 1996, message ID <22528.835833388@ux2.sp.cs.cmu.edu>,
+and resent, dated July 4, 1996, message ID
+<17382.836455818@ux2.sp.cs.cmu.edu>.  Yes, i am a bit annoyed about
+being blown off, especially since i went out of my way to provide
+early copies of my hacked TGA server to XF86 people who wanted them.)
+
+
+To those who have been asking about PCI VGA server support under
+NetBSD/Alpha: no, there is currently nothing being done, and the
+problems listed above, along with my lack of time, are largely the
+reason.  Sorry to have taken so long to reply to your queries.
+
+
+> This also means with little effort you can have a fast X server for SFB
+> based systems (Flamingo/Sandpiper or DECstations 5000) since the TGA and
+> SFB chipsets are very similar (mostly just different buses).  [Of course,
+> this begs the question of why we TGA console but no SFB console under
+> NetBSD/alpha.]
+
+Because a console needs input.
+
+There is currently no support in NetBSD/Alpha for LK-series keyboard
+input, or for mouse input.  I've been hoping that a pmax person would
+convert the z8530 driver to use the (relatively new)
+machine-independent 8530 code, and produce something that works on
+both that pmax and on the alpha.  Unfortunately, that's not happened
+yet, but i can't harp on people for not having enough free time to
+work on projects for me.  8-)
+
+There currently _does_ exist a working SFB driver for NetBSD/Alpha...
+However, because there's no LK keyboard support, console is
+effectively output only.  "not bloody useful."  Once the keyboard
+support is there, it wouldn't be hard to hook the keyboard/SFB up as
+the "real" console, but until the keyboard works, i'd say that that
+is counter-productive, if not dangerous.  (Actually, i'm not entirely
+telling the truth -- the NetBSD/Alpha SFB driver works, but doesn't
+include any real support for the RAMDACs found on the SFB.  but that
+code already exists for the TGA, and could be copied, or, better,
+shared.  Still, that's a SMOP, whereas making the keyboard driver go
+is a fair bit harder, since the z8530 driver currently used by
+NetBSD/Alpha should be taken out and burned.)
+
+
+
+chris
+
+From lnguyen@nmaa.org  Mon Aug 26 13:56:43 1996
+From: Linh C. Nguyen <lnguyen@nmaa.org>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 26 Aug 1996 13:56:43 +0000
+Subject: TEST (Please ignore)
+
+Body of article empty.
+
+From wulf@hotdog.satech.net.au  Tue Aug 27 07:25:03 1996
+From: Berndt Josef Wulf <wulf@hotdog.satech.net.au>
+To: sma@nas.nasa.gov
+Date: Tue, 27 Aug 1996 07:25:03 +0000
+Subject: Re: Any experince with this alpha?
+
+Steve M. Acheson wrote
+> 
+> No Shared libraries yet.  Needs people to do development
+> - X works, but isn't really as fast as it could be as Chris just hacked 
+> support.
+
+Is there a Xserver for PCI-VGA cards in sight? Linux and Digital Unix
+offer support for these cards under X. I am using an old diskless Sun3/60 as a
+XTerminal booted off the AXPpci. 
+
+[...]
+> Well, I hope that helps you decide.  The system is fast (for $800) and runs 
+> well.  I've got 1.2Beta kernel up and running and it seems stable (no 
+> crashes!).
+> 
+
+I definitely can confirm that ;)
+
+cheerio Berndt
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@hotdog.satech.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.2Beta
+
+From simonb@telstra.com.au  Tue Aug 27 08:57:42 1996
+From: Simon Burge <simonb@telstra.com.au>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Tue, 27 Aug 1996 08:57:42 +0000
+Subject: Re: Any experince with this alpha?
+
+On Mon, 26 Aug 1996 16:29:54 -0400  Chris G Demetriou wrote:
+
+> > - X works, but isn't really as fast as it could be as Chris just hacked 
+> > support.
+> 
+> right.  The video hardware is actually pretty good (nice acceleration
+> features), but the X server support is the absolute minimum to make it
+> go.
+
+As a small data point, here are some numbers for a TurboChannel sfb
+(which uses an earlier generation of the chip that the multia uses)
+running on a DECstation 5000/260 (R4400).  With an XFree86/X11R6 X
+server (which treats the sfb as a dumb framebuffer) I get around 20k
+xstones.  With the DEC supplied X server, this jumps to over 120k
+xstones.
+
+Without knowing how fast the current X server is for the multia, I'd
+guess that similar potential for improvement exists...
+
+Now to check the Australian DEC distributors to see if they're
+available here :-)
+
+Chris - do you know if a LK401 keyboard works on these?  We have a few
+of them lying around.
+
+Simon.
+--
+Simon Burge						simonb@telstra.com.au
+UNIX Support, CPR Project, Telstra.			+61 3 9634 3974
+-------------------------------------------------------------------------------
+I've got a can opener at home.  Sometimes it works, and other times it doesn't.
+Sometimes it only goes half-way around, and then does a lap of honor - Jimeoin.
+
+From bdi@thecore.com  Tue Aug 27 22:34:26 1996
+From: Master_B <bdi@thecore.com>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 27 Aug 1996 22:34:26 +0000
+Subject: Can't get out of single user mode
+
+Hi all,
+
+i have done it!! its all on there now
+
+I have a DEC Alpha 3000/300LX.
+
+ok, i modified the fstab file and i don't know how to make the other
+files that were in the readme file on the ftp site. Any help on this
+would be greatly appreciated.
+
+Now for booting up.  Maybe my problem is that i didn't set up the other
+files that were deemed necessary in the readme file, but this is what my
+machine looks like when i boot up on a serial console. BTW, is it
+possible for me to ever boot up using only one computer, or will i have
+to ALWAYS use another terminal to boot NetBSD1.1?
+
+ok, the following is long and i apologize for the size.
+
+TIA 
+Chris (spicoli)
+bdi@thecore.com
+
+INIT-S-CPU...
+INIT-S-ASIC...
+INIT-S-MEM...
+INIT-S-NVR...
+INIT-S-CXT...
+INIT-S-SCC...
+INIT-S-NI...
+INIT-S-SCSI...
+INIT-S-ISDN...
+AUDIT_BOOT_STARTS ...
+AUDIT_CHECKSUM_GOOD
+AUDIT_LOAD_BEGINS
+AUDIT_LOAD_DONE
+
+NetBSD/Alpha primary boot...
+Jumping to entry point...
+
+
+NetBSD/Alpha boot, Revision $NetBSD: version,v 1.5 1996/05/09 23:54:18
+cgd Exp $
+
+(cgd@bunnahabhain.pdl.cs.cmu.edu, Sat Jun 15 00:12:50 EDT 1996)
+
+VMS PAL revision: 0x100010530
+OSF PAL rev: 0x20123
+Switch to OSF PAL code succeeded.
+
+boot_dev = "SCSI 0 4 0 0 200 0 FLAMG-IO"
+boot_file = ""
+boot_flags = "A"
+boot_console = "0"
+Boot: /netbsd A
+1417776+137840+118736
+calling fffffc0000230000 with 1e7, b8, 4, 200266c0, 0
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+        The Regents of the University of California.  All rights
+reserved.
+
+NetBSD 1.2_ALPHA (GENERIC) #45: Fri Jun 14 23:58:24 EDT 1996
+   
+cgd@bunnahabhain.pdl.cs.cmu.edu:/usr/src/sys/arch/alpha/compile/GENERIC
+DEC 3000/300LX ("Pelica+"), 125MHz
+8192 byte page size, 1 processor.
+real mem = 33554432 (2097152 reserved for PROM, 31457280 used by NetBSD)
+avail mem = 24207360
+using 384 buffers containing 3145728 bytes of memory
+mainbus0 (root)
+cpu0 at mainbus0: 21064 (EV4), Pass 3, Revision F001
+cpu0: VAX FP support, IEEE FP support
+tcasic0 at mainbus0
+tc0 at tcasic0: 12.5 MHz clock
+sfb0 at tc0 slot 4 offset 0x2000000: 1280 x 1024, 8bpp
+wscons0 at sfb0
+ioasic0 at tc0 slot 3 offset 0x0: slow mode
+le0 at ioasic0 offset 0xc0000: address 08:00:2b:be:da:8c
+le0: 32 receive buffers, 8 transmit buffers
+scc0 at ioasic0 offset 0x100000: console
+scc1 at ioasic0 offset 0x180000
+mcclock0 at ioasic0 offset 0x200000: mc146818 or compatible
+AMD79c30 at ioasic0 offset 0x240000 not configured
+tcds0 at tc0 slot 2 offset 0x0
+esp0 at tcds0 slot 0: address 90100000: NCR53C94 25Mhz, target 7
+scsibus0 at esp0
+probe(esp0:2:0): max sync rate 6.25Mb/s
+sd0 at scsibus0 targ 2 lun 0: <SEAGATE, ST51080N, 0913> SCSI2 0/direct
+fixed
+sd0: 1030MB, 4826 cyl, 4 head, 109 sec, 512 bytes/sec
+esp0: ICCS: expected 2, got 3 : [intr 8, stat 87, step 4]
+probe(esp0:2:1): timed out (ecb 0x4a5490f0 (flags 0x0, dleft 2c), state
+5, phase
+ 7, msgpriq 4, msgout 0)
+timed out (ecb 0x4a5490f0 (flags 0x10, dleft 2c), state 5, phase 7,
+msgpriq 4, m
+sgout 0) AGAIN
+esp: message queue not empty: 4!
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp0: ICCS: expected 2, got 3 : [intr 8, stat 87, step 1]
+probe(esp0:2:2): timed out (ecb 0x4a5490f0 (flags 0x0, dleft 2c), state
+5, phase
+ 7, msgpriq 4, msgout 0)
+timed out (ecb 0x4a5490f0 (flags 0x10, dleft 2c), state 5, phase 7,
+msgpriq 4, m
+sgout 0) AGAIN
+esp: message queue not empty: 4!
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp0: ICCS: expected 2, got 3 : [intr 8, stat 87, step 1]
+probe(esp0:2:3): timed out (ecb 0x4a5490f0 (flags 0x0, dleft 2c), state
+5, phase
+ 7, msgpriq 4, msgout 0)
+timed out (ecb 0x4a5490f0 (flags 0x10, dleft 2c), state 5, phase 7,
+msgpriq 4, m
+sgout 0) AGAIN
+esp: message queue not empty: 4!
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp0: ICCS: expected 2, got 3 : [intr 8, stat 87, step 1]
+probe(esp0:2:4): timed out (ecb 0x4a5490f0 (flags 0x0, dleft 2c), state
+5, phase
+ 7, msgpriq 4, msgout 0)
+timed out (ecb 0x4a5490f0 (flags 0x10, dleft 2c), state 5, phase 7,
+msgpriq 4, m
+sgout 0) AGAIN
+esp: message queue not empty: 4!
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp0: ICCS: expected 2, got 3 : [intr 8, stat 87, step 1]
+probe(esp0:2:5): timed out (ecb 0x4a5490f0 (flags 0x0, dleft 2c), state
+5, phase
+ 7, msgpriq 4, msgout 0)
+timed out (ecb 0x4a5490f0 (flags 0x10, dleft 2c), state 5, phase 7,
+msgpriq 4, m
+sgout 0) AGAIN
+esp: message queue not empty: 4!
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp0: ICCS: expected 2, got 3 : [intr 8, stat 87, step 1]
+probe(esp0:2:6): timed out (ecb 0x4a5490f0 (flags 0x0, dleft 2c), state
+5, phase
+ 7, msgpriq 4, msgout 0)
+timed out (ecb 0x4a5490f0 (flags 0x10, dleft 2c), state 5, phase 7,
+msgpriq 4, m
+sgout 0) AGAIN
+esp: message queue not empty: 4!
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp0: ICCS: expected 2, got 3 : [intr 8, stat 87, step 1]
+probe(esp0:2:7): timed out (ecb 0x4a5490f0 (flags 0x0, dleft 2c), state
+5, phase
+ 7, msgpriq 4, msgout 0)
+timed out (ecb 0x4a5490f0 (flags 0x10, dleft 2c), state 5, phase 7,
+msgpriq 4, m
+sgout 0) AGAIN
+esp: message queue not empty: 4!
+probe(esp0:3:0): max sync rate 6.25Mb/s
+sd1 at scsibus0 targ 3 lun 0: <DEC, RZ25L    (C) DEC, 0007> SCSI2
+0/direct fixed
+
+sd1: 510MB, 1872 cyl, 7 head, 79 sec, 512 bytes/sec
+empty FIFO of 1 sd2 at scsibus0 targ 5 lun 0: <DEC, RX26     (C) DEC,
+0070> SCSI
+1 0/direct removable
+sd2: drive offline
+root on sd0a swap on sd0b
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+WARNING: preposterous time in file system -- CHECK AND RESET THE DATE!
+esp:2: rejecting SDTR
+init: copying out path `/sbin/init' 11
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+Checking root and /esp:2: rejecting SDTR
+usr...
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+Remounting root deesp:2: rejecting SDTR
+vice...esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+
+Mounting /usr...esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+
+Returning to single-user mode...
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+Enter pathname of shell or RETURN for sh:
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+Teresp:2: rejecting SDTR
+minal type? vt100
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+# halt
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+Oct 19 23:38:05 init: kernel security level changed from 0 to 1
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+syncing disks... esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+esp:2: rejecting SDTR
+done
+halted.
+
+
+?05 HLT INSTR
+  PC= FFFFFC00.00230190 PSL= 00000000.00000006
+
+>>>
+
+From lnguyen@nmaa.org  Wed Aug 28 09:48:22 1996
+From: Linh C. Nguyen <lnguyen@nmaa.org>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 28 Aug 1996 09:48:22 +0000
+Subject: Add cache on Alpha UBD??
+
+Have anyone try to add cache from 256K to 512K on the Alpha UDB??
+Is this possible??
+
+-- 
+Linh C. Nguyen
+
+lnguyen@nmaa.org
+++++++++++++++++
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Wed Aug 28 23:49:34 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: lnguyen@nmaa.org
+Date: Wed, 28 Aug 1996 23:49:34 +0000
+Subject: Re: Add cache on Alpha UBD??
+
+> Have anyone try to add cache from 256K to 512K on the Alpha UDB??
+> Is this possible??
+
+At least one model of the UDB (the 166MHz one which comes with 256K
+cache) has the cache soldered in, and cannot be upgraded to have a
+larger cache.
+
+
+chris
+
+From John.C.Hayward@wheaton.edu  Thu Aug 29 00:16:24 1996
+From: John C. Hayward <John.C.Hayward@wheaton.edu>
+To: lnguyen@nmaa.org
+Date: Thu, 29 Aug 1996 00:16:24 +0000
+Subject: Re: Add cache on Alpha UBD??
+
+On Wed, 28 Aug 1996, Linh C. Nguyen wrote:
+
+> Have anyone try to add cache from 256K to 512K on the Alpha UDB??
+> Is this possible??
+
+I am pondering the purchase of one of these from NekoTech, Inc. 
+and asked about the possibility of upgrading cache and was told it is 
+not possible.
+
+However their web page with the "linx 166" 
+http://www.alphapower.com/lynxcub.htm
+
+has a link to find out more about the Linx which was on Dec's page
+http://www.digital.com:80/.i/info/multia/
+
+which has info about multia models and
+http://www.digital.com:80/.i/info/multia/alph_md.htm
+
+indicates that models VX42A-F2,VX42B-F*,VX42B-G*
+are 233MHZ and have 256kb cache which is upgradable.
+
+It may be that the Linx 166 which is being sold for $800 does not
+have the ability to have it's cache upgraded.  
+
+The e-mail from Nanoteck also indicated that the alpha was soldered in
+so it was not upgradable either.
+
+Others may have better data points.
+johnh...
+ 
+> -- 
+> Linh C. Nguyen
+
+From brian.gelly@ab.com  Thu Aug 29 16:25:34 1996
+From: Brian J. Gelly <brian.gelly@ab.com>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 29 Aug 1996 16:25:34 +0000
+Subject: DEC 2000 axp (jensen??)
+
+greetings,...
+
+i'm a new subscriber, and have recently inherited a dec 2000/150
+machine.
+currently there is no os installed.  we tried to install redhat linux,
+but could never get the system to mount a device (nfs or cd rom),.. 
+therefore, could never truly install.  i was told about netbsd as a
+good os for this machine (someone called it a jensen?).  now the
+question
+is,.. where do i start?.. ok, a bit broad for this forum,.. but i've
+d/l'd the files from ftp.netbsd.org/pub/netbsd/arch/alpha ... but am at
+a 
+loss as to how to begin this process... sorry if this is a bit too basic
+for this list... but i am new to the alpha world,.. and from what i am
+told,.
+my "jensen", isn't exactly standard...
+
+any help is appreciated...
+
+thanks
+
+--brian
+(brian.gelly@ab.com)
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Thu Aug 29 17:43:31 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: brian.gelly@ab.com
+Date: Thu, 29 Aug 1996 17:43:31 +0000
+Subject: Re: DEC 2000 axp (jensen??)
+
+> greetings,...
+> 
+> i'm a new subscriber, and have recently inherited a dec 2000/150
+> machine.
+> currently there is no os installed.  we tried to install redhat linux,
+> but could never get the system to mount a device (nfs or cd rom),.. 
+> therefore, could never truly install.  i was told about netbsd as a
+> good os for this machine (someone called it a jensen?).
+
+No, that hardware is not currently supported by NetBSD/Alpha.  Whoever
+told you that was incorrect.
+
+
+The NetBSD/Alpha distribution 'STATUS' file says:
+
+>At this time none of the following systems are supported:
+>        DECpc AXP 150 systems (EISA-bus PC-like systems)
+>        Alpha "server" systems (other than perhaps the
+>            AlphaServer 400, which might be an AlphaStation 400
+>            in disguise).
+>        Multiprocessor Alpha systems
+>
+>I was hoping to get a DECpc AXP port working "for free" based on
+>the PCI work, but the DECpc AXP is a very different (and, in my
+>opinion, very alien) piece of hardware.  If somebody wants to make
+>NetBSD/Alpha run on the DECpc AXP system, get in touch and I'll do
+>what I can to help you get started.
+
+The DECpc AXP 150, a.k.a. Jensen, a.k.a. the DEC 2000/300 (_not_
+"DEC 2000/150", if any documentation i've seen is current), is what
+you have.
+
+
+
+cgd
+
+From ost@comnets.rwth-aachen.de  Fri Aug 30 10:30:56 1996
+From: Martin Ostermann <ost@comnets.rwth-aachen.de>
+To: brian.gelly@ab.com
+Date: Fri, 30 Aug 1996 10:30:56 +0000
+Subject: Re: DEC 2000 axp (jensen??)
+
+"Brian J. Gelly" <brian.gelly@ab.com> writes:
+> i'm a new subscriber, and have recently inherited a dec 2000/150
+> machine.
+> currently there is no os installed.  we tried to install redhat linux,
+> but could never get the system to mount a device (nfs or cd rom),.. 
+> therefore, could never truly install.  i was told about netbsd as a
+> good os for this machine (someone called it a jensen?).  now the
+
+Brian, I know a lot of people who run RedHat perfectly fine on a
+Jensen, including myself. The installation procedure of RedHat 2.1 was
+very buggy, but it's been cleaned up in 3.0.3. At least there are less
+complaints on the mailing list, axp-list@redhat.com.
+
+Martin
+-- 
+Martin Ostermann                | mailto:ost@comnets.rwth-aachen.de
+Communication Networks          | http://www.comnets.rwth-aachen.de/~ost
+Aachen University of Technology | phoneto:++49/241/807917
+Germany                         | faxto:++49/241/8890378
+
+From ost@comnets.rwth-aachen.de  Fri Aug 30 11:18:33 1996
+From: Martin Ostermann <ost@comnets.rwth-aachen.de>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Fri, 30 Aug 1996 11:18:33 +0000
+Subject: Re: DEC 2000 axp (jensen??)
+
+Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu> writes:
+> > therefore, could never truly install.  i was told about netbsd as a
+> > good os for this machine (someone called it a jensen?).
+> 
+> No, that hardware is not currently supported by NetBSD/Alpha.  Whoever
+> told you that was incorrect.
+> 
+> 
+> The NetBSD/Alpha distribution 'STATUS' file says:
+[..]
+> >I was hoping to get a DECpc AXP port working "for free" based on
+> >the PCI work, but the DECpc AXP is a very different (and, in my
+> >opinion, very alien) piece of hardware.  If somebody wants to make
+> >NetBSD/Alpha run on the DECpc AXP system, get in touch and I'll do
+> >what I can to help you get started.
+
+I was eventually going to ask the question about the Jensen status
+myself, since I havn't found that information in the WWW, other than
+being not mentioned. I have some interest in running BSD on my Jensen,
+since I used to be much happier with (Free-)BSD than with Linux on my
+Intel. OTOH, Linux is allready quite complete on Alpha (X-Servers,
+shared libraries, etc...), so what's the status of NetBSD/alpha in
+this respect? Sorry, if that sounded ignorant, but IMHO there is only
+little information about the NetBSD/Alpha port available via WWW.
+
+Martin
+-- 
+Martin Ostermann                | mailto:ost@comnets.rwth-aachen.de
+Communication Networks          | http://www.comnets.rwth-aachen.de/~ost
+Aachen University of Technology | phoneto:++49/241/807917
+Germany                         | faxto:++49/241/8890378
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Fri Aug 30 07:29:12 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: ost@comnets.rwth-aachen.de
+Date: Fri, 30 Aug 1996 07:29:12 +0000
+Subject: Re: DEC 2000 axp (jensen??)
+
+> I was eventually going to ask the question about the Jensen status
+> myself, since I havn't found that information in the WWW, other than
+> being not mentioned. I have some interest in running BSD on my Jensen,
+> since I used to be much happier with (Free-)BSD than with Linux on my
+> Intel. OTOH, Linux is allready quite complete on Alpha (X-Servers,
+> shared libraries, etc...), so what's the status of NetBSD/alpha in
+> this respect? Sorry, if that sounded ignorant, but IMHO there is only
+> little information about the NetBSD/Alpha port available via WWW.
+
+In general, lists of stuff that is supported are on the web server,
+and lists of stuff that is not supported are in the various FTPable
+README-ish files.  (This is mostly because i only have a finite amount
+of time to be updating the web pages, and really prefer plain text for
+basic system information, like supported hardware lists.  Anyway, if
+you find deficiencies in the various README-ish files, get in touch
+with me and i'll try to correct them.  If you notice sections of them
+that should go on the web site, point them out and i'll try to put
+them up.  The readme-ish files i'm thinking of can be found in
+ftp://ftp.netbsd.org/pub/NetBSD/arch/alpha/960615, and are the ones
+named README, STATUS, and TODO.users.
+
+People are working on ELF + shared libraries support (I happen to be
+one of them, but i'm not doing much right now due to lack of time).
+As for X, well, see the mail the I sent out a few days ago.
+
+If people want to work on these things, _great_!  I'd welcome the
+help.  But very few people actually seem to _want_ to help, and NetBSD
+is more or less a user-supported OS.
+
+
+
+chris
+
+From Brian.Gelly@cle.ab.com  Fri Aug 30 08:26:31 1996
+From: Brian J Gelly <Brian.Gelly@cle.ab.com>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 30 Aug 1996 08:26:31 +0000
+Subject: Re: DEC 2000 axp (jensen??)
+
+my thanks to everyone who responded,.. i guess this was a short life for me
+on this list... i'm off to find another os...
+
+thanks
+
+--brian
+
+From castor@supra.pt  Fri Aug 30 15:15:49 1996
+From: Joao Miguel <castor@supra.pt>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 30 Aug 1996 15:15:49 +0000
+Subject: None
+
+Body of article empty.
+
+From castor@supra.pt  Fri Aug 30 15:14:53 1996
+From: Joao Miguel <castor@supra.pt>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 30 Aug 1996 15:14:53 +0000
+Subject: None
+
+Body of article empty.
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Fri Aug 30 11:24:19 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: bdi@thecore.com
+Date: Fri, 30 Aug 1996 11:24:19 +0000
+Subject: Re: Help!!!!!!!!!!!
+
+[ sorry for the delay... very busy. ]
+
+> [ Questions about getting NetBSD/Alpha going on a 3000/300LX ]
+>
+> Now for booting up.  Maybe my problem is that i didn't set up the other
+> files that were deemed necessary in the readme file, but this is what my
+> machine looks like when i boot up on a serial console.
+
+OK.  comments below.
+
+> BTW, is it
+> possible for me to ever boot up using only one computer, or will i have
+> to ALWAYS use another terminal to boot NetBSD1.1?
+
+Until someone rights "real" display console support for TurboChannel
+systems for NetBSD/Alpha, you'll need to use the serial console and
+either another machine or a terminal.
+
+> NetBSD 1.2_ALPHA (GENERIC) #45: Fri Jun 14 23:58:24 EDT 1996
+>    
+> cgd@bunnahabhain.pdl.cs.cmu.edu:/usr/src/sys/arch/alpha/compile/GENERIC
+> DEC 3000/300LX ("Pelica+"), 125MHz
+> 8192 byte page size, 1 processor.
+> real mem = 33554432 (2097152 reserved for PROM, 31457280 used by NetBSD)
+> avail mem = 24207360
+> using 384 buffers containing 3145728 bytes of memory
+> mainbus0 (root)
+> cpu0 at mainbus0: 21064 (EV4), Pass 3, Revision F001
+> cpu0: VAX FP support, IEEE FP support
+> tcasic0 at mainbus0
+> tc0 at tcasic0: 12.5 MHz clock
+> sfb0 at tc0 slot 4 offset 0x2000000: 1280 x 1024, 8bpp
+> wscons0 at sfb0
+> ioasic0 at tc0 slot 3 offset 0x0: slow mode
+> le0 at ioasic0 offset 0xc0000: address 08:00:2b:be:da:8c
+> le0: 32 receive buffers, 8 transmit buffers
+> scc0 at ioasic0 offset 0x100000: console
+> scc1 at ioasic0 offset 0x180000
+> mcclock0 at ioasic0 offset 0x200000: mc146818 or compatible
+> AMD79c30 at ioasic0 offset 0x240000 not configured
+> tcds0 at tc0 slot 2 offset 0x0
+> esp0 at tcds0 slot 0: address 90100000: NCR53C94 25Mhz, target 7
+> scsibus0 at esp0
+> probe(esp0:2:0): max sync rate 6.25Mb/s
+> sd0 at scsibus0 targ 2 lun 0: <SEAGATE, ST51080N, 0913> SCSI2 0/direct
+> fixed
+> sd0: 1030MB, 4826 cyl, 4 head, 109 sec, 512 bytes/sec
+
+All of this looks normal...
+
+> esp0: ICCS: expected 2, got 3 : [intr 8, stat 87, step 4]
+> probe(esp0:2:1): timed out (ecb 0x4a5490f0 (flags 0x0, dleft 2c), state
+> 5, phase
+>  7, msgpriq 4, msgout 0)
+> timed out (ecb 0x4a5490f0 (flags 0x10, dleft 2c), state 5, phase 7,
+> msgpriq 4, m
+> sgout 0) AGAIN
+> esp: message queue not empty: 4!
+> esp:2: rejecting SDTR
+> esp:2: rejecting SDTR
+> esp:2: rejecting SDTR
+> [ ... ]
+
+whoa, hey, this is Bad!
+
+It sounds like the 53c94 SCSI driver is Unhappy about having to talk
+to that drive.  I could believe that; that driver is known to be fragile.
+
+It should probably be sync'd up with the sparc version again, but i
+won't be able to do that until after this (long) weekend.  Please ping
+me on wednesday, if you've not heard anything from me about this.
+
+
+
+chris
+
+From cherkus@unimaster.com  Fri Aug 30 19:25:10 1996
+From: Dave Cherkus <cherkus@unimaster.com>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Fri, 30 Aug 1996 19:25:10 +0000
+Subject: Re: Any experince with this alpha?
+
+Re: Pelica+ vs. Mustang:  it would be interesting to see a comparison
+of these (perhaps against a similar generation box such as a sandpiper)
+using lmbench, which is available at:
+
+http://reality.sgi.com/employees/lm_engr/lmbench/lmbench.html
+
+It's really good at pointing out differences in cache and memory
+latencies.
+
+For even more fun we can compare BSD to OSF (a.k.a Digital UNIX).
+
+I've run this before and it works fine on DU on the Alpha (i.e. no 64
+bit issues).  I had it running within a half hour of the file transfer.
+
+-- 
+Dave Cherkus ----- UniMaster, Inc. ----- Contract Software Development
+Specialties: UNIX TCP/IP X OSF/1 AlphaAXP AIX RS/6000 Performance ISDN
+Email: cherkus@UniMaster.COM  Tel: (603) 888-8308  Fax: (603) 888-4598
+The Internet runs on its programmers, and programmers run on coffee!!!
+

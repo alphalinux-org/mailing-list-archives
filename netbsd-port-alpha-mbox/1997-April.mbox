@@ -1,0 +1,3091 @@
+From mjacob@feral.com  Fri Apr 4 10:35:32 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 04 Apr 1997 10:35:32 +0000
+Subject: looped sig4 or sig11 for  init?
+
+In the last couple of days, has anyone seen this for kernels built and
+run on a multia (with the old toolchain)?
+
+From david_rankin@vnet.IBM.COM  Wed Apr 9 15:03:32 1997
+From: David Rankin <david_rankin@vnet.IBM.COM>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 09 Apr 1997 15:03:32 +0000
+Subject: SMC ISA or NE-2000 clone on an AXPpci33 machine: does this work?
+
+I'm considering buying an AXPpci33 board being offered right now,
+but the only two networking cards I've got laying around right now is
+an SMC ISA card that I _think_ is a NE-2000 clone, and a card that
+I know is an NE-2000 clone. Since part of the goal of this motherboard
+is cost-containment, simply buying a new network card is out. Does
+anyone know if an NE-2000 card will work now under NetBSD/alpha?
+(If the answer is "port the driver", that's fine too, but that'll
+have to happen later.)
+
+Also, the board being offered is the NT board, so it only has the
+AT keyboard plug. Does NetBSD/alpha support serial or Logitech
+bus mice? I've seen a couple of mentions of serial mice in the list
+archive, but nothing definitive, and not a peep about bus mice.
+
+I've set the reply-to to come back to me, and I'll summarize all
+responses for the sake of the list.
+
+Thanks in advance,
+David
+
+--
+David W. Rankin, Jr.  External Email: david_rankin@vnet.ibm.com
+   Internal Email: drankin@lexington.ibm.com or lexafs(drankin)
+      Phone: (IBM Internal) 8-545-1457   (External) 1-606-243-1457
+         Alpha Pager: 1-606-259-6309  6062596309.pager@usamobile.com
+
+From tober@bbnplanet.com  Wed Apr 9 15:45:34 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: david_rankin@vnet.ibm.com
+Date: Wed, 09 Apr 1997 15:45:34 +0000
+Subject: Re: SMC ISA or NE-2000 clone on an AXPpci33 machine: does this work?
+
+> 
+> I'm considering buying an AXPpci33 board being offered right now,
+> but the only two networking cards I've got laying around right now is
+> an SMC ISA card that I _think_ is a NE-2000 clone, and a card that
+> I know is an NE-2000 clone. Since part of the goal of this motherboard
+> is cost-containment, simply buying a new network card is out. Does
+> anyone know if an NE-2000 card will work now under NetBSD/alpha?
+> (If the answer is "port the driver", that's fine too, but that'll
+> have to happen later.)
+> 
+> Also, the board being offered is the NT board, so it only has the
+> AT keyboard plug. Does NetBSD/alpha support serial or Logitech
+> bus mice? I've seen a couple of mentions of serial mice in the list
+> archive, but nothing definitive, and not a peep about bus mice.
+> 
+> I've set the reply-to to come back to me, and I'll summarize all
+> responses for the sake of the list.
+> 
+> Thanks in advance,
+> David
+>
+No ISA devices are currently officially supported by NetBSD/Alpha.
+I have a really cheesy port of a driver for Digital's ISA DE205
+ethernet card which does work, though it's strictly programmed IO so the
+performance is not stellar.  The port I did is not of good enough quality
+to include in NetBSD/Alpha (hence I've not submitted it) but if you want
+it and if my employer doesn't mind (unlikely they would, but I would have
+to get them to do the right paperwork which might be a pain) then you can
+have it.  As for the second part of your post, huh?  AFAIK, there has only
+ever been one version of the AXPpci33 motherboard and it has a PS/2 style
+keyboard and a PS/2 style bus mouse connector.  The X server which currently
+exists does support the bus mouse, and probably could be made to support a
+serial mouse with a little work, but I'm pretty sure that it currently
+expects the bus mouse.  It's a pretty crappy X server, you won't want to
+use it for anything heavy unless you have no better choice (it's slow and
+the keyboard doesn't work quite right)
+-ben
+
+From cgd@cs.cmu.edu  Wed Apr 9 16:26:32 1997
+From: Chris G. Demetriou <cgd@cs.cmu.edu>
+To: tober@bbnplanet.com
+Date: Wed, 09 Apr 1997 16:26:32 +0000
+Subject: Re: SMC ISA or NE-2000 clone on an AXPpci33 machine: does this work?
+
+> No ISA devices are currently officially supported by NetBSD/Alpha.
+
+Uh, simply put, this is false.
+
+ns16x50 add-in boards and parallel ports on add-in boards work.
+
+3c509s either work or are very close to working (like, you might have
+to ifconfig it down then up an extra time to make it work).
+
+
+cgd
+
+From ross@teraflop.com  Wed Apr 9 14:40:43 1997
+From: Ross Harvey <ross@teraflop.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 09 Apr 1997 14:40:43 +0000
+Subject: ps, vmstat, negative lseek
+
+OK, I give up, and I really hope I'm not doing something stupid...
+
+ps and vmstat work fine with the generic kernel I saved from the 970305
+snapshot I started from, but not with newly compiled kernels.
+
+OK, I say, rebuild libkvm, ps, vmstat. They still don't work, and the
+reason they fail is....via vmstat>libkvmm>kvm_read>sys_lseek...we end
+up trying to seek to a kva, always negative on alpha, but sys_lseek always
+shoots down negative seeks with EINVAL.
+
+So how did it ever work? How does the snapshot kernel take kseg addresses
+in, seek to them in /dev/kmem, and work?
+
+Disassembling sys_lseek in generic(970305), I see that the code is
+different from mine; there isn't a signed comparison at the bottom. 
+
+If I comment out the test at the end of sys_lseek:
+
+	/*if (newoff < 0)
+		return (EINVAL);*/
+	
+
+   [1] ps and vmstat start working
+
+   [2] the generated code is closer, but not identical
+
+If off_t was supposed to be unsigned...but it isn't and I can't seem to
+find an error involving a skipped "make includes" or any other pilot error.
+
+One thing is a big laugh! Does anyone else see the irony of disassembling
+a free OS for which both mine and the organization's source code are on-line!?
+
+From cgd@cs.cmu.edu  Wed Apr 9 19:24:12 1997
+From: Chris G. Demetriou <cgd@cs.cmu.edu>
+To: ross@teraflop.com
+Date: Wed, 09 Apr 1997 19:24:12 +0000
+Subject: Re: ps, vmstat, negative lseek
+
+> If I comment out the test at the end of sys_lseek:
+> 
+> 	/*if (newoff < 0)
+> 		return (EINVAL);*/
+> 	
+> 
+>    [1] ps and vmstat start working
+> 
+>    [2] the generated code is closer, but not identical
+
+That is the correct solution (for the short term).  This is a bug in
+a recent change to vfs_syscalls.c, and should be addressed shortly.
+
+
+cgd
+
+From cshapiro@ic.sunysb.edu  Wed Apr 9 22:07:20 1997
+From: Carl S Shapiro <cshapiro@ic.sunysb.edu>
+To: tober@bbnplanet.com
+Date: Wed, 09 Apr 1997 22:07:20 +0000
+Subject: Re: SMC ISA or NE-2000 clone on an AXPpci33 machine: does this work?
+
+[...]
+
+> have it.  As for the second part of your post, huh?  AFAIK, there has only
+> ever been one version of the AXPpci33 motherboard and it has a PS/2 style
+> keyboard and a PS/2 style bus mouse connector.  The X server which currently
+
+There were two versions... the "Windows NT" version of the board which had just
+an AT style keyboard connector, and the "Digital UNIX" version which had the
+pair of PS/2 {mouse,keyboard} connectors.
+
+
+Carl
+
+From drochner@zelux6.zel.kfa-juelich.de  Thu Apr 10 19:34:04 1997
+From: Matthias Drochner <drochner@zelux6.zel.kfa-juelich.de>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 10 Apr 1997 19:34:04 +0000
+Subject: -current on (diskless) AS600
+
+How can I make -ECOFF kernels myself?
+I'm running the latest snapshot. Newly compiled
+kernels come out as ELF.
+I want to boot them from a native DEC installation.
+(I tried "objcopy", but the result is not bootable.)
+
+How is "/usr/mdec/netboot" supposed to work? It is not
+bootable with DEC bootblocks.
+
+best regards
+Matthias Drochner
+
+From cgd@cs.cmu.edu  Thu Apr 10 14:46:48 1997
+From: Chris G. Demetriou <cgd@cs.cmu.edu>
+To: drochner@zelux6.zel.kfa-juelich.de
+Date: Thu, 10 Apr 1997 14:46:48 +0000
+Subject: Re: -current on (diskless) AS600
+
+> How can I make -ECOFF kernels myself?
+
+you have to recompile the toolchain, set up for
+alpha-unknown-netbsdecoff, or something like that.
+
+
+> I'm running the latest snapshot. Newly compiled
+> kernels come out as ELF.
+> I want to boot them from a native DEC installation.
+> (I tried "objcopy", but the result is not bootable.)
+
+i've not had very good luck with objcopy, either.
+
+
+> How is "/usr/mdec/netboot" supposed to work? It is not
+> bootable with DEC bootblocks.
+
+set up a bootp/tftp server on another box.  configure the bootp server
+so that it tells the alpha to boot that file.
+
+tell your alpha to boot from the network.
+
+that'll load the boot block, which will in turn load the kernel if you
+set up and export a root partition.
+
+Most of the steps (everything after getting the system to load the
+boot program) is covered in diskless(8).
+
+
+If you have an old version of the SRM console firmware, you might need
+to use 'setnetbootinfo' (see its manualpage) to configure the network
+boot block, but i'd try it without configuration first.  (If you need
+to configure it specially, it will tell you.)
+
+
+cgd
+
+From cjs@portal.ca  Thu Apr 10 13:50:48 1997
+From: Curt Sampson <cjs@portal.ca>
+To: cgd@cs.cmu.edu
+Date: Thu, 10 Apr 1997 13:50:48 +0000
+Subject: Re: SMC ISA or NE-2000 clone on an AXPpci33 machine: does this work?
+
+On Wed, 9 Apr 1997, Chris G. Demetriou wrote:
+
+> 3c509s either work or are very close to working (like, you might have
+> to ifconfig it down then up an extra time to make it work).
+
+The PCI 3x5x9 and 3x9xx cards should work fine on the Alpha if
+you're running -current. I'd not really thought about what was
+involved in getting the 3c509 working, but if ISA support `just
+works' in general, the 3c509 should be pretty easy to get working.
+I've actually got an AXPpci33 motherboard and a 3c509, so I'll put
+this on my list of Things To Try when I get the time to take that
+motherboard out and get it up and running.
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite myst, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From drochner@zelux6.zel.kfa-juelich.de  Fri Apr 11 13:36:29 1997
+From: Matthias Drochner <drochner@zelux6.zel.kfa-juelich.de>
+To: cgd@cs.cmu.edu
+Date: Fri, 11 Apr 1997 13:36:29 +0000
+Subject: Re: -current on (diskless) AS600
+
+Excerpts from netbsd: 10-Apr-97 Re: -current on (diskless) .. "Chris G.
+Demetriou"@cs. (1114)
+
+> > How is "/usr/mdec/netboot" supposed to work? It is not
+> > bootable with DEC bootblocks.
+> 
+> set up a bootp/tftp server on another box.  configure the bootp server
+> so that it tells the alpha to boot that file.
+> [...]
+
+Thanks! This didn't work for me with your distributed "netboot'
+because the TFTP server is not the NFS server. But once knowing
+how it works I could make an own "netboot", and the system
+is up and running now.
+It is still strange that "netboot" boots via network but not from disk.
+The error message is "no vmunix module_list" (OSF1 4.0 bootblks).
+Perhaps such a thing can be faked?
+As I mentioned before, there is a problem with PCI probing. `dmesg`
+is appended below. Note that function 1 seems to be read properly.
+(should there be an off-by-1 error? -  but the existing devices are
+properly seen as function 0)
+
+best regards
+Matthias Drochner
+
+t configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 28 function 2 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 28 function 3 not configured
+unknown vendor 0x4eb0 product 0x0146 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 28 function 4 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 28 function 5 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 28 function 6 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 28 function 7 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x21, subclass 0x04,
+interface 0xd8, revision 0xf1) at pci0 dev 29 function 0 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 29 function 2 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 29 function 3 not configured
+unknown vendor 0x4eb0 product 0x0146 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 29 function 4 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 29 function 5 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 29 function 6 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 29 function 7 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x21, subclass 0x04,
+interface 0xd8, revision 0xf1) at pci0 dev 30 function 0 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 30 function 2 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 30 function 3 not configured
+unknown vendor 0x4eb0 product 0x0146 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 30 function 4 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 30 function 5 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 30 function 6 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 30 function 7 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x21, subclass 0x04,
+interface 0xd8, revision 0xf1) at pci0 dev 31 function 0 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 31 function 2 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 31 function 3 not configured
+unknown vendor 0x4eb0 product 0x0146 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 31 function 4 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 31 function 5 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 31 function 6 not configured
+unknown vendor 0x0080 product 0x8180 (class 0x81, subclass 0x80,
+revision 0x80) at pci0 dev 31 function 7 not configured
+eisa0 at pceb0
+[...]
+
+From cgd@cs.cmu.edu  Fri Apr 11 11:21:35 1997
+From: Chris G. Demetriou <cgd@cs.cmu.edu>
+To: drochner@zelux6.zel.kfa-juelich.de
+Date: Fri, 11 Apr 1997 11:21:35 +0000
+Subject: Re: -current on (diskless) AS600
+
+> Thanks! This didn't work for me with your distributed "netboot'
+> because the TFTP server is not the NFS server. But once knowing
+> how it works I could make an own "netboot", and the system
+> is up and running now.
+
+Does it require that the TFTP server be the same as the NFS server?  I
+didn't think that our libsa had the requirement, but i'm not
+completely familiar with the libsa code.
+
+
+> It is still strange that "netboot" boots via network but not from disk.
+
+Not really.  Practically speaking, it's Hard to construct boot device
+names to be fed to the firware, so what the firmware provides as the
+boot device is passed back to it.  (Note that it's not hard to
+construct one instance of the boot device string, but to do so with
+the necessary generality to support all the systems we support is, in
+fact, hard.)
+
+
+> The error message is "no vmunix module_list" (OSF1 4.0 bootblks).
+> Perhaps such a thing can be faked?
+
+Not easily.  it really wants to boot an ECOFF-format kernel.
+
+
+> As I mentioned before, there is a problem with PCI probing. `dmesg`
+> is appended below. Note that function 1 seems to be read properly.
+> (should there be an off-by-1 error? -  but the existing devices are
+> properly seen as function 0)
+
+Interesting.  How old is your system's firmware?
+
+If old, i'll say:
+
+	Upgrade your firmware, this is a firmware bug.
+
+If not old, i'll say:
+
+	Can you build a new kernel?
+
+	If so, note the cases in cia_pci.c to handle lossage on the
+	EB164, and modify them so they apply to the AlphaStation
+	[56]00 (kn20aa) as well.
+
+Those hacks are workarounds for what I consider firmware bugs.
+However, if the firware bugs are becoming the norm, rather than the
+exception, then i'll expand them to include the kn20aa (and maybe add
+similar ones for apecs- and lca-based systems).
+
+
+cgd
+
+From drochner@zelux6.zel.kfa-juelich.de  Fri Apr 11 18:51:20 1997
+From: Matthias Drochner <drochner@zelux6.zel.kfa-juelich.de>
+To: cgd@cs.cmu.edu
+Date: Fri, 11 Apr 1997 18:51:20 +0000
+Subject: Re: -current on (diskless) AS600
+
+Excerpts from netbsd: 11-Apr-97 Re: -current on (diskless) .. "Chris G.
+Demetriou"@cs. (1807)
+
+> > This didn't work for me with your distributed "netboot'
+> > because the TFTP server is not the NFS server.
+> 
+> Does it require that the TFTP server be the same as the NFS server?  I
+> didn't think that our libsa had the requirement, but i'm not
+> completely familiar with the libsa code.
+
+The problem is that the bootp/tftp server is used
+as NFS server too. There is nothing like a "root server"
+tag in bootp. Perhaps one of the existing tags (time server,
+name server, domain server, log server, cookie server,
+lpr server, impress server, rlp server, swap server, nis server,
+ntp server) should be used for this.
+(I have the same problem with the i386 netboot too.)
+
+[PCI probe problem]
+
+> Interesting.  How old is your system's firmware?
+
+It's not too old - it's V6.3 (Nov 20 1996).
+As I just checked, there is a V6.4 on gatekeeper, but I don't
+want to upgrade now.
+
+> 	If so, note the cases in cia_pci.c to handle lossage on the
+> 	EB164, and modify them so they apply to the AlphaStation
+> 	[56]00 (kn20aa) as well.
+
+That helpes a bit: After a hard reset the probe works fine
+until this multi io card (PPB + Tulip + 2xSCSI) is hit. The
+3 devices (number 0/1/2 on pci1) are found; while probing
+the remaining device numbers on pci1 and then pci0 the
+messages appear. After a reboot the messages appear from
+the beginning. So it's only a little improvement...
+
+After all, the machine is running quite well.
+There are some strange effects from time to time, like
+unexpected signals and file truncation.
+At the moment, if I log in via rsh, I get parts of /etc/ttys,
+/etc/master.passwd and some binary stuff dumped on my
+terminal. Via telnet or on the console I get /etc/motd as
+expected...
+
+best regards
+Matthias Drochner
+
+From cgd@cs.cmu.edu  Fri Apr 11 13:00:57 1997
+From: Chris G. Demetriou <cgd@cs.cmu.edu>
+To: drochner@zelux6.zel.kfa-juelich.de
+Date: Fri, 11 Apr 1997 13:00:57 +0000
+Subject: Re: -current on (diskless) AS600
+
+> [PCI probe problem]
+> 
+> > Interesting.  How old is your system's firmware?
+> 
+> It's not too old - it's V6.3 (Nov 20 1996).
+> As I just checked, there is a V6.4 on gatekeeper, but I don't
+> want to upgrade now.
+> 
+> > 	If so, note the cases in cia_pci.c to handle lossage on the
+> > 	EB164, and modify them so they apply to the AlphaStation
+> > 	[56]00 (kn20aa) as well.
+> 
+> That helpes a bit: After a hard reset the probe works fine
+> until this multi io card (PPB + Tulip + 2xSCSI) is hit. The
+> 3 devices (number 0/1/2 on pci1) are found; while probing
+> the remaining device numbers on pci1 and then pci0 the
+> messages appear. After a reboot the messages appear from
+> the beginning. So it's only a little improvement...
+
+That's ... odd.
+
+I haven't seen any messages like that on any other AlphaStation [56]00
+systems.  I don't understand why a PCI-PCI bridge would affect it.
+
+I suggest you try the newer firmware, when you get a chance.
+
+
+> After all, the machine is running quite well.
+> There are some strange effects from time to time, like
+> unexpected signals and file truncation.
+> [ ... ]
+
+You need some patches which were committed to -current recently
+(yesterday).
+
+
+cgd
+
+From drochner@zelux6.zel.kfa-juelich.de  Fri Apr 11 22:03:25 1997
+From: Matthias Drochner <drochner@zelux6.zel.kfa-juelich.de>
+To: cgd@cs.cmu.edu
+Date: Fri, 11 Apr 1997 22:03:25 +0000
+Subject: Re: -current on (diskless) AS600
+
+[PCI probe problem]
+
+> I suggest you try the newer firmware, when you get a chance.
+
+This didn't change anything.
+Should I have old / broken hardware?
+
+another question:
+What are the chances that LKMs will work on alphas
+one day?
+
+best regards
+Matthias Drochner
+
+From cgd@cs.cmu.edu  Fri Apr 11 16:09:02 1997
+From: Chris G. Demetriou <cgd@cs.cmu.edu>
+To: drochner@zelux6.zel.kfa-juelich.de
+Date: Fri, 11 Apr 1997 16:09:02 +0000
+Subject: Re: -current on (diskless) AS600
+
+> > I suggest you try the newer firmware, when you get a chance.
+> 
+> This didn't change anything.
+> Should I have old / broken hardware?
+
+Could you send me (privately) complete dmesg output from a kernel
+which has the EB164 checks in cia_pci.c also enabled for the kn20aa?
+(don't miss any of the #ifdefs! 8-)
+
+> another question:
+> What are the chances that LKMs will work on alphas
+> one day?
+
+One day, but not yet.
+
+The entire LKM system really needs to be gutted.
+
+In my opinion, a Good way to do them would be to have 'options LKM'
+put a bit of code in the kernel which can handle ELF relocations, then
+build LKMS as shared libraries.  There are ... a bunch of benefits to
+that approach.
+
+
+
+cgd
+
+From mynhier@cs.utk.edu  Sat Apr 12 22:37:31 1997
+From: Chad Mynhier <mynhier@cs.utk.edu>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 12 Apr 1997 22:37:31 +0000
+Subject: ZLXp-E2 frame buffer
+
+The Supported PCI Hardware page indicates that the ZLXp-E2 is
+supported.  Is this actually the case?  I'm not interested in X support,
+just console support.
+
+	I have an AS200 that came with a ZLXp-E2.  I took the card out 
+before I put NetBSD on it, and I've been using a VT420 as the console.  
+I just upgraded to the 970305 snapshot, and I thought I'd see if the 
+frame buffer works.  Here's what happened:
+
+[normal boot messages]
+tga0 at pci0 dev 13 function 0
+fatal kernel trap:
+
+    trap entry 	= 0x2 (memory management fault)
+    a0		= 0x0
+    a1		= 0x1
+    a2		= 0xffffffffffffffff
+    pc		= 0x0
+    ra		= 0xfffffc0000446088
+    curproc	= 0xfffffc0000498558
+	pid = 0, comm =
+
+panic: trap
+halted.
+
+	I did notice that the Web page was updated 3/13.  Should I build
+from newer sources and try again?
+
+Chad Mynhier <mynhier@cs.utk.edu>
+Lab Engineer, CS Department        
+University of Tennessee, Knoxville
+
+From mjacob@feral.com  Sat Apr 12 19:56:43 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG, mynhier@cs.utk.edu
+Date: Sat, 12 Apr 1997 19:56:43 +0000
+Subject: Re: ZLXp-E2 frame buffer
+
+Your mail seems a little unclear to me on one point- did you put the
+ZLXp-E2 card back in prior to booting 970305?
+
+Beyond that, it certainly is up and dying around tgaattach (the
+return address points there). I'd have to defer to someone else
+beyond- this haven't got anything but a multia that has a TGA
+in it (and these have worked fine).
+
+-matt
+
+From cgd@cs.cmu.edu  Sat Apr 12 23:36:13 1997
+From: Chris G. Demetriou <cgd@cs.cmu.edu>
+To: mynhier@cs.utk.edu
+Date: Sat, 12 Apr 1997 23:36:13 +0000
+Subject: Re: ZLXp-E2 frame buffer
+
+> 	The Supported PCI Hardware page indicates that the ZLXp-E2 is
+> supported.  Is this actually the case?  I'm not interested in X support,
+> just console support.
+
+Sorry, i goofed.
+
+The -E2 and -E3 are _not_ supported right now, for a couple of
+reasons:
+
+(1) I've never actually had "real" access to one, to make it work.
+(Once, in the AlphaStation 600 that was used to do the support for
+that system, I had access to a machine that had an -E2 or -E3, but I
+only had access to that machine via serial console.  I seem to recall
+that it didn't crash the machine, but console output was reported as
+being garbled.  "read on.")
+
+(2) Even if I did have access to the hardware, apparently the rcons
+software used for "glass tty" frame buffers only supports 8bpp (packed
+pixels, even!) max, and therefore it might have trouble.
+
+
+> 	I have an AS200 that came with a ZLXp-E2.  I took the card out 
+> before I put NetBSD on it, and I've been using a VT420 as the console.  
+> I just upgraded to the 970305 snapshot, and I thought I'd see if the 
+> frame buffer works.
+
+Unfortunately, i don't think it does.  Sorry about the confusing (nay,
+downright wrong! 8-) information on the web page.  It has been
+corrected.
+
+Note that the supported hardware pages for the various
+AlphaStation-family (200/400-family and 600-family) systems correctly
+indicated that the -E2 and -E3 were supported.  Must have had too much
+caffeine when i set up the pci page...
+
+
+An aside: if you're planning to compile -current on that box, you
+probably want to compile from sources no older than those exported ~2
+days ago...  8-)
+
+
+chris
+
+From kenh@cmf.nrl.navy.mil  Wed Apr 16 02:10:50 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 16 Apr 1997 02:10:50 +0000
+Subject: Naive alpha ISA question
+
+Okay ... forgive me if this was beaten to death before; I couldn't
+find the topic in the mailing list archives.
+
+I have a Dec AXPPCI33 machine sitting on my desk.  Obviously, I
+want to run NetBSD on it.  Fine, no problem; I got it installed.
+However, I'd like to temporarily use a old ISA Ethernet card
+(specifically, a 3C509) until I get the PCI ATM card working.  This
+machine has a PCI-ISA bridge, so that's not an issue.
+
+I don't see it on the "supported hardware" list for NetBSD/Alpha,
+yet the driver for it is in the "generic" isa directory.  So I
+guess what I'm asking is, which of the following statements is
+closest to the truth:
+
+- Known to work fine
+- Not ever tested, but "should" work
+- Will probably not work, because of "foo"
+- Will definately not work, because of "foo"
+- Will never work, because of "foo"
+
+I know that not all the drivers in the generic device tree work on
+all architectures ... but does anyone know how much work would it
+take to make something like the 3C509 driver work?
+
+--Ken
+
+From cjs@portal.ca  Wed Apr 16 09:34:51 1997
+From: Curt Sampson <cjs@portal.ca>
+To: kenh@cmf.nrl.navy.mil
+Date: Wed, 16 Apr 1997 09:34:51 +0000
+Subject: Re: Naive alpha ISA question
+
+Ken,
+
+I too have an AXPpci33 setting on the desk behind me, with a 3c509
+ISA Ethernet card. Currently the card does not work, but it should
+be pretty close to working. I fixed up all the alignment problems
+in the elink3 driver a few months ago, but I did that on a 3c905
+(PCI) card.
+
+I'm perfectly happy to make whatever tweaks are necessary to get
+the 3c509 working, and I expect I can do this in a day or two.
+However, before I can do that, my serial port problems have to be
+fixed. I'll post another message to the list right now detailing
+those, to see if anyone can help me.
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite myst, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From cjs@portal.ca  Wed Apr 16 09:37:03 1997
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 16 Apr 1997 09:37:03 +0000
+Subject: AXPpci33 Serial Console Problems
+
+Has anyone got a serial console working on an AXPpci33 motherboard?
+I'm using standard PC-type IDC <-> DB-25 connectors, and I've
+checked the pinouts on them to make sure they match. Assuming you
+count the pins like this:
+
+        1 2 3 4 5
+        6 7 8 9 10
+
+they are wired properly. However, I can get neither the SRM console
+nor NetBSD to do input or output to either serial port. I am running
+the latest firmware, 4.7.
+
+Unfortunately, I also had this motherboard set to autoboot, and I
+did a `set console serial' and power-cycled. I still see the console
+do the ROM emulation thing for the VGA BIOS and initialise the
+keyboard, but unfortunately even when I unplug the drive it's
+booting from, I can't get a prompt on the graphics console. Nor
+can I seem to interrupt the boot process with ^C. Even booting from
+an SRM-bootable failsafe disk loads the SRM monitor from floppy
+and follows the same process.  Does anyone know of a way to get
+out of this situation? Is there perhaps a way to clear the NVRAM?
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite myst, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From cjs@portal.ca  Wed Apr 16 12:50:50 1997
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 16 Apr 1997 12:50:50 +0000
+Subject: Re: AXPpci33 Serial Console Problems
+
+Well, I've found my serial problem. It appears that DEC is using
+some extremely creative numbering for the pins on the IDC connector.
+It appears that the one with the little arrow pointing to it is
+not pin one, as I naively expected. Nor are the pins in sequence,
+Here's what I've figured out so far:
+
+	  - x x x 10
+	> 6 2 - x x
+
+The two with the minus signs are giving me negative voltage, so I
+expect that those are pins 4 and 7, but I don't know which is which
+yet.
+
+If anyone has a chart that converts between DEC's interesting
+numbering scheme and the real world (e.g., something that makes
+the chart in the OEM manual for this board match reality) I'd
+appreciate it.
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite myst, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From jb@cimlogic.com.au  Thu Apr 17 07:38:21 1997
+From: John Birrell <jb@cimlogic.com.au>
+To: cjs@portal.ca
+Date: Thu, 17 Apr 1997 07:38:21 +0000
+Subject: Re: AXPpci33 Serial Console Problems
+
+Curt Sampson wrote:
+> 
+> Well, I've found my serial problem. It appears that DEC is using
+> some extremely creative numbering for the pins on the IDC connector.
+> It appears that the one with the little arrow pointing to it is
+> not pin one, as I naively expected. Nor are the pins in sequence,
+> Here's what I've figured out so far:
+> 
+> 	  - x x x 10
+> 	> 6 2 - x x
+> 
+> The two with the minus signs are giving me negative voltage, so I
+> expect that those are pins 4 and 7, but I don't know which is which
+> yet.
+> 
+> If anyone has a chart that converts between DEC's interesting
+> numbering scheme and the real world (e.g., something that makes
+> the chart in the OEM manual for this board match reality) I'd
+> appreciate it.
+
+I just use a standard cable that comes with any ISA serial board
+and the serial ports work fine (with limited use admittedly).
+
+> 
+> cjs
+> 
+> Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+> Internet Portal Services, Inc.	   Through infinite myst, software reverberates
+> Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+> 
+> 
+
+
+-- 
+John Birrell - jb@cimlogic.com.au; jb@netbsd.org; jb@freebsd.org
+CIMlogic Pty Ltd, 119 Cecil Street, South Melbourne Vic 3205, Australia
+Tel +61 3 9690 6900 Fax +61 3 9690 6650 Mob +61 418 353 137
+
+From kenh@cmf.nrl.navy.mil  Thu Apr 17 12:01:22 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 17 Apr 1997 12:01:22 +0000
+Subject: Even stupider question
+
+Okay, I've got an even _more_ stupid question now.  I've got an AXPPCI33
+here with a VGA card as the console.  What the heck is the terminal type
+of it?  I've tried "ansi", "vt100", "pc3", and even "sun"; none of them
+work quite right.
+
+(If this is mentioned somewhere in the docs, then please tell me, because
+I missed it if it's there).
+
+--Ken
+
+From cgd@cs.cmu.edu  Thu Apr 17 13:25:18 1997
+From: Chris G. Demetriou <cgd@cs.cmu.edu>
+To: kenh@cmf.nrl.navy.mil
+Date: Thu, 17 Apr 1997 13:25:18 +0000
+Subject: Re: Even stupider question
+
+> Okay, I've got an even _more_ stupid question now.  I've got an AXPPCI33
+> here with a VGA card as the console.  What the heck is the terminal type
+> of it?  I've tried "ansi", "vt100", "pc3", and even "sun"; none of them
+> work quite right.
+
+'sun' should work.  I'm trying to emulate a sun console, in any case.
+8-)
+
+What weirdness are you seeing?  Is it just the jump scrolling?
+
+
+cgd
+
+From kenh@cmf.nrl.navy.mil  Thu Apr 17 13:31:23 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: cgd@cs.cmu.edu
+Date: Thu, 17 Apr 1997 13:31:23 +0000
+Subject: Re: Even stupider question
+
+>'sun' should work.  I'm trying to emulate a sun console, in any case.
+>8-)
+>
+>What weirdness are you seeing?  Is it just the jump scrolling?
+
+Yeah, I think that's it.  I don't think "more" knows how to deal with
+the jump scrolling correctly; I lose approximately 10 lines off of the
+top.  Have I got something configured wrong?
+
+(Oh, occasionally when I'm vi'ing something, it fills the screen the
+copies of the first line).
+
+--Ken
+
+From cgd@cs.cmu.edu  Thu Apr 17 13:36:05 1997
+From: Chris G. Demetriou <cgd@cs.cmu.edu>
+To: kenh@cmf.nrl.navy.mil
+Date: Thu, 17 Apr 1997 13:36:05 +0000
+Subject: Re: Even stupider question
+
+> >'sun' should work.  I'm trying to emulate a sun console, in any case.
+> >8-)
+> >
+> >What weirdness are you seeing?  Is it just the jump scrolling?
+> 
+> Yeah, I think that's it.  I don't think "more" knows how to deal with
+> the jump scrolling correctly; I lose approximately 10 lines off of the
+> top.  Have I got something configured wrong?
+
+No, it's just weirdness in the console terminal driver.  Several
+people have suggested solutions, but i've got a complete rewrite
+almost ready...
+
+There are three #if 0's in /sys/arch/alpha/wscons/wscons_emul.c.
+
+If you change the first two to #if 1, then it'll just scroll one line
+at a time.
+
+
+cgd
+
+From cjs@portal.ca  Thu Apr 17 15:57:26 1997
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 17 Apr 1997 15:57:26 +0000
+Subject: Re: AXPpci33 Serial Console Problems
+
+I finally got my problems solved. It turned out that a combination
+of having a manual which was entirely wrong on the pins and having
+`standard PC' connectors here that are different from what DEC
+perceives to be `standard PC' connectors combined to make my life
+a misery for a little while. Thanks to everyone who helped out.
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite myst, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From oster@cs.usask.ca  Fri Apr 18 09:27:25 1997
+From: Greg Oster <oster@cs.usask.ca>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 18 Apr 1997 09:27:25 +0000
+Subject: xpm-3.4j and X11R6...
+
+Hi
+
+Is anyone out there using the xpm-3.4j stuff on their NetBSD/alpha boxes (e.g. 
+in fvwm or fvwm2).  If so, are the images/icons correct, or are they garbled?
+
+In fvwm2, the many of the icons (like xterm.xpm and xv2.xpm) appear to be 
+garbled. (some of the <columns> of the icons appear to be correct, but the 
+rest are just "noise").  Other icons (like world.xpm) work just fine.
+
+When I try running sxpm (the little proggy that comes with xpm-3.4j)
+I typically get:
+
+  X Error of failed request:  BadLength (poly request too large or 
+       internal Xlib length error)
+  Major opcode of failed request:  72 (X_PutImage)
+  Serial number of failed request:  43
+  Current serial number in output stream:  51
+
+I just compiled up xpaint-2.4.7 last night, and when I try to run that I 
+get:
+
+  X Error of failed request:  BadLength (poly request too large or 
+       internal Xlib length error)
+  Major opcode of failed request:  72 (X_PutImage)
+  Serial number of failed request:  672
+  Current serial number in output stream:  680
+
+When these applications are run on the alpha, and displayed on a monochrome 
+Sun3 X display, they work/display just fine :-( 
+
+I compiled up libX11.so.6.1 (I think that's the one) last night, and added a 
+bunch of debugging printf's to it.  Everything in the XPutImage and _XSend 
+routines looked happy enough, but still no go... (I believe it is _XSend() 
+that has a comment about that routine possibly needing some changes if int < 
+long)
+I'm planning on looking further into this after the weekend, but in the 
+meantime I figured I'd ask if anyone else has seen this problem...
+
+I'm running NetBSD-current as of March 5th or so (ELF, shared libs, vm fixes, 
+etc), with the "x11-fixes.tar.gz" X11 shared libraries.  The alpha is a 
+Multia, for as much as that should matter.
+
+Any pointers (including "it works for me -- I don't know what your problem 
+is") are appreciated....
+
+Thanks
+
+Later...
+
+Greg Oster
+
+oster@cs.usask.ca
+Department of Computer Science
+University of Saskatchewan, Saskatoon, Saskatchewan, CANADA
+
+From s100962@student.uq.edu.au  Sat Apr 19 10:10:19 1997
+From: Emanuele John Gelsi <s100962@student.uq.edu.au>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 19 Apr 1997 10:10:19 +0000
+Subject: Multia SRC console question
+
+I have a 166 Mhz Multia here that I'm just doing some quick testing on
+before I go and buy the replacement hardware I want to put in it..
+
+At the moment it only has 8 MB RAM (only for testing).
+When the SRC console comes up allI get is :
+Build date
+testing RAM...
+
+Can someone confirm for me that the SRC console does indeed need 16 MB RAM
+to boot ?
+
+
+
+Emanuele John Gelsi 
+s100962@student.uq.edu.au
+Dept of Anthropology and Sociology
+University of Qld	Australia
+
+From wulf@ping.net.au  Sun Apr 20 23:16:22 1997
+From: Berndt Josef Wulf <wulf@ping.net.au>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 20 Apr 1997 23:16:22 +0000
+Subject: xntp
+
+G'day,
+
+I am sorry if this makes it a second time to this list, but I had the
+system down for a while during the upgrade to NetBSD-current and not
+receiving a reply I thought that there might have been a good chance
+that it got lost on its way.
+
+I really hope to get the xntp package back to work - I am a HAM radio
+operator and rely on accurate time for satellite tracking ;)
+
+As always, many thanks in advance
+
+cheerio Berndt
+
+> G'day,
+> 
+> My old xntp binaries don't run nolonger after buiding the elf
+> binaries and I manged to delete the archive in the process
+> installation ...sigh...
+> 
+> It had some mods which made this package work on netbsd/alpha 
+> which dealt with the assignments of long/u_long of various files
+> in the xntpd directory...
+> 
+> Has someone a set of diffs or modified package for ftp? The package I
+> used to run was xntp-3.5f.
+> 
+> I am also looking for the config-data of the inn-1.5.1 package... as
+> there is no netbsd-config included in that package...
+> 
+> Many thanks in advance
+> 
+> 
+> cheerio Berndt
+> -- 
+> Name	: Berndt Josef Wulf
+> E-Mail	: wulf@ping.net.au
+> Sysinfo	: DEC AXPpci33+, NetBSD-1.2
+> 
+> 
+
+
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@ping.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.2
+
+From dillema@huygens.org  Mon Apr 21 16:03:44 1997
+From: Feico Dillema <dillema@huygens.org>
+To: oster@cs.usask.ca
+Date: Mon, 21 Apr 1997 16:03:44 +0000
+Subject: Re: xpm-3.4j and X11R6...
+
+In article <199704181527.JAA11426@skorpio3.usask.ca> Greg Oster <oster@cs.usask.ca> writes:
+
+   Hi
+
+   Is anyone out there using the xpm-3.4j stuff on their NetBSD/alpha boxes (e.g. 
+   in fvwm or fvwm2).  If so, are the images/icons correct, or are they garbled?
+
+I had the same problem. I tried to track the problem down in the xpm
+source code despite my little knowledge on X-programming, and couldn't
+find the problem. Later I got when compiling xpaint and trying to exec
+it, the same failure as you described. I managed to get fvwm icons up
+and running, by hacking the icons. There's only a problem with the
+transparent icons. I just changed the background color of the icons
+from transparant to the background color I use most in fvwm. This was
+fine with me as a short-term solution, although a bit crippled.
+
+   In fvwm2, the many of the icons (like xterm.xpm and xv2.xpm) appear to be 
+   garbled. (some of the <columns> of the icons appear to be correct, but the 
+   rest are just "noise").  Other icons (like world.xpm) work just fine.
+transparant vs. non-transparant
+
+   When these applications are run on the alpha, and displayed on a monochrome 
+   Sun3 X display, they work/display just fine :-( 
+I'm not sure on this, but I think I tried compiling xpaint on
+netbsd-i386 (1.2) and netbsd-alpha (>1.2), and that running them gave the same
+problem on both. 
+
+   I'm planning on looking further into this after the weekend, but in the 
+   meantime I figured I'd ask if anyone else has seen this problem...
+
+   I'm running NetBSD-current as of March 5th or so (ELF, shared libs, vm fixes, 
+   etc), with the "x11-fixes.tar.gz" X11 shared libraries.  The alpha is a 
+   Multia, for as much as that should matter.
+I have a similar system and similar problems. 
+
+Feico.
+
+From oster@cs.usask.ca  Mon Apr 21 09:28:03 1997
+From: Greg Oster <oster@cs.usask.ca>
+To: dillema@huygens.org
+Date: Mon, 21 Apr 1997 09:28:03 +0000
+Subject: Re: xpm-3.4j and X11R6...
+
+dillema@huygens.org writes:
+> In article <199704181527.JAA11426@skorpio3.usask.ca> Greg Oster <oster@cs.usa
+> sk.ca> writes:
+>    Is anyone out there using the xpm-3.4j stuff on their NetBSD/alpha boxes (
+> e.g. 
+>    in fvwm or fvwm2).  If so, are the images/icons correct, or are they garbl
+> ed?
+> 
+> I had the same problem. I tried to track the problem down in the xpm
+> source code despite my little knowledge on X-programming, and couldn't
+> find the problem. Later I got when compiling xpaint and trying to exec
+> it, the same failure as you described. I managed to get fvwm icons up
+> and running, by hacking the icons. There's only a problem with the
+> transparent icons. I just changed the background color of the icons
+> from transparant to the background color I use most in fvwm. This was
+> fine with me as a short-term solution, although a bit crippled.
+
+Hmmmm... interesting....  I hadn't realized that it was just the transparent
+icons that didn't behave.... Hmm..
+
+>    In fvwm2, the many of the icons (like xterm.xpm and xv2.xpm) appear to be 
+>    garbled. (some of the <columns> of the icons appear to be correct, but the
+>    rest are just "noise").  Other icons (like world.xpm) work just fine
+> transparant vs. non-transparant
+> 
+>    When these applications are run on the alpha, and displayed on a
+>    monochrome Sun3 X display, they work/display just fine :-( 
+> I'm not sure on this, but I think I tried compiling xpaint on
+> netbsd-i386 (1.2) and netbsd-alpha (>1.2), and that running them gave 
+> the same problem on both. 
+
+Hmm..  Was your primary display the alpha, or did you use the display on the 
+i386 box?  
+
+One other data point to add: I ran the "sxpm" program on a DEC Alpha running 
+Digital Unix and on a Sun SPARC running SunOS.  When the DISPLAY was set to 
+the NetBSD/Alpha box, both gave the exact same error:
+
+     X Error of failed request:  BadLength (poly request too 
+         large or internal Xlib length error)
+     Major opcode of failed request:  72 (X_PutImage)
+
+When the DISPLAY is set to one of our other boxes on campus, it works
+"just fine".  My current belief is that the problem is hiding somewhere
+in the Xserver or in the library routines called by the server... 
+
+Later...
+
+Greg Oster
+
+oster@cs.usask.ca
+Department of Computer Science
+University of Saskatchewan, Saskatoon, Saskatchewan, CANADA
+
+From wulf@ping.net.au  Wed Apr 23 09:33:34 1997
+From: Berndt Josef Wulf <wulf@ping.net.au>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 23 Apr 1997 09:33:34 +0000
+Subject: Re: xntp
+
+The latest sup fixed the problem in xntp which is now running on my
+system.
+
+I have also managed to come up with a, IMHO, a reasonable config-data
+file for inn-1.5.1. Any interest in including it into the
+"ported software" tree for userland? 
+
+As a matter of interest: How many users are subscribed to this mailing
+list? The traffic volume is quite low which means that either there is only
+a very small number of users subscribed to this list or by its very
+nature only elite users, computing professional, are using the
+DEC-Alpha technology not in need of advice from someone else - this
+cuts me out ;)
+
+cheerio Berndt
+
+Berndt Josef Wulf wrote
+> 
+> G'day,
+> 
+> My old xntp binaries don't run nolonger after buiding the elf
+> binaries and I manged to delete the archive in the process
+> installation ...sigh...
+> 
+> It had some mods which made this package work on netbsd/alpha 
+> which dealt with the assignments of long/u_long of various files
+> in the xntpd directory...
+> 
+> Has someone a set of diffs or modified package for ftp? The package I
+> used to run was xntp-3.5f.
+> 
+> I am also looking for the config-data of the inn-1.5.1 package... as
+> there is no netbsd-config included in that package...
+> 
+> Many thanks in advance
+> 
+> 
+> cheerio Berndt
+> -- 
+> Name	: Berndt Josef Wulf
+> E-Mail	: wulf@ping.net.au
+> Sysinfo	: DEC AXPpci33+, NetBSD-1.2
+> 
+> 
+
+
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@ping.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.2
+
+From kenh@cmf.nrl.navy.mil  Wed Apr 23 10:26:25 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 23 Apr 1997 10:26:25 +0000
+Subject: Ethernet cards and isacfg
+
+I've been playing around with the ed driver, trying to get it working
+on the Alpha.  I'm sort-of the way there, but I ran into an interesting
+problem along the way (BTW, this is on a AXPpci 33 with the latest
+console firmware).
+
+When the ed driver attempted to register an IRQ, the following message
+was printed:
+
+alpha_shared_intr_establish: isa irq 9: warning: using edge-triggered on
+level-triggered
+
+and the machine would hang right before it was supposed to print the
+"root on ffs" message.
+
+After looking at things some more, I found out that the sio driver (the
+PCI-ISA bridge) has a define called BROKEN_PROM_CONSOLE, and if this is
+defined (by default it is) it tries to preserve the initial state of
+the bridge chip.  I figured this was the reason that isa irq 9 was set
+to be level-triggered by default, so I turned this define off, and the
+machine was able to successfully probe the card and boot.
+
+Now it's my understanding that ISA cards should be entered into the
+SRM console firmware with the "isacfg" command.  However, when I try to
+add a new device with isacfg, it says, "ISA table is full".
+
+What is the right thing to be doing here?  Should isacfg work?  Or
+should I leave BROKEN_PROM_CONSOLE undefined?
+
+--Ken
+
+From mellon@hoffman.vix.com  Wed Apr 23 11:16:29 1997
+From: Ted Lemon <mellon@hoffman.vix.com>
+To: kenh@cmf.nrl.navy.mil
+Date: Wed, 23 Apr 1997 11:16:29 +0000
+Subject: Re: Ethernet cards and isacfg
+
+> Now it's my understanding that ISA cards should be entered into the
+> SRM console firmware with the "isacfg" command.  However, when I try to
+> add a new device with isacfg, it says, "ISA table is full".
+
+Is your NVRAM jumpered to be read-only?
+
+			       _MelloN_
+
+From matt@3am-software.com  Wed Apr 23 21:53:53 1997
+From: Matt Thomas <matt@3am-software.com>
+To: kenh@cmf.nrl.navy.mil
+Date: Wed, 23 Apr 1997 21:53:53 +0000
+Subject: Re: Ethernet cards and isacfg
+
+At 11:16 AM 4/23/97 -0700, Ted Lemon wrote:
+>
+>> Now it's my understanding that ISA cards should be entered into the
+>> SRM console firmware with the "isacfg" command.  However, when I try to
+>> add a new device with isacfg, it says, "ISA table is full".
+>
+>Is your NVRAM jumpered to be read-only?
+
+Newer consoles have incompatible structures for isacfg.  So if you upgraded
+the firmware recently, you need to do an "isacfg -init" and then readd the
+device information.
+-- 
+Matt Thomas               Internet:   matt@3am-software.com
+3am Software Foundry      WWW URL:    http://www.3am-software.com/bio/matt.html
+Westford, MA              Disclaimer: I disavow all knowledge of this message
+
+From kenh@cmf.nrl.navy.mil  Thu Apr 24 02:41:00 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: matt@3am-software.com
+Date: Thu, 24 Apr 1997 02:41:00 +0000
+Subject: Re: Ethernet cards and isacfg
+
+>Newer consoles have incompatible structures for isacfg.  So if you upgraded
+>the firmware recently, you need to do an "isacfg -init" and then readd the
+>device information.
+
+I'm pretty sure that's it; I upgraded the firmware before I installed
+NetBSD.  I'll try that out, thanks!
+
+--Ken
+
+From kenh@cmf.nrl.navy.mil  Thu Apr 24 12:35:22 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 24 Apr 1997 12:35:22 +0000
+Subject: LKM's on the alpha
+
+Does the alpha support loadable kernel modules?  I noticed that modload is
+still a.out only -- would they work if I made modload ELF-aware?
+
+--Ken
+
+From kenh@cmf.nrl.navy.mil  Thu Apr 24 14:13:24 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 24 Apr 1997 14:13:24 +0000
+Subject: Re: Ethernet cards and isacfg
+
+>Newer consoles have incompatible structures for isacfg.  So if you upgraded
+>the firmware recently, you need to do an "isacfg -init" and then readd the
+>device information.
+
+Just wanted everyone to know that Matt was correct, and my Ethernet card
+now works after adding the device with isacfg and backing out my change to
+sio_pic.c.  Thanks a lot!
+
+--Ken
+
+From cgd@cs.cmu.edu  Thu Apr 24 20:06:31 1997
+From: Chris G. Demetriou <cgd@cs.cmu.edu>
+To: kenh@cmf.nrl.navy.mil
+Date: Thu, 24 Apr 1997 20:06:31 +0000
+Subject: Re: LKM's on the alpha
+
+> Does the alpha support loadable kernel modules?
+
+No, it doesn't.
+
+
+> I noticed that modload is
+> still a.out only -- would they work if I made modload ELF-aware?
+
+Yes, that'd probably work.  I've started doing that a few times, but
+each time realized that i'd rather do it a Different way, and that it
+wasn't worth my time to fix the existing code.
+
+If you fix the existing code, i'd be glad to integrate your fixes.
+
+
+chris
+
+From cgd@cs.cmu.edu  Thu Apr 24 20:47:52 1997
+From: Chris G. Demetriou <cgd@cs.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 24 Apr 1997 20:47:52 +0000
+Subject: new snapshot (970423) available.
+
+There's a new snapshot available, at:
+
+	ftp://ftp.netbsd.org/pub/NetBSD/arch/alpha/970423
+
+It includes eb64+/AlphaPC 64 support, and all of the changes committed
+to -current by the evening of April 22.
+
+
+I would give folks a more detailed description of what's in it, but I
+don't have time right now.  8-)
+
+
+chris
+
+From thorpej@nas.nasa.gov  Thu Apr 24 22:05:59 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: kenh@cmf.nrl.navy.mil
+Date: Thu, 24 Apr 1997 22:05:59 +0000
+Subject: Re: AXPpci 33 ... not very fast?
+
+On Fri, 25 Apr 1997 00:54:59 -0400 
+ Ken Hornstein <kenh@cmf.nrl.navy.mil> wrote:
+
+ > (Note that I'm sure this isn't a NetBSD issue, as it came installed with
+ > Linux, and even the "super-optimized" Linux felt just as sluggish).
+
+Nah, the AXPpci33 just isn't very fast...
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From kenh@cmf.nrl.navy.mil  Fri Apr 25 00:54:59 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 25 Apr 1997 00:54:59 +0000
+Subject: AXPpci 33 ... not very fast?
+
+So, I've been playing around with this AXPpci 33 machine lately ... and
+it seems to me that it's just not very fast at all.  It compiles a kernel
+about as fast as my 486/66DX2 (a mostly useless benchmark, I know, but
+still ... ).  It's just "feels" sluggish, and this machine has 48 MB memory.
+
+Is it supposed to be reasonably fast?  The only thing that I can think is
+that since it only has 256KB of backup cache, it's getting lots of cache
+misses.  Would upgrading to 1MB of backup cache improve the speed greatly?
+
+(Note that I'm sure this isn't a NetBSD issue, as it came installed with
+Linux, and even the "super-optimized" Linux felt just as sluggish).
+
+--Ken
+
+From drochner@zelux6.zel.kfa-juelich.de  Fri Apr 25 10:37:40 1997
+From: Matthias Drochner <drochner@zelux6.zel.kfa-juelich.de>
+To: kenh@cmf.nrl.navy.mil
+Date: Fri, 25 Apr 1997 10:37:40 +0000
+Subject: Re: LKM's on the alpha
+
+Excerpts from netbsd: 24-Apr-97 Re: LKM's on the alpha "Chris G.
+Demetriou"@cs. (428)
+
+> > I noticed that modload is
+> > still a.out only -- would they work if I made modload ELF-aware?
+> 
+> Yes, that'd probably work.  I've started doing that a few times, but
+> each time realized that i'd rather do it a Different way, and that it
+> wasn't worth my time to fix the existing code.
+> 
+> If you fix the existing code, i'd be glad to integrate your fixes.
+
+I've done a simple implementation some weeks ago
+(made an ELF aware modload, fixed some int->long
+bugs in the kernel).
+The result didn't work, it always got a "memory management
+error" (is this the equivalent of kernel page fault?) at the
+module entry.
+Because there are some points I don't yet understand
+(ELF relocation, GP) I didn't investigate further.
+If you need a starting point, tell me.
+
+best regards
+Matthias Drochner
+
+From wulf@ping.net.au  Fri Apr 25 19:38:29 1997
+From: Berndt Josef Wulf <wulf@ping.net.au>
+To: kenh@cmf.nrl.navy.mil
+Date: Fri, 25 Apr 1997 19:38:29 +0000
+Subject: Re: AXPpci 33 ... not very fast?
+
+Ken Hornstein wrote
+> 
+> So, I've been playing around with this AXPpci 33 machine lately ... and
+> it seems to me that it's just not very fast at all.  It compiles a kernel
+> about as fast as my 486/66DX2 (a mostly useless benchmark, I know, but
+> still ... ).  It's just "feels" sluggish, and this machine has 48 MB memory.
+> 
+> Is it supposed to be reasonably fast?  The only thing that I can think is
+> that since it only has 256KB of backup cache, it's getting lots of cache
+> misses.  Would upgrading to 1MB of backup cache improve the speed greatly?
+> 
+> (Note that I'm sure this isn't a NetBSD issue, as it came installed with
+> Linux, and even the "super-optimized" Linux felt just as sluggish).
+
+The AXPpci isn't the fasted. I rate it as the entry level to the
+DEC-Alpha platform for the monetary dis-advantaged ;)
+
+Nevertheless, the DEC benchmarks were obtained using 1MB-15ns
+cache. I have sourced a supplier but haven't bought them yet as I was
+hoping that the prices are still on the move down (around DM330 ex tax
+from a supplier in Berlin).
+
+Besides this, it performs quite nicely as a fileserver on the LAN.
+Its runs the mail exchange, news-server, web-server, web-cache,
+msql etc. pp. and was very reliable so far. I use the intel-boxes as
+terminal servers and workstations 8)
+
+I wouldn't mind running XWindows but there are no XServers available
+supporting PCI-VGA graphic cards on netbsd/alpha - doh. 
+
+cheerio Berndt
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@ping.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.2
+
+From cjs@portal.ca  Fri Apr 25 13:19:24 1997
+From: Curt Sampson <cjs@portal.ca>
+To: kenh@cmf.nrl.navy.mil
+Date: Fri, 25 Apr 1997 13:19:24 +0000
+Subject: Re: AXPpci 33 ... not very fast?
+
+On Fri, 25 Apr 1997, Ken Hornstein wrote:
+
+> So, I've been playing around with this AXPpci 33 machine lately ... and
+> it seems to me that it's just not very fast at all.  It compiles a kernel
+> about as fast as my 486/66DX2 (a mostly useless benchmark, I know, but
+> still ... ).  It's just "feels" sluggish, and this machine has 48 MB memory.
+
+You should compare something other than kernel compiles, so you're
+comparing the same things. Try, for example, comparing the compile
+of perl or a largish piece of gnu software, or something like that.
+
+More backup cache may help a fair amount; the memory latency on
+the AXPpci33 isn't as bad as the multia, but is still two to three
+times worse than that on a typical Pentium system. But then again,
+it's hard to say how much you're seeing in the way of cache misses.
+If you want to contact me privately we can work out some arrangements
+to do some tests; I have a megabyte of 15 ns. cache RAM in my
+AXPpci33.
+
+The beast does have at least one advantage over a 486: it will do
+disk I/O at reasonable speeds on fast drives. I get around 4 MB/sec
+on my 5400 RPM drives on my AXPpci33; I never could get more than
+about 2 MB/sec on the same drives on a 486/100.
+
+If anybody is interested in working on a `benchmark project' to do
+some benchmarks and get rought ideas of the relative speeds of
+various NetBSD machines, I would be very happy to provide the web
+space to put that information up. If we can put together some sort
+of reasonably automated test suite, I could also run it on a bunch
+of different machines.
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite myst, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From sentner@katana.digex.net  Fri Apr 25 16:24:09 1997
+From: Eric Sentner <sentner@katana.digex.net>
+To: cjs@portal.ca
+Date: Fri, 25 Apr 1997 16:24:09 +0000
+Subject: Re: AXPpci 33 ... not very fast?
+
+References: <199704250454.AAA15369@ginger.cmf.nrl.navy.mil>
+	<Pine.NEB.3.96.970425131342.2463Y-100000@cynic.portal.ca>
+
+Compiles in general are not a good measure of comparison because the
+alpha is a RISC 64-bit machine and the 486 certainly isn't.. There is
+extra overhead and optimization that the alpha must do in order to
+compile the same software.. The alpha is slower at some things but
+much faster at others.. I have a Multia myself, and I am very happy
+with its performance... Doing an ssh-keygen on my 233Mhz Multia
+took about 5 seconds compared to the 15 seconds it took on my sparc5
+desktop machine at work, and the 3 minutes it took on my 486/50.. :)
+
+-- Eric
+
+
+
+On April 25, Curt Sampson wrote:
+
+> > So, I've been playing around with this AXPpci 33 machine lately ... and
+> > it seems to me that it's just not very fast at all.  It compiles a kernel
+> > about as fast as my 486/66DX2 (a mostly useless benchmark, I know, but
+> > still ... ).  It's just "feels" sluggish, and this machine has 48 MB memory.
+> 
+> You should compare something other than kernel compiles, so you're
+> comparing the same things. Try, for example, comparing the compile
+> of perl or a largish piece of gnu software, or something like that.
+> 
+> More backup cache may help a fair amount; the memory latency on
+> the AXPpci33 isn't as bad as the multia, but is still two to three
+> times worse than that on a typical Pentium system. But then again,
+> it's hard to say how much you're seeing in the way of cache misses.
+> If you want to contact me privately we can work out some arrangements
+> to do some tests; I have a megabyte of 15 ns. cache RAM in my
+> AXPpci33.
+> 
+> The beast does have at least one advantage over a 486: it will do
+> disk I/O at reasonable speeds on fast drives. I get around 4 MB/sec
+> on my 5400 RPM drives on my AXPpci33; I never could get more than
+> about 2 MB/sec on the same drives on a 486/100.
+> 
+> If anybody is interested in working on a `benchmark project' to do
+> some benchmarks and get rought ideas of the relative speeds of
+> various NetBSD machines, I would be very happy to provide the web
+> space to put that information up. If we can put together some sort
+> of reasonably automated test suite, I could also run it on a bunch
+> of different machines.
+> 
+> cjs
+> 
+> Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+> Internet Portal Services, Inc.	   Through infinite myst, software reverberates
+> Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From cjs@portal.ca  Fri Apr 25 13:28:06 1997
+From: Curt Sampson <cjs@portal.ca>
+To: sentner@katana.digex.net
+Date: Fri, 25 Apr 1997 13:28:06 +0000
+Subject: Re: AXPpci 33 ... not very fast?
+
+On Fri, 25 Apr 1997, Eric Sentner wrote:
+
+> Doing an ssh-keygen on my 233Mhz Multia
+> took about 5 seconds compared to the 15 seconds it took on my sparc5
+> desktop machine at work, and the 3 minutes it took on my 486/50.. :)
+
+Actually, I have noticed that my 166 MHz AXPpci33 generates its
+session key in about half the time my P166+ does, and ssh logins
+to that machine are noticably faster than to any other machine I
+own.
+
+On the other hand, I spend a heck of a lot of time compiling....  :-)
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite myst, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From sentner@katana.digex.net  Fri Apr 25 16:31:54 1997
+From: Eric Sentner <sentner@katana.digex.net>
+To: cjs@portal.ca
+Date: Fri, 25 Apr 1997 16:31:54 +0000
+Subject: Re: AXPpci 33 ... not very fast?
+
+References: <199704252024.QAA27103@katana.digex.net>
+	<Pine.NEB.3.96.970425132657.2463a-100000@cynic.portal.ca>
+
+
+On April 25, Curt Sampson wrote:
+
+> On Fri, 25 Apr 1997, Eric Sentner wrote:
+> 
+> > Doing an ssh-keygen on my 233Mhz Multia
+> > took about 5 seconds compared to the 15 seconds it took on my sparc5
+> > desktop machine at work, and the 3 minutes it took on my 486/50.. :)
+> 
+> Actually, I have noticed that my 166 MHz AXPpci33 generates its
+> session key in about half the time my P166+ does, and ssh logins
+> to that machine are noticably faster than to any other machine I
+> own.
+
+Yeah, the integer math on these things kicks butt.. :)
+
+
+> On the other hand, I spend a heck of a lot of time compiling....  :-)
+
+We (Some of the systems engineers where I work) had a big discussion a
+few months ago about this.. We came to the conclusion that it is slow
+for compiling because it's RISC and has align the code to 64-bit
+boundaries which takes a bit more processor time to optimize it.. But
+once the stuff is compiled it's generally faster.. Floating point is
+probably faster on the Pentium but not integer.. :-)
+
+-- Eric
+
+From cjs@portal.ca  Fri Apr 25 14:14:12 1997
+From: Curt Sampson <cjs@portal.ca>
+To: sentner@katana.digex.net
+Date: Fri, 25 Apr 1997 14:14:12 +0000
+Subject: Re: AXPpci 33 ... not very fast?
+
+On Fri, 25 Apr 1997, Eric Sentner wrote:
+
+> Floating point is probably faster on the Pentium but not integer.. :-)
+
+Um...not likely. Alpha CPUs with equivalant integer performance to
+a particular Pentium/Pentium Pro model generally seem to have about
+three times the floating-point performance of that Pentium/Pentium
+Pro model.
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite myst, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From gallatin@cs.duke.edu  Sat Apr 26 15:07:27 1997
+From: Andrew Gallatin <gallatin@cs.duke.edu>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 26 Apr 1997 15:07:27 +0000
+Subject: extra-verbose pci probes on as500
+
+I recently had a motherboard replaced in an as500. It came with a very
+new version of the firmware:  V6.4-5 Feb 21 1997 16:41:14
+
+Now when I boot netbsd, it gives very verbose output for each pci
+device:
+
+vendor 0x0080 product 0x8080 (class 0x21, subclass 0x04, interface 0xd8, revision 0xf1) at pci0 dev 30 function 0 not configured
+vendor 0x0080 product 0x8080 (class 0x80, subclass 0x80, revision 0x80) at pci0 dev 30 function 2 not configured
+vendor 0x0080 product 0x8080 (class 0x80, subclass 0x80, revision 0x80) at pci0 dev 30 function 3 not configured
+vendor 0xc570 product 0x0152 (class 0x80, subclass 0x80, revision 0x80) at pci0 dev 30 function 4 not configured
+vendor 0x0080 product 0x8080 (class 0x80, subclass 0x80, revision 0x80) at pci0 dev 30 function 5 not configured
+vendor 0x0080 product 0x8080 (class 0x80, subclass 0x80, revision 0x80) at pci0 dev 30 function 6 not configured
+vendor 0x0080 product 0x8080 (class 0x80, subclass 0x80, revision 0x80) at pci0 dev 30 function 7 not configured
+
+This patch seems to shut up the messages, but I'm not sure if its the
+"right thing" to do.
+
+<3:05pm>marilyn/gallatin:sys>diff -c arch/alpha/pci/cia_pci.c{_orig,}
+*** arch/alpha/pci/cia_pci.c_orig       Tue Apr  8 07:17:20 1997
+--- arch/alpha/pci/cia_pci.c    Sat Apr 26 14:57:50 1997
+***************
+*** 189,194 ****
+--- 189,199 ----
+        printf("cia_conf_read: tag 0x%lx, reg 0x%lx -> %x @ %p%s\n", tag, reg,
+            data, datap, ba ? " (badaddr)" : "");
+  #endif
++       /* fix a bug in newer Alcor firmware where empty pci slots 
++          are probed & return 0x80800080 */
++ 
++       if(offset == PCI_ID_REG && data == 0x80800080)
++           data = 0;
+  
+        return data;
+  }
+
+Drew
+------------------------------------------------------------------------------
+Duke University				Email:		gallatin@cs.duke.edu
+Department of Computer Science		Phone:		(919) 660-6590
+
+From drochner@zelux6.zel.kfa-juelich.de  Sun Apr 27 11:42:22 1997
+From: Matthias Drochner <drochner@zelux6.zel.kfa-juelich.de>
+To: gallatin@cs.duke.edu
+Date: Sun, 27 Apr 1997 11:42:22 +0000
+Subject: Re: extra-verbose pci probes on as500
+
+Excerpts from netbsd: 26-Apr-97 extra-verbose pci probes on.. Andrew
+Gallatin@cs.duke. (1897*)
+
+> vendor 0x0080 product 0x8080 (class 0x21, subclass 0x04, interface
+0xd8, revision 0xf1) at pci0 dev 30 function 0 not configured
+> vendor 0x0080 product 0x8080 (class 0x80, subclass 0x80, revision
+0x80) at pci0 dev 30 function 2 not configured
+
+I have very similar output on an as600:
+vendor 0x0100 product 0x8180 (class 0x21, subclass 0x04, interface 0xd8,
+revision 0xf1) at pci0 dev 30 function 0 not configured
+vendor 0x0100 product 0x8180 (class 0x81, subclass 0x80, interface 0x01)
+at pci0 dev 30 function 2 not configured
+
+I'm glad that I'm not the only one with this problem.
+
+Matthias
+
+From gallatin@cs.duke.edu  Sun Apr 27 09:54:19 1997
+From: Andrew Gallatin <gallatin@cs.duke.edu>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 27 Apr 1997 09:54:19 +0000
+Subject: Re: extra-verbose pci probes on as500
+
+Matthias Drochner writes:
+ > 
+ > I have very similar output on an as600:
+ > vendor 0x0100 product 0x8180 (class 0x21, subclass 0x04, interface 0xd8,
+ > revision 0xf1) at pci0 dev 30 function 0 not configured
+ > vendor 0x0100 product 0x8180 (class 0x81, subclass 0x80, interface 0x01)
+ > at pci0 dev 30 function 2 not configured
+
+Chris just committed a better fix to arch/alpha/pci/cia_pci.c; you may
+want to grab the latest version.  His changes cleared up my problems,
+they may help yours as well.
+
+Drew
+
+From cjs@portal.ca  Sun Apr 27 22:06:54 1997
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 27 Apr 1997 22:06:54 +0000
+Subject: Cc problems with 970423 snapshot
+
+I've just untarred the 970423 snapshot over my AXPpci33 system made
+from the early March sanpshot, in the hope of fixing this problem,
+but it hasn't worked. Quite regularly when I'm compiling I get
+
+    cc: Internal compiler error: program cc1 got fatal signal 11
+
+I restart the make and the file compiles fine, but then the error
+re-appears again a few files later.
+
+I'm using a kernel a day or two older than that snapshot.
+
+Has anyone any thoughts on this?
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+
+From mjacob@feral.com  Sun Apr 27 23:04:43 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG, cjs@portal.ca
+Date: Sun, 27 Apr 1997 23:04:43 +0000
+Subject: Re: Cc problems with 970423 snapshot
+
+Hmmm.. Is this with a kernel that has cgd's 21164 stuff in it?
+
+Also, your mail wasn't entirely clear to me about whether you were
+getting the SIGSEGV with the 970305 system as well. If so, I'm puzzled.
+It's bee pretty stable for me (albeit on only a UDB or the Alpha 8x00,
+provided the 21164 fixes were in for the latter).
+
+From cjs@portal.ca  Sun Apr 27 23:14:59 1997
+From: Curt Sampson <cjs@portal.ca>
+To: mjacob@feral.com
+Date: Sun, 27 Apr 1997 23:14:59 +0000
+Subject: Re: Cc problems with 970423 snapshot
+
+On Sun, 27 Apr 1997, Matthew Jacob wrote:
+
+> Hmmm.. Is this with a kernel that has cgd's 21164 stuff in it?
+
+I would presume so. It's got the EB164 defines in the config file.
+If you've got any suggestions for changing my config, I'll be happy
+to recompile.
+
+> Also, your mail wasn't entirely clear to me about whether you were
+> getting the SIGSEGV with the 970305 system as well.
+
+I was getting that with that system, yes, but I had a newer kernel
+in place on it.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+
+From wada@ee.ibaraki.ac.jp  Mon Apr 28 13:34:00 1997
+From: None <wada@ee.ibaraki.ac.jp>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 28 Apr 1997 13:34:00 +0000
+Subject: Where should I start?
+
+I'm very interested in alpha port of NetBSD.
+I've a PC164/433MHz machine on which Linux Alpha is running now.
+
+Where can I get SRM firmware to boot NetBSD on my Alpha (PC164)?
+Could someone tell me more about how to install and to boot?
+
+-----
+wada tatsuaki		ibaraki Univ.
+wada@ee.ibaraki.ac.jp
+
+From dillema@acm.org  Mon Apr 28 12:00:30 1997
+From: None <dillema@acm.org>
+To: cjs@portal.ca
+Date: Mon, 28 Apr 1997 12:00:30 +0000
+Subject: Re: Cc problems with 970423 snapshot
+
+> I've just untarred the 970423 snapshot over my AXPpci33 system made
+> from the early March sanpshot, in the hope of fixing this problem,
+> but it hasn't worked. Quite regularly when I'm compiling I get
+> 
+>     cc: Internal compiler error: program cc1 got fatal signal 11
+> 
+> I restart the make and the file compiles fine, but then the error
+> re-appears again a few files later.
+> 
+
+I missed the start of this thread, but I have (had) the above problem
+too.  However, on a '486 running netbsd-1.2, building a kernel or
+trying to upgrade to -current (several times over the past couple of
+months). I didn't have the same problems with my alpha (using the same
+source code, running first snapshot >1.2). Therefore, I assumed the
+problem had to be hardware-related (memory-errors???) instead of
+software-related. However, last week, I managed to upgrade the 486 to
+current with a single `make', after building a kernel first. Building
+this kernel was a bit nighmarisch; it took me about a dozen attempts to
+complete the `make depend'. But after that no real problems, which is
+great, but also a bit strange...
+
+I guess the above is not of much help and maybe unrelated, but I thought 
+I'd better mention it...
+
+Feico.
+
+From mjacob@feral.com  Mon Apr 28 08:37:53 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: cjs@portal.ca
+Date: Mon, 28 Apr 1997 08:37:53 +0000
+Subject: Re: Cc problems with 970423 snapshot
+
+>On Sun, 27 Apr 1997, Matthew Jacob wrote:
+>
+>> Hmmm.. Is this with a kernel that has cgd's 21164 stuff in it?
+>
+>I would presume so. It's got the EB164 defines in the config file.
+>If you've got any suggestions for changing my config, I'll be happy
+>to recompile.
+
+
+Ummm- no- there were some other things for the 8400 that chris hadn't
+put into general release for a while that might apply to other
+21164 chips. Did you try the generic kernels built with the release?
+
+From mjacob@feral.com  Mon Apr 28 08:48:29 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: cjs@portal.ca
+Date: Mon, 28 Apr 1997 08:48:29 +0000
+Subject: Re: Cc problems with 970423 snapshot
+
+Never Mind! I just got this on my UDB!
+
+"Houston, we have a problem...."
+
+Hmmm... this one will be tough...
+
+From drochner@zelux6.zel.kfa-juelich.de  Mon Apr 28 19:04:14 1997
+From: Matthias Drochner <drochner@zelux6.zel.kfa-juelich.de>
+To: gallatin@cs.duke.edu
+Date: Mon, 28 Apr 1997 19:04:14 +0000
+Subject: Re: extra-verbose pci probes on as500
+
+Excerpts from netbsd: 27-Apr-97 Re: extra-verbose pci probe.. Andrew
+Gallatin@cs.duke. (507*)
+
+[PCI probe shows strange devices]
+
+> Chris just committed a better fix to arch/alpha/pci/cia_pci.c; you may
+> want to grab the latest version.  His changes cleared up my problems,
+> they may help yours as well.
+
+A similar patch didn't help some weeks ago.
+I just tried it with today's sup (to make sure I didn't botch
+at that time) - no change.
+
+best regards
+Matthias
+
+From mjacob@feral.com  Mon Apr 28 10:08:04 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG, gallatin@cs.duke.edu,
+Date: Mon, 28 Apr 1997 10:08:04 +0000
+Subject: Re: extra-verbose pci probes on as500
+
+Look- it's probably just PCI entries specific to a platform that haven't
+been tied down to a specific device. If you config with PCIVERBOSE
+not enabled do they still show up?
+
+From drochner@zelux6.zel.kfa-juelich.de  Mon Apr 28 19:33:29 1997
+From: Matthias Drochner <drochner@zelux6.zel.kfa-juelich.de>
+To: port-alpha@NetBSD.ORG, gallatin@cs.duke.edu,
+Date: Mon, 28 Apr 1997 19:33:29 +0000
+Subject: Re: extra-verbose pci probes on as500
+
+Excerpts from netbsd: 28-Apr-97 Re: extra-verbose pci probe.. Matthew
+Jacob@feral.com (179)
+
+> Look- it's probably just PCI entries specific to a platform that haven't
+> been tied down to a specific device. If you config with PCIVERBOSE
+> not enabled do they still show up?
+
+No, they are definitely non-existant devices.
+(The printouts would probably disappear without PCIVERBOSE,
+but there are bad data read from the config space.)
+Examples:
+unknown vendor 0x0100 product 0x8180 (class 0x21, subclass 0x04,
+interface 0xd8, revision 0xf1) at pci0 dev 31 function 0 not configured
+unknown vendor 0x0100 product 0x8180 (class 0x81, subclass 0x80,
+interface 0x01) at pci0 dev 31 function 2 not configured
+unknown vendor 0x0100 product 0x8180 (class 0x81, subclass 0x80,
+interface 0x01) at pci0 dev 31 function 3 not configured
+unknown vendor 0x0000 product 0xffe0 (class 0x81, subclass 0x80,
+interface 0x01) at pci0 dev 31 function 4 not configured
+unknown vendor 0x0100 product 0x8180 (class 0x81, subclass 0x80,
+interface 0x01) at pci0 dev 31 function 5 not configured
+unknown vendor 0x0100 product 0x8180 (class 0x81, subclass 0x80,
+interface 0x01) at pci0 dev 31 function 6 not configured
+unknown vendor 0x0100 product 0x8180 (class 0x81, subclass 0x80,
+interface 0x01) at pci0 dev 31 function 7 not configured
+
+Thanks anyway
+Matthias
+
+From cshapiro@sparky.ic.sunysb.edu  Mon Apr 28 13:41:04 1997
+From: Carl S Shapiro <cshapiro@sparky.ic.sunysb.edu>
+To: wada@ee.ibaraki.ac.jp
+Date: Mon, 28 Apr 1997 13:41:04 +0000
+Subject: Re: Where should I start?
+
+> I'm very interested in alpha port of NetBSD.
+> I've a PC164/433MHz machine on which Linux Alpha is running now.
+
+> Where can I get SRM firmware to boot NetBSD on my Alpha (PC164)?
+> Could someone tell me more about how to install and to boot?
+
+	The cheapest way to get the SRM console for the various Alpha
+motherboards is by buying the "Alpha EBSDK and Firmware Update Kit".
+It will provide you with various manuals for such things as the SRM
+console, as well as a CD-ROM from which you can install the SRM console
+from, or make boot disks to do so.  The part number for this is:
+QR-21B02-03.  This will set you back about $75.  Quite a savings
+compared to buying Digital UNIX ($2000).  It is quite possible that the
+part number for this package will change sometime soon, as the PC164X
+and other new motherboards are released (for the 21164PC).
+
+
+Carl
+
+From kenh@cmf.nrl.navy.mil  Mon Apr 28 13:47:41 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: cshapiro@sparky.ic.sunysb.edu
+Date: Mon, 28 Apr 1997 13:47:41 +0000
+Subject: Re: Where should I start?
+
+>> I'm very interested in alpha port of NetBSD.
+>> I've a PC164/433MHz machine on which Linux Alpha is running now.
+>
+>> Where can I get SRM firmware to boot NetBSD on my Alpha (PC164)?
+>> Could someone tell me more about how to install and to boot?
+>
+>	The cheapest way to get the SRM console for the various Alpha
+>motherboards is by buying the "Alpha EBSDK and Firmware Update Kit".
+
+It might be even cheaper to just ftp the SRM console firmware from
+ftp.digital.com.  You don't get the SRM console manuals, though.
+
+--Ken
+
+From gallatin@cs.duke.edu  Mon Apr 28 13:57:53 1997
+From: Andrew Gallatin <gallatin@cs.duke.edu>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 28 Apr 1997 13:57:53 +0000
+Subject: Re: Where should I start?
+
+Ken Hornstein writes:
+ > >> I'm very interested in alpha port of NetBSD.
+ > >> I've a PC164/433MHz machine on which Linux Alpha is running now.
+ > >
+ > >> Where can I get SRM firmware to boot NetBSD on my Alpha (PC164)?
+ > >> Could someone tell me more about how to install and to boot?
+ > >
+ > >	The cheapest way to get the SRM console for the various Alpha
+ > >motherboards is by buying the "Alpha EBSDK and Firmware Update Kit".
+ > 
+ > It might be even cheaper to just ftp the SRM console firmware from
+ > ftp.digital.com.  You don't get the SRM console manuals, though.
+
+Yes *which* SRM console firmware would one get for the eb164?  They
+don't have a distribution for the eb164 (or didn't when I last
+checked).
+
+I've heard that the AS500/AS600 firmware works on eb164s, but I don't
+have an eb164, so I've not tried this myself.
+
+Drew
+
+From kenh@cmf.nrl.navy.mil  Mon Apr 28 14:03:11 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: gallatin@cs.duke.edu
+Date: Mon, 28 Apr 1997 14:03:11 +0000
+Subject: Re: Where should I start?
+
+>Yes *which* SRM console firmware would one get for the eb164?  They
+>don't have a distribution for the eb164 (or didn't when I last
+>checked).
+
+Oops, my mistake.  I had forgotten about that.  Sorry!
+
+--Ken
+
+From cshapiro@sparky.ic.sunysb.edu  Mon Apr 28 14:02:06 1997
+From: Carl S Shapiro <cshapiro@sparky.ic.sunysb.edu>
+To: kenh@cmf.nrl.navy.mil
+Date: Mon, 28 Apr 1997 14:02:06 +0000
+Subject: Re: Where should I start?
+
+> It might be even cheaper to just ftp the SRM console firmware from
+> ftp.digital.com.  You don't get the SRM console manuals, though.
+
+No, you _can't_ get the firmware from gatekeeper if you have an EB or
+PC board.  It's just _not_ there.  If you are fortunate to have one
+of the following systems, then SRM console is avaliable:
+
+alpha1000     alpha433a     alphasv400    dec3000   
+alpha1000a    alpha500      alphavme      dec4000  
+alpha200      alpha600      alphaxl       dec7000
+alpha2100     alpha600a     as4x00        decaxppci33
+alpha255      alpha800      axpvme        dmcc21064a
+alpha300      alpha8x00     dec10000      
+alpha400      alphabook1    dec2000      
+
+Otherwise, the EBSDK is the cheapest way you can get the "official"
+SRM console for your EB or PC board (without spending a ridiculous
+amount of money).
+
+
+Carl
+
+From kenh@cmf.nrl.navy.mil  Mon Apr 28 21:23:51 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 28 Apr 1997 21:23:51 +0000
+Subject: Updating console firmware on a 3000/400
+
+(Note: I apologize because this is not exactly a NetBSD question, but
+I don't quite know who else to ask).
+
+So a co-worker pawned off this old Alpha 3000/400 on to me (primarily
+because he couldn't load Linux on it, because it's a TurboChannel
+machine).  So I go to install NetBSD on it, and it hangs after probing
+scc0 and scc1.  After I _read_ the documentation, I realize I need
+a serial console, so I go back and hook one up, and it works.
+
+However, there doesn't seem to be a way to _set_ the console to
+the serial port using this version of the SRM firmware.  I figure
+this firmware is years out of date, so I go to install the latest
+firmware on it.  A friend of mine found the V3_7 firmware CD (maybe
+it was V3_8) with version 6.8 of the console firmware.  So I print
+off the directions, set the ROM read/write jumper to "On", and boot
+off the CD.  At the "Bootfile:" prompt, I enter in the following
+name:
+
+[dec3000]m400_v6_8.exe
+
+(This is from the install document).  After I enter this in, the CD
+spins a few times, then the machine prints "?HLT xxxx" (I'm sorry I
+don't remember the exact error message, but this was at work, and
+I'm at home now).
+
+So, I'm wondering to myself, "what next?".  Is there something _else_
+I need to upgrade on this machine as well?  It's pretty much a stock
+Alpha from Digital (it _did_ have a nutty never-released FORE ATM
+TurboChannel card, but I yanked that out, and it still does the
+same thing).  I tried the V6_7 firmware as well, but that was still
+a no-go.  Anyone have any suggestions?
+
+--Ken
+
+From mjacob@feral.com  Mon Apr 28 23:57:55 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: cgd@cs.cmu.edu
+Date: Mon, 28 Apr 1997 23:57:55 +0000
+Subject: Re: Cc problems with 970423 snapshot
+
+Hmmm - it happens at random, and I've only seen it once on my UDB.
+I got a core image out of cc1, and the stack trace is totally innocent,
+and all the variables and arrays that are in the bottommost frame
+and in the one up are fine. I also really had plenty of swap.
+
+It's not clear to me what caused the SIGSEGV, but it really
+doesn't appear to me to be cc1, nor does it appear to be a C library
+issue (like I was wondering earlier).
+
+It's possibly a hardware fault, but I guess I'll need to put in
+some instrumentation to try and tell.
+
+-matt
+
+From wulf@ping.net.au  Tue Apr 29 00:04:46 1997
+From: Berndt Josef Wulf <wulf@ping.net.au>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 29 Apr 1997 00:04:46 +0000
+Subject: ipf on netbsd/alpha?
+
+G'day,
+
+is anyone using ipf on the netbsd/alpha platform? It is working on the
+intel boxes for quite a while now and tried to enable this
+functionality on the alpha after recompiling a new kernel with
+ipfilter and PFIL_HOOK enabled.
+
+Issuing "ipf -f /etc/ipf.rules" will result in the following:
+
+open device: Device not configured
+pid 23336 (ipf): unaligned access: va=0x120126c54 pc=0x120002c64
+ra=0x120002c64 op=stq
+pid 23336 (ipf): unaligned access: va=0x120126c54 pc=0x120002c80
+ra=0x120002c80 op=ldq
+pid 23336 (ipf): unaligned access: va=0x120126c74 pc=0x120002ca8
+ra=0x120002ca8 op=stq
+pid 23336 (ipf): unaligned access: va=0x120126c54 pc=0x120002cac
+ra=0x120002cac op=ldq
+pid 23336 (ipf): unaligned access: va=0x120126c54 pc=0x120002cb4
+ra=0x120002cb4 op=stq
+ioctl(SIOCADDFR): Bad file descriptor
+
+Am I missing something vital?
+ 
+cheerio Berndt
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@ping.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.2D
+
+From veraldi@sunvlsi2.bo.infn.it  Tue Apr 29 08:00:10 1997
+From: Riccardo Veraldi <veraldi@sunvlsi2.bo.infn.it>
+To: dillema@pegasus.esprit.ec.org
+Date: Tue, 29 Apr 1997 08:00:10 +0000
+Subject: Re: Cc problems with 970423 snapshot
+
+Hello I have the same system of you AXPpci33,
+a Multia.
+At the moment I have digital Unix but I would like to install
+NetBSD, since It is te fisrt time I install it
+could you give me some suggestion about how to install it please?
+I have a rz29B disk, can I make an image of te rz26 disk as well on my disk?
+thanks
+
+Riccardo
+
+
+On Mon, 28 Apr 1997 dillema@acm.org wrote:
+
+> 
+> > I've just untarred the 970423 snapshot over my AXPpci33 system made
+> > from the early March sanpshot, in the hope of fixing this problem,
+> > but it hasn't worked. Quite regularly when I'm compiling I get
+> > 
+> >     cc: Internal compiler error: program cc1 got fatal signal 11
+> > 
+> > I restart the make and the file compiles fine, but then the error
+> > re-appears again a few files later.
+> > 
+> 
+> I missed the start of this thread, but I have (had) the above problem
+> too.  However, on a '486 running netbsd-1.2, building a kernel or
+> trying to upgrade to -current (several times over the past couple of
+> months). I didn't have the same problems with my alpha (using the same
+> source code, running first snapshot >1.2). Therefore, I assumed the
+> problem had to be hardware-related (memory-errors???) instead of
+> software-related. However, last week, I managed to upgrade the 486 to
+> current with a single `make', after building a kernel first. Building
+> this kernel was a bit nighmarisch; it took me about a dozen attempts to
+> complete the `make depend'. But after that no real problems, which is
+> great, but also a bit strange...
+> 
+> I guess the above is not of much help and maybe unrelated, but I thought 
+> I'd better mention it...
+> 
+> Feico.
+>
+
+From cgd@cs.cmu.edu  Tue Apr 29 02:19:50 1997
+From: Chris G. Demetriou <cgd@cs.cmu.edu>
+To: mjacob@feral.com
+Date: Tue, 29 Apr 1997 02:19:50 +0000
+Subject: Re: Cc problems with 970423 snapshot
+
+> Never Mind! I just got this on my UDB!
+> 
+> "Houston, we have a problem...."
+> 
+> Hmmm... this one will be tough...
+
+So, FWIW, i've no clue what's up with this bug.
+
+The compiler sources were _not_ changed from the previous release, nor
+have any 'interesting' (i.e. likely to cause random lossage) bits of
+the kernel, as far as i'm aware.
+
+What files are people seeing this on?  Is it a random selection?
+
+If a random selection, i'd bet on something in the C library.
+
+
+Anyway, I won't be able to look into this for a while (I do not
+currently have any NetBSD/alpha machines to work on (!!!)), so if
+somebody would please 'gdb' it and figure out the problem i'd really
+appreciate it.
+
+a reasonable set of instructions on how to build the toolchain can be
+found in src/distrib/alpha/build_dist or something like that.
+
+
+
+chris
+
+From cjs@portal.ca  Tue Apr 29 00:42:59 1997
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 29 Apr 1997 00:42:59 +0000
+Subject: Configuring ISA 3c509
+
+I've got a ISA 3c509 in my AXPpci33 that I'm attempting to make
+work. The elink3 driver works fine for a PCI 3c905, so I'm assuming
+I have some sort of ISA configuration problem here.
+
+I've done the isacfg thing to set the slot, irq and io address of the card:
+
+    SRM Console X4.7-1860    VMS PALcode V5.56-4, OSF PALcode X1.45-9
+    MEMORY - 32 Meg of system memory
+
+    PCI
+    Slot            Device          Class           Sub-Class
+     6      NCR     810 Scsi Con    Default         0
+     7      Intel SIO 82378         Default         0
+     8      10b7-9050               Network         0
+     9
+     10
+     11
+     12
+    ISA
+    Slot    Device  Name            Type         Enabled  BaseAddr  IRQ    DMA
+    0
+	    0       MOUSE           Embedded        Yes     60      12
+	    1       KBD             Embedded        Yes     60      1
+	    2       COM1            Embedded        Yes     3f8     4
+	    3       COM2            Embedded        Yes     2f8     3
+	    4       LPT1            Embedded        Yes     3bc     7
+	    5       FLOPPY          Embedded        Yes     3f0     6       2
+    4
+	    0       3c509           Singleport      No      300     10
+
+However, you'll note that it's not enabled. I can't seem to enable
+it, in fact; using -enadev 1 just gives me a printout of the device
+parameters (as if the -enadev 1 argument weren't supplied at all)
+rather than making the change:
+
+    >>>isacfg -slot 4 -dev 0 -enadev 1
+
+
+    =============================================================
+    handle: 3c509
+    etyp: 1
+    slot: 4
+    dev: 0
+    enadev: 0
+    totdev: 1
+    iobase0: 300   iobase1: 8000000000000000
+    iobase2: 8000000000000000   iobase3: 8000000000000000
+    iobase4: 8000000000000000   iobase5: 8000000000000000
+    membase0: 8000000000000000   memlen0: 8000000000000000
+    membase1: 8000000000000000   memlen1: 8000000000000000
+    membase2: 8000000000000000   memlen2: 8000000000000000
+    rombase: 8000000000000000   romlen:   8000000000000000
+    dma0: 80000000          irq0: a
+    dma1: 80000000          irq1: 80000000
+    dma2: 80000000          irq2: 80000000
+    dma3: 80000000          irq3: 80000000
+    =============================================================
+    >>>
+
+I booted up anyway, and the card gets probed ok and I can ifconfig
+it up.  However, when I try to ping another host, on a third host
+running tcpdump I see the arp packet go out onto the wire, an arp
+reply from the other host go out onto the wire, and that's it. The
+alpha never seems to receive the reply to the arp, nor does it
+appear to arp again.
+
+Any thoughts on how to fix this? It would be nice to remove the
+`untested' for this ISA device from the kernel config.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+
+From matt@3am-software.com  Tue Apr 29 03:18:49 1997
+From: Matt Thomas <matt@3am-software.com>
+To: kenh@cmf.nrl.navy.mil
+Date: Tue, 29 Apr 1997 03:18:49 +0000
+Subject: Re: Updating console firmware on a 3000/400
+
+>However, there doesn't seem to be a way to _set_ the console to
+>the serial port using this version of the SRM firmware.  I figure
+>this firmware is years out of date, so I go to install the latest
+>firmware on it.  A friend of mine found the V3_7 firmware CD (maybe
+>it was V3_8) with version 6.8 of the console firmware.  So I print
+>off the directions, set the ROM read/write jumper to "On", and boot
+>off the CD.  At the "Bootfile:" prompt, I enter in the following
+>name:
+
+There's a switch on the back labelled S3.  It needs to be toggled to
+force a serial console.  (That's how the 3000/500s works as well).
+
+
+>[dec3000]m400_v6_8.exe
+>
+>(This is from the install document).  After I enter this in, the CD
+>spins a few times, then the machine prints "?HLT xxxx" (I'm sorry I
+>don't remember the exact error message, but this was at work, and
+>I'm at home now).
+
+Can you show the output of "show config"?  Some 3000/400 have an
+out-of-date SROM and that prevents console upgrades.
+-- 
+Matt Thomas               Internet:   matt@3am-software.com
+3am Software Foundry      WWW URL:    http://www.3am-software.com/bio/matt.html
+Westford, MA              Disclaimer: I disavow all knowledge of this message
+
+From cjs@portal.ca  Tue Apr 29 01:08:44 1997
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 29 Apr 1997 01:08:44 +0000
+Subject: New Panic
+
+Well, I managed to get a kernel recompiled. Still the same core-dumping
+problems, although I've just realised that the large number (as in
+one every few minutes) of `Processor correctable error encountered'
+messages I got with the older kernels have been gone since I started
+using the newer ones.
+
+I crashed this time while doing a `make obj' in one window and a
+`find' in the same directory tree in another, but with a completely
+new error:
+
+    pmap_enter: already in pv_tab
+
+I've got a core from savecore, but `target kcore' doesn't seem to
+work anymore (in the latest snapshot). If someone wants to tell me
+how to use this corefile, I can do backtraces and whatnot.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+
+From cjs@portal.ca  Tue Apr 29 01:12:32 1997
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 29 Apr 1997 01:12:32 +0000
+Subject: Re: New Panic
+
+Oh, I managed to figure out how to debug the crash dump (gdb -k
+kernfile corefile). Here's the results, if anyone's interested:
+
+(kgdb) bt
+#0  0xfffffc000044eb20 in dumpsys ()
+    at ../../../../arch/alpha/alpha/machdep.c:924
+#1  0xfffffc000044e8cc in cpu_reboot ()
+    at ../../../../arch/alpha/alpha/machdep.c:789
+#2  0xfffffc0000344534 in panic () at ../../../../kern/subr_prf.c:149
+#3  0xfffffc0000451804 in pmap_enter ()
+    at ../../../../arch/alpha/alpha/pmap.old.c:1174
+#4  0xfffffc0000405740 in vm_fault () at ../../../../vm/vm_fault.c:826
+#5  0xfffffc0000454f84 in trap () at ../../../../arch/alpha/alpha/trap.c:342
+(kgdb) frame 5
+#5  0xfffffc0000454f84 in trap () at ../../../../arch/alpha/alpha/trap.c:342
+342                             rv = vm_fault(map, va, ftype, FALSE);
+(kgdb) l
+337             
+338                             va = trunc_page((vm_offset_t)a0);
+339     #ifdef NEW_PMAP
+340                             printf("mmfault going to vm_fault\n");
+341     #endif
+342                             rv = vm_fault(map, va, ftype, FALSE);
+343     #ifdef NEW_PMAP
+344                             printf("mmfault back from vm_fault\n");
+345     #endif
+346                             /*
+(kgdb) frame 4
+#4  0xfffffc0000405740 in vm_fault () at ../../../../vm/vm_fault.c:826
+826             pmap_enter(map->pmap, vaddr, VM_PAGE_TO_PHYS(m), prot, wired);
+(kgdb) l
+821              *      may cause other faults.   We don't put the
+822              *      page back on the active queue until later so
+823              *      that the page-out daemon won't find us (yet).
+824              */
+825     
+826             pmap_enter(map->pmap, vaddr, VM_PAGE_TO_PHYS(m), prot, wired);
+827     
+828             /*
+829              *      If the page is not wired down, then put it where the
+830              *      pageout daemon can find it.
+(kgdb) frame 3
+#3  0xfffffc0000451804 in pmap_enter ()
+    at ../../../../arch/alpha/alpha/pmap.old.c:1174
+1174                                            panic("pmap_enter: already in pv_tab");
+(kgdb) l
+1169                     */
+1170                    else {
+1171    #ifdef DEBUG
+1172                            for (npv = pv; npv; npv = npv->pv_next)
+1173                                    if (pmap == npv->pv_pmap && va == npv->pv_va)
+1174                                            panic("pmap_enter: already in pv_tab");
+1175    #endif
+1176                            npv = pmap_alloc_pv();
+1177                            npv->pv_va = va;
+1178                            npv->pv_pmap = pmap;
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+
+From mjacob@feral.com  Tue Apr 29 01:14:57 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG, cjs@portal.ca
+Date: Tue, 29 Apr 1997 01:14:57 +0000
+Subject: Re: New Panic
+
+I think I've seen this before. Kernel's too big (for the
+pmap.old gnarf). Don't know how to get kcore working.
+
+From veraldi@sunvlsi2.bo.infn.it  Tue Apr 29 08:06:05 1997
+From: Riccardo Veraldi <veraldi@sunvlsi2.bo.infn.it>
+To: cshapiro@sparky.ic.sunysb.edu
+Date: Tue, 29 Apr 1997 08:06:05 +0000
+Subject: Help SRM V3.8
+
+Hello,
+I have problems with my ALPHA multia AXPpci333 machine.
+THe thing is that I Am not able to upgrade te firmware
+from the CD.
+AT the moment I have the firmware V3.7, but when trying to installl
+the new V3.8 required for digital unix 4.0B, well it does not install.
+I installed Digital Unix 4.0B anyway an it seems to work fine on the
+SRM V3.7.
+Could I have some trobules having the new DIGITAL UNIX Release installed
+on a SRM console older than required?
+How I can install the new SRM V3.8 since it seems not to be possible
+to being installed???
+Noone has this problem of mine with the Multia??
+thanks
+
+Riccardo
+
+
+On Mon, 28 Apr 1997, Carl S Shapiro wrote:
+
+> > I'm very interested in alpha port of NetBSD.
+> > I've a PC164/433MHz machine on which Linux Alpha is running now.
+> 
+> > Where can I get SRM firmware to boot NetBSD on my Alpha (PC164)?
+> > Could someone tell me more about how to install and to boot?
+> 
+> 	The cheapest way to get the SRM console for the various Alpha
+> motherboards is by buying the "Alpha EBSDK and Firmware Update Kit".
+> It will provide you with various manuals for such things as the SRM
+> console, as well as a CD-ROM from which you can install the SRM console
+> from, or make boot disks to do so.  The part number for this is:
+> QR-21B02-03.  This will set you back about $75.  Quite a savings
+> compared to buying Digital UNIX ($2000).  It is quite possible that the
+> part number for this package will change sometime soon, as the PC164X
+> and other new motherboards are released (for the 21164PC).
+> 
+> 
+> Carl 
+>
+
+From kenh@cmf.nrl.navy.mil  Tue Apr 29 10:55:09 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: matt@3am-software.com
+Date: Tue, 29 Apr 1997 10:55:09 +0000
+Subject: Re: Updating console firmware on a 3000/400
+
+>There's a switch on the back labelled S3.  It needs to be toggled to
+>force a serial console.  (That's how the 3000/500s works as well).
+
+Ahhh .... I didn't know that.  That works, thanks!
+
+>Can you show the output of "show config"?  Some 3000/400 have an
+>out-of-date SROM and that prevents console upgrades.
+
+Sure (cut and pasted from my new serial console in an xterm :-) )
+
+DEC 3000 - M400
+Digital Equipment Corporation
+     VPP PAL X5.41-82000101/OSF PAL X1.28-82000201 - Built on 30-APR-1993 13:51:49.50
+
+TCINFO      DEVNAM        DEVSTAT
+------      --------      --------
+                 CPU      OK KN15-BA -V2.4-S462-I077-sV1.0-DECchip 21064 P3.0
+                ASIC      OK
+                 MEM      OK
+8
+7
+                 NVR      OK
+                 SCC      OK
+                  NI      OK
+                ISDN      OK
+6
+                SCSI      OK
+1-FORE_ATM      TC1    
+0-PMAGB-BA      TC0    
+
+Is it possible to download/buy an SROM upgrade, or is it soldered on the
+board?  (If it's that EEPROM that I see on the board, then I could just
+burn a new one with our EEPROM burner).
+
+--Ken
+
+From gallatin@cs.duke.edu  Tue Apr 29 11:05:17 1997
+From: Andrew Gallatin <gallatin@cs.duke.edu>
+To: kenh@cmf.nrl.navy.mil
+Date: Tue, 29 Apr 1997 11:05:17 +0000
+Subject: Re: Updating console firmware on a 3000/400
+
+Ken Hornstein writes:
+ >                  CPU      OK KN15-BA -V2.4-S462-I077-sV1.0-DECchip 21064 P3.0
+							^^^^^
+
+The ...-sV1.0 means you have SROM version 1.0.  You need the upgrade.
+
+ > 
+ > Is it possible to download/buy an SROM upgrade, or is it soldered on the
+ > board?  (If it's that EEPROM that I see on the board, then I could just
+ > burn a new one with our EEPROM burner).
+
+You *should* be able to get DEC Service to give you one for free.  It
+may take some convincing, but I was able to get 2 new chips for a pair
+of 3000/400's where I used to work.
+
+Drew
+
+From matt@3am-software.com  Tue Apr 29 11:29:55 1997
+From: Matt Thomas <matt@3am-software.com>
+To: kenh@cmf.nrl.navy.mil
+Date: Tue, 29 Apr 1997 11:29:55 +0000
+Subject: Re: Updating console firmware on a 3000/400
+
+>>Can you show the output of "show config"?  Some 3000/400 have an
+>>out-of-date SROM and that prevents console upgrades.
+>
+>Sure (cut and pasted from my new serial console in an xterm :-) )
+>
+>DEC 3000 - M400
+>Digital Equipment Corporation
+>     VPP PAL X5.41-82000101/OSF PAL X1.28-82000201 - Built on 30-APR-1993 13:51:49.50
+>
+>TCINFO      DEVNAM        DEVSTAT
+>------      --------      --------
+>                 CPU      OK KN15-BA -V2.4-S462-I077-sV1.0-DECchip 21064 P3.0
+
+Wow!  That's old!  And that's your problem.  You'll need an intermediate
+version (or two or three) before you update to the latest.  Let me see
+what I can dig out of my archive...
+-- 
+Matt Thomas               Internet:   matt@3am-software.com
+3am Software Foundry      WWW URL:    http://www.3am-software.com/bio/matt.html
+Westford, MA              Disclaimer: I disavow all knowledge of this message
+
+From cgd@cs.cmu.edu  Tue Apr 29 11:57:02 1997
+From: Chris G. Demetriou <cgd@cs.cmu.edu>
+To: mjacob@feral.com
+Date: Tue, 29 Apr 1997 11:57:02 +0000
+Subject: Re: New Panic
+
+> I think I've seen this before. Kernel's too big (for the
+> pmap.old gnarf). Don't know how to get kcore working.
+
+kernel core dump support is completely working, as of the last
+snapshot.
+
+you can even do stuff like get traces of non-running processes, etc.
+
+
+cgd
+
+From veraldi@sunvlsi4.bo.infn.it  Tue Apr 29 17:58:08 1997
+From: Riccardo Veraldi <veraldi@sunvlsi4.bo.infn.it>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 29 Apr 1997 17:58:08 +0000
+Subject: CDs (fwd)
+
+Do exist a CD version of the netBSD binaries for ALHPA?
+IF so where I can gt the CD?
+Where I can order it?
+
+thanks
+
+Rick
+
+From jms@digex.net  Tue Apr 29 13:59:05 1997
+From: Jeremy M. Shabat <jms@digex.net>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 29 Apr 1997 13:59:05 +0000
+Subject: Video board question
+
+Does anybody happen to know if the Photon Torpedo 564 is supported under
+the Alpha port of netbsd?  This is an interresting little board that will
+allow you to use Sony and Hitachi (as well as many other) 19" fixed
+frequency tubes at high resolution.  It's available with 1-4M in ISA, VLB,
+PCI busses.
+
+	-Moose
+
+From kenh@cmf.nrl.navy.mil  Tue Apr 29 16:39:45 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 29 Apr 1997 16:39:45 +0000
+Subject: Using a framebuffer console and fun with dmesg
+
+Okay, so I read all of my documentation, and I know that I need a serial
+console with the 3000/400.  Not a problem.
+
+_However_ .... It seems to me that it's possible to use the framebuffer
+as a glass tty after the system is up and running.  I started a getty
+on ttyE0, and I get a login prompt, but it doesn't respond to any
+keyboard input (I hear clicks from the keyboard, but nothing appears on
+the screen).
+
+I'm willing to believe that this is due to the incredibly ancient firmware
+that this machine has (which I am in the process of getting upgraded).
+
+Another question: anyone got X running on this beast?  I have a PMAG-B
+frame buffer, which _is_ supported by X11R6.3, so there's probably a
+chance of getting it working (dunno if the keyboard will work, though :-) ).
+
+Yet ANOTHER question .... I am getting the infamous:
+
+dmesg: kvm_read: kvm_read: Bad address
+
+on my system ... but _only_ after I build a custom kernel.  This is with
+a fresh install of the latest snapshot.  Do I need to rebuild the userland
+as well?  (I wouldn't think so, since I have the userland that came with
+the latest snapshot)
+
+Oh, one other thing: anyone else get this?  (Also using the latest snapshot):
+
+% ifconfig le0 xx.xx.xx.xx
+pid 129 (ifconfig): unaligned access: va=0x12013d352 pc=0x120018f04 ra=0x120018f
+
+--Ken
+
+From thorpej@nas.nasa.gov  Tue Apr 29 14:15:43 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: kenh@cmf.nrl.navy.mil
+Date: Tue, 29 Apr 1997 14:15:43 +0000
+Subject: Re: Using a framebuffer console and fun with dmesg
+
+On Tue, 29 Apr 1997 16:39:45 -0400 
+ Ken Hornstein <kenh@cmf.nrl.navy.mil> wrote:
+
+ > _However_ .... It seems to me that it's possible to use the framebuffer
+ > as a glass tty after the system is up and running.  I started a getty
+ > on ttyE0, and I get a login prompt, but it doesn't respond to any
+ > keyboard input (I hear clicks from the keyboard, but nothing appears on
+ > the screen).
+
+...there is a driver for the framebuffer, but there is no support
+for the keyboard on the TurboChannel systems, yet.
+
+I personally think something like how the sun3 zs driver works (altered
+for wscons) is more or less the Right Thing.  It would be nice to have
+the Alpha port use the MI z8530sc driver.  Then the infrastructure for
+it is all there.
+
+ > I'm willing to believe that this is due to the incredibly ancient firmware
+ > that this machine has (which I am in the process of getting upgraded).
+
+...nope, see above... it's the kernel :-)
+
+ > Another question: anyone got X running on this beast?  I have a PMAG-B
+ > frame buffer, which _is_ supported by X11R6.3, so there's probably a
+ > chance of getting it working (dunno if the keyboard will work, though :-) ).
+
+...X does not yet work under NetBSD/alpha on that type of machine.
+Although, once you get the keyboard working, it might not be that hard
+to add support for the PMAG-B to the NetBSD/alpha X server.. :-)
+
+ > Oh, one other thing: anyone else get this?  (Also using the latest snapshot):
+ > 
+ > % ifconfig le0 xx.xx.xx.xx
+ > pid 129 (ifconfig): unaligned access: va=0x12013d352 pc=0x120018f04 ra=0x120018f
+
+I haven't yet, but I'm just rebuilding the world on my DEC 3000/400, so
+I'm still running the older ifconfig(8).
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From kenh@cmf.nrl.navy.mil  Tue Apr 29 17:44:59 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: thorpej@nas.nasa.gov
+Date: Tue, 29 Apr 1997 17:44:59 +0000
+Subject: Re: Using a framebuffer console and fun with dmesg
+
+>...there is a driver for the framebuffer, but there is no support
+>for the keyboard on the TurboChannel systems, yet.
+
+D'oh!  Okay, I see.
+
+>I personally think something like how the sun3 zs driver works (altered
+>for wscons) is more or less the Right Thing.  It would be nice to have
+>the Alpha port use the MI z8530sc driver.  Then the infrastructure for
+>it is all there.
+
+Okay, well, I'm willing to try to tackle this problem.  I don't have
+the DEC 3000 manual, though (how much does it cost?  Is the PS file
+available anywhere?).
+
+Hmmm, okay, I see that the keyboard is on the _second_ port of the
+one scc UART.  Is the mouse on the _second_ port of other scc UART?
+Nothing seems to happen when I cat that tty and move the mouse around.
+Or is it one of those mice you need to initalize first?
+
+>...X does not yet work under NetBSD/alpha on that type of machine.
+>Although, once you get the keyboard working, it might not be that hard
+>to add support for the PMAG-B to the NetBSD/alpha X server.. :-)
+
+Okay ... BTW, are the latest patches for the NetBSD/alpha X server
+available?  They aren't in the snapshot directory.
+
+--Ken
+
+From kenh@cmf.nrl.navy.mil  Tue Apr 29 18:29:38 1997
+From: Ken Hornstein <kenh@cmf.nrl.navy.mil>
+To: cjs@portal.ca
+Date: Tue, 29 Apr 1997 18:29:38 +0000
+Subject: Re: Configuring ISA 3c509
+
+>[...]
+>However, you'll note that it's not enabled. I can't seem to enable
+>it, in fact; using -enadev 1 just gives me a printout of the device
+>parameters (as if the -enadev 1 argument weren't supplied at all)
+>rather than making the change:
+>
+>    >>>isacfg -slot 4 -dev 0 -enadev 1
+
+>From my reading of the AXPpci manual, you need the "mod" argument to this
+command.  I.e. -
+
+>>>isacfg -slot 4 -dev 0 -mod -enadev 1
+
+It looks like the problem you're having is not getting any interrupts,
+which would make sense, since this isn't enabled.  Did you get a
+strange message about a level vs.  edge interrupt on boot?
+
+--Ken
+
+From wada@ee.ibaraki.ac.jp  Wed Apr 30 10:46:00 1997
+From: None <wada@ee.ibaraki.ac.jp>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 30 Apr 1997 10:46:00 +0000
+Subject: Re: Where should I start?
+
+I'm very glad of your replies of my question about the SRM firmware on
+PC164.
+I appreciate your help.
+
+We are now in the series of national holidays, so called "Golden Week", in
+Japan. I'll ask DEC japan about the "Alpha EBSDK and Firmware Update Kit"
+after the holidays.
+
+Wada
+
+From oster@cs.usask.ca  Wed Apr 30 11:51:08 1997
+From: Greg Oster <oster@cs.usask.ca>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 30 Apr 1997 11:51:08 +0000
+Subject: Another one (Multia) bites the dust....
+
+Hi 
+
+Well, after happily singing the virtues of my rock-solid Multia it appears 
+that I too must join in the chorus of folks saying "mine died" :-(
+
+Until last Friday night, the machine was solid.  I compiled up an 1.2D
+kernel (-current as of April 19) which ran fine.  I started the world 
+compiling, and went to bed.  When I got up, the machine had hung, and
+I've been unable to get it to work properly since.  :-(
+
+The things I'm seeing include:
+1) "exception context saved starting" message at the SRM console (this was 
+after a "ls" at the console prompt produced a really garbled output on the 
+screen (it only scrolled the one line at the bottom of the screen, and then
+it spewed "pixel garbage" all over the rest of the screen))
+
+2) "unexpected exception/interrupt through vector 00"
+Again, this was at the SRM console, whilst running the "test" program.
+
+3) NetBSD kernels will boot, but none of them (1.2B, 1.2C, or 1.2D)
+will survive very long.  All will lock up in single-user.  Both the 1.2B and 
+1.2C kernels had been quite solid before...  (The 1.2B kernel is on a 
+completely separate bootable disk which I keep especially for occasions 
+where / might get corrupted.  This disk has not been written to in the
+last 54 days...)
+
+The SIMMS seem to be fine...  I played mix'n'match with them, but I get the 
+same behavior no matter which ones I use... (The memory test done at SRM
+console startup indicates they are fine..)
+
+Does anyone know of *anything* the 1.2D kernel might have done to 
+cause this strange behavior?  My guess is that this is just a very unhappy 
+coincidence that the machine died shortly after installing a 
+1.2D kernel.... :-( :-( :-(  (No, I don't blame the 1.2D kernel at all...)
+
+Might it be worth it to install newer firmware? (I'm running 3.5-72 right now, 
+and it's a '94 vintage...)  I'd do that, but I don't want whatever it is 
+that's wrong to fail part-way through the installation, and leave the system 
+completely hosed (like it's not scrambled badly enough already)...
+
+I suspect the poor machine just overheated, and that there is nothing
+I can do to fix it...  Unless some of you folks have a miracle cure for my 
+multia, it looks like I'm in search of new hardware :-(
+
+Later...
+
+Greg Oster
+
+oster@cs.usask.ca
+Department of Computer Science
+University of Saskatchewan, Saskatoon, Saskatchewan, CANADA
+
+From thorpej@nas.nasa.gov  Wed Apr 30 18:12:27 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 30 Apr 1997 18:12:27 +0000
+Subject: The ifconfig(8) unaligned access bug
+
+So, I looked at the so-called ifconfig bug today, this one:
+
+nostromo /usr/src/sbin/ifconfig 127% obj.alpha/ifconfig lo0 inet 127.0.0.1
+pid 12590 (ifconfig): unaligned access: va=0x12013d3fa pc=0x12001bb24 ra=0x12001bb24 op=stl
+
+I checked the problem "appeared" in revision 1.32 of ifconfig.c, when
+the appletalk, etc. bits were added.  The actual unaligned access happens
+in inet_aton(), when it converts "127.0.0.1" (or any address) to a
+struct in_addr.
+
+The problem is that in_getaddr() (in ifconfig.c) is passing inet_aton()
+an unaligned pointer... it is aligned to a 16-bit boundary, but not 32.
+However, I couldn't find any obvious changes to C code that would cause
+this problem.  Indeed, it's passing the address of a struct in_addr
+that is contained within a struct sockaddr_in.  "All of these should
+be aligned, right?"
+
+in_getaddr() is called with a "which" of 1, which causes:
+
+struct  ifaliasreq      addreq;
+
+the sockaddr in that structure to be used.  So, let's examine for
+a moment the declarations at the top of ifconfig.c:
+
+struct  ifreq           ifr, ridreq;
+struct  ifaliasreq      addreq;
+struct  iso_aliasreq    iso_addreq;
+
+...4 structures in the BSS... now, look closely:
+
+nostromo /usr/src/sbin/ifconfig 128% gdb obj.alpha/ifconfig
+GDB is free software and you are welcome to distribute copies of it
+ under certain conditions; type "show copying" to see the conditions.
+There is absolutely no warranty for GDB; type "show warranty" for details
+GDB 4.16 (alpha-unknown-netbsd1.2C), 
+Copyright 1996 Free Software Foundation, Inc...
+(gdb) print &ifr
+$1 = (struct ifreq *) 0x12013d428
+(gdb) print &ridreq
+$2 = (struct ifreq *) 0x12013d448
+(gdb) print &addreq 
+$3 = (struct ifaliasreq *) 0x12013d3e6		<-- Yow!
+(gdb) print &iso_addreq 
+$4 = (struct iso_aliasreq *) 0x12013d46c
+
+Looking at the namelist:
+
+000000012013d3e0 B at_nr
+000000012013d3e6 B addreq
+000000012013d428 B ifr
+000000012013d448 B ridreq
+000000012013d468 B mflag
+000000012013d46c B iso_addreq
+
+If you look at struct netrange (<netatalk/at.h>):
+
+struct netrange {
+	u_int8_t	nr_phase;
+	u_int16_t	nr_firstnet;
+	u_int16_t	nr_lastnet;
+};
+
+...so, this gets padded to 6 bytes, and addrreq starts at the 6 byte
+boundary...
+
+"Gee, that's not right!"
+
+At first I was wondering if this was a linker problem, but then I decided
+to look at the compiler output:
+
+        .comm   ifr,32,8
+        .comm   ridreq,32,8
+        .comm   addreq,64,1		<- YOW!
+        .comm   iso_addreq,116,4
+        .comm   netmask,16,4
+        .comm   at_nr,6,2
+
+...that is most definitely _wrong_.  If I manually frob the alignment to
+8, and assemble into ifconfig.o, then link, the binary works fine.
+
+...note that with revision 1.31 of ifconfig.c (before netatalk support),
+we have:
+
+        .comm   ifr,32,8
+        .comm   ridreq,32,8
+        .comm   addreq,64,1		<- SAME LOSSAGE
+        .comm   iso_addreq,116,4
+        .comm   netmask,16,4
+
+...except there are no 6-byte structures around it, so it Just So Happens
+to get aligned correctly.
+
+...now, looking at the compiler sources, I see:
+
+(gcc/config/alpha/alpha.h)
+
+/* Every structure's size must be a multiple of this.  */
+#define STRUCTURE_SIZE_BOUNDARY 8
+
+So, my two questions are:
+
+	(1) Why on earth didn't "struct netrange" get rounded to 8
+	    bytes, and
+
+	(2) Why on earth doesn't it align "addreq" properly?
+
+...I suppose this is worth a gcc bug report.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From ross@teraflop.com  Wed Apr 30 19:06:49 1997
+From: Ross Harvey <ross@teraflop.com>
+To: port-alpha@NetBSD.ORG, thorpej@nas.nasa.gov
+Date: Wed, 30 Apr 1997 19:06:49 +0000
+Subject: Re:  The ifconfig(8) unaligned access bug
+
+> So, my two questions are:
+ > 
+ >         (1) Why on earth didn't "struct netrange" get rounded to 8
+ >             bytes, and
+ > 
+ >         (2) Why on earth doesn't it align "addreq" properly?
+
+I can answer (2) but not (1). Addreq _is_ aligned properly. Its alignment
+requirement will depend on the maximum alignment of any field in it.
+Well, they are all chars or u_char fields.
+
+There is a bug, but it is in the struct sockaddr definition itself!
+With 20-20 hindsight we could travel back in time and make sure all
+the typecasting that the sockaddr gets hammered with goes in the direction
+of strict alignment to loose alignment.
+
+That is, define the field as int64_t[2], say, and then cast it to
+the various protocol types, or the generic u_char/char fields, rather
+than...as is presently done...start as chars and then cast into
+other less generic structures. This is the wrong (unsafe) direction.
+
+I suppose you could easily justify aligning all blocks >= 8 bytes to
+an increasing progression of 8, 16, 32. (Stop at 32.) You can justify this
+as a work-around for wrong-way typecasting, or, with noble purpose,
+as an anti-cache-fragmentation measure. Things need a lot more alignment
+than the basic load-determined requirement if you want to not waste
+critical parts of the cache blocks. There is such an enormous ratio
+between main memory and cache speed these days: anything that increases
+cache hit rate has a huge payoff.
+------------------------------
+Ross Harvey		Avalon Computer Systems, Inc.
+ross@teraflop.com
+
+From cjs@portal.ca  Wed Apr 30 23:23:15 1997
+From: Curt Sampson <cjs@portal.ca>
+To: kenh@cmf.nrl.navy.mil
+Date: Wed, 30 Apr 1997 23:23:15 +0000
+Subject: Re: Configuring ISA 3c509
+
+On Tue, 29 Apr 1997, Ken Hornstein wrote:
+
+> >From my reading of the AXPpci manual, you need the "mod" argument to this
+> command.  I.e. -
+> 
+> >>>isacfg -slot 4 -dev 0 -mod -enadev 1
+
+That was it. I read that too, and promptly forget it when I actually
+got around to doing more configuration on the thing. :-)
+
+So the ISA-based 3c509 Ethernet card is now tested and working on
+a DEC Alpha. As soon as the the ed driver gets cleaned up (that
+is, has the __BROKEN_INDIRECT_CONFIG thing fixed) I'll test it out
+as well. (Actually, someone already has a version of this working,
+but the changes have not been committed.)
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.		`And malt does more than Milton can
+Vancouver, BC   (604) 257-9400		 To justify God's ways to man.'
+

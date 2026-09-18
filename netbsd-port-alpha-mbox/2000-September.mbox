@@ -1,0 +1,3525 @@
+From rinunez@usb.ve  Fri Sep 1 17:06:49 2000
+From: Ricardo =?iso-8859-1?Q?N=FA=F1ez?= <rinunez@usb.ve>
+To: port-alpha@netbsd.org
+Date: Fri, 01 Sep 2000 17:06:49 +0000
+Subject: WSCONSOLE in a DEC3000/300
+
+This is a multi-part message in MIME format.
+--------------53648BDC1672DBC0A795B15D
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+
+Hello,
+
+I'm new in NetBSD and I'm trying to configure the WSCONSOLE.
+
+Fortunately, the system reboot and worked, but I can use it just through
+the ethernet network. I can see the messages in the console but it's
+imposible to write there.
+
+I've changed a lot of times /etc/ttys and /etc/wscons.conf. I can't
+understand how could they be VT100 or VT220 when in the kernel they are
+SUN terminals, and the serial terminal parameter "std.9600" in the
+/etc/ttys. I read in one page of the NetBSD docs that there exists the
+parameter "WSDISPLAY_DEFAULTSCREENS", but it didn't use it in this
+kernel
+version.                                                                                                                                                                                                                                                                                   
+
+When booting, the system tells me ttyE1 is not configured.
+
+All right, to make a long story short I send you the kernel source, ttys
+and wscons.conf.
+
+Thanks a lot.
+
+-- 
+Saludos,
+
+           Ing. Ricardo N��ez
+           Webmaster de la DST
+           Universidad Sim�n Bol�var
+           E-Mail: rinunez@usb.ve
+--------------53648BDC1672DBC0A795B15D
+Content-Type: text/plain; charset=us-ascii;
+ name="VERSION_1_1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="VERSION_1_1"
+
+# $NetBSD: Version 1.1 del kernel DEC3000/300 2000/09/01
+# Soporte de consola wscons.
+#
+# Generic Alpha kernel.  Enough to get booted, etc., but not much more.
+
+include	"arch/alpha/conf/std.alpha"
+
+maxusers 32
+
+# CPU Support
+options 	DEC_3000_300	# Pelican etc:	3000/300*
+
+# Standard system options
+options 	KTRACE			# System call tracing support
+
+# Diagnostic/debugging support options
+options 	DIAGNOSTIC		# Cheap kernel consistency checks
+options 	DDB			# kernel debugger
+
+# File systems
+file-system	FFS		# Fast file system
+file-system	MFS		# Memory-based file system
+file-system	CD9660		# ISO-9660 CD-ROM FS (w/RockRidge extensions)
+#file-system	MSDOSFS		# MS-DOS-compatible file system
+file-system	NFS		# Sun NFS-compatible file system client
+#file-system	KERNFS
+#file-system	PROCFS
+
+# File system options
+options 	NFSSERVER	# Sun NFS-compatible file system server
+#options 	FFS_EI		# FFS Endian Independant support
+
+# Networking options
+options 	INET		# Internet protocol suite
+
+# 4.3BSD compatibility.  Should be optional, but necessary for now.
+options 	COMPAT_43
+
+# Binary compatibility with previous versions of NetBSD.
+#options 	COMPAT_09
+options 	COMPAT_10
+options 	COMPAT_11
+options 	COMPAT_12
+options 	COMPAT_13
+
+# OSF/1 binary compatibility
+options 	COMPAT_OSF1
+
+# System V-like message queues
+options 	SYSVMSG
+
+# System V-like semaphores
+options 	SYSVSEM
+
+# System V-like shared memory
+options 	SYSVSHM
+#options 	SHMMAXPGS=1024		# 1024 pages is the default
+
+# Loadable Kernel Modules
+options 	LKM
+
+# Misc. options
+#options 	EISAVERBOSE		# recognize "unknown" EISA devices
+#options 	PCIVERBOSE		# recognize "unknown" PCI devices
+options 	SCSIVERBOSE		# Verbose SCSI errors
+options 	TCVERBOSE		# recognize "unknown" TC devices
+options 	UCONSOLE		# users can use TIOCCONS (for xconsole)
+
+# The Alpha console firmware network boots using the BOOTP
+# protocol, so we ask the NFS code to use BOOTP/DHCP as well,
+# in case we have NFS root.
+options 	NFS_BOOT_DHCP		# superset of BOOTP
+
+# WS console uses SUN or VT100 terminal emulation
+#options 	WSEMUL_VT100
+options 	WSEMUL_SUN
+
+config		netbsd	root on ? type ?
+#config		netbsd	root on sd0 type ffs
+#config		netbsd	root on ? type nfs
+
+mainbus0 at	root
+cpu*	at	mainbus0
+
+# TurboChannel host bus adapter support
+tcasic*	at	mainbus0
+
+# TurboChannel bus support
+tc*	at	tcasic?
+
+# TurboChannel devices
+# Conf. original
+#ioasic*	at	tc? slot ? offset ?
+#mcclock* at	ioasic? offset ?
+#le*	at	ioasic? offset ?
+#scc0	at	ioasic? offset ?
+#scc1	at	ioasic? offset ?
+#tcds*	at	tc? slot ? offset ?
+#asc*	at	tcds? chip ?
+
+ioasic* at      tc? slot ? offset ?
+mcclock* at     ioasic? offset ?
+le*     at      ioasic? offset ?
+zsc0    at      ioasic? offset 0x100000
+zsc1    at      ioasic? offset 0x180000
+tcds*   at      tc? slot ? offset ?
+asc*    at      tcds? chip ?
+cfb*    at      tc? slot ? offset ?
+sfb*    at      tc? slot ? offset ?
+le*     at      tc? slot ? offset ?
+#fta*    at      tc? slot ? offset ?             # DEC DEFTA FDDI cards
+
+options         NEW_SCC_DRIVER
+zstty*  at      zsc? channel 1                  # serial ports on B channels
+zskbd0  at      zsc1 channel 0                  # keyboard port on A channels
+zsms0   at      zsc0 channel 0                  # mouse port on A channels
+
+# SCSI bus support
+scsibus* at	asc?
+
+# SCSI devices
+cd*	at	scsibus? target ? lun ?		# SCSI CD-ROM drives
+sd*	at	scsibus? target ? lun ?		# SCSI disk drives
+st*	at	scsibus? target ? lun ?		# SCSI tape drives
+
+# Workstation Console attachments
+wsdisplay*	at	cfb?
+wsdisplay*	at	sfb?
+wskbd*		at	zskbd?
+wsmouse*	at	zsms?
+
+pseudo-device	bpfilter	16
+pseudo-device	ccd		4
+#pseudo-device	raid		4		# RAIDframe disk driver
+pseudo-device	ipfilter	1
+pseudo-device	loop		1
+pseudo-device	md		1
+pseudo-device	ppp		4
+pseudo-device	pty		64
+pseudo-device	sl		4
+pseudo-device	vnd		4
+#pseudo-device	gre		2	# generic L3 over IP tunnel
+
+# UTC -4. Caracas
+options RTC_OFFSET=-240
+
+--------------53648BDC1672DBC0A795B15D
+Content-Type: text/plain; charset=us-ascii;
+ name="ttys"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ttys"
+
+#
+#	$NetBSD: ttys,v 1.4.8.1 1999/04/29 14:30:41 perry Exp $
+#
+# name	getty				type	status		comments
+
+# In normal operation, getty on 'console' pseudo-device is disabled, and is
+# enabled for the correct 'real' device (e.g. one of the serial ports).
+
+# console pseudo-device
+console	"/usr/libexec/getty std.9600"	sun on secure
+
+# Workstation console (framebuffer) ttys
+ttyE0	"/usr/libexec/getty sun"	sun on secure
+ttyE1	"/usr/libexec/getty std.9600"	sun on secure
+ttyE2	"/usr/libexec/getty std.9600"	sun on secure
+ttyE3	"/usr/libexec/getty std.9600"	sun on secure
+
+# DEC 3000 Z8530 ("scc") serial ports
+ttyB0	"/usr/libexec/getty std.9600"	unknown off secure
+ttyB1	"/usr/libexec/getty std.9600"	unknown off secure
+
+# AlphaStation NS16550 ("com") serial ports
+ttyC0	"/usr/libexec/getty std.9600"	unknown off secure
+ttyC1	"/usr/libexec/getty std.9600"	unknown off secure
+
+# pseudo-ttys
+ttyp0	none				network
+ttyp1	none				network
+ttyp2	none				network
+ttyp3	none				network
+ttyp4	none				network
+ttyp5	none				network
+ttyp6	none				network
+ttyp7	none				network
+ttyp8	none				network
+ttyp9	none				network
+ttypa	none				network
+ttypb	none				network
+ttypc	none				network
+ttypd	none				network
+ttype	none				network
+ttypf	none				network
+ttyq0	none				network
+ttyq1	none				network
+ttyq2	none				network
+ttyq3	none				network
+ttyq4	none				network
+ttyq5	none				network
+ttyq6	none				network
+ttyq7	none				network
+ttyq8	none				network
+ttyq9	none				network
+ttyqa	none				network
+ttyqb	none				network
+ttyqc	none				network
+ttyqd	none				network
+ttyqe	none				network
+ttyqf	none				network
+
+--------------53648BDC1672DBC0A795B15D
+Content-Type: text/plain; charset=us-ascii;
+ name="wscons.conf"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="wscons.conf"
+
+#	$NetBSD: wscons.conf,v 1.1.2.2 2000/01/15 16:34:00 he Exp $
+#
+# workstation console configuration
+
+# fonts to load
+#	name	width	height	enc	file
+#font	ibm	-	8	ibm	/usr/share/pcvt/fonts/vt220l.808
+
+# Note: "pcvt" encoded fonts are only useful with the "*bf" screen types
+#  of the "vga" driver. The kernel must be compiled with the option
+#  "WSCONS_SUPPORT_PCVTFONTS" turned on. See vga(4).
+#font	pcvt	-	-	pcvt	/usr/share/pcvt/fonts/vt220h.816
+#font	pcvt	-	8	pcvt	/usr/share/pcvt/fonts/vt220h.808
+
+# screens to create
+#	idx	screen	emul
+# Screen 0 is already configured as console in most cases.
+#  Uncomment if a serial console is used.
+#screen	0	-	vt100
+screen	1	-	sun
+screen	2	-	sun
+screen	3	-	-
+#screen	4	-	-
+#screen	4	80x25bf	vt100
+#screen	5	80x50	vt100
+
+--------------53648BDC1672DBC0A795B15D--
+
+From bouyer@antioche.lip6.fr  Sat Sep 2 00:58:07 2000
+From: Manuel Bouyer <bouyer@antioche.lip6.fr>
+To: rinunez@usb.ve
+Date: Sat, 02 Sep 2000 00:58:07 +0000
+Subject: Re: WSCONSOLE in a DEC3000/300
+
+On Fri, Sep 01, 2000 at 05:06:49PM -0400, Ricardo N��ez wrote:
+> Hello,
+> 
+> I'm new in NetBSD and I'm trying to configure the WSCONSOLE.
+> 
+> Fortunately, the system reboot and worked, but I can use it just through
+> the ethernet network. I can see the messages in the console but it's
+> imposible to write there.
+> 
+> I've changed a lot of times /etc/ttys and /etc/wscons.conf. I can't
+> understand how could they be VT100 or VT220 when in the kernel they are
+> SUN terminals, and the serial terminal parameter "std.9600" in the
+> /etc/ttys. I read in one page of the NetBSD docs that there exists the
+> parameter "WSDISPLAY_DEFAULTSCREENS", but it didn't use it in this
+> kernel
+> version.
+
+Can you post the output of 'dmesg' here, please ?
+
+--
+Manuel Bouyer, LIP6, Universite Paris VI.           Manuel.Bouyer@lip6.fr
+--
+
+From bolo@cs.wisc.edu  Sat Sep 2 14:04:33 2000
+From: Bolo <bolo@cs.wisc.edu>
+To: port-alpha@netbsd.org
+Date: Sat, 02 Sep 2000 14:04:33 +0000
+Subject: Re: NetBSD on newer Alpha boxes?  ... Thanks!
+
+> I'm currently looking at picking up a new, affordable (read non-DEC)
+> Alpha system.  I've been looking around at the NetBSD/Alpha WWW
+> pages, the FAQ, and the mailing list archive.  I've also been
+> looking around at various Alpha reseller sites.
+
+Thank you all for the various information about the LX164 type
+Alpha systems.   After learning about some of the difficulties
+those particular systems have,  I've decided not to purchase one.
+
+However, this prompted me to look at used DEC hardware as a better
+alternative.  The typical DEC system is built like a brick outhouse
+and is probably a good buy, even used.   Currently I'm looking at
+a 500 au  or 600 au box with combined AlphaBIOS/SRM+ in firmware,
+and the ev56 chip with the BW extensions.
+
+Thanks!
+Bolo
+
+From rinunez@usb.ve  Mon Sep 4 14:03:40 2000
+From: Ricardo =?iso-8859-1?Q?N=FA=F1ez?= <rinunez@usb.ve>
+To: bouyer@antioche.lip6.fr
+Date: Mon, 04 Sep 2000 14:03:40 +0000
+Subject: Re: WSCONSOLE in a DEC3000/300
+
+This is a multi-part message in MIME format.
+--------------4AF8DDBF11F0897E0C0CD018
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+
+Hi,
+
+I send you the output of:
+
+1) dmesg.
+2) The stderr of 'sh /etc/rc.wscons'. It's displayed in the booting
+process.
+
+I send my /etc/ttys and /etc/wscons.conf files.
+
+I finally can type in the console, but I cannot switch. It seems ttyE0
+is the device which works.
+
+The system tells me ttyE1 is not configured.
+
+What do you think?
+
+Manuel Bouyer wrote:
+> 
+> On Fri, Sep 01, 2000 at 05:06:49PM -0400, Ricardo N��ez wrote:
+> > Hello,
+> >
+> > I'm new in NetBSD and I'm trying to configure the WSCONSOLE.
+> >
+> > Fortunately, the system reboot and worked, but I can use it just through
+> > the ethernet network. I can see the messages in the console but it's
+> > imposible to write there.
+> >
+> > I've changed a lot of times /etc/ttys and /etc/wscons.conf. I can't
+> > understand how could they be VT100 or VT220 when in the kernel they are
+> > SUN terminals, and the serial terminal parameter "std.9600" in the
+> > /etc/ttys. I read in one page of the NetBSD docs that there exists the
+> > parameter "WSDISPLAY_DEFAULTSCREENS", but it didn't use it in this
+> > kernel
+> > version.
+> 
+> Can you post the output of 'dmesg' here, please ?
+> 
+> --
+> Manuel Bouyer, LIP6, Universite Paris VI.           Manuel.Bouyer@lip6.fr
+> --
+
+-- 
+Saludos,
+
+           Ing. Ricardo N��ez
+           Webmaster de la DST
+           Universidad Sim�n Bol�var
+           E-Mail: rinunez@usb.ve
+--------------4AF8DDBF11F0897E0C0CD018
+Content-Type: text/plain; charset=us-ascii;
+ name="dmesg.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="dmesg.txt"
+
+[ preserving 182448 bytes of netbsd ELF symbol table ]
+Copyright (c) 1996, 1997, 1998, 1999, 2000
+    The NetBSD Foundation, Inc.  All rights reserved.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+    The Regents of the University of California.  All rights reserved.
+
+NetBSD 1.4.2 (VERSION_1_2) #0: Fri Sep  1 17:16:10 VET 2000
+    root@old-skynet.usb.ve:/usr/src/sys/arch/alpha/compile/VERSION_1_2
+DEC 3000 - M300LX, 125MHz
+8192 byte page size, 1 processor.
+real mem = 268435456 (2097152 reserved for PROM, 266338304 used by NetBSD)
+avail mem = 231464960
+using 3251 buffers containing 26632192 bytes of memory
+mainbus0 (root)
+cpu0 at mainbus0: ID 0 (primary), 21064-1 (pass 3)
+tcasic0 at mainbus0
+tc0 at tcasic0: 12.5 MHz clock
+sfb0 at tc0 slot 4 offset 0x2000000: 1280 x 1024, 8bpp
+wsdisplay0 at sfb0: console (std, sun emulation)
+ioasic0 at tc0 slot 3 offset 0x0: slow mode
+le0 at ioasic0 offset 0xc0000: address 08:00:2b:bf:94:f9
+le0: 32 receive buffers, 8 transmit buffers
+zsc0 at ioasic0 offset 0x100000
+zsms0 at zsc0 channel 0
+wsmouse0 at zsms0
+zstty0 at zsc0 channel 1
+zsc1 at ioasic0 offset 0x180000
+zskbd0 at zsc1 channel 0
+wskbd0 at zskbd0
+zstty1 at zsc1 channel 1
+mcclock0 at ioasic0 offset 0x200000: mc146818 or compatible
+AMD79c30 at ioasic0 offset 0x240000 not configured
+tcds0 at tc0 slot 2 offset 0x0: TurboChannel Dual SCSI (baseboard)
+asc0 at tcds0 chip 0: NCR53C94, 25MHz, SCSI ID 7
+scsibus0 at asc0: 8 targets, 8 luns per target
+probe(asc0:0:0): max sync rate 5.00Mb/s
+sd0 at scsibus0 targ 0 lun 0: <DEC, RZ26L    (C) DEC, 440C> SCSI2 0/direct fixed
+sd0: 1001MB, 3117 cyl, 8 head, 82 sec, 512 bytes/sect x 2050860 sectors
+probe(asc0:1:0): max sync rate 5.00Mb/s
+sd1 at scsibus0 targ 1 lun 0: <DEC, RZ26L    (C) DEC, 442D> SCSI2 0/direct fixed
+sd1: 1001MB, 3117 cyl, 8 head, 82 sec, 512 bytes/sect x 2050860 sectors
+probe(asc0:5:0): max sync rate 5.00Mb/s
+sd2 at scsibus0 targ 5 lun 0: <SEAGATE, ST423451W, 0013> SCSI2 0/direct fixed
+sd2: 22130MB, 6876 cyl, 28 head, 235 sec, 512 bytes/sect x 45322644 sectors
+probe(asc0:6:0): max sync rate 5.00Mb/s
+sd3 at scsibus0 targ 6 lun 0: <SEAGATE, ST423451W, 0013> SCSI2 0/direct fixed
+sd3: 22130MB, 6876 cyl, 28 head, 235 sec, 512 bytes/sect x 45322644 sectors
+wscons: wskbd0 glued to wsdisplay0
+root on sd2a dumps on sd2b
+root file system type: ffs
+
+--------------4AF8DDBF11F0897E0C0CD018
+Content-Type: text/plain; charset=us-ascii;
+ name="rc.wscons.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="rc.wscons.txt"
+
+wsconscfg: WSDISPLAYIO_ADDSCREEN: Cannot allocate memory
+wsconscfg: WSDISPLAYIO_ADDSCREEN: Cannot allocate memory
+
+--------------4AF8DDBF11F0897E0C0CD018
+Content-Type: text/plain; charset=us-ascii;
+ name="ttys"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ttys"
+
+#
+#	$NetBSD: ttys,v 1.4.8.1 1999/04/29 14:30:41 perry Exp $
+#
+# name	getty				type	status		comments
+
+# In normal operation, getty on 'console' pseudo-device is disabled, and is
+# enabled for the correct 'real' device (e.g. one of the serial ports).
+
+# console pseudo-device
+console	"/usr/libexec/getty std.9600"	vt220 off secure
+
+# Workstation console (framebuffer) ttys
+ttyE0	"/usr/libexec/getty std.9600"	vt220 on secure
+ttyE1	"/usr/libexec/getty std.9600"	vt220 on secure
+
+# DEC 3000 Z8530 ("scc") serial ports
+ttyB0	"/usr/libexec/getty std.9600"	unknown off secure
+ttyB1	"/usr/libexec/getty std.9600"	unknown off secure
+
+# AlphaStation NS16550 ("com") serial ports
+ttyC0	"/usr/libexec/getty std.9600"	unknown off secure
+ttyC1	"/usr/libexec/getty std.9600"	unknown off secure
+
+# pseudo-ttys
+ttyp0	none				network
+ttyp1	none				network
+ttyp2	none				network
+ttyp3	none				network
+ttyp4	none				network
+ttyp5	none				network
+ttyp6	none				network
+ttyp7	none				network
+ttyp8	none				network
+ttyp9	none				network
+ttypa	none				network
+ttypb	none				network
+ttypc	none				network
+ttypd	none				network
+ttype	none				network
+ttypf	none				network
+ttyq0	none				network
+ttyq1	none				network
+ttyq2	none				network
+ttyq3	none				network
+ttyq4	none				network
+ttyq5	none				network
+ttyq6	none				network
+ttyq7	none				network
+ttyq8	none				network
+ttyq9	none				network
+ttyqa	none				network
+ttyqb	none				network
+ttyqc	none				network
+ttyqd	none				network
+ttyqe	none				network
+ttyqf	none				network
+
+--------------4AF8DDBF11F0897E0C0CD018
+Content-Type: text/plain; charset=us-ascii;
+ name="wscons.conf"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="wscons.conf"
+
+#	$NetBSD: wscons.conf,v 1.1.2.2 2000/01/15 16:34:00 he Exp $
+#
+# workstation console configuration
+
+# fonts to load
+#	name	width	height	enc	file
+#font	ibm	-	8	ibm	/usr/share/pcvt/fonts/vt220l.808
+
+# Note: "pcvt" encoded fonts are only useful with the "*bf" screen types
+#  of the "vga" driver. The kernel must be compiled with the option
+#  "WSCONS_SUPPORT_PCVTFONTS" turned on. See vga(4).
+#font	pcvt	-	-	pcvt	/usr/share/pcvt/fonts/vt220h.816
+#font	pcvt	-	8	pcvt	/usr/share/pcvt/fonts/vt220h.808
+
+# screens to create
+#	idx	screen	emul
+# Screen 0 is already configured as console in most cases.
+#  Uncomment if a serial console is used.
+#screen	0	-	vt100
+screen	1	-	vt220
+screen	2	-	-
+#screen	3	-	vt100
+#screen	4	-	-
+#screen	4	80x25bf	vt100
+#screen	5	80x50	vt100
+
+--------------4AF8DDBF11F0897E0C0CD018
+Content-Type: text/plain; charset=us-ascii;
+ name="VERSION_1_2"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="VERSION_1_2"
+
+# $NetBSD: Version 1.1 del kernel DEC3000/300 2000/09/01
+# Soporte de consola wscons.
+#
+# Generic Alpha kernel.  Enough to get booted, etc., but not much more.
+
+include	"arch/alpha/conf/std.alpha"
+
+maxusers 32
+
+# CPU Support
+options 	DEC_3000_300	# Pelican etc:	3000/300*
+
+# Standard system options
+options 	KTRACE			# System call tracing support
+
+# Diagnostic/debugging support options
+options 	DIAGNOSTIC		# Cheap kernel consistency checks
+options 	DDB			# kernel debugger
+
+# File systems
+file-system	FFS		# Fast file system
+file-system	MFS		# Memory-based file system
+file-system	CD9660		# ISO-9660 CD-ROM FS (w/RockRidge extensions)
+#file-system	MSDOSFS		# MS-DOS-compatible file system
+file-system	NFS		# Sun NFS-compatible file system client
+#file-system	KERNFS
+#file-system	PROCFS
+
+# File system options
+options 	NFSSERVER	# Sun NFS-compatible file system server
+#options 	FFS_EI		# FFS Endian Independant support
+
+# Networking options
+options 	INET		# Internet protocol suite
+
+# 4.3BSD compatibility.  Should be optional, but necessary for now.
+options 	COMPAT_43
+
+# Binary compatibility with previous versions of NetBSD.
+#options 	COMPAT_09
+options 	COMPAT_10
+options 	COMPAT_11
+options 	COMPAT_12
+options 	COMPAT_13
+
+# OSF/1 binary compatibility
+options 	COMPAT_OSF1
+
+# System V-like message queues
+options 	SYSVMSG
+
+# System V-like semaphores
+options 	SYSVSEM
+
+# System V-like shared memory
+options 	SYSVSHM
+#options 	SHMMAXPGS=1024		# 1024 pages is the default
+
+# Loadable Kernel Modules
+options 	LKM
+
+# Misc. options
+#options 	EISAVERBOSE		# recognize "unknown" EISA devices
+#options 	PCIVERBOSE		# recognize "unknown" PCI devices
+options 	SCSIVERBOSE		# Verbose SCSI errors
+options 	TCVERBOSE		# recognize "unknown" TC devices
+options 	UCONSOLE		# users can use TIOCCONS (for xconsole)
+
+# The Alpha console firmware network boots using the BOOTP
+# protocol, so we ask the NFS code to use BOOTP/DHCP as well,
+# in case we have NFS root.
+options 	NFS_BOOT_DHCP		# superset of BOOTP
+
+# WS console uses SUN or VT100 terminal emulation
+#options 	WSEMUL_VT100
+options 	WSEMUL_SUN
+
+config		netbsd	root on ? type ?
+#config		netbsd	root on sd0 type ffs
+#config		netbsd	root on ? type nfs
+
+mainbus0 at	root
+cpu*	at	mainbus0
+
+# TurboChannel host bus adapter support
+tcasic*	at	mainbus0
+
+# TurboChannel bus support
+tc*	at	tcasic?
+
+# TurboChannel devices
+# Conf. original
+#ioasic*	at	tc? slot ? offset ?
+#mcclock* at	ioasic? offset ?
+#le*	at	ioasic? offset ?
+#scc0	at	ioasic? offset ?
+#scc1	at	ioasic? offset ?
+#tcds*	at	tc? slot ? offset ?
+#asc*	at	tcds? chip ?
+
+ioasic* at      tc? slot ? offset ?
+mcclock* at     ioasic? offset ?
+le*     at      ioasic? offset ?
+zsc0    at      ioasic? offset 0x100000
+zsc1    at      ioasic? offset 0x180000
+tcds*   at      tc? slot ? offset ?
+asc*    at      tcds? chip ?
+cfb*    at      tc? slot ? offset ?
+sfb*    at      tc? slot ? offset ?
+le*     at      tc? slot ? offset ?
+#fta*    at      tc? slot ? offset ?             # DEC DEFTA FDDI cards
+
+options         NEW_SCC_DRIVER
+zstty*  at      zsc? channel 1                  # serial ports on B channels
+zskbd0  at      zsc1 channel 0                  # keyboard port on A channels
+zsms0   at      zsc0 channel 0                  # mouse port on A channels
+
+# SCSI bus support
+scsibus* at	asc?
+
+# SCSI devices
+cd*	at	scsibus? target ? lun ?		# SCSI CD-ROM drives
+sd*	at	scsibus? target ? lun ?		# SCSI disk drives
+st*	at	scsibus? target ? lun ?		# SCSI tape drives
+
+# Workstation Console attachments
+wsdisplay*	at	cfb?
+wsdisplay*	at	sfb?
+wskbd*		at	zskbd?
+wsmouse*	at	zsms?
+
+pseudo-device	bpfilter	16
+pseudo-device	ccd		4
+#pseudo-device	raid		4		# RAIDframe disk driver
+pseudo-device	ipfilter	1
+pseudo-device	loop		1
+pseudo-device	md		1
+pseudo-device	ppp		4
+pseudo-device	pty		64
+pseudo-device	sl		4
+pseudo-device	vnd		4
+#pseudo-device	gre		2	# generic L3 over IP tunnel
+
+# UTC -4. Caracas
+options RTC_OFFSET=-240
+options WSDISPLAY_DEFAULTSCREENS=2
+
+--------------4AF8DDBF11F0897E0C0CD018--
+
+From elric@mabelode.imrryr.org  Mon Sep 4 12:13:18 2000
+From: R. C. Dowdeswell <elric@mabelode.imrryr.org>
+To: rinunez@usb.ve
+Date: Mon, 04 Sep 2000 12:13:18 +0000
+Subject: Re: WSCONSOLE in a DEC3000/300
+
+On 968090620 seconds since the Beginning of the UNIX epoch
+Ricardo =?iso-8859-1?Q?N=FA=F1ez?= wrote:
+>
+>The system tells me ttyE1 is not configured.
+>
+>What do you think?
+
+>wsconscfg: WSDISPLAYIO_ADDSCREEN: Cannot allocate memory
+>wsconscfg: WSDISPLAYIO_ADDSCREEN: Cannot allocate memory
+
+It looks like it tried to add additional screens and could not.
+I would guess that you probably have a frame buffer device, which
+we do not currently support virtual terminals on.  I've been thinking
+about adding some code to do that, but given the current state of
+my priorities, I do not think that I'll have time to do it before
+1.5, but I may be able to sneak it into 1.5.1.  (Or, maybe someone
+else might do it.)
+
+ == Roland Dowdeswell                      http://www.Imrryr.ORG/~elric/  ==
+ == The Unofficial NetBSD Web Pages        http://www.Imrryr.ORG/NetBSD/  ==
+ == The NetBSD Project                            http://www.NetBSD.ORG/  ==
+
+From bouyer@antioche.lip6.fr  Mon Sep 4 21:46:01 2000
+From: Manuel Bouyer <bouyer@antioche.lip6.fr>
+To: rinunez@usb.ve
+Date: Mon, 04 Sep 2000 21:46:01 +0000
+Subject: Re: WSCONSOLE in a DEC3000/300
+
+On Mon, Sep 04, 2000 at 02:03:40PM -0400, Ricardo N��ez wrote:
+>[...]
+> tc0 at tcasic0: 12.5 MHz clock
+> sfb0 at tc0 slot 4 offset 0x2000000: 1280 x 1024, 8bpp
+> wsdisplay0 at sfb0: console (std, sun emulation)
+
+Arg, it's not a VGA display, you can't have multiple consoles on this one
+(yet).
+
+--
+Manuel Bouyer, LIP6, Universite Paris VI.           Manuel.Bouyer@lip6.fr
+--
+
+From rinunez@usb.ve  Tue Sep 5 09:43:05 2000
+From: Ricardo =?iso-8859-1?Q?N=FA=F1ez?= <rinunez@usb.ve>
+To: bouyer@antioche.lip6.fr
+Date: Tue, 05 Sep 2000 09:43:05 +0000
+Subject: X Windows
+
+Hello,
+
+Manuel Bouyer wrote:
+> 
+> On Mon, Sep 04, 2000 at 02:03:40PM -0400, Ricardo N��ez wrote:
+> >[...]
+> > tc0 at tcasic0: 12.5 MHz clock
+> > sfb0 at tc0 slot 4 offset 0x2000000: 1280 x 1024, 8bpp
+> > wsdisplay0 at sfb0: console (std, sun emulation)
+> 
+> Arg, it's not a VGA display, you can't have multiple consoles on this one
+> (yet).
+
+I suppose that means X Server is not supported in DEC3000/300 consoles
+neither... Right?
+
+> 
+> --
+> Manuel Bouyer, LIP6, Universite Paris VI.           Manuel.Bouyer@lip6.fr
+> --
+
+-- 
+Saludos,
+
+           Ing. Ricardo N��ez
+           Webmaster de la DST
+           Universidad Sim�n Bol�var
+           E-Mail: rinunez@usb.ve
+
+From bouyer@antioche.lip6.fr  Tue Sep 5 16:07:53 2000
+From: Manuel Bouyer <bouyer@antioche.lip6.fr>
+To: rinunez@usb.ve
+Date: Tue, 05 Sep 2000 16:07:53 +0000
+Subject: Re: X Windows
+
+On Tue, Sep 05, 2000 at 09:43:05AM -0400, Ricardo N��ez wrote:
+> I suppose that means X Server is not supported in DEC3000/300 consoles
+> neither... Right?
+
+X should work on these consoles. It doens't work for vga devices on
+NetBSD/alpha.
+
+--
+Manuel Bouyer, LIP6, Universite Paris VI.           Manuel.Bouyer@lip6.fr
+--
+
+From paul@gromit.dlib.vt.edu  Tue Sep 5 10:14:57 2000
+From: Paul Mather <paul@gromit.dlib.vt.edu>
+To: bouyer@antioche.lip6.fr
+Date: Tue, 05 Sep 2000 10:14:57 +0000
+Subject: Re: X Windows
+
+On Tue, 5 Sep 2000, Manuel Bouyer wrote:
+
+=> On Tue, Sep 05, 2000 at 09:43:05AM -0400, Ricardo N��ez wrote:
+=> > I suppose that means X Server is not supported in DEC3000/300 consoles
+=> > neither... Right?
+=> 
+=> X should work on these consoles. It doens't work for vga devices on
+=> NetBSD/alpha.
+
+AFAIK, only the X clients work on the DEC3000/300; there is no X server
+for it.  Has something changed recently??
+
+Cheers,
+
+Paul (a DEC 3000/300 owner using his DECstation 3100 as an X server:).
+
+e-mail: paul@gromit.dlib.vt.edu
+
+"Without music to decorate it, time is just a bunch of boring production
+ deadlines or dates by which bills must be paid."
+        --- Frank Vincent Zappa
+
+From bouyer@antioche.lip6.fr  Tue Sep 5 16:37:09 2000
+From: Manuel Bouyer <bouyer@antioche.lip6.fr>
+To: paul@gromit.dlib.vt.edu
+Date: Tue, 05 Sep 2000 16:37:09 +0000
+Subject: Re: X Windows
+
+On Tue, Sep 05, 2000 at 10:14:57AM -0400, Paul Mather wrote:
+> On Tue, 5 Sep 2000, Manuel Bouyer wrote:
+> 
+> => On Tue, Sep 05, 2000 at 09:43:05AM -0400, Ricardo N��ez wrote:
+> => > I suppose that means X Server is not supported in DEC3000/300 consoles
+> => > neither... Right?
+> => 
+> => X should work on these consoles. It doens't work for vga devices on
+> => NetBSD/alpha.
+> 
+> AFAIK, only the X clients work on the DEC3000/300; there is no X server
+> for it.  Has something changed recently??
+
+Doesn't XalphaNetBSD work on it ? Well, I'm not really in my area here,
+I only have serial consoles :)
+
+--
+Manuel Bouyer, LIP6, Universite Paris VI.           Manuel.Bouyer@lip6.fr
+--
+
+From bucketmouthfrogstump@hotmail.com  Thu Sep 7 17:08:21 2000
+From: Bucketmouth Frogstump <bucketmouthfrogstump@hotmail.com>
+To: port-alpha@netbsd.org
+Date: Thu, 07 Sep 2000 17:08:21 +0000
+Subject: Future of 3000/300 support
+
+Hi folks ... just trying to tie up a few odd threads from the last week or 
+so.
+
+Is anyone actually working on getting X running on a 3000/300? Does it look 
+possible? I've got about 20 of the things here, and their days are numbered 
+if it's not likely to happen.
+
+If it is going to happen in the weeks/months to come, I'll happily wait. I'm 
+a bit of a Linux Weenie really, but I've got NetBSD up on one 3000/300 
+already, and I'm enjoying myself so far. :)
+
+I'm quite happy to run dodgy code if anyone needs a tester, but my 
+programming skills are terrible so I'm not of much use there.
+
+Could someone give me a clue as to which way to jump?
+
+Thanks.
+
+_________________________________________________________________________
+Get Your Private, Free E-mail from MSN Hotmail at http://www.hotmail.com.
+
+Share information about yourself, create your own public profile at 
+http://profiles.msn.com.
+
+From cgd@netbsd.org  Thu Sep 7 08:52:21 2000
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: bucketmouthfrogstump@hotmail.com
+Date: Thu, 07 Sep 2000 08:52:21 +0000
+Subject: Re: Future of 3000/300 support
+
+"Bucketmouth Frogstump" <bucketmouthfrogstump@hotmail.com> writes:
+> Is anyone actually working on getting X running on a 3000/300? Does it look 
+> possible? I've got about 20 of the things here, and their days are numbered 
+> if it's not likely to happen.
+
+It's certainly possible to do, it's just somebody needs to do it.
+
+The frame buffer is documented, and the keyboards are documented (and
+there's already a driver for them for decstations).
+
+I dunno if anybody's working on it, tho.
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From cgd@netbsd.org  Thu Sep 7 14:16:06 2000
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: xfire@xware.cx
+Date: Thu, 07 Sep 2000 14:16:06 +0000
+Subject: Re: Future of 3000/xxx console support
+
+"Crossfire" <xfire@xware.cx> writes:
+> I have in my possession, a 3000/800 with a SFBP...
+
+you mean a "SFB," a.k.a. Smart Frame Buffer (i forget the TC ID)?
+
+This is all documented, in the EK-D3SYS-PM manual and some technical
+papers (though iirc the latter are unnecessary), and it's very close
+in function to the 21030 (which is really much like "SFB glue on to
+PCI") for which (unless i'm mistaken) there's already X server
+support.
+
+If that's not what you mean, well, I have no idea what an "SFBP" is.
+
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From xfire@xware.cx  Fri Sep 8 07:28:50 2000
+From: Crossfire <xfire@xware.cx>
+To: port-alpha@netbsd.org
+Date: Fri, 08 Sep 2000 07:28:50 +0000
+Subject: Re: Future of 3000/xxx console support
+
+I have in my possession, a 3000/800 with a SFBP...  I do plan to at least
+get a FB console going... so there is some hope yet.  however, I've not had
+any access to the machine in a month due to my stuff currently being split
+between 2 states, so it might be a while yet.
+
+The biggest woe I have at the moment is that nobody has decyphered the SFBP.
+If somebody has a spare TX they want to send me....
+
++-================================================-+
+| Crossfire      | This message was brought to you |
+| xfire@xware.cx | on 100% recycled electrons      |
++-================================================-+
+
+----- Original Message -----
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: Bucketmouth Frogstump <bucketmouthfrogstump@hotmail.com>
+Cc: <port-alpha@netbsd.org>
+Sent: Friday, September 08, 2000 1:52 AM
+Subject: Re: Future of 3000/300 support
+
+
+> "Bucketmouth Frogstump" <bucketmouthfrogstump@hotmail.com> writes:
+> > Is anyone actually working on getting X running on a 3000/300? Does it
+look
+> > possible? I've got about 20 of the things here, and their days are
+numbered
+> > if it's not likely to happen.
+>
+> It's certainly possible to do, it's just somebody needs to do it.
+>
+> The frame buffer is documented, and the keyboards are documented (and
+> there's already a driver for them for decstations).
+>
+> I dunno if anybody's working on it, tho.
+>
+>
+> cgd
+> --
+> Chris Demetriou - cgd@netbsd.org -
+http://www.netbsd.org/People/Pages/cgd.html
+> Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From ahorn@inktomi.com  Fri Sep 8 10:52:05 2000
+From: Alan Horn <ahorn@inktomi.com>
+To: port-alpha@netbsd.org
+Date: Fri, 08 Sep 2000 10:52:05 +0000
+Subject: NetBSD on netapp
+
+Has anyone ever installed NetBSD on a networkappliance netcache box
+(netapp C630).
+
+I think it's an alpha underneath it all...
+
+Please Cc: me on replies as I'm am not subbed to the list.
+
+Cheers,
+
+Al
+
+
+--
+                                 Alan C. Horn
+                 Inktomi - Unix System Administrator, Europe.
+                  (m) +44 7769 930 207, (w) +44 20 7430 5808
+                              [ahorn@inktomi.com]
+
+From catfish@alltel.net  Fri Sep 8 11:10:39 2000
+From: T. Martin <catfish@alltel.net>
+To: port-alpha@netbsd.org
+Date: Fri, 08 Sep 2000 11:10:39 +0000
+Subject: Dec3000/300
+
+Hey, 
+
+ If anyone has an extra mouse/keyboard/dongle for a 3000 you want to
+sell or part with let me know please. 
+Terry
+
+
+catfish: icq #20116127
+
+From nisimura@itc.aist-nara.ac.jp  Sat Sep 9 12:55:12 2000
+From: Toru Nishimura <nisimura@itc.aist-nara.ac.jp>
+To: port-alpha@netbsd.org
+Date: Sat, 09 Sep 2000 12:55:12 +0000
+Subject: Re: Future of 3000/xxx console support
+
+>> "Crossfire" <xfire@xware.cx> writes:
+>> I have in my possession, a 3000/800 with a SFBP...
+>
+> you mean a "SFB," a.k.a. Smart Frame Buffer (i forget the TC ID)?
+
+I assume he mentions to PMAGD SFB+.  It's a TURBOchannel version of
+TGA, which has two variants of Bt459 or Bt463.
+
+Tohru Nishimura
+
+From cgd@netbsd.org  Sat Sep 9 08:54:39 2000
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: nisimura@itc.aist-nara.ac.jp
+Date: Sat, 09 Sep 2000 08:54:39 +0000
+Subject: Re: Future of 3000/xxx console support
+
+nisimura@itc.aist-nara.ac.jp (Toru Nishimura) writes:
+> >> "Crossfire" <xfire@xware.cx> writes:
+> >> I have in my possession, a 3000/800 with a SFBP...
+> >
+> > you mean a "SFB," a.k.a. Smart Frame Buffer (i forget the TC ID)?
+> 
+> I assume he mentions to PMAGD SFB+.  It's a TURBOchannel version of
+> TGA, which has two variants of Bt459 or Bt463.
+
+Yeah, he communicated "SFB+" in private mail.  I pointed him at the
+TGA docs.  8-)
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From shep@lcs.mit.edu  Sat Sep 9 13:11:06 2000
+From: Tim Shepard <shep@lcs.mit.edu>
+To: port-alpha@netbsd.org
+Date: Sat, 09 Sep 2000 13:11:06 +0000
+Subject: 1.5_ALPHA2 cdhdtape on alpha: panic: startup: cannot allocate VM for buffers
+
+I put
+ftp://ftp.netbsd.org/pub/NetBSD/NetBSD-1.5_ALPHA2/alpha/installation/diskimage/cdhdtape
+on the beginning of a disk and then tried booting it on a DS20E.
+Below is a copy of what happens.  Note that this machine does have
+quite a bit of memory plugged into it. 
+
+What I'd like is for someone to build a
+NetBSD-1.5_ALPHA2/alpha/installation/cdhdtape
+which includes symbols for the kernel db.
+(I'm kind of stuck because I don't have NetBSD running on any other
+Alpha, so at the moment I'm not able to try building kernels to fix
+this problem.)
+
+Or, if you have any good ideas....
+
+			-Tim Shepard
+			 shep@lcs.mit.edu
+
+ - - - -  - - - -  - - - -  - - - -  - - - -  - - - -  - - - -  - - - - 
+
+P00>>>boot -fl d dka0
+(boot dka0.0.0.7.1 -flags d)
+block 0 of dka0.0.0.7.1 is a valid boot block
+reading 15 blocks from dka0.0.0.7.1
+bootstrap code read in
+base = 200000, image_start = 0, image_bytes = 1e00
+initializing HWRPB at 2000
+initializing page table at 3ff66000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/alpha 1.5_ALPHA2 Primary Boot +
++.
+Jumping to entry point...
+
+NetBSD/alpha 1.5_ALPHA2 Secondary Bootstrap, Revision 1.10
+(root@frau-farbissina.shagadelic.org, Aug 14 13:32:09 PDT 2000)
+
+VMS PAL rev: 0x2003600010145
+OSF PAL rev: 0x200370002013e
+Switch to OSF PAL code succeeded.
+
+Boot flags: d
+7704584+250184]=0x7964a8
+
+Entering netbsd at 0xfffffc00003010c0...
+[ netbsd ELF symbol table not valid ]
+[ no symbol table formats found ]
+Stopped at      0xfffffc0000537fc4:     ret     zero,(ra)
+db> c
+Copyright (c) 1996, 1997, 1998, 1999, 2000
+    The NetBSD Foundation, Inc.  All rights reserved.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+    The Regents of the University of California.  All rights reserved.
+
+NetBSD 1.5_ALPHA2 (INSTALL) #4: Mon Aug 14 15:09:27 PDT 2000
+    root@frau-farbissina.shagadelic.org:/amd/swinger/u1/netbsd-1-5/src/sys/archL
+COMPAQ AlphaServer DS20E 500 MHz
+8192 byte page size, 2 processors.
+total memory = 2560 MB
+(2696 KB reserved for PROM, 2557 MB used by NetBSD)
+panic: startup: cannot allocate VM for buffers
+Stopped in  at  0xfffffc0000537fc4:     ret     zero,(ra)
+db>
+
+From jhawk@MIT.EDU  Sat Sep 9 16:44:29 2000
+From: John Hawkinson <jhawk@MIT.EDU>
+To: port-alpha@netbsd.org
+Date: Sat, 09 Sep 2000 16:44:29 +0000
+Subject: rev 1.12 basesrc/distrib/alpha/instkernel/instkernel/Makefile
+
+Could someone with an alpha build tree test this before I have it
+pulled up to 1.5?
+
+Thanks.
+
+--jhawk
+
+} Subject: CVS commit: basesrc
+} Date: Sat, 9 Sep 2000 22:10:10 +0300 (EEST)
+} From: John Hawkinson <jhawk@netbsd.org>
+} Message-Id: <200009091910.WAA04859@netbsd.hut.fi>
+} Subject: CVS commit: basesrc
+} To: source-changes@netbsd.org
+} Reply-To: jhawk@netbsd.org
+} Delivered-To: source-changes@netbsd.org
+} 
+} 
+} Module Name:	basesrc
+} Committed By:	jhawk
+} Date:		Sat Sep  9 19:10:10 UTC 2000
+} 
+} Modified Files:
+} 	  basesrc/distrib/alpha/instkernel/instkernel: Makefile
+} 
+} Log Message:
+} For stripped kernels, run nm and save the output as
+} netbsd.KERNELNAME.symbols, and install in the release(7) tree.
+} 
+} 
+} To generate a diff of this commit:
+} cvs rdiff -r1.11 -r1.12 basesrc/distrib/alpha/instkernel/instkernel/Makefile
+} 
+} Please note that diffs are not public domain; they are subject to the
+} copyright notices on the relevant files.
+
+From shep@lcs.mit.edu  Sat Sep 9 18:21:02 2000
+From: Tim Shepard <shep@lcs.mit.edu>
+To: port-alpha@netbsd.org
+Date: Sat, 09 Sep 2000 18:21:02 +0000
+Subject: Re: 1.5_ALPHA2 cdhdtape on alpha: panic: startup: cannot allocate VM for buffers
+
+Earlier today I said:
+
+> What I'd like is for someone to build a
+> NetBSD-1.5_ALPHA2/alpha/installation/cdhdtape
+> which includes symbols for the kernel db.
+
+Thanks.  I'm now able to prevent that panic with this hack:
+
+    P00>>>boot -fl d dka0
+    (boot dka0.0.0.7.1 -flags d)
+      [...etc...]
+    Boot flags: d
+    7769496+250056 [85+208896+123442]=0x7f7470
+    
+    Entering netbsd at 0xfffffc00003010c0...
+    [ preserving 333328 bytes of netbsd ELF symbol table ]
+    Stopped at      cpu_Debugger+0x4:       ret     zero,(ra)
+    db> x/x nbuf
+    nbuf:   3ffb
+    db> write nbuf 0x3ff
+    nbuf                0x3ffb =      0x3ff
+    db> c
+    Copyright (c) 1996, 1997, 1998, 1999, 2000
+	The NetBSD Foundation, Inc.  All rights reserved.
+    Copyright (c) 1982, 1986, 1989, 1991, 1993
+	The Regents of the University of California.  All rights reserved.
+    
+    NetBSD 1.5_ALPHA2 (INSTALL) #0: Fri Sep  8 18:40:49 EDT 2000
+	root@tree.hamachi.org:/usr/src/sys/arch/alpha/compile/INSTALL
+    COMPAQ AlphaServer DS20E 500 MHz
+    8192 byte page size, 2 processors.
+    total memory = 2560 MB
+    (2696 KB reserved for PROM, 2557 MB used by NetBSD)
+    avail memory = 2364 MB
+    using 1023 buffers containing 127 MB of memory
+
+So I'm unstuck now.
+
+		-Tim
+
+From rinunez@usb.ve  Sun Sep 10 20:51:20 2000
+From: None <rinunez@usb.ve>
+To: netbsd-users@netbsd.org
+Date: Sun, 10 Sep 2000 20:51:20 +0000
+Subject: MySQL Server 3.22.32 PKGSRC Makefile problem
+
+This message is in MIME format.
+
+---MOQ968633480b1effd0d90f573161832876f12d39ffa
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+
+Hello,
+
+I'm running NetBSD 1.4.2 in an alpha Dec 3000/300.
+
+I'm having problems trying to compile mysql-server 3.22.32 with pkgsrc.
+I did install mysql-client.
+
+The problem is in "mit-pthreads" directory. So I installed that package,
+but I'm having problems with "mit-pthreads" mysql-server directory yet.
+
+The last output lines of make:
+
+__________________________
+
+ + /bin/ln -s ./../mysys/my_static.h ./my_static.h
+echo timestamp > linked_client_sources
+make  all-recursive
+Making all in mit-pthreads
+make: don't know how to make syscall-template.S. Stop
+*** Error code 1
+
+Stop.
+*** Error code 1
+
+Stop.
+*** Error code 1
+
+Stop.
+*** Error code 1
+
+Stop.
+*** Error code 1
+
+Stop.
+
+____________________________
+
+I append you my root .profile file, my disfiles pkgsrc directory listing,
+and my pkg_info output.
+
+Thank you very much.
+
+
+Saludos,
+
+       Ing. Ricardo N��ez
+       Webmaster de la DST
+       Universidad Sim�n Bol�var
+       E-Mail: rinunez@usb.ve
+
+-------------------------------------------------
+This mail sent through IMP: webmail.usb.ve
+
+---MOQ968633480b1effd0d90f573161832876f12d39ffa
+Content-Type: text/plain; name="pkg_info.txt"; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Content-Disposition: inline; filename="pkg_info.txt"
+
+
+bash-2.03           The GNU Bourne Again Shell.
+sudo-1.5.7p4        Allow others to run commands as root.
+wget-1.5.3          Retrieve files from the 'net via HTTP and FTP.
+addnerd-1.6         A small C utility to add a user
+m4-1.4              GNU version of Unix m4 macro-processor
+perl-5.00404        Practical Extraction and Report Language
+autoconf-2.13       Automatically configure source code on many Un*x platforms
+automake-1.4        GNU Standards-compliant Makefile generator
+tcl-8.3.2           Ousterhout's Tool Command Language, a scripting language
+glib-1.2.0          Some useful routines for C programming.
+gmake-3.77          GNU version of 'make' utility
+ncurses-1.9.9g      CRT screen handling and optimization package
+openldap-1.2.1      A lightweight directory access protocol server and client package 
+pico-3.4            Text editor (ships with Pine), and Pine's text editing lib.
+plotutils-2.1.6     Programs and library for plotting scientific data.
+rsync-2.3.1         A network file distribution/synchronisation utility.
+libperl-5.00404     PERL core library as a shared object
+ssh-1.2.27          Secure shell client and server (remote login program)
+procmail-3.15       Local mail delivery agent
+postfix-19991231pl08 postfix smtp server and tools
+libtool-1.3.5nb4    Generic shared library support script
+mysql-client-3.22.32 MySQL, a free SQL database (client)
+tk-8.3.2            Graphical toolkit for TCL
+mit-pthreads-1.60b6 Chris Provenzano's (MIT) POSIX threads library
+
+---MOQ968633480b1effd0d90f573161832876f12d39ffa
+Content-Type: application/octet-stream; name="profile"; charset=iso-8859-1
+Content-Transfer-Encoding: base64
+Content-Disposition: inline; filename="profile"
+
+
+IwkkTmV0QlNEOiBkb3QucHJvZmlsZSx2IDEuOS4yLjIgMjAwMC8wMi8yMiAyMjoyNzozMCBoZ
+SBFeHAgJAoKUEFUSD0vc2JpbjovdXNyL3NiaW46L2JpbjovdXNyL2JpbjovdXNyL3BrZy9zYm
+luOi91c3IvcGtnL2JpbgpQQVRIPSR7UEFUSH06L3Vzci9YMTFSNi9iaW46L3Vzci9sb2NhbC9
+zYmluOi91c3IvbG9jYWwvYmluCmV4cG9ydCBQQVRICgpCTE9DS1NJWkU9MWsKZXhwb3J0IEJM
+T0NLU0laRQoKaWYgWyAteCAvdXNyL2Jpbi90c2V0IF07IHRoZW4KCWV2YWwgYC91c3IvYmluL
+3RzZXQgLXNRcm0gJ3Vua25vd246P3Vua25vd24nYApmaQoKdW1hc2sgMDIyCgpodXAoKXsga2
+lsbCAtSFVQIGBjYXQgL3Zhci9ydW4vJDEucGlkYCA7IH0KbGwoKXsgbHMgLWwgJCogOyB9Cng
+oKXsgZXhpdCA7IH0KClBTMT0iYGhvc3RuYW1lIC1zYCRQUzEiCgojIERvIG5vdCBkaXNwbGF5
+IGluICdzdSAtJyBjYXNlCmlmIFsgLXogIiRTVV9GUk9NIiBdOyB0aGVuCgllY2hvICJXZSByZ
+WNvbW1lbmQgY3JlYXRpbmcgYSBub24tcm9vdCBhY2NvdW50IGFuZCB1c2luZyBzdSgxKSBmb3
+IgYWNjZXNzLiIKZmkKCmV4cG9ydCBQQVRIPS9zYmluOi91c3Ivc2JpbjovYmluOi91c3IvYml
+uOi91c3IvcGtnL3NiaW46L3Vzci9wa2cvYmluOi91c3IvWDExUjYvYmluOi91c3IvbG9jYWwv
+c2JpbjovdXNyL2xvY2FsL2JpbjovdXNyL3BrZy9wdGhyZWFkcy9iaW4KZXhwb3J0IExEX0xJQ
+lJBUllfUEFUSD0vdXNyL3BrZy9saWI6L3Vzci9saWI6L3Vzci9sb2NhbC9saWI6L2xpYjovdX
+NyL3BrZy9wdGhyZWFkcy9saWIKCg==
+
+
+---MOQ968633480b1effd0d90f573161832876f12d39ffa
+Content-Type: text/plain; name="distfiles.txt"; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Content-Disposition: inline; filename="distfiles.txt"
+
+
+/usr/pkgsrc/distfiles/expect.tar.gz
+/usr/pkgsrc/distfiles/libtool-1.3.5.tar.gz
+/usr/pkgsrc/distfiles/mysql-3.22.32.tar.gz
+/usr/pkgsrc/distfiles/postfix-19991231-pl08.tar.gz
+/usr/pkgsrc/distfiles/procmail-3.15.tar.gz
+/usr/pkgsrc/distfiles/pthreads-1_60_beta6.tar.gz
+/usr/pkgsrc/distfiles/ssh-1.2.27.tar.gz
+/usr/pkgsrc/distfiles/tcl8.0.5.tar.gz
+/usr/pkgsrc/distfiles/tcl8.3.2.tar.gz
+/usr/pkgsrc/distfiles/tk8.0.5.tar.gz
+/usr/pkgsrc/distfiles/tk8.3.2.tar.gz
+/usr/pkgsrc/distfiles/wu-ftpd-2.6.1.tar.gz
+
+---MOQ968633480b1effd0d90f573161832876f12d39ffa--
+
+From shep@lcs.mit.edu  Mon Sep 11 15:12:06 2000
+From: Tim Shepard <shep@lcs.mit.edu>
+To: port-alpha@netbsd.org
+Date: Mon, 11 Sep 2000 15:12:06 +0000
+Subject: more NetBSD-1.5_ALPHA2 on alpha woes: (1) panic: uvm_anon_add  (2) cannot login
+
+After I finished installing NetBSD-1.5_ALPHA2 on this DS20E, I got
+this panic while trying to come up to multiuser mode:
+
+    uvm_anon_add: can not allocate 656655 anons
+    panic: uvm_anon_add
+    Stopped in swapctl at   cpu_Debugger+0x4:       ret     zero,(ra)
+    db> t
+    cpu_Debugger() at cpu_Debugger+0x4
+    panic() at panic+0xfc
+    uvm_anon_add() at uvm_anon_add+0xbc
+    swap_on() at swap_on+0x3bc
+    sys_swapctl() at sys_swapctl+0x4bc
+    syscall() at syscall+0x1dc
+    XentSys() at XentSys+0x50
+    --- syscall (271, netbsd.sys_swapctl) ---
+    --- user mode ---
+
+I disabled the swapctl call in /etc/rc.d/swap1 and that got me around
+that panic.  But now I cannot login.
+
+I had set a passwd for both root and toor (toor is the /bin/sh root
+login) but I cannot login as either.  I powercycled, booted to single
+user, fsck'd and tried moving all the dotfiles in /root away.  I still
+have the same problem, I cannot login:
+
+    starting local daemons:.
+    Updating motd.
+    Starting cron.
+    Mon Sep 11 14:42:39 EDT 2000
+    
+    NetBSD/alpha (garlic) (console)
+    
+    login: root
+    Password:
+    Last login: Mon Sep 11 14:31:54 2000 on console
+    
+    NetBSD/alpha (garlic) (console)
+    
+    login:  
+    Password:
+    Login incorrect
+    login: root
+    Password:
+    Last login: Mon Sep 11 14:42:52 2000 on console
+    
+    NetBSD/alpha (garlic) (console)
+    
+    login: toor
+    Password:
+    Last login: Mon Sep 11 14:53:34 2000 on console
+    
+    NetBSD/alpha (garlic) (console)
+    
+    login: 
+
+I would guess that this is not a /bin/sh or a /bin/csh problem since
+both seem to work in singleuser, and neither root nor toor login works.
+
+			-Tim Shepard
+			 shep@lcs.mit.edu
+
+From DAW@yalepress3.unipress.yale.edu  Tue Sep 12 10:02:41 2000
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: port-alpha@netbsd.org
+Date: Tue, 12 Sep 2000 10:02:41 +0000
+Subject: Updated pppd for 1.4.2...
+
+Apologies for cross-posting...(please reply directly, since I'm on the
+port-alpha list only, and awaiting approval for the port-i386 list...)
+	Does anyone know where I can find an updated pppd daemon (v.2.3.7 or
+later) to use with Roaring Penguin PPPoE on NetBSD 1.4.2? I've had no luck
+looking around the website...
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 905818
+
+From shep@lcs.mit.edu  Tue Sep 12 15:26:26 2000
+From: Tim Shepard <shep@lcs.mit.edu>
+To: port-alpha@netbsd.org
+Date: Tue, 12 Sep 2000 15:26:26 +0000
+Subject: Re: more NetBSD-1.5_ALPHA2 on alpha woes: (1) panic: uvm_anon_add (2) cannot login
+
+Following up on my earlier post about being unable to login...  I'm running
+NetBSD-1.5_ALPHA2 on an Alpha DS20E which has 2560 MB (2.5 GB) of memory.
+
+/usr/bin/login is getting a SIGSEGV in a setrlimit system call:
+
+   [...snip...]
+   346 login.real RET   read 290/0x122
+   346 login.real CALL  close(0x3)
+   346 login.real RET   close 0
+   346 login.real CALL  chown(0x160eac6a8,0,0x4)
+   346 login.real NAMI  "/dev/console"
+   346 login.real RET   chown 0
+   346 login.real CALL  open(0x160224d4d,0,0x1b6)
+   346 login.real NAMI  "/etc/ttyaction"
+   346 login.real RET   open -1 errno 2 No such file or directory
+   346 login.real CALL  __lstat13(0x16022505d,0x1fffff510)
+   346 login.real NAMI  "/etc/login.conf"
+   346 login.real RET   __lstat13 -1 errno 2 No such file or directory
+   346 login.real CALL  getrlimit(0,0x1fffff5a0)
+   346 login.real RET   getrlimit 0
+   346 login.real CALL  setrlimit(0,0x1fffff5b0)
+   346 login.real RET   setrlimit 0
+   346 login.real CALL  getrlimit(0x1,0x1fffff5a0)
+   346 login.real RET   getrlimit 0
+   346 login.real CALL  setrlimit(0x1,0x1fffff5b0)
+   346 login.real RET   setrlimit 0
+   346 login.real CALL  getrlimit(0x2,0x1fffff5a0)
+   346 login.real RET   getrlimit 0
+   346 login.real CALL  setrlimit(0x2,0x1fffff5b0)
+   346 login.real RET   setrlimit 0
+   346 login.real CALL  getrlimit(0x3,0x1fffff5a0)
+   346 login.real RET   getrlimit 0
+   346 login.real CALL  setrlimit(0x3,0x1fffff5b0)
+   346 login.real RET   setrlimit 0
+   346 login.real CALL  getrlimit(0x5,0x1fffff5a0)
+   346 login.real RET   getrlimit 0
+   346 login.real CALL  setrlimit(0x5,0x1fffff5b0)
+   346 login.real RET   setrlimit -1 errno 22 Invalid argument
+   346 login.real PSIG  SIGSEGV SIG_DFL
+
+the fifth setrlimit is the fifth one from this array in
+src/lib/libutil/login_cap.c: 
+
+} r_list[] = {
+	{ RLIMIT_CPU,		CTIME, "cputime", },
+	{ RLIMIT_FSIZE,		CSIZE, "filesize", },
+	{ RLIMIT_DATA,		CSIZE, "datasize", },
+	{ RLIMIT_STACK,		CSIZE, "stacksize", },
+	{ RLIMIT_RSS,		CSIZE, "memoryuse", },
+	{ RLIMIT_MEMLOCK,	CSIZE, "memorylocked", },
+	{ RLIMIT_NPROC,		CNUMB, "maxproc", },
+	{ RLIMIT_NOFILE,	CNUMB, "openfiles", },
+	{ RLIMIT_CORE,		CSIZE, "coredumpsize", },
+	{ -1, 0, 0 }
+};
+
+ulimit -a at the single-user shell shows this:
+
+   # ulimit -a
+   time(seconds)        unlimited
+   file(blocks)         unlimited
+   data(kbytes)         131072
+   stack(kbytes)        2048
+   coredump(blocks)     unlimited
+   memory(kbytes)       2424352
+   locked memory(kbytes) -589984
+   process(processes)   80
+   nofiles(descriptors) 64
+
+
+I put root in class foo and created a /etc/login.conf file with this
+one line in it:
+
+   foo:memoryuse=512m:memorylocked=64m:
+
+and now I'm able to login as root after going multi-user.
+
+I set the memorylocked because the default value was printing out as
+negative above.  I'm not sure if it was also needed.  I've not
+experimented with how big of a limit I can get away with for these
+rlimits.
+
+I first guessed that the fields in struct rusage were ints and
+overflowing 2^31, but I just peeked in <sys/resource.h> and see "long"
+everywhere I think it should be.  So I'm not sure why I'm losing like
+this.
+
+Am I the first to try NetBSD (or NetBSD-1.5_ALPHA2) with this much
+memory?  I would think so given how many things I've tripped over in
+this install.  IIRC, a DS20E could have as much as 8 GB stuffed into it.
+
+			-Tim Shepard
+			 shep@lcs.mit.edu
+
+From paul@gromit.dlib.vt.edu  Tue Sep 12 16:34:21 2000
+From: Paul Mather <paul@gromit.dlib.vt.edu>
+To: port-alpha@netbsd.org
+Date: Tue, 12 Sep 2000 16:34:21 +0000
+Subject: Kernel device driver
+
+I apologise in advance that this is probably not the best place to post
+this, but I know there are a number of kernel hackers on port-alpha,
+and, at the very least, they can tell me a better place to seek a
+solution.
+
+I need to develop a kernel device driver---something akin to the vnd
+pseudo device, but that works over a TCP/IP socket, instead of with a
+local file.  The remote end of the socket is some custom API (over which
+I have no control) acting as a front-end for some custom storage bricks 
+(again, over which I have no control).  The object of the driver is to
+provide a block-device abstraction on which filesystems may be created
+(a la vnd, raid).
+
+My dilemma is this: what is the best platform under which to develop
+such a device driver?  I have a personal fondness for NetBSD (I run
+NetBSD/{alpha,pmax} at home, so you know where my biases lie), but I
+notice there appears to be a dearth of information about kernel
+developing for NetBSD.  Well, a dearth compared to Linux, at any
+rate.  Looking for information, I found lots of tutorials and
+information for Linux kernel development, and there seem to be lots of
+file systems out there in the field, including a "network block
+device," which appears similar to what I need (just have to retool the
+other end).
+
+My boss naturally gravitated towards Linux from the get-go (being the
+higher profile OS in the public eye), but the ultimate decision is mine.  
+However, I need to be able to justify it.  Although I prefer NetBSD, my
+gut feeling is that I would have an easier time developing under Linux
+because of the greater availability of support material.  (For BSD, I
+have the red BSD4.4 book, and that's about it.)  Also, there are some
+folks locally with kernel filesystem development experience under Linux,
+so they'd be a handy local resource.
+
+I have no prior hands-on kernel developing experience, so I'm looking
+for something with the easiest learning curve, but which ultimately
+yields a good end result.  (The multi-platform aspect of NetBSD is a big
+plus in its favour, IMHO!)
+
+So, can I get some honest advice, here?  E-mail me privately, if you
+prefer.  I don't want this to become an OS advocacy flame-fest.  Like I
+said, my heart belongs to NetBSD... :-)
+
+(Also, if anyone knows of NetBSD kernel development resources, let me
+know of those, too!)
+
+Cheers,
+
+Paul.
+
+e-mail: paul@gromit.dlib.vt.edu
+
+"Without music to decorate it, time is just a bunch of boring production
+ deadlines or dates by which bills must be paid."
+        --- Frank Vincent Zappa
+
+From DAW@yalepress3.unipress.yale.edu  Tue Sep 12 16:56:23 2000
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: paul@gromit.dlib.vt.edu
+Date: Tue, 12 Sep 2000 16:56:23 +0000
+Subject: RE: Kernel device driver
+
+Paul ---
+	Sounds like you need the services of Wasabi Systems, Inc. 
+>>> http://www.wasabisystems.com/ <<<
+They're a new commercial-grade NetBSD service and support company... I just
+found out about it myself today...
+
+I just sounded like a commercial, didn't I? Eeek...
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 905818
+
+> -----Original Message-----
+> From:	Paul Mather [SMTP:paul@gromit.dlib.vt.edu]
+> Sent:	Tuesday, September 12, 2000 4:34 PM
+> To:	port-alpha@netbsd.org
+> Subject:	Kernel device driver
+> 
+> I apologise in advance that this is probably not the best place to post
+> this, but I know there are a number of kernel hackers on port-alpha,
+> and, at the very least, they can tell me a better place to seek a
+> solution.
+> 
+> I need to develop a kernel device driver---something akin to the vnd
+> pseudo device, but that works over a TCP/IP socket, instead of with a
+> local file.  The remote end of the socket is some custom API (over which
+> I have no control) acting as a front-end for some custom storage bricks 
+> (again, over which I have no control).  The object of the driver is to
+> provide a block-device abstraction on which filesystems may be created
+> (a la vnd, raid).
+> 
+> My dilemma is this: what is the best platform under which to develop
+> such a device driver?  I have a personal fondness for NetBSD (I run
+> NetBSD/{alpha,pmax} at home, so you know where my biases lie), but I
+> notice there appears to be a dearth of information about kernel
+> developing for NetBSD.  Well, a dearth compared to Linux, at any
+> rate.  Looking for information, I found lots of tutorials and
+> information for Linux kernel development, and there seem to be lots of
+> file systems out there in the field, including a "network block
+> device," which appears similar to what I need (just have to retool the
+> other end).
+> 
+> My boss naturally gravitated towards Linux from the get-go (being the
+> higher profile OS in the public eye), but the ultimate decision is mine.  
+> However, I need to be able to justify it.  Although I prefer NetBSD, my
+> gut feeling is that I would have an easier time developing under Linux
+> because of the greater availability of support material.  (For BSD, I
+> have the red BSD4.4 book, and that's about it.)  Also, there are some
+> folks locally with kernel filesystem development experience under Linux,
+> so they'd be a handy local resource.
+> 
+> I have no prior hands-on kernel developing experience, so I'm looking
+> for something with the easiest learning curve, but which ultimately
+> yields a good end result.  (The multi-platform aspect of NetBSD is a big
+> plus in its favour, IMHO!)
+> 
+> So, can I get some honest advice, here?  E-mail me privately, if you
+> prefer.  I don't want this to become an OS advocacy flame-fest.  Like I
+> said, my heart belongs to NetBSD... :-)
+> 
+> (Also, if anyone knows of NetBSD kernel development resources, let me
+> know of those, too!)
+> 
+> Cheers,
+> 
+> Paul.
+> 
+> e-mail: paul@gromit.dlib.vt.edu
+> 
+> "Without music to decorate it, time is just a bunch of boring production
+>  deadlines or dates by which bills must be paid."
+>         --- Frank Vincent Zappa
+
+From gillham@vaultron.com  Tue Sep 12 16:59:38 2000
+From: Andrew Gillham <gillham@vaultron.com>
+To: DAW@yalepress3.unipress.yale.edu
+Date: Tue, 12 Sep 2000 16:59:38 +0000
+Subject: Re: Kernel device driver
+
+David Woyciesjes writes:
+> Paul ---
+> 	Sounds like you need the services of Wasabi Systems, Inc. 
+> >>> http://www.wasabisystems.com/ <<<
+> They're a new commercial-grade NetBSD service and support company... I just
+> found out about it myself today...
+> 
+> I just sounded like a commercial, didn't I? Eeek...
+
+So:
+	Linux: use free docs and help from local kernel hackers.
+	NetBSD: pay $$$$ for commercial-grade support.
+
+Now which one is likely to be selected?
+
+-Andrew
+
+From DAW@yalepress3.unipress.yale.edu  Tue Sep 12 17:18:29 2000
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: gillham@vaultron.com
+Date: Tue, 12 Sep 2000 17:18:29 +0000
+Subject: RE: Kernel device driver (now gotten slightly OT)
+
+Andrew ---
+	You are correct, my dear sir. He could use the free option of NetBSD
+also. That is a very tempting option...
+	But, speaking from my personal experiences in commercial IT shops,
+'TheBoss' is more likely to use a software product that has an actual
+support structure (i.e. on-site developer visits, phone call assistance,
+etc.), even if there is a small price for the support. They tend to need
+that secure feeling of 'actual visible'  software support.
+	Overall, I think Paul should at least _consider_ the $$$ option; as
+far as legalities go, at least. He always has the free NetBSD option...
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 905818
+
+> -----Original Message-----
+> From:	Andrew Gillham [SMTP:gillham@vaultron.com]
+> Sent:	Tuesday, September 12, 2000 5:00 PM
+> To:	David Woyciesjes
+> Cc:	'Paul Mather'; port-alpha@netbsd.org
+> Subject:	Re: Kernel device driver
+> 
+> David Woyciesjes writes:
+> > Paul ---
+> > 	Sounds like you need the services of Wasabi Systems, Inc. 
+> > >>> http://www.wasabisystems.com/ <<<
+> > They're a new commercial-grade NetBSD service and support company... I
+> just
+> > found out about it myself today...
+> > 
+> > I just sounded like a commercial, didn't I? Eeek...
+> 
+> So:
+> 	Linux: use free docs and help from local kernel hackers.
+> 	NetBSD: pay $$$$ for commercial-grade support.
+> 
+> Now which one is likely to be selected?
+> 
+> -Andrew
+
+From paul@gromit.dlib.vt.edu  Tue Sep 12 17:17:09 2000
+From: Paul Mather <paul@gromit.dlib.vt.edu>
+To: DAW@yalepress3.unipress.yale.edu
+Date: Tue, 12 Sep 2000 17:17:09 +0000
+Subject: RE: Kernel device driver (now gotten slightly OT)
+
+On Tue, 12 Sep 2000, David Woyciesjes wrote:
+
+=> 	But, speaking from my personal experiences in commercial IT shops,
+=> 'TheBoss' is more likely to use a software product that has an actual
+=> support structure (i.e. on-site developer visits, phone call assistance,
+=> etc.), even if there is a small price for the support. They tend to need
+=> that secure feeling of 'actual visible'  software support.
+=> 	Overall, I think Paul should at least _consider_ the $$$ option; as
+=> far as legalities go, at least. He always has the free NetBSD option...
+
+Alas, it is not an option in this case.  I am a graduate student, and
+this work is part of a funded project, and *I* am the one being funded
+to do it (the programming, at least), so, although it would be nice, the
+3rd party paid support is not something of which I can avail myself...
+
+Cheers,
+
+Paul.
+
+e-mail: paul@gromit.dlib.vt.edu
+
+"Without music to decorate it, time is just a bunch of boring production
+ deadlines or dates by which bills must be paid."
+        --- Frank Vincent Zappa
+
+From elric@mabelode.imrryr.org  Tue Sep 12 16:11:49 2000
+From: R. C. Dowdeswell <elric@mabelode.imrryr.org>
+To: paul@gromit.dlib.vt.edu
+Date: Tue, 12 Sep 2000 16:11:49 +0000
+Subject: Re: Kernel device driver
+
+On 968790861 seconds since the Beginning of the UNIX epoch
+Paul Mather wrote:
+>
+>I apologise in advance that this is probably not the best place to post
+>this, but I know there are a number of kernel hackers on port-alpha,
+>and, at the very least, they can tell me a better place to seek a
+>solution.
+>
+>I need to develop a kernel device driver---something akin to the vnd
+>pseudo device, but that works over a TCP/IP socket, instead of with a
+>local file.  The remote end of the socket is some custom API (over which
+>I have no control) acting as a front-end for some custom storage bricks 
+>(again, over which I have no control).  The object of the driver is to
+>provide a block-device abstraction on which filesystems may be created
+>(a la vnd, raid).
+
+So, if you are looking to develop something like the vnd driver
+that uses network sockets rather than a file, I'd recommend that
+you just copy the vnd and hack it to taste.
+
+You need to get your new driver to be recognised as a pseudo-device,
+by adding a few lines to sys/conf/files.  You'll probably want to
+add lines like:
+
+defpseudo netd:	disk
+
+and
+
+file dev/netd.c		netd		needs-flag
+
+Then use vnd and/or ccd as a reference on how to set up a disk
+pseudo device, but the short form is that you need to have routines
+for attach, open, close, strategy, ioctl, read, and write.
+
+As for building TCP connections or dealing with UDP in the kernel,
+the nfs code would be a good guide (sys/nfs).
+
+Both sys/dev/ccd.c sys/dev/vnd.c are about 1k lines long.
+
+Hopefully someone will correct me a bit, or mention what I missed.  :-)
+
+ == Roland Dowdeswell                      http://www.Imrryr.ORG/~elric/  ==
+ == The Unofficial NetBSD Web Pages        http://www.Imrryr.ORG/NetBSD/  ==
+ == The NetBSD Project                            http://www.NetBSD.ORG/  ==
+
+From david@vex.net  Tue Sep 12 23:25:48 2000
+From: David Maxwell <david@vex.net>
+To: paul@gromit.dlib.vt.edu
+Date: Tue, 12 Sep 2000 23:25:48 +0000
+Subject: Re: Kernel device driver
+
+On Tue, Sep 12, 2000 at 04:34:21PM -0400, Paul Mather wrote:
+> I need to develop a kernel device driver---something akin to the vnd
+> pseudo device, but that works over a TCP/IP socket, instead of with a
+> 
+> My dilemma is this: what is the best platform under which to develop
+> such a device driver?  I have a personal fondness for NetBSD (I run
+
+> information for Linux kernel development, and there seem to be lots of
+> file systems out there in the field, including a "network block
+
+a) You may find that Linux requires more documentation because the
+internals may be more convoluted at times. When Mike Pelley was 
+looking to write some network pseudo-device functionality, it turned
+out that the NetBSD code was so clean and well organized that it
+made it easy to write what he needed, including learning how.
+The recommended Linux approach was to use ipchains and process
+the packets in userland - performance would have suffered significantly.
+
+b) Are there any licensing issues? Do you mind GPLing your code?
+Are you using NDA'd information about the network server box, which
+you couldn't release?
+
+c) The mailing lists here tend to be very helpful. Do you think
+you could get any help you might need from people here?
+
+-- 
+David Maxwell, david@vex.net|david@maxwell.net -->
+All this stuff in twice the space would only look half as bad!
+					      - me
+
+From DAW@yalepress3.unipress.yale.edu  Thu Sep 14 16:41:01 2000
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: port-alpha@netbsd.org
+Date: Thu, 14 Sep 2000 16:41:01 +0000
+Subject: DEC VAX 4000-300
+
+I just got word from my manager, that he's willing to sell our DEC VAX
+4000-300. Now, this still has to be aproved by the CFO of the Press, but he
+probably won't care... I thought I'd give you guys a heads up, if anyone's
+interested...
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 905818
+
+From DAW@yalepress3.unipress.yale.edu  Fri Sep 15 16:26:47 2000
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: andrew_garman@yahoo.com
+Date: Fri, 15 Sep 2000 16:26:47 +0000
+Subject: RE: pcmcia on alpha Net/BSD
+
+I believe you would have to create/change to a kernel with pcmcia services
+enabled. Also, check out these links, these should have all the info you
+need...
+http://www.netbsd.org/Documentation/kernel/
+http://www.netbsd.org/Ports/alpha/
+
+Are you on the NetBSD/Alpha mailing list? If not, do sign up on the
+port/alpha page. 
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 905818
+
+> -----Original Message-----
+> From:	Andrew Garman [SMTP:andrew_garman@yahoo.com]
+> Sent:	Friday, September 15, 2000 4:04 PM
+> To:	david.woyciesjes@yale.edu; bernard@geekHaus.net.au
+> Subject:	pcmcia on alpha Net/BSD
+> 
+> Are there instructions online somewhere to setup pcmcia on
+> alpha NetBSD?  I'm using version 1.4.2 on an AlphaStation 
+> 200 4/233, 233MHz.
+> 
+> I'm interested in swapping out my old Firewall (ThinkPad 
+> 701c w/ a busted LCD) with this machine, so I can have 
+> additional ports for WaveLAN and pcmcia ethernet.  
+> 
+> Any help would be much appreciated.
+> 
+> Thanks,
+> 
+> Andrew Garman
+
+From kneoklis@cytanet.com.cy  Tue Sep 19 07:31:54 2000
+From: Neoklis <kneoklis@cytanet.com.cy>
+To: port-alpha@netbsd.org
+Date: Tue, 19 Sep 2000 07:31:54 +0000
+Subject: NetBSD on UP1000 - advice needed
+
+Hi!
+
+I am interested in trying NetBSD on my UP1000 ev6 desktop and 
+would appreciate any advice on the following:
+
+I understand I need to re-flash to SRM from AlphaBIOS to support
+NetBSD. There is SRM 5.6 beta for the UP1000 and I wonder if this
+will work on a unit with all-ide disks (I have two ide hdd's and
+ide cdrom and cdwriter).
+
+Is there a driver for an AGP Matrox G200 video card? Can I run
+Netscape or similar browsers and other X clients in X Window?
+
+I use cdrecord to write data CD's and this needs scsi-ide simulation
+in the kernel. Is this available in NetBSD? Or an alternative?
+
+Are there drivers for a multiport RS232 ISA expansion card? I have
+a DFlex 4 card from ConnectTech, this has a driver in the Linux
+kernel and is important for my projects.  
+
+I have an ISA internal hardware modem and a Sounblaster PCI128 audio
+card, I suppose these are routinely supported. 
+
+Apologies for all these questions, its a big step for me installing
+NetBSD and I need this info!
+
+Thanks in advance! 
+
+-- 
+Regards
+
+Neoklis Kyriazis
+
+From melk@switchpwr.com  Tue Sep 19 13:30:10 2000
+From: mel kravitz <melk@switchpwr.com>
+To: port-alpha@netbsd.org
+Date: Tue, 19 Sep 2000 13:30:10 +0000
+Subject: ftp install on UP1000 fails at..
+
+Hi,
+My ftp install on a new up1000  machine stops at :
+Command: pax -zrvpe -f /mnt/usr/INSTALL/kern.tgz
+??-hardware problem?
+-Mel
+
+From rhialto@polderland.nl  Wed Sep 20 17:16:38 2000
+From: Olaf Seibert <rhialto@polderland.nl>
+To: port-alpha@netbsd.org
+Date: Wed, 20 Sep 2000 17:16:38 +0000
+Subject: gpg not working on Alpha?
+
+When I try to get a key over the net, I always get a result like this:
+
+gpg: Signature made Sat Dec 04 14:32:00 1999 CET using ? key ID 0C9857A5
+gpg: requesting key 0C9857A5 from wwwkeys.eu.pgp.net ...
+gpg: can't get key from keyserver: eof
+gpg: Can't check signature: public key not found
+
+At the same time, the same key can be fetched from another machine
+(i386 though). Does anybody have it working?
+
+-Olaf.
+-- 
+___ Olaf 'Rhialto' Seibert - rhialto@polder   -- Ah only did well at school
+\X/ land.nl      -- tae git intae an O level class tae git away fae Begbie.
+
+From thorpej@zembu.com  Wed Sep 20 08:24:39 2000
+From: Jason R Thorpe <thorpej@zembu.com>
+To: rhialto@polderland.nl
+Date: Wed, 20 Sep 2000 08:24:39 +0000
+Subject: Re: gpg not working on Alpha?
+
+On Wed, Sep 20, 2000 at 05:16:38PM +0200, Olaf Seibert wrote:
+
+ > When I try to get a key over the net, I always get a result like this:
+ > 
+ > gpg: Signature made Sat Dec 04 14:32:00 1999 CET using ? key ID 0C9857A5
+ > gpg: requesting key 0C9857A5 from wwwkeys.eu.pgp.net ...
+ > gpg: can't get key from keyserver: eof
+ > gpg: Can't check signature: public key not found
+ > 
+ > At the same time, the same key can be fetched from another machine
+ > (i386 though). Does anybody have it working?
+
+Does gpg use openssl?  The crypto routines are known to have some LP64
+issues at the moment.
+
+-- 
+        -- Jason R. Thorpe <thorpej@zembu.com>
+
+From rhialto@polderland.nl  Wed Sep 20 17:31:15 2000
+From: Olaf Seibert <rhialto@polderland.nl>
+To: rhialto@polderland.nl
+Date: Wed, 20 Sep 2000 17:31:15 +0000
+Subject: Re: gpg not working on Alpha?
+
+On Wed 20 Sep 2000 at 08:24:39 -0700, Jason R Thorpe wrote:
+> Does gpg use openssl?  The crypto routines are known to have some LP64
+> issues at the moment.
+
+I don't think so. Some brief tests indicate that simple signing and
+encrypting appears to work, even. Although it might do a rot-13 for all
+I know (I just mean that I didn't really check the actual encryption,
+just that the decryption produced the original text).
+
+>         -- Jason R. Thorpe <thorpej@zembu.com>
+-Olaf.
+-- 
+___ Olaf 'Rhialto' Seibert - rhialto@polder    -- Ah only did well at school
+\X/ land.nl       -- tae git intae an O level class tae git away fae Begbie.
+Hi! I am a .signature virus. Copy me into your .signature to help me spread.
+
+From possamai@bart.nl  Wed Sep 20 18:12:50 2000
+From: M. Possamai <possamai@bart.nl>
+To: port-alpha@netbsd.org
+Date: Wed, 20 Sep 2000 18:12:50 +0000
+Subject: kernel sources
+
+Hi,
+
+This is probably a very simple question..
+I just installed NetBSD on my Alpha for the first time.
+It used to run FreeBSD.
+Now I'm searching for the kernel sources,
+where can I find them? and the sources for the rest of the system?
+I allready found the packagesources but that's all...
+
+From bouyer@antioche.lip6.fr  Wed Sep 20 19:02:10 2000
+From: Manuel Bouyer <bouyer@antioche.lip6.fr>
+To: possamai@bart.nl
+Date: Wed, 20 Sep 2000 19:02:10 +0000
+Subject: Re: kernel sources
+
+On Wed, Sep 20, 2000 at 06:12:50PM +0200, M. Possamai wrote:
+> Hi,
+> 
+> This is probably a very simple question..
+> I just installed NetBSD on my Alpha for the first time.
+> It used to run FreeBSD.
+> Now I'm searching for the kernel sources,
+> where can I find them? and the sources for the rest of the system?
+> I allready found the packagesources but that's all...
+
+Which version ?
+For a release, for example 1.4.2, the alpha distrib will be in
+pub/NetBSD-1.4.2/alpha, and the sources in pub/NetBSD-1.4.2/sources
+For 1.5_ALPHA2, as we're in release cycle the sources are available from
+pub/NetBSD-current/tar_files/src
+
+--
+Manuel Bouyer, LIP6, Universite Paris VI.           Manuel.Bouyer@lip6.fr
+--
+
+From possamai@open.net  Wed Sep 20 19:56:35 2000
+From: M. Possamai <possamai@open.net>
+To: bouyer@antioche.lip6.fr
+Date: Wed, 20 Sep 2000 19:56:35 +0000
+Subject: Re: kernel sources
+
+At 19:02 20-9-00 +0200, Manuel Bouyer wrote:
+>On Wed, Sep 20, 2000 at 06:12:50PM +0200, M. Possamai wrote:
+> > Hi,
+> >
+> > This is probably a very simple question..
+> > I just installed NetBSD on my Alpha for the first time.
+> > It used to run FreeBSD.
+> > Now I'm searching for the kernel sources,
+> > where can I find them? and the sources for the rest of the system?
+> > I allready found the packagesources but that's all...
+>
+>Which version ?
+>For a release, for example 1.4.2, the alpha distrib will be in
+>pub/NetBSD-1.4.2/alpha, and the sources in pub/NetBSD-1.4.2/sources
+>For 1.5_ALPHA2, as we're in release cycle the sources are available from
+>pub/NetBSD-current/tar_files/src
+
+found it
+thanx
+only I'm trying to unpack it but it goes wrong
+It starts fine... unpacks loads of files
+and than I get this
+
+/: create/symlink failed, no inodes free
+tar: Could not create file usr/src/sys/arch/alpha/pci/pci_sgmap_pte64.c : 
+No space left on device
+usr/src/sys/arch/alpha/pci/pci_sgmap_pte64.h
+
+and that on every file it wants to unpack..
+so that's a lot...
+I have no idea what that error means..
+I checked the space on the drive but that's not the problem..
+what is happening here?
+
+From wkb@freebie.demon.nl  Wed Sep 20 20:43:16 2000
+From: Wilko Bulte <wkb@freebie.demon.nl>
+To: possamai@open.net
+Date: Wed, 20 Sep 2000 20:43:16 +0000
+Subject: Re: kernel sources
+
+On Wed, Sep 20, 2000 at 07:56:35PM +0200, M. Possamai wrote:
+> At 19:02 20-9-00 +0200, Manuel Bouyer wrote:
+> >On Wed, Sep 20, 2000 at 06:12:50PM +0200, M. Possamai wrote:
+> > > Hi,
+> > >
+> > > This is probably a very simple question..
+> > > I just installed NetBSD on my Alpha for the first time.
+> > > It used to run FreeBSD.
+> > > Now I'm searching for the kernel sources,
+> > > where can I find them? and the sources for the rest of the system?
+> > > I allready found the packagesources but that's all...
+> >
+> >Which version ?
+> >For a release, for example 1.4.2, the alpha distrib will be in
+> >pub/NetBSD-1.4.2/alpha, and the sources in pub/NetBSD-1.4.2/sources
+> >For 1.5_ALPHA2, as we're in release cycle the sources are available from
+> >pub/NetBSD-current/tar_files/src
+> 
+> found it
+> thanx
+> only I'm trying to unpack it but it goes wrong
+> It starts fine... unpacks loads of files
+> and than I get this
+> 
+> /: create/symlink failed, no inodes free
+> tar: Could not create file usr/src/sys/arch/alpha/pci/pci_sgmap_pte64.c : 
+> No space left on device
+> usr/src/sys/arch/alpha/pci/pci_sgmap_pte64.h
+> 
+> and that on every file it wants to unpack..
+> so that's a lot...
+> I have no idea what that error means..
+> I checked the space on the drive but that's not the problem..
+> what is happening here?
+
+What the message says: you have run out of inodes.. Inodes are 
+(loosely speaking) the entities that keep the administration of a file.
+When they are depleted you cannot create new files anymore, free data
+blocks or not.
+
+-- 
+Wilko Bulte  	 					wilko@freebsd.org
+							Arnhem, the Netherlands
+
+From bouyer@antioche.lip6.fr  Wed Sep 20 22:08:06 2000
+From: Manuel Bouyer <bouyer@antioche.lip6.fr>
+To: possamai@open.net
+Date: Wed, 20 Sep 2000 22:08:06 +0000
+Subject: Re: kernel sources
+
+On Wed, Sep 20, 2000 at 07:56:35PM +0200, M. Possamai wrote:
+> found it
+> thanx
+> only I'm trying to unpack it but it goes wrong
+> It starts fine... unpacks loads of files
+> and than I get this
+> 
+> /: create/symlink failed, no inodes free
+> tar: Could not create file usr/src/sys/arch/alpha/pci/pci_sgmap_pte64.c : 
+> No space left on device
+> usr/src/sys/arch/alpha/pci/pci_sgmap_pte64.h
+> 
+> and that on every file it wants to unpack..
+> so that's a lot...
+> I have no idea what that error means..
+> I checked the space on the drive but that's not the problem..
+> what is happening here?
+
+You're out of space on the disk. check blocks, and also inodes (df -i)
+
+--
+Manuel Bouyer <bouyer@antioche.eu.org>
+--
+
+From andrew_garman@yahoo.com  Wed Sep 20 14:04:05 2000
+From: Andrew Garman <andrew_garman@yahoo.com>
+To: port-alpha@netbsd.org
+Date: Wed, 20 Sep 2000 14:04:05 +0000
+Subject: Kernel Panic caused by IPnat
+
+The past week, I've been fighting to get my AlphaStation 200 up 
+and running to replace my old 486 firewall (which unfortunately is
+now too slow to meet my needs).
+
+Today, I just put in two additional 3c905B cards and was looking 
+forward to transitioning in the new system.  Everything looked up as
+the ipfilter ruleset worked like a charm.  Unfortunately, when I 
+tried to enable the minimal required ipnat ruleset, the system
+panicked.
+
+I swapped back in the Generic kernel as I trimmed mine down to less 
+than half the size.  The panic still occurs.  I did the same without
+the ipfilter rules in place.  The panic still occurs.
+
+Background:
+AlphaStation 200, 233 Mhz w/ 80 MB RAM
+de0 is the on-board DEC 21040 ethernet
+ex0 is the first 3c905B ethernet
+ex1 is the second 3c905B ethernet
+
+I have the ex devices attached to my internal network and the 
+de device directly attached to my outbound network device.
+
+Aside from trimming the kernel, no other customization has been done.
+Syslogd is the only network service running.
+
+Any help would be greatly appreciated.  
+
+Thanks,
+
+
+Andrew Garman
+
+# cat ruleset.nat
+map de0 internal_net.0/24 -> my_ext_ip_here/32 portmap tcp/udp
+40000:60000
+map de0 internal_net.0/24 -> my_ext_ip_here/32
+map de0 internal_net.0/24 -> my_ext_ip_here/32 proxy port ftp ftp/tcp
+# ipnat -f ruleset.nat
+
+fatal kernel trap:
+
+    trap entry = 0x2 (memory management fault)
+    a0         = 0x188
+    a1         = 0x1
+    a2         = 0x0
+    pc         = 0xfffffc00003fb4fc
+    ra         = 0xfffffc00003fb480
+    curproc    = 0xfffffc0001032988
+        pid = 195, comm = ipnat
+
+panic: trap
+Stopped in ipnat at     Debugger+0x4:   ret     zero,(ra)
+db>    
+
+__________________________________________________
+Do You Yahoo!?
+Send instant messages & get email alerts with Yahoo! Messenger.
+http://im.yahoo.com/
+
+From cgd@netbsd.org  Wed Sep 20 15:25:26 2000
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: andrew_garman@yahoo.com
+Date: Wed, 20 Sep 2000 15:25:26 +0000
+Subject: Re: Kernel Panic caused by IPnat
+
+Andrew Garman <andrew_garman@yahoo.com> writes:
+> Today, I just put in two additional 3c905B cards and was looking 
+> forward to transitioning in the new system.  Everything looked up as
+> the ipfilter ruleset worked like a charm.  Unfortunately, when I 
+> tried to enable the minimal required ipnat ruleset, the system
+> panicked.
+> 
+> I swapped back in the Generic kernel as I trimmed mine down to less 
+> than half the size.  The panic still occurs.  I did the same without
+> the ipfilter rules in place.  The panic still occurs.
+
+You've not told us what version of NetBSD you're using.  That's
+important information.
+
+(It's also important that your ipfilter-related userland bits closely
+match the vintage of your kernel.  i.e. if you're running a 1.4.2
+kernel, you _need_ to be using 1.4.2 ipfilter-related bits.  1.4.1 or
+1.4 likely won't work.  Ipfilter is ... not so good about backward
+compatiblity.  *sigh*)
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From andrew_garman@yahoo.com  Wed Sep 20 16:51:31 2000
+From: Andrew Garman <andrew_garman@yahoo.com>
+To: port-alpha@netbsd.org
+Date: Wed, 20 Sep 2000 16:51:31 +0000
+Subject: Re: Kernel Panic caused by IPnat
+
+It's 1.4.2.  The panic was because, I didn't turn on ipforwarding.
+I'm running into different problems now.  That the ipnat rules just 
+aren't working.  They're inserted and show up with ipnat -l is run.
+
+But they don't work.
+
+I have pass in and pass out open for all:
+pass in from any to any
+pass out from any to any 
+
+I am back to running the GENERIC 1.4.2 kernel.
+
+Also the ftp proxy rule doesn't read into the firewall at all.  I'm 
+certain more than a few people are using Alpha NetBSD for a firewall.
+Would anyone be willing to share rulesets, kernel compile configs
+and other settings with me.
+
+Thanks,
+
+
+Andrew Garman
+
+
+--- "Chris G. Demetriou" <cgd@netbsd.org> wrote:
+> Andrew Garman <andrew_garman@yahoo.com> writes:
+> > Today, I just put in two additional 3c905B cards and was looking 
+> > forward to transitioning in the new system.  Everything looked up
+> as
+> > the ipfilter ruleset worked like a charm.  Unfortunately, when I 
+> > tried to enable the minimal required ipnat ruleset, the system
+> > panicked.
+> > 
+> > I swapped back in the Generic kernel as I trimmed mine down to less
+> 
+> > than half the size.  The panic still occurs.  I did the same
+> without
+> > the ipfilter rules in place.  The panic still occurs.
+> 
+> You've not told us what version of NetBSD you're using.  That's
+> important information.
+> 
+> (It's also important that your ipfilter-related userland bits closely
+> match the vintage of your kernel.  i.e. if you're running a 1.4.2
+> kernel, you _need_ to be using 1.4.2 ipfilter-related bits.  1.4.1 or
+> 1.4 likely won't work.  Ipfilter is ... not so good about backward
+> compatiblity.  *sigh*)
+
+__________________________________________________
+Do You Yahoo!?
+Send instant messages & get email alerts with Yahoo! Messenger.
+http://im.yahoo.com/
+
+From cgd@netbsd.org  Wed Sep 20 17:02:35 2000
+From: Chris G. Demetriou <cgd@netbsd.org>
+To: andrew_garman@yahoo.com
+Date: Wed, 20 Sep 2000 17:02:35 +0000
+Subject: Re: Kernel Panic caused by IPnat
+
+Andrew Garman <andrew_garman@yahoo.com> writes:
+> It's 1.4.2.  The panic was because, I didn't turn on ipforwarding.
+> I'm running into different problems now.
+
+that's ... interesting.  you should file a PR about that.
+
+> I'm certain more than a few people are using Alpha NetBSD for a
+> firewall.  Would anyone be willing to share rulesets, kernel compile
+> configs and other settings with me.
+
+I used to use NetBSD/i386 as a firewall, but no longer do.  can't
+really help you out there.  sorry.
+
+
+cgd
+-- 
+Chris Demetriou - cgd@netbsd.org - http://www.netbsd.org/People/Pages/cgd.html
+Disclaimer: Not speaking for NetBSD, just expressing my own opinion.
+
+From sfmc68@bellatlantic.net  Wed Sep 20 20:25:51 2000
+From: justme <sfmc68@bellatlantic.net>
+To: port-alpha@netbsd.org
+Date: Wed, 20 Sep 2000 20:25:51 +0000
+Subject: NetBSD: What do you guys use for Mail?
+
+I have finally straightened out my home net.  Have my first 2 alphas
+on line, setting them up.
+I am going to use apache for the web server, I have that.
+I am trying to figure out what to use for mail (pop) access to 
+snatch mail for me.  I am looking for recommendations.
+I have been thru the packages, snagged a few, but before I start
+I figured  I would ask.
+Thanks
+bob
+
+From mcguire@neurotica.com  Wed Sep 20 20:37:49 2000
+From: Dave McGuire <mcguire@neurotica.com>
+To: sfmc68@bellatlantic.net
+Date: Wed, 20 Sep 2000 20:37:49 +0000
+Subject: Re: NetBSD: What do you guys use for Mail?
+
+On September 20, justme wrote:
+> I have finally straightened out my home net.  Have my first 2 alphas
+> on line, setting them up.
+> I am going to use apache for the web server, I have that.
+> I am trying to figure out what to use for mail (pop) access to 
+> snatch mail for me.  I am looking for recommendations.
+> I have been thru the packages, snagged a few, but before I start
+> I figured  I would ask.
+
+  If you're an emacs user, VM (http://www.wonderworks.com/vm/) is very
+nice.  It's written in emacs lisp and runs in an emacs (or xemacs)
+window.  It's highly configurable, can speak POP, and (not
+surprisingly) has an editor startup time of zero, 'cause you're
+already in emacs! :-)
+
+  If you're not an emacs user, though...don't even think about it. :)
+
+        -Dave McGuire
+
+From catfish@alltel.net  Wed Sep 20 20:26:51 2000
+From: T. Martin <catfish@alltel.net>
+To: sfmc68@bellatlantic.net
+Date: Wed, 20 Sep 2000 20:26:51 +0000
+Subject: Re: NetBSD: What do you guys use for Mail?
+
+Just go get fetchmail, 
+ Its all I use with Linux and NetBSD you can set it up to check every x
+mins or seconds, then go get Pine or mutt, you'll prolly have to compile
+ncurses to get pine working not sure about mutt. 
+
+Good luck. 
+Terry
+
+
+catfish: icq #20116127
+
+
+On Wed, 20 Sep 2000, justme wrote:
+
+> I have finally straightened out my home net.  Have my first 2 alphas
+> on line, setting them up.
+> I am going to use apache for the web server, I have that.
+> I am trying to figure out what to use for mail (pop) access to 
+> snatch mail for me.  I am looking for recommendations.
+> I have been thru the packages, snagged a few, but before I start
+> I figured  I would ask.
+> Thanks
+> bob
+> 
+>
+
+From woods@weird.com  Wed Sep 20 23:08:43 2000
+From: Greg A. Woods <woods@weird.com>
+To: port-alpha@netbsd.org
+Date: Wed, 20 Sep 2000 23:08:43 +0000
+Subject: Re: NetBSD: What do you guys use for Mail?
+
+[ On Wednesday, September 20, 2000 at 20:37:49 (-0400), Dave McGuire wrote: ]
+> Subject: Re: NetBSD: What do you guys use for Mail?
+>
+>   If you're an emacs user, VM (http://www.wonderworks.com/vm/) is very
+> nice.  It's written in emacs lisp and runs in an emacs (or xemacs)
+> window.  It's highly configurable, can speak POP, and (not
+> surprisingly) has an editor startup time of zero, 'cause you're
+> already in emacs! :-)
+
+Yes, it's absolutely wonderful!  ;-)
+
+It's fully MIME capable too....
+
+>   If you're not an emacs user, though...don't even think about it. :)
+
+I don't know if I'd go that far.  I think that with the X11 interface
+(pop-up and pull-down menus), especially in xemacs (though I've only
+ever used it with GNU Emacs), it's probably no harder to learn than any
+other similar application.
+
+It would certainly help to know the basics of using emacs to edit text
+and how to navigate around windows, buffers, frames, and the minibuffer,
+but that's covered fairly well in the online tutorial....
+
+With a few minor patches specific to GNU Emacs I'm now able to have even
+better multilingual e-mail handling than Netscape Communicator offers
+(VM shows multi-byte characters, such as Japanese in the summary window
+whereas communicator still fails to do this properly).  With the next
+release of VM I expect GNU Emacs will be fully supported to the extent
+that GNU Emacs works at all and that with the next major release of GNU
+Emacs (which will be 21.1) that VM will be one of the best mail readers
+available anywhere!  :-)
+
+-- 
+							Greg A. Woods
+
++1 416 218-0098      VE3TCP      <gwoods@acm.org>      <robohack!woods>
+Planix, Inc. <woods@planix.com>; Secrets of the Weird <woods@weird.com>
+
+From wolfy@cmu.edu  Wed Sep 20 23:34:02 2000
+From: Gregory Smith <wolfy@cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 20 Sep 2000 23:34:02 +0000
+Subject: Re: NetBSD: What do you guys use for Mail?
+
+Heh, good luck running xemacs on NetBSD/alpha. <sigh>
+	Wish I knew enough low level stuff to fix t...
+
+--On Wed, Sep 20, 2000 11:08 PM -0400 "Greg A. Woods" <woods@weird.com>
+wrote:
+
+> especially in xemacs
+
+
+Gregory
+
+From thorpej@zembu.com  Wed Sep 20 20:59:48 2000
+From: Jason R Thorpe <thorpej@zembu.com>
+To: sfmc68@bellatlantic.net
+Date: Wed, 20 Sep 2000 20:59:48 +0000
+Subject: Re: NetBSD: What do you guys use for Mail?
+
+On Wed, Sep 20, 2000 at 08:25:51PM -0400, justme wrote:
+
+ > I have finally straightened out my home net.  Have my first 2 alphas
+ > on line, setting them up.
+ > I am going to use apache for the web server, I have that.
+ > I am trying to figure out what to use for mail (pop) access to 
+ > snatch mail for me.  I am looking for recommendations.
+ > I have been thru the packages, snagged a few, but before I start
+ > I figured  I would ask.
+ > Thanks
+ > bob
+
+I am using an AlphaStation 200 (with only 32M of RAM, even :-) for
+several things:
+
+	- DNS server
+	- NFS server (it has a Promise IDE controller on it with a
+	  13G UDMA disk)
+	- POP server (qpopper package)
+	- SMTP server (postfix in base distribution)
+	- WWW server (apache package)
+	- Database server (mysql package)
+
+...with the apache, php3, and mysql packages, along with another
+piece of software (which I haven't done a package for yet), I have
+a nice little webcalendar :-)
+
+I download all my email to my laptop using fetchmail, and read it there
+with mutt.
+
+Anyway, I did pretty much everything from pkgsrc ... all works nicely.
+
+-- 
+        -- Jason R. Thorpe <thorpej@zembu.com>
+
+From kre@munnari.OZ.AU  Thu Sep 21 05:01:05 2000
+From: Robert Elz <kre@munnari.OZ.AU>
+To: possamai@open.net
+Date: Thu, 21 Sep 2000 05:01:05 +0000
+Subject: Re: kernel sources
+
+Date:        Wed, 20 Sep 2000 19:56:35 +0200
+    From:        "M. Possamai" <possamai@open.net>
+    Message-ID:  <4.2.0.58.20000920195420.00ab5a00@pop.bart.nl>
+
+  | I have no idea what that error means..
+
+You're unpacking into your root filesystem, and it has run out of inodes
+(df -i will show you).
+
+Most likely you want to put the sources someplace other than on /
+
+kre
+
+From rhialto@polderland.nl  Thu Sep 21 02:50:01 2000
+From: Olaf Seibert <rhialto@polderland.nl>
+To: port-alpha@netbsd.org
+Date: Thu, 21 Sep 2000 02:50:01 +0000
+Subject: Re: gpg not working on Alpha?
+
+On Wed 20 Sep 2000 at 17:16:38 +0200, Olaf Seibert wrote:
+> When I try to get a key over the net, I always get a result like this:
+[failure] 
+
+It turns out the alarm was at least half false. I have a http proxy set,
+and when I told gpg to ignore it, it worked. On the other hand, when
+using a proxy (squid) with the originally working installation
+(different machine arch, different proxy), it still worked. So it can
+theoretically be either the proxy or gpg, but my bet is that the proxy
+doesn't work well enough.
+
+-Olaf.
+-- 
+___ Olaf 'Rhialto' Seibert - rhialto@polder    -- Ah only did well at school
+\X/ land.nl       -- tae git intae an O level class tae git away fae Begbie.
+Hi! I am a .signature virus. Copy me into your .signature to help me spread.
+
+From tnt@tnt.yi.org  Thu Sep 21 11:23:38 2000
+From: Michele Possamai <tnt@tnt.yi.org>
+To: sfmc68@bellatlantic.net
+Date: Thu, 21 Sep 2000 11:23:38 +0000
+Subject: Re: NetBSD: What do you guys use for Mail?
+
+On Wed, 20 Sep 2000, justme wrote:
+
+> I have finally straightened out my home net.  Have my first 2 alphas
+> on line, setting them up.
+> I am going to use apache for the web server, I have that.
+> I am trying to figure out what to use for mail (pop) access to 
+> snatch mail for me.  I am looking for recommendations.
+> I have been thru the packages, snagged a few, but before I start
+> I figured  I would ask.
+> Thanks
+> bob
+
+I still prefer pine
+luv it.. really easy to use..
+
+> 
+> 
+
+------------------------------------------
+Michele Possamai
+possamai@bart.nl
+
+Image is nothing, bandwidth is everything.
+-------------------------------------------
+
+From DAW@yalepress3.unipress.yale.edu  Thu Sep 21 09:42:11 2000
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: port-alpha@netbsd.org
+Date: Thu, 21 Sep 2000 09:42:11 +0000
+Subject: quick stupid question....
+
+Apologies, but I'm looking for an answer to a stupid question I
+have. I want to run the command "/rp-pppoe-2.3/adsl-start" at boot time, so
+I put it in "/etc/rc.local", like it said in the docs. But when I reboot, I
+got "permission denied". My guess is it (the command) needs to be run as
+root somehow. Should that line go in a different file? Yes, I did all the
+tweaking as root, since this machine won't have the need for any other
+users...
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 905818
+
+From fb@enteract.com  Thu Sep 21 08:33:56 2000
+From: Frederick Bruckman <fb@enteract.com>
+To: DAW@yalepress3.unipress.yale.edu
+Date: Thu, 21 Sep 2000 08:33:56 +0000
+Subject: Re: quick stupid question....
+
+On Thu, 21 Sep 2000, David Woyciesjes wrote:
+
+> 	Apologies, but I'm looking for an answer to a stupid question I
+> have. I want to run the command "/rp-pppoe-2.3/adsl-start" at boot time, so
+> I put it in "/etc/rc.local", like it said in the docs. But when I reboot, I
+> got "permission denied". My guess is it (the command) needs to be run as
+> root somehow. Should that line go in a different file? Yes, I did all the
+> tweaking as root, since this machine won't have the need for any other
+> users...
+
+It's a script? If so, it needs to be "chmod a+x", or else run it as
+"/bin/sh /rp-pppoe-2.3/adsl-start".
+
+From possamai@open.net  Thu Sep 21 15:35:22 2000
+From: M. Possamai <possamai@open.net>
+To: DAW@yalepress3.unipress.yale.edu
+Date: Thu, 21 Sep 2000 15:35:22 +0000
+Subject: Re: quick stupid question....
+
+At 09:42 21-9-00 -0400, David Woyciesjes wrote:
+>         Apologies, but I'm looking for an answer to a stupid question I
+>have. I want to run the command "/rp-pppoe-2.3/adsl-start" at boot time, so
+>I put it in "/etc/rc.local", like it said in the docs. But when I reboot, I
+>got "permission denied". My guess is it (the command) needs to be run as
+>root somehow. Should that line go in a different file? Yes, I did all the
+>tweaking as root, since this machine won't have the need for any other
+>users...
+
+did you make it executable?
+
+
+>---   David A Woyciesjes
+>---   C & IS Support Specialist
+>---   Yale University Press
+>---   mailto:david.woyciesjes@yale.edu
+>---   (203) 432-0953
+>---   ICQ # - 905818
+
+From possamai@open.net  Thu Sep 21 15:36:37 2000
+From: M. Possamai <possamai@open.net>
+To: port-alpha@netbsd.org
+Date: Thu, 21 Sep 2000 15:36:37 +0000
+Subject: Re: quick stupid question....
+
+At 15:35 21-9-00 +0200, you wrote:
+>At 09:42 21-9-00 -0400, David Woyciesjes wrote:
+>>         Apologies, but I'm looking for an answer to a stupid question I
+>>have. I want to run the command "/rp-pppoe-2.3/adsl-start" at boot time, so
+>>I put it in "/etc/rc.local", like it said in the docs. But when I reboot, I
+>>got "permission denied". My guess is it (the command) needs to be run as
+>>root somehow. Should that line go in a different file? Yes, I did all the
+>>tweaking as root, since this machine won't have the need for any other
+>>users...
+>
+>did you make it executable?
+
+nevermind............
+
+
+>>---   David A Woyciesjes
+>>---   C & IS Support Specialist
+>>---   Yale University Press
+>>---   mailto:david.woyciesjes@yale.edu
+>>---   (203) 432-0953
+>>---   ICQ # - 905818
+>
+
+From jay@sprucegrove.com  Thu Sep 21 09:46:43 2000
+From: D. Jay Newman <jay@sprucegrove.com>
+To: DAW@yalepress3.unipress.yale.edu
+Date: Thu, 21 Sep 2000 09:46:43 +0000
+Subject: Re: quick stupid question....
+
+>	Apologies, but I'm looking for an answer to a stupid question I
+>have. I want to run the command "/rp-pppoe-2.3/adsl-start" at boot time, so
+>I put it in "/etc/rc.local", like it said in the docs. But when I reboot, I
+>got "permission denied". My guess is it (the command) needs to be run as
+>root somehow. Should that line go in a different file? Yes, I did all the
+>tweaking as root, since this machine won't have the need for any other
+>users...
+
+Unless they've changed the bootup sequence, rc.local is still run as
+root.
+
+Is the file /rp-pppoe-2.3/adsl-start executable, and are all the filesystems
+mounted at that time (I *think* they are, but I'm not sure).
+-- 
+D. Jay Newman                   ! For the pleasure and the profit it derives
+jay@sprucegrove.com              ! I arrange things, like furniture, and
+http://www.sprucegrove.com/~jay/   ! daffodils, and ...lives.  -- Hello Dolly
+
+From DAW@yalepress3.unipress.yale.edu  Thu Sep 21 10:21:33 2000
+From: David Woyciesjes <DAW@yalepress3.unipress.yale.edu>
+To: jay@sprucegrove.com
+Date: Thu, 21 Sep 2000 10:21:33 +0000
+Subject: RE: quick stupid question....
+
+It is a shell script, so as Frerick Bruckman said...
+"...It's a script? If so, it needs to be "chmod a+x", or else run it as
+"/bin/sh /rp-pppoe-2.3/adsl-start"..."
+
+So I added the "/bin/sh" part, and got "device not configured"
+
+Then removed the "/bin/sh" part, did "chmod a+x" on 'adsl-start', and seems
+like that worked. But I can't really tell, since I'm working on my laptop
+here at work, and my DSL line is at home... PPPoE just timed out. Looks like
+that did it. I'll know definitely when I get home toady...
+
+Thanks to all for thier help!  :-)
+
+---   David A Woyciesjes
+---   C & IS Support Specialist
+---   Yale University Press
+---   mailto:david.woyciesjes@yale.edu
+---   (203) 432-0953
+---   ICQ # - 905818
+
+> -----Original Message-----
+> From:	D. Jay Newman [SMTP:jay@sprucegrove.com]
+> Sent:	Thursday, September 21, 2000 9:47 AM
+> To:	DAW@yalepress3.unipress.yale.edu
+> Cc:	port-alpha@netbsd.org; port-i386@netbsd.org
+> Subject:	Re: quick stupid question....
+> 
+> >	Apologies, but I'm looking for an answer to a stupid question I
+> >have. I want to run the command "/rp-pppoe-2.3/adsl-start" at boot time,
+> so
+> >I put it in "/etc/rc.local", like it said in the docs. But when I reboot,
+> I
+> >got "permission denied". My guess is it (the command) needs to be run as
+> >root somehow. Should that line go in a different file? Yes, I did all the
+> >tweaking as root, since this machine won't have the need for any other
+> >users...
+> 
+> Unless they've changed the bootup sequence, rc.local is still run as
+> root.
+> 
+> Is the file /rp-pppoe-2.3/adsl-start executable, and are all the
+> filesystems
+> mounted at that time (I *think* they are, but I'm not sure).
+> -- 
+> D. Jay Newman                   ! For the pleasure and the profit it
+> derives
+> jay@sprucegrove.com              ! I arrange things, like furniture, and
+> http://www.sprucegrove.com/~jay/   ! daffodils, and ...lives.  -- Hello
+> Dolly
+
+From sfmc68@bellatlantic.net  Thu Sep 21 21:32:40 2000
+From: justme <sfmc68@bellatlantic.net>
+To: thorpej@zembu.com
+Date: Thu, 21 Sep 2000 21:32:40 +0000
+Subject: Re: NetBSD: What do you guys use for Mail?
+
+Thanks Jason, and all who responded!
+bob
+
+
+Jason R Thorpe wrote:
+> 
+> On Wed, Sep 20, 2000 at 08:25:51PM -0400, justme wrote:
+> 
+>  > I have finally straightened out my home net.  Have my first 2 alphas
+>  > on line, setting them up.
+>  > I am going to use apache for the web server, I have that.
+>  > I am trying to figure out what to use for mail (pop) access to
+>  > snatch mail for me.  I am looking for recommendations.
+>  > I have been thru the packages, snagged a few, but before I start
+>  > I figured  I would ask.
+>  > Thanks
+>  > bob
+> 
+> I am using an AlphaStation 200 (with only 32M of RAM, even :-) for
+> several things:
+> 
+>         - DNS server
+>         - NFS server (it has a Promise IDE controller on it with a
+>           13G UDMA disk)
+>         - POP server (qpopper package)
+>         - SMTP server (postfix in base distribution)
+>         - WWW server (apache package)
+>         - Database server (mysql package)
+> 
+> ...with the apache, php3, and mysql packages, along with another
+> piece of software (which I haven't done a package for yet), I have
+> a nice little webcalendar :-)
+> 
+> I download all my email to my laptop using fetchmail, and read it there
+> with mutt.
+> 
+> Anyway, I did pretty much everything from pkgsrc ... all works nicely.
+> 
+> --
+>         -- Jason R. Thorpe <thorpej@zembu.com>
+
+From tnt@tnt.yi.org  Fri Sep 22 11:29:00 2000
+From: Michele Possamai <tnt@tnt.yi.org>
+To: port-alpha@netbsd.org
+Date: Fri, 22 Sep 2000 11:29:00 +0000
+Subject: Starting thinks at boot time
+
+Where in NetBSD is the directory to put startupscripts?
+It was /usr/local/etc/rc.d in FreeBSD but that one doesn't exist..
+
+
+------------------------------------------
+Michele Possamai
+possamai@bart.nl
+
+Image is nothing, bandwidth is everything.
+-------------------------------------------
+
+From rhialto@polderland.nl  Fri Sep 22 12:31:14 2000
+From: Olaf Seibert <rhialto@polderland.nl>
+To: wolfy@cmu.edu
+Date: Fri, 22 Sep 2000 12:31:14 +0000
+Subject: Re: NetBSD: What do you guys use for Mail?
+
+On Wed 20 Sep 2000 at 23:34:02 -0400, Gregory Smith wrote:
+> 	Heh, good luck running xemacs on NetBSD/alpha. <sigh>
+> 	Wish I knew enough low level stuff to fix t...
+
+Heh, I run X apps on my Alpha just fine. I simply use a Sun 3/50 as
+an X terminal ;-)
+
+-Olaf.
+-- 
+___ Olaf 'Rhialto' Seibert - rhialto@polder    -- Ah only did well at school
+\X/ land.nl       -- tae git intae an O level class tae git away fae Begbie.
+Hi! I am a .signature virus. Copy me into your .signature to help me spread.
+
+From tnt@tnt.yi.org  Fri Sep 22 13:33:20 2000
+From: M. Possamai <tnt@tnt.yi.org>
+To: rhialto@polderland.nl
+Date: Fri, 22 Sep 2000 13:33:20 +0000
+Subject: Re: NetBSD: What do you guys use for Mail?
+
+At 12:31 22-9-00 +0200, Olaf Seibert wrote:
+>On Wed 20 Sep 2000 at 23:34:02 -0400, Gregory Smith wrote:
+> >       Heh, good luck running xemacs on NetBSD/alpha. <sigh>
+> >       Wish I knew enough low level stuff to fix t...
+>
+>Heh, I run X apps on my Alpha just fine. I simply use a Sun 3/50 as
+>an X terminal ;-)
+
+any idea on how to install X apps without installing XFree86?
+I keep getting errors when building  the apps if I don't install an X server..
+
+it's a waste of space to install an X server when I'm not ever gonna use it
+I use my Xapps the same way as you...
+using a server on another system...
+
+
+>-Olaf.
+>--
+>___ Olaf 'Rhialto' Seibert - rhialto@polder    -- Ah only did well at school
+>\X/ land.nl       -- tae git intae an O level class tae git away fae Begbie.
+>Hi! I am a .signature virus. Copy me into your .signature to help me spread.
+
+From possamai@bart.nl  Fri Sep 22 14:17:45 2000
+From: M. Possamai <possamai@bart.nl>
+To: port-alpha@netbsd.org
+Date: Fri, 22 Sep 2000 14:17:45 +0000
+Subject: startup directory
+
+Is there a special directory in NetBSD to put scripts in
+that have to start at boot time?
+or do I just have to put all things in rc.conf?
+
+From david@vex.net  Fri Sep 22 10:23:34 2000
+From: David Maxwell <david@vex.net>
+To: possamai@bart.nl
+Date: Fri, 22 Sep 2000 10:23:34 +0000
+Subject: Re: startup directory
+
+On Fri, Sep 22, 2000 at 02:17:45PM +0200, M. Possamai wrote:
+> Is there a special directory in NetBSD to put scripts in
+> that have to start at boot time?
+> or do I just have to put all things in rc.conf?
+
+Depending on whether you are running
+
+<= 1.4.x
+
+You can add to /etc/rc.local
+
+>= 1.5(pre-release)
+
+There's an rc.d directory, but be aware it's smarter than most rc.d's.
+It doesn't run in filename order, you set PROVIDES and REQUIRES and run
+'rcorder' after addding your script. See some of the files in that dir
+for examples.
+
+-- 
+David Maxwell, david@vex.net|david@maxwell.net --> Mastery of UNIX, like
+mastery of language, offers real freedom. The price of freedom is always dear,
+but there's no substitute. Personally, I'd rather pay for my freedom than live
+in a bitmapped, pop-up-happy dungeon like NT. - Thomas Scoville
+
+From frederik@freddym.org  Fri Sep 22 21:25:40 2000
+From: Frederik Meerwaldt <frederik@freddym.org>
+To: port-alpha@netbsd.org
+Date: Fri, 22 Sep 2000 21:25:40 +0000
+Subject: Jensen DEC2000 Bug
+
+Hi all,
+
+I've got a Jensen (AXP 150), and I want to install NetBSD/alpha on
+it. Well, I downloaded the today's snapshot (1.5ALPHA2 from
+22.09.2000) and dded the cdhdtape image from my AlphaServer 400 (running
+NetBSD 1.4.2) to a MO-Drive. Why MO-Drive? Because that's the only thing
+beside CD and HDD the Jensen will boot from.
+It loads the Primary boot, then the kernel. No Problem so far. But then it
+hangs after displaying:
+
+ahb0: at eisa0 slot 6: Adaptec AHA-1742A SCSI
+ahb0: interrupting at eisa irq 12
+scsibus0: at ahb0: 8 targets, 8 luns per target
+isa0: at jensenio0
+vga0 at isa0 port 0x3b0-0x3df iomem 0xa0000-0xbffff
+wsdisplay0 at vga0
+fdc0 at isa0 port 0x3f0-0x3f7 irq 6 drq 2
+fd0 at fdc0 drive 0: 1.44 MB, 80 cyl, 2 head, 18 sec
+
+That's the end of the game. Possible reasons are, that I have a too old
+SCSI Controller Firmware Revision. I have (so says a >>> show device) G.
+All DEC Operating Systems (OSF/1, Digital Unix, Tru64 Unix, OpenVMS) need
+G.2 . Does NetBSD need this revision, too?
+I got stuck on the wsdisplay0 at vga0 message, too, as I'm running it over
+a serial console. If I attach a Monitor to the VGA Port I just see Console
+on Serial Port 1 running (or something like that).
+
+Can anyone help me with this problem?
+Which firmware revisions do you have?
+If the problem is related to the firmware revision, does anyone have a
+spare AHA-1742A?
+Or can I flash-update this firmware.
+
+Many many thanks in advance
+-- 
+Best Regards,
+	Freddy
+
+=====================================================================
+Frederik Meerwaldt  ICQ: 83045387  Homepage: http://www.freddym.org
+ Bavaria/Germany              OpenVMS and Unix Howtos and much more
+   FREEBSD, NETBSD, OPENBSD, TRU64, OPENVMS, ULTRIX, BEOS, LINUX
+
+From ghs@andrew.cmu.edu  Fri Sep 22 15:57:45 2000
+From: Gregory Smith <ghs@andrew.cmu.edu>
+To: port-alpha@netbsd.org
+Date: Fri, 22 Sep 2000 15:57:45 +0000
+Subject: Re: NetBSD: What do you guys use for Mail?
+
+I can run X apps on my alpha, too. Xemacs is the problem; it
+doesn't work on netbsd/alpha.
+
+Gregory
+
+On Fri, 22 Sep 2000, Olaf Seibert wrote:
+
+> On Wed 20 Sep 2000 at 23:34:02 -0400, Gregory Smith wrote:
+> > 	Heh, good luck running xemacs on NetBSD/alpha. <sigh>
+> > 	Wish I knew enough low level stuff to fix t...
+> 
+> Heh, I run X apps on my Alpha just fine. I simply use a Sun 3/50 as
+> an X terminal ;-)
+> 
+> -Olaf.
+> -- 
+> ___ Olaf 'Rhialto' Seibert - rhialto@polder    -- Ah only did well at school
+> \X/ land.nl       -- tae git intae an O level class tae git away fae Begbie.
+> Hi! I am a .signature virus. Copy me into your .signature to help me spread.
+>
+
+From wkb@freebie.demon.nl  Fri Sep 22 23:28:35 2000
+From: Wilko Bulte <wkb@freebie.demon.nl>
+To: frederik@freddym.org
+Date: Fri, 22 Sep 2000 23:28:35 +0000
+Subject: Re: Jensen DEC2000 Bug
+
+On Fri, Sep 22, 2000 at 09:25:40PM +0200, Frederik Meerwaldt wrote:
+
+> Can anyone help me with this problem?
+> Which firmware revisions do you have?
+> If the problem is related to the firmware revision, does anyone have a
+> spare AHA-1742A?
+
+Jensen uses G2 firmware in the Adaptec IIRC.
+
+> Or can I flash-update this firmware.
+
+It is an EPROM.
+
+-- 
+Wilko Bulte  	 
+wilko@freebsd.org 			Arnhem, the Netherlands
+
+From seamus@tfoot.insomnia.org  Fri Sep 22 21:27:32 2000
+From: Patrick Cantwell <seamus@tfoot.insomnia.org>
+To: wkb@freebie.demon.nl
+Date: Fri, 22 Sep 2000 21:27:32 +0000
+Subject: Re: Jensen DEC2000 Bug
+
+This is a known problem AFAIK.. last I heard Jason Thorpe was working on
+it.. I never heard back from him :( I have a Jensen as well and I'm having
+the same problem.. Jason, if you're still around, do you have any
+status? :)
+Thanks,
+Pat
+
+On Fri, 22 Sep 2000, Wilko Bulte wrote:
+
+> On Fri, Sep 22, 2000 at 09:25:40PM +0200, Frederik Meerwaldt wrote:
+> 
+> > Can anyone help me with this problem?
+> > Which firmware revisions do you have?
+> > If the problem is related to the firmware revision, does anyone have a
+> > spare AHA-1742A?
+> 
+> Jensen uses G2 firmware in the Adaptec IIRC.
+> 
+> > Or can I flash-update this firmware.
+> 
+> It is an EPROM.
+> 
+> -- 
+> Wilko Bulte  	 
+> wilko@freebsd.org 			Arnhem, the Netherlands
+>
+
+From ajv@greebo.net  Sat Sep 23 15:25:57 2000
+From: Andrew van der Stock <ajv@greebo.net>
+To: port-alpha@netbsd.org
+Date: Sat, 23 Sep 2000 15:25:57 +0000
+Subject: Xvnc works great, now trying to get Enlightenment going
+
+I can report that if you download straight XFree86 4.0.1 and compile as much
+as you can using make -k you get enough stuff to allow Xvnc to work with twm
+and the basic X utilities. I have this displaying now on my Windows 2000
+laptop:
+
+http://www.greebo.net/Xvnc-alpha-desktop.jpg
+
+What's up with pthreads? Who can I help make that go?
+
+thanks,
+
+Andrew van der Stock, ajv@greebo.net http://www.greebo.net
+SAGE-AU President	                   http://www.sage-au.org.au
+
+From ajv@greebo.net  Sat Sep 23 19:14:02 2000
+From: Andrew van der Stock <ajv@greebo.net>
+To: port-alpha@netbsd.org
+Date: Sat, 23 Sep 2000 19:14:02 +0000
+Subject: Losing seconds, make that hours
+
+After several compiles of XFree86 and a continuous use of Samba 2.0.7 to
+serve MP3's to me (don't worry, I own them all), my pc164 running 1.5ALPHA2
+snapshot has lost more than an hour over the last four hours.
+
+blossom# date
+Sat Sep 23 17:53:14 EST 2000
+blossom# ntpdate ntp.connect.com.au ntp.optusnet.com.au
+23 Sep 19:09:34 ntpdate[10669]: step time server 192.189.54.17 offset
+4438.623050 sec
+blossom# date
+Sat Sep 23 19:09:39 EST 2000
+
+I'm not running xntpd as I'm slack.
+
+thanks,
+
+Andrew van der Stock, ajv@greebo.net http://www.greebo.net
+SAGE-AU President	                   http://www.sage-au.org.au
+
+From frederik@freddym.org  Sat Sep 23 13:37:58 2000
+From: Frederik Meerwaldt <frederik@freddym.org>
+To: wkb@freebie.demon.nl
+Date: Sat, 23 Sep 2000 13:37:58 +0000
+Subject: Re: Jensen DEC2000 Bug
+
+Hi!
+
+> > Can anyone help me with this problem?
+> > Which firmware revisions do you have?
+> > If the problem is related to the firmware revision, does anyone have a
+> > spare AHA-1742A?
+> 
+> Jensen uses G2 firmware in the Adaptec IIRC.
+
+And that's my problem. I just have G.
+
+> > Or can I flash-update this firmware.
+> 
+> It is an EPROM.
+
+S***. Does anyone have  a spare EPROM available?
+Or a whole spare card?
+
+-- 
+Best Regards,
+	Freddy
+
+=====================================================================
+Frederik Meerwaldt  ICQ: 83045387  Homepage: http://www.freddym.org
+ Bavaria/Germany              OpenVMS and Unix Howtos and much more
+   FREEBSD, NETBSD, OPENBSD, TRU64, OPENVMS, ULTRIX, BEOS, LINUX
+
+From bouyer@antioche.lip6.fr  Mon Sep 25 13:46:26 2000
+From: Manuel Bouyer <bouyer@antioche.lip6.fr>
+To: possamai@bart.nl
+Date: Mon, 25 Sep 2000 13:46:26 +0000
+Subject: Re: Starting thinks at boot time
+
+On Fri, Sep 22, 2000 at 11:29:00AM +0200, Michele Possamai wrote:
+> Where in NetBSD is the directory to put startupscripts?
+> It was /usr/local/etc/rc.d in FreeBSD but that one doesn't exist..
+
+On which release ? On 1.4.x you have to put things in /etc/rc.local,
+on 1.5 there is an /etc/rc.d directory (and /etc/rc.local exists).
+
+--
+Manuel Bouyer, LIP6, Universite Paris VI.           Manuel.Bouyer@lip6.fr
+--
+
+From catfish@alltel.net  Mon Sep 25 08:57:13 2000
+From: T. Martin <catfish@alltel.net>
+To: port-alpha@netbsd.org
+Date: Mon, 25 Sep 2000 08:57:13 +0000
+Subject: Binary Compatible?
+
+Hello, 
+ 
+ This might've been ask already if so I missed it. 
+ Is 1.4.2 and 1.5.x binary compatible?
+Terry
+
+
+catfish: icq #20116127
+
+From bouyer@antioche.lip6.fr  Mon Sep 25 19:51:15 2000
+From: Manuel Bouyer <bouyer@antioche.lip6.fr>
+To: catfish@alltel.net
+Date: Mon, 25 Sep 2000 19:51:15 +0000
+Subject: Re: Binary Compatible?
+
+On Mon, Sep 25, 2000 at 08:57:13AM -0500, T. Martin wrote:
+>  Hello, 
+>  
+>  This might've been ask already if so I missed it. 
+>  Is 1.4.2 and 1.5.x binary compatible?
+
+Yes, there's almost compatible (I'm running 1.3.x programs on a 1.5_ALPHA2
+system without troubles).
+
+--
+Manuel Bouyer, LIP6, Universite Paris VI.           Manuel.Bouyer@lip6.fr
+--
+
+From feyrer@feyrer.de  Mon Sep 25 05:46:03 2000
+From: Hubert Feyrer <feyrer@feyrer.de>
+To: port-alpha@netbsd.org
+Date: Mon, 25 Sep 2000 05:46:03 +0000
+Subject: kdebase/alpha: toolchain problem?
+
+I've looked into why kdebase doesn't compile on alpha tonight. The
+problematic program is a "Hello world" like example that calls some
+functions from qt1/kdelibs to print some string values. See the kdebase
+configure script, search for "checking for KDE headers installed". 
+
+The program during normal compilation, and after a lot of poking around
+(including making debug-qt1, ...), I found out that:
+
+1. using libtool & dynamic (default) linking, it dumps core
+2. using no libtool & dynamic (default) linking, it dumps core
+3. using no libtool & -static linking, it works. 
+   Used flags here were: g++ -static -g -O2 ...
+
+So, what's going on here? Is the alpha toolchain known to have problems?
+This is on a system running NetBSD/alpha 1.5E from ~4 weeks ago.
+
+
+ - Hubert
+
+From ragge@ludd.luth.se  Mon Sep 25 22:02:28 2000
+From: Anders Magnusson <ragge@ludd.luth.se>
+To: feyrer@feyrer.de
+Date: Mon, 25 Sep 2000 22:02:28 +0000
+Subject: Re: kdebase/alpha: toolchain problem?
+
+> 
+> 1. using libtool & dynamic (default) linking, it dumps core
+> 2. using no libtool & dynamic (default) linking, it dumps core
+> 3. using no libtool & -static linking, it works. 
+>    Used flags here were: g++ -static -g -O2 ...
+> 
+> So, what's going on here? Is the alpha toolchain known to have problems?
+> This is on a system running NetBSD/alpha 1.5E from ~4 weeks ago.
+> 
+I noticed the same thing a couple of days ago, while compiling kdevelop.
+But I want to add to your list:
+
+After configure is run on static qt1 libraries, the rest can be compiled
+with dynamic libraries without anything bad happening. The only place
+I have seen the coredumps is in the configure script.
+
+-- Ragge
+
+From obsidian@innnet.de  Tue Sep 26 06:04:53 2000
+From: Kevin Read <obsidian@innnet.de>
+To: port-alpha@netbsd.org
+Date: Tue, 26 Sep 2000 06:04:53 +0000
+Subject: Netbooting on Jensen
+
+Hi,
+
+I can't seem to netboot my Jensen. In the diskless howto it says that
+netbooting requires the "ewa" entry in the SRM. On the SRM I see only an
+ez0a network device. Tcpdump can't see anything from the thing when it
+tries to netboot.
+
+Help greatly appreciated.
+
+Many thanks,
+
+Kevin
+
+From shsrms@bellatlantic.net  Tue Sep 26 17:44:06 2000
+From: hg/jb <shsrms@bellatlantic.net>
+To: port-alpha@netbsd.org
+Date: Tue, 26 Sep 2000 17:44:06 +0000
+Subject: seti@home
+
+Does more memory decrease the problem run through time?
+Yeah, I know that Seti does not stuff recompiled to be optimized, but
+I just found out an Athlon 700Mhz, 256MB, NT4/SP6a, seems to be
+averaging 3 problem sets per day, vice the one on my 500MHZ 164.
+thanks
+bob
+
+From shsrms@bellatlantic.net  Wed Sep 27 17:27:03 2000
+From: hg/jb <shsrms@bellatlantic.net>
+To: port-alpha@netbsd.org
+Date: Wed, 27 Sep 2000 17:27:03 +0000
+Subject: location of /compat/osf1 in 1.4.2
+
+Hate to bother everyone with my questions, I got a note from Chris
+that said the osf1 compat stuff was in a directory under sys...
+Well, I downloaded all the tgz finary files twice, and I can not seem 
+to find it.
+I have done X, base, comp, etc, misc, and so on and unpacked them
+but not found the files.
+
+Am I missing something?
+thanks
+bob
+
+From elric@mabelode.imrryr.org  Wed Sep 27 14:44:08 2000
+From: R. C. Dowdeswell <elric@mabelode.imrryr.org>
+To: shsrms@bellatlantic.net
+Date: Wed, 27 Sep 2000 14:44:08 +0000
+Subject: Re: location of /compat/osf1 in 1.4.2
+
+On 970090023 seconds since the Beginning of the UNIX epoch
+hg/jb wrote:
+>
+>Hate to bother everyone with my questions, I got a note from Chris
+>that said the osf1 compat stuff was in a directory under sys...
+>Well, I downloaded all the tgz finary files twice, and I can not seem 
+>to find it.
+>I have done X, base, comp, etc, misc, and so on and unpacked them
+>but not found the files.
+>
+>Am I missing something?
+>thanks
+>bob
+
+The compat_osf1 kernel code is in sys, but in order to run OSF/1
+binaries, you must obtain the contents of /emul/osf1 from a
+OSF/1^WDU^WTru64 machine as we can't distribute them because of
+copyright issues.  You should probably also have an OSF/1 license
+in order to comply with the licensing.
+
+ == Roland Dowdeswell                      http://www.Imrryr.ORG/~elric/  ==
+ == The Unofficial NetBSD Web Pages        http://www.Imrryr.ORG/NetBSD/  ==
+ == The NetBSD Project                            http://www.NetBSD.ORG/  ==
+
+From jkunz@unixag-kl.fh-kl.de  Thu Sep 28 00:21:51 2000
+From: None <jkunz@unixag-kl.fh-kl.de>
+To: shsrms@bellatlantic.net
+Date: Thu, 28 Sep 2000 00:21:51 +0000
+Subject: Re: location of /compat/osf1 in 1.4.2
+
+On 27 Sep, R. C. Dowdeswell wrote:
+
+> The compat_osf1 kernel code is in sys, but in order to run OSF/1
+> binaries, you must obtain the contents of /emul/osf1 from a
+> OSF/1^WDU^WTru64 machine as we can't distribute them because of
+> copyright issues.  You should probably also have an OSF/1 license
+> in order to comply with the licensing.
+Have a look at
+http://www.support.compaq.com/alpha-tools/software/index.html 
+The Netscape RPM contains a minimal set of shared librarys from Tru64. 
+ftp://ftp.support.compaq.com/private/alpha-tools-software/netscape/netscape-4.7-3.alpha.rpm
+Get it convert it with rpm2cpio to a usable/portable archive format and
+extract the files you need. 
+-- 
+
+
+
+tsch��,
+         Jochen
+
+Homepage: http://www.unixag-kl.fh-kl.de/~jkunz/
+
+From abs@netbsd.org  Thu Sep 28 19:17:40 2000
+From: David Brownlee <abs@netbsd.org>
+To: jkunz@unixag-kl.fh-kl.de
+Date: Thu, 28 Sep 2000 19:17:40 +0000
+Subject: Re: location of /compat/osf1 in 1.4.2
+
+On Thu, 28 Sep 2000 jkunz@unixag-kl.fh-kl.de wrote:
+
+> Have a look at
+> http://www.support.compaq.com/alpha-tools/software/index.html 
+> The Netscape RPM contains a minimal set of shared librarys from Tru64. 
+> ftp://ftp.support.compaq.com/private/alpha-tools-software/netscape/netscape-4.7-3.alpha.rpm
+> Get it convert it with rpm2cpio to a usable/portable archive format and
+> extract the files you need. 
+
+	Would anyone be interested in putting together an osf1_compat (or
+	tru64_compat) package for pkgsrc based on the above?
+	emulators/suse_compat is already based on linux rpms so would
+	probably make a useful reference...
+
+                David/absolute
+			       -- www.netbsd.org: A pmap for every occasion --
+
+From simonb@wasabisystems.com  Fri Sep 29 11:29:00 2000
+From: Simon Burge <simonb@wasabisystems.com>
+To: abs@netbsd.org
+Date: Fri, 29 Sep 2000 11:29:00 +0000
+Subject: Re: location of /compat/osf1 in 1.4.2
+
+David Brownlee wrote:
+
+> On Thu, 28 Sep 2000 jkunz@unixag-kl.fh-kl.de wrote:
+> 
+> > Have a look at
+> > http://www.support.compaq.com/alpha-tools/software/index.html 
+> > The Netscape RPM contains a minimal set of shared librarys from Tru64. 
+> > ftp://ftp.support.compaq.com/private/alpha-tools-software/netscape/netscape-4.7-3.alp
+ha.rpm
+> > Get it convert it with rpm2cpio to a usable/portable archive format and
+> > extract the files you need. 
+> 
+> 	Would anyone be interested in putting together an osf1_compat (or
+> 	tru64_compat) package for pkgsrc based on the above?
+> 	emulators/suse_compat is already based on linux rpms so would
+> 	probably make a useful reference...
+
+I had a quick look at the above, and it's libraries _plus_
+netscape.  It'd be nice if they had just the libraries as a
+separate rpm/tar/whatever...
+
+Simon.
+--
+Simon Burge                            <simonb@wasabisystems.com>
+NetBSD Sales, Support and Service:  http://www.wasabisystems.com/
+
+From sep29@wsi-hk.com  Fri Sep 29 16:57:04 2000
+From: Peter Forsythe <sep29@wsi-hk.com>
+To: port-alpha@netbsd.org
+Date: Fri, 29 Sep 2000 16:57:04 +0000
+Subject: New Website
+
+Wall Street Institute has launched its new website at www.wsi.edu.hk.
+
+Please take a look and if you like what you see, send it on to your friends. 
+
+If you would like some more information about our English courses -- 
+
+Fax form to 2575 1999 or email to course@wsi-hk.com:
+
+----------------------------------------------------------------
+Please send me more information about Wall Street Institute:
+
+Name _____________________________
+
+Address___________________________
+
+Phone_____________________________
+
+Fax_______________________________
+
+------------------------------------------------------------------
+
+
+[You are receiving this either because you have expressed an interest in the 
+Wall Street Institute in the past, or because you are a subscriber to our
+bi-monthly newsletter.  If you are receiving this by mistake, please send a 
+blank email to remove@wsi-hk.com]
+
+From naddy@mips.inka.de  Sat Sep 30 14:29:14 2000
+From: Christian Weisgerber <naddy@mips.inka.de>
+To: port-alpha@netbsd.org
+Date: Sat, 30 Sep 2000 14:29:14 +0000
+Subject: Re: location of /compat/osf1 in 1.4.2
+
+David Brownlee <abs@netbsd.org> wrote:
+
+> ftp://ftp.support.compaq.com/private/alpha-tools-software/netscape/netscape-4.7-3.alpha.rpm
+> 
+> 	Would anyone be interested in putting together an osf1_compat (or
+> 	tru64_compat) package for pkgsrc based on the above?
+
+FWIW, that's exactly what the FreeBSD people do in their osf1_base
+package.
+
+-- 
+Christian "naddy" Weisgerber                          naddy@mips.inka.de
+

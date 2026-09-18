@@ -1,0 +1,287 @@
+From openbsd-alpha  Mon Jun 30 21:18:03 2003
+From: Martin Reindl <mreindl () catai ! org>
+Date: Mon, 30 Jun 2003 21:18:03 +0000
+To: openbsd-alpha
+Subject: cpu minor types
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=105700806529416
+
+Hello,
+
+Being a bit disturbed by the
+"cpu0 at mainbus0: ID 0 (primary), 21164A-0 (unknown minor type 0)"
+line in dmesg on my PWS500au, i peeked through
+src/sys/arch/alpha/alpha/cpu.c and some docs and noticed that the cpu
+specific minor types code seem to be only usefull for LCA type cpus.
+Is there any specific use for this code for the other cpu types?
+If not, the code could be cleaned out probably. Any comments or
+corrections welcome.
+
+Regards,
+Martin
+
+http://stud4.tuwien.ac.at/~e0127046/OpenBSD/alpha_cpu.c.diff
+or:
+
+--- src/sys/arch/alpha/alpha/cpu.c.orig	Fri Jun 30 21:42:08 2023
++++ src/sys/arch/alpha/alpha/cpu.c	Fri Jun 30 22:08:24 2023
+@@ -122,24 +122,11 @@
+ 
+ extern struct cfdriver cpu_cd;
+ 
+-static const char *ev4minor[] = {
+-	"pass 2 or 2.1", "pass 3", 0
+-}, *lcaminor[] = {
++static const char *lcaminor[] = {
+ 	"",
+ 	"21066 pass 1 or 1.1", "21066 pass 2",
+ 	"21068 pass 1 or 1.1", "21068 pass 2",
+ 	"21066A pass 1", "21068A pass 1", 0
+-}, *ev5minor[] = {
+-	"", "pass 2, rev BA or 2.2, rev CA", "pass 2.3, rev DA or EA",
+-	"pass 3", "pass 3.2", "pass 4", 0
+-}, *ev45minor[] = {
+-	"", "pass 1", "pass 1.1", "pass 2", 0
+-}, *ev56minor[] = {
+-	"", "pass 1", "pass 2", 0
+-}, *ev6minor[] = {
+-	"pass 1", "pass 2", "pass 2.2", "pass 2.3", "pass 3", 0
+-}, *pca56minor[] = {
+-	"", "pass 1", 0
+ };
+ 
+ struct cputable_struct {
+@@ -147,15 +134,15 @@
+ 	const char *cpu_major_name;
+ 	const char **cpu_minor_names;
+ } cpunametable[] = {
+-	{ PCS_PROC_EV3,		"EV3",		0		},
+-	{ PCS_PROC_EV4,		"21064",	ev4minor	},
+-	{ PCS_PROC_SIMULATION,	"Sim",		0		},
++	{ PCS_PROC_EV3,		"EV3",		NULL		},
++	{ PCS_PROC_EV4,		"21064",	NULL		},
++	{ PCS_PROC_SIMULATION,	"Sim",		NULL		},
+ 	{ PCS_PROC_LCA4,	"LCA",		lcaminor	},
+-	{ PCS_PROC_EV5,		"21164",	ev5minor	},
+-	{ PCS_PROC_EV45,	"21064A",	ev45minor	},
+-	{ PCS_PROC_EV56,	"21164A",	ev56minor	},
+-	{ PCS_PROC_EV6,		"21264",	ev6minor	},
+-	{ PCS_PROC_PCA56,	"PCA56",	pca56minor	},
++	{ PCS_PROC_EV5,		"21164",	NULL		},
++	{ PCS_PROC_EV45,	"21064A",	NULL		},
++	{ PCS_PROC_EV56,	"21164A",	NULL		},
++	{ PCS_PROC_EV6,		"21264",	NULL		},
++	{ PCS_PROC_PCA56,	"PCA56",	NULL		},
+ 	{ PCS_PROC_PCA57,	"PCA57",	NULL		},
+ 	{ PCS_PROC_EV67,	"21264A",	NULL		},
+ };
+@@ -243,7 +230,6 @@
+ 					goto recognized;
+ 				}
+ 			}
+-			printf(" (unknown minor type %d)", minor);
+ 			goto recognized;
+ 		}
+ 	}
+
+From openbsd-alpha  Sat Jun 28 13:56:17 2003
+From: Miod Vallat <miod () online ! fr>
+Date: Sat, 28 Jun 2003 13:56:17 +0000
+To: openbsd-alpha
+Subject: Re: help??
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=105680898328410
+
+>      Where can I turn for help.  I'm trying to install OpenBSD 3.3 for
+> Alpha on a Compaq DS20.  This system is listed as supported by the OS
+> but after the install completes and I reboot I get
+[...]
+> tsp1 at tsc0
+> panic: extent_register: already registered
+
+Two questions here:
+- with what installation media did you install your machine?
+- how many processors does your system have? If it has two, does it boot
+  with one processor temporarily removed?
+
+In the meantime, the following trick should work.
+- "boot -fl ac" at the SRM prompt, to enter UKC.
+- at the UKC prompt, do the following:
+  + enter "disable tsp".
+  + you should get something like "132 tsp* disabled" in return.
+    Remember the number (in this case, 132)
+  + enter "add tsp0".
+  + to the "Clone Device" question, answer the previous number, here
+    132. Same answer to the "Insert before Device" question.
+  + finally, enter "quit".
+If this works, please provide us a dmesg of your system for further
+investigation; to make this UKC change permanent, read boot_config(8).
+
+Miod
+
+From openbsd-alpha  Thu Jun 12 01:35:30 2003
+From: Jameel Akari <jakari () bithose ! com>
+Date: Thu, 12 Jun 2003 01:35:30 +0000
+To: openbsd-alpha
+Subject: Re: stability issues
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=105538178527061
+
+On Wed, 11 Jun 2003, William Ahern wrote:
+
+> i have vague memories of some recent postings coming across this list
+> concerning crashes on 3.3-stable. i'm just about to upgrade my alpha from
+
+I posted something about my AS200 (4/233) crashing on the 3.3-stable
+release; I never determined the cause but the -current at the time works.
+Sort of.
+
+I've seen random crashes and reboots on this machine.  It's offsite as
+well, so the best I get is a pager notice when it dies and comes back up.
+I have seen nothing in any logs as to the reason why.  We kind of suspect
+hardware, but the machine had run fine for years before this.
+
+I haven't tried on my PC164 yet, maybe later this week.
+
+I should probably see if any real changes have been made in -current and
+rebuild that AS200 just to be sure.
+
+--
+#!/jameel/akari
+sleep 4800;
+make clean && make breakfast
+
+From openbsd-alpha  Sat Jun 07 21:05:01 2003
+From: Matthieu Herrb <matthieu.herrb () wanadoo ! fr>
+Date: Sat, 07 Jun 2003 21:05:01 +0000
+To: openbsd-alpha
+Subject: Re: why always boot in single-user?
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=105502000922472
+
+Bill Bernett wrote (in a message from Saturday 7)
+ > Hi, I just installed 3.3 on a 250 4/266 and it always boots into single user.
+ > 
+ > Is this what the 3.3 release just does, or is there an SRM environment
+ > variable that I need to set?
+
+You need to 'set boot_osflags a' in SRM. 
+BTW this is documented in the alpha INSTALL doc...
+
+					Matthieu
+
+From openbsd-alpha  Fri Jun 27 19:18:46 2003
+From: "Todd Seeleman" <seeleman () gse ! upenn ! edu>
+Date: Fri, 27 Jun 2003 19:18:46 +0000
+To: openbsd-alpha
+Subject: help??
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=105674186204616
+
+Greetings,
+
+     Where can I turn for help.  I'm trying to install OpenBSD 3.3 for
+Alpha on a Compaq DS20.  This system is listed as supported by the OS
+but after the install completes and I reboot I get
+
+lpt0 at isa0 port 0x3bc/4 irq 7
+fdc0 at isa0 port 0x3f0/6 irq 6 drq 2
+fd0 at fdc0 drive 0: 1.44MB 80 cyl, 2 head, 18 sec
+mcclock0 at isa0 port 0x70/2: mc146818 or compatible
+tsp1 at tsc0
+panic: extent_register: already registered
+Stopped at      Debugger+0x4:   ret     zero,(ra)
+RUN AT LEAST 'trace' AND 'ps' AND INCLUDE OUTPUT WHEN REPORTING THIS
+PANIC!
+DO NOT EVEN BOTHER REPORTING THIS WITHOUT INCLUDING THAT INFORMATION!
+ddb>
+ddb> trace
+Debugger(6, fffffd01fc0003f8, fffffd01fc0003fd, 8, 3, 8) at Debugger+0x4
+panic(fffffc000065e0d9, 0, ffffffff, 2, fffffc00007594e8, 190) at
+panic+0x128
+extent_register(?, 0, ffffffff, 2, fffffc00007594e8, 190) at
+extent_register+0x
+54
+extent_create(?, ?, ?, 2, fffffc00007594e8, 190) at extent_create+0x254
+tsp_bus_io_init(?, fffffc000078a8f8, ?, 2, ?, 190) at
+tsp_bus_io_init+0x1e8
+tsp_init(?, ?, ?, ?, ?, 190) at tsp_init+0xc0
+tspattach(?, ?, ?, ?, ?, 190) at tspattach+0x48
+config_attach(?, ?, ?, ?, ?, 190) at config_attach+0x244
+config_found_sm(?, ?, ?, ?, ?, 190) at config_found_sm+0x54
+tscattach(?, fffffe0000015e00, ?, ?, ?, ?) at tscattach+0x21c
+config_attach(?, ?, ?, ?, ?, ?) at config_attach+0x244
+config_found_sm(?, ?, ?, ?, ?, ?) at config_found_sm+0x54
+mbattach(?, ?, ?, ?, ?, ?) at mbattach+0x160
+config_attach(?, ?, ?, ?, ?, ?) at config_attach+0x244
+config_rootfound(?, ?, ?, ?, ?, ?) at config_rootfound+0x78
+cpu_configure(?, ?, ?, ?, ?, ?) at cpu_configure+0x48
+main(?, ?, ?, ?, ?, ?) at main+0x450
+Lstart1(?, ?, ?, ?, ?, ?) at Lstart1+0x60
+Lstart1(?, ?, ?, ?, ?, ?) at Lstart1+0x60
+.............
+
+
+***********************************************************
+  Todd Seeleman, Systems Analyst             email: seeleman@gse.upenn.edu
+  Penn Graduate School of Education          phone: 215.573.8378
+  3700 Walnut St., Rm. 002                        fax: 215.746.6572
+  Philadelphia, PA. 19104-6216
+***********************************************************
+
+From openbsd-alpha  Wed Jun 11 20:05:17 2003
+From: William Ahern <william () 25thandClement ! com>
+Date: Wed, 11 Jun 2003 20:05:17 +0000
+To: openbsd-alpha
+Subject: stability issues
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=105536203007513
+
+i have vague memories of some recent postings coming across this list
+concerning crashes on 3.3-stable. i'm just about to upgrade my alpha from
+3.2-current (circa Jan 25th; i should have gotten past the thread changes
+and propolice headaches, iirc). i'm running a 164LX 21164A-2.  after going
+to 3.3-stable, should i move to another snapshot release or to -current?
+
+i've got to be very careful about this, because the machine is colo'd and i
+have no physical access.
+
+tia,
+
+Bill
+
+From openbsd-alpha  Sat Jun 07 21:01:14 2003
+From: Miod Vallat <miod () online ! fr>
+Date: Sat, 07 Jun 2003 21:01:14 +0000
+To: openbsd-alpha
+Subject: Re: why always boot in single-user?
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=105501977222329
+
+> Hi, I just installed 3.3 on a 250 4/266 and it always boots into single user.
+> 
+> Is this what the 3.3 release just does, or is there an SRM environment
+> variable that I need to set?
+
+There is an SRM environment variable that you need to set, as told in
+the INSTALL.alpha file.
+
+Quote:
+
+    You can set ROM variables by saying "set VARIABLE VALUE".
+    Some variables you will want to set:
+[...]
+        boot_osflags    Flags to pass to the kernel.
+                        IMPORTANT! For multiuser boot, this needs to be
+                        set to "a".
+
+Miod
+
+From openbsd-alpha  Sat Jun 07 20:57:14 2003
+From: Bill Bernett <bill () spindata ! com>
+Date: Sat, 07 Jun 2003 20:57:14 +0000
+To: openbsd-alpha
+Subject: why always boot in single-user?
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=105501948522140
+
+Hi, I just installed 3.3 on a 250 4/266 and it always boots into single user.
+
+Is this what the 3.3 release just does, or is there an SRM environment
+variable that I need to set?
+
+Thanks;
+Bill B.
+

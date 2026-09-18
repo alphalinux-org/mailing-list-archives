@@ -1,0 +1,2511 @@
+From jhb at FreeBSD.org  Fri Sep  2 17:31:52 2005
+From: jhb at FreeBSD.org (John Baldwin)
+Date: Fri Sep  2 17:32:00 2005
+Subject: [PATCH] Add membar to bus dma PREWRITE operations
+Message-ID: <200509021324.13391.jhb@FreeBSD.org>
+
+The patch below adds a memory barrier to bus_dma PREWRITE operations to ensure 
+that writes by the CPU to populate a buffer before it is read via DMA by a 
+device will be completed before later writes by the CPU (later as in program 
+order) to trigger the DMA.  Please test!  Patch should apply to 5.x and 
+later.  Thanks.
+
+--- //depot/vendor/freebsd/src/sys/alpha/alpha/busdma_machdep.c	2005/05/25 
+07:26:16
++++ //depot/user/jhb/acpipci/alpha/alpha/busdma_machdep.c	2005/08/18 17:55:22
+@@ -891,6 +891,10 @@
+ 			}
+ 		}
+ 	}
++
++	/* Ensure any pending writes have drained. */
++	if (op & (BUS_DMASYNC_PREWRITE))
++		alpha_mb();
+ }
+ 
+ static void
+
+-- 
+John Baldwin <jhb@FreeBSD.org>  <><  http://www.FreeBSD.org/~jhb/
+"Power Users Use the Power to Serve"  =  http://www.FreeBSD.org
+From jhb at FreeBSD.org  Fri Sep  2 19:32:03 2005
+From: jhb at FreeBSD.org (John Baldwin)
+Date: Fri Sep  2 19:32:07 2005
+Subject: [PATCH] Cleanup asm constraints in atomic operations
+Message-ID: <200509021532.54579.jhb@FreeBSD.org>
+
+alc@ brought to my attention a while back that while gcc allows one to use the 
+'+' constraint modifier to collapse identical input and output operands that 
+are in registers, it is only allowed for registers and not for memory 
+operands.  The patch below removes uses of the '+' modifier in conjunction 
+with memory operands in the atomic operations for alpha, amd64, i386, and 
+powerpc.  Please test and let me know if there are any regressions.
+
+-- 
+John Baldwin <jhb@FreeBSD.org>  <><  http://www.FreeBSD.org/~jhb/
+"Power Users Use the Power to Serve"  =  http://www.FreeBSD.org
+From jhb at FreeBSD.org  Fri Sep  2 19:41:31 2005
+From: jhb at FreeBSD.org (John Baldwin)
+Date: Fri Sep  2 19:41:38 2005
+Subject: [PATCH] Cleanup asm constraints in atomic operations
+In-Reply-To: <200509021532.54579.jhb@FreeBSD.org>
+References: <200509021532.54579.jhb@FreeBSD.org>
+Message-ID: <200509021542.22227.jhb@FreeBSD.org>
+
+On Friday 02 September 2005 03:32 pm, John Baldwin wrote:
+> alc@ brought to my attention a while back that while gcc allows one to use
+> the '+' constraint modifier to collapse identical input and output operands
+> that are in registers, it is only allowed for registers and not for memory
+> operands.  The patch below removes uses of the '+' modifier in conjunction
+> with memory operands in the atomic operations for alpha, amd64, i386, and
+> powerpc.  Please test and let me know if there are any regressions.
+
+*sigh*
+
+http://www.FreeBSD.org/~jhb/patches/atomic.patch
+
+-- 
+John Baldwin <jhb@FreeBSD.org>  <><  http://www.FreeBSD.org/~jhb/
+"Power Users Use the Power to Serve"  =  http://www.FreeBSD.org
+From tinderbox at freebsd.org  Sat Sep  3 00:24:44 2005
+From: tinderbox at freebsd.org (FreeBSD Tinderbox)
+Date: Sat Sep  3 00:24:52 2005
+Subject: [head tinderbox] failure on alpha/alpha
+Message-ID: <20050903002442.CC2527304D@freebsd-current.sentex.ca>
+
+TB --- 2005-09-02 22:54:32 - tinderbox 2.3 running on freebsd-current.sentex.ca
+TB --- 2005-09-02 22:54:32 - starting HEAD tinderbox run for alpha/alpha
+TB --- 2005-09-02 22:54:32 - cleaning the object tree
+TB --- 2005-09-02 22:54:58 - checking out the source tree
+TB --- 2005-09-02 22:54:58 - cd /tinderbox/HEAD/alpha/alpha
+TB --- 2005-09-02 22:54:58 - /usr/bin/cvs -f -R -q -d/home/ncvs update -Pd -A src
+TB --- 2005-09-02 23:01:40 - building world (CFLAGS=-O2 -pipe)
+TB --- 2005-09-02 23:01:40 - cd /src
+TB --- 2005-09-02 23:01:40 - /usr/bin/make -B buildworld
+>>> Rebuilding the temporary build tree
+>>> stage 1.1: legacy release compatibility shims
+>>> stage 1.2: bootstrap tools
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3: cross tools
+>>> stage 4.1: building includes
+>>> stage 4.2: building libraries
+>>> stage 4.3: make dependencies
+>>> stage 4.4: building everything
+TB --- 2005-09-03 00:04:59 - building generic kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-09-03 00:04:59 - cd /src
+TB --- 2005-09-03 00:04:59 - /usr/bin/make buildkernel KERNCONF=GENERIC
+>>> Kernel build for GENERIC started on Sat Sep  3 00:04:59 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+>>> Kernel build for GENERIC completed on Sat Sep  3 00:18:15 UTC 2005
+TB --- 2005-09-03 00:18:15 - generating LINT kernel config
+TB --- 2005-09-03 00:18:15 - cd /src/sys/alpha/conf
+TB --- 2005-09-03 00:18:15 - /usr/bin/make -B LINT
+TB --- 2005-09-03 00:18:15 - building LINT kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-09-03 00:18:15 - cd /src
+TB --- 2005-09-03 00:18:15 - /usr/bin/make buildkernel KERNCONF=LINT
+>>> Kernel build for LINT started on Sat Sep  3 00:18:15 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+[...]
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -I/src/sys/contrib/ipfilter -I/src/sys/contrib/pf -I/src/sys/contrib/dev/ath -I/src/sys/contrib/dev/ath/freebsd -I/src/sys/contrib/ngatm -I/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/fs/fdescfs/fdesc_vnops.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -I/src/sys/contrib/ipfilter -I/src/sys/contrib/pf -I/src/sys/contrib/dev/ath -I/src/sys/contrib/dev/ath/freebsd -I/src/sys/contrib/ngatm -I/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/fs/fifofs/fifo_vnops.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -I/src/sys/contrib/ipfilter -I/src/sys/contrib/pf -I/src/sys/contrib/dev/ath -I/src/sys/contrib/dev/ath/freebsd -I/src/sys/contrib/ngatm -I/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/fs/hpfs/hpfs_alsubr.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -I/src/sys/contrib/ipfilter -I/src/sys/contrib/pf -I/src/sys/contrib/dev/ath -I/src/sys/contrib/dev/ath/freebsd -I/src/sys/contrib/ngatm -I/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/fs/hpfs/hpfs_lookup.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -I/src/sys/contrib/ipfilter -I/src/sys/contrib/pf -I/src/sys/contrib/dev/ath -I/src/sys/contrib/dev/ath/freebsd -I/src/sys/contrib/ngatm -I/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/fs/hpfs/hpfs_subr.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -I/src/sys/contrib/ipfilter -I/src/sys/contrib/pf -I/src/sys/contrib/dev/ath -I/src/sys/contrib/dev/ath/freebsd -I/src/sys/contrib/ngatm -I/src/sys/dev/twa -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/fs/hpfs/hpfs_vfsops.c
+/src/sys/fs/hpfs/hpfs_vfsops.c: In function `hpfs_mount':
+/src/sys/fs/hpfs/hpfs_vfsops.c:198: error: label `error_2' used but not defined
+*** Error code 1
+
+Stop in /obj/alpha/src/sys/LINT.
+*** Error code 1
+
+Stop in /src.
+*** Error code 1
+
+Stop in /src.
+TB --- 2005-09-03 00:24:42 - WARNING: /usr/bin/make returned exit code  1 
+TB --- 2005-09-03 00:24:42 - ERROR: failed to build lint kernel
+TB --- 2005-09-03 00:24:42 - tinderbox aborted
+
+From marcel at xcllnt.net  Sat Sep  3 21:03:48 2005
+From: marcel at xcllnt.net (Marcel Moolenaar)
+Date: Sat Sep  3 21:03:50 2005
+Subject: [PATCH] Add membar to bus dma PREWRITE operations
+In-Reply-To: <200509021324.13391.jhb@FreeBSD.org>
+References: <200509021324.13391.jhb@FreeBSD.org>
+Message-ID: <8805E3B0-6C63-47D8-861B-16A0AF36369B@xcllnt.net>
+
+On Sep 2, 2005, at 10:24 AM, John Baldwin wrote:
+
+> --- //depot/vendor/freebsd/src/sys/alpha/alpha/busdma_machdep.c     
+> 2005/05/25
+> 07:26:16
+> +++ //depot/user/jhb/acpipci/alpha/alpha/busdma_machdep.c     
+> 2005/08/18 17:55:22
+> @@ -891,6 +891,10 @@
+>              }
+>          }
+>      }
+> +
+> +    /* Ensure any pending writes have drained. */
+> +    if (op & (BUS_DMASYNC_PREWRITE))
+> +        alpha_mb();
+>  }
+>
+>  static void
+
+Ok on -current.
+
+-- 
+  Marcel Moolenaar         USPA: A-39004          marcel@xcllnt.net
+
+From marcel at xcllnt.net  Sat Sep  3 21:04:38 2005
+From: marcel at xcllnt.net (Marcel Moolenaar)
+Date: Sat Sep  3 21:04:40 2005
+Subject: [PATCH] Cleanup asm constraints in atomic operations
+In-Reply-To: <200509021542.22227.jhb@FreeBSD.org>
+References: <200509021532.54579.jhb@FreeBSD.org>
+	<200509021542.22227.jhb@FreeBSD.org>
+Message-ID: <85605CF9-72E5-440D-A809-7AD6C0689074@xcllnt.net>
+
+
+On Sep 2, 2005, at 12:42 PM, John Baldwin wrote:
+
+> http://www.FreeBSD.org/~jhb/patches/atomic.patch
+
+Ok for alpha on -current.
+
+-- 
+  Marcel Moolenaar         USPA: A-39004          marcel@xcllnt.net
+
+
+From bugmaster at freebsd.org  Mon Sep  5 04:02:00 2005
+From: bugmaster at freebsd.org (FreeBSD bugmaster)
+Date: Mon Sep  5 04:02:02 2005
+Subject: Current problem reports assigned to you
+Message-ID: <200509051101.j85B1xDn076792@freefall.freebsd.org>
+
+Current FreeBSD problem reports
+Critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2004/12/20] alpha/75317 alpha       ATA DMA broken on PCalpha
+
+1 problem total.
+
+Serious problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2003/02/05] alpha/47952 alpha       DEFPA causes machine check with V5.0-rele
+o [2003/11/10] alpha/59116 alpha       [ntfs] mount_ntfs of a Windows 2000-forma
+o [2004/01/26] alpha/61940 alpha       Can't disklabel new disk from FreeBSD/alp
+o [2004/01/27] alpha/61973 alpha       Machine Check on boot-up of AlphaServer 2
+f [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+
+5 problems total.
+
+Non-critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2001/02/22] alpha/25284 alpha       PC164 won't reboot with graphics console
+f [2001/07/29] alpha/29299 alpha       FreeBSD 4.3 Alpha + Tekram SCSI adapter p
+o [2002/05/13] alpha/38031 alpha       osf1.ko not loaded during boot-time of li
+o [2003/02/25] alpha/48676 alpha       Changing the baud rate of serial consoles
+o [2003/04/12] alpha/50868 alpha       fd0 floppy device is not mapped into /dev
+o [2004/05/10] alpha/66478 alpha       unexpected machine check: panic for 4.9, 
+o [2004/06/13] alpha/67903 alpha       hw.chipset.memory: 1099511627776 - thats 
+
+7 problems total.
+
+From grossp at hawaii.edu  Wed Sep  7 03:45:19 2005
+From: grossp at hawaii.edu (Pete Gross)
+Date: Wed Sep  7 03:45:22 2005
+Subject: DEC 500a
+Message-ID: <Pine.GSO.4.58a.0509070037220.11377@uhunix2>
+
+I have download the alpha iso for fbsd 5.4.  I am trying to install it,
+but I am not having any luck.  I have tried to find info on google or irc,
+but haven't had any luck there either.
+
+Basically my problem is that when I type 'boot dka0' at the srm prompt it
+goes and loads the kernel, but it eventually just stops and says
+
+"halted cpu 0
+ halt code = 5
+HALT instruction executed
+PC = 1C"
+
+The last couple lines before this is detecting the scsi qlogic 1020/1040
+adapter.
+
+I am wondering what is going wrong and what can I do to fix this problem?
+
+
+Thanks in advanced.
+
+Pete
+
+
+
+From wb at freebie.xs4all.nl  Wed Sep  7 03:56:36 2005
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Wed Sep  7 03:56:38 2005
+Subject: DEC 500a
+In-Reply-To: <Pine.GSO.4.58a.0509070037220.11377@uhunix2>
+References: <Pine.GSO.4.58a.0509070037220.11377@uhunix2>
+Message-ID: <20050907105632.GA3639@freebie.xs4all.nl>
+
+On Wed, Sep 07, 2005 at 12:45:18AM -1000, Pete Gross wrote..
+> I have download the alpha iso for fbsd 5.4.  I am trying to install it,
+> but I am not having any luck.  I have tried to find info on google or irc,
+> but haven't had any luck there either.
+> 
+> Basically my problem is that when I type 'boot dka0' at the srm prompt it
+> goes and loads the kernel, but it eventually just stops and says
+> 
+> "halted cpu 0
+>  halt code = 5
+> HALT instruction executed
+> PC = 1C"
+> 
+> The last couple lines before this is detecting the scsi qlogic 1020/1040
+> adapter.
+> 
+> I am wondering what is going wrong and what can I do to fix this problem?
+
+Post the complete bootlog please.
+
+A SHOW CONF from the >>> prompt typically is also useful.
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From Riccardo.Veraldi at fi.infn.it  Wed Sep  7 03:58:04 2005
+From: Riccardo.Veraldi at fi.infn.it (Riccardo Veraldi)
+Date: Wed Sep  7 03:58:07 2005
+Subject: DEC 500a
+In-Reply-To: <Pine.GSO.4.58a.0509070037220.11377@uhunix2>
+References: <Pine.GSO.4.58a.0509070037220.11377@uhunix2>
+Message-ID: <431EC7D3.10806@fi.infn.it>
+
+
+have you issued a
+
+"sh dev"
+
+command to see all your scsi devices ?
+
+type "boot CDDEVICE"  where CDCDEVICE is the device name of your CDROM
+and the installation should start.
+
+Rick
+
+Pete Gross wrote:
+
+> I have download the alpha iso for fbsd 5.4.  I am trying to install it,
+> but I am not having any luck.  I have tried to find info on google or irc,
+> but haven't had any luck there either.
+> 
+> Basically my problem is that when I type 'boot dka0' at the srm prompt it
+> goes and loads the kernel, but it eventually just stops and says
+> 
+> "halted cpu 0
+>  halt code = 5
+> HALT instruction executed
+> PC = 1C"
+> 
+> The last couple lines before this is detecting the scsi qlogic 1020/1040
+> adapter.
+> 
+> I am wondering what is going wrong and what can I do to fix this problem?
+> 
+> 
+> Thanks in advanced.
+> 
+> Pete
+> 
+> 
+> 
+> _______________________________________________
+> freebsd-alpha@freebsd.org mailing list
+> http://lists.freebsd.org/mailman/listinfo/freebsd-alpha
+> To unsubscribe, send any mail to "freebsd-alpha-unsubscribe@freebsd.org"
+
+
+From rbyrnes at mailshack.com  Wed Sep  7 18:38:58 2005
+From: rbyrnes at mailshack.com (Rob B)
+Date: Wed Sep  7 18:39:06 2005
+Subject: Crash on Alpha - 4.11-STABLE
+In-Reply-To: <6.2.3.4.2.20050812175719.029b56a8@127.0.0.1>
+References: <6.2.3.4.2.20050812175719.029b56a8@127.0.0.1>
+Message-ID: <6.2.3.4.2.20050908113155.028ea6c8@mail.nerdshack.com>
+
+At 06:10 PM 12/08/2005, Rob B wrote:
+>Hi there,
+>
+>This is the second time I've seen this crash in the past three 
+>weeks. I'm not sure what the root cause either.
+>
+>This box is just a home server with a single NFS exported directory 
+>and one NFS client.  It is also a caching http proxy server for my 
+>home LAN (three machines).  The crash is not occurring during busy 
+>times for the proxy side of things, as it happened at 2:01am.
+>
+>
+>FreeBSD erwin.number6 4.11-STABLE FreeBSD 4.11-STABLE #9: Mon Jun 13 
+>23:54:13 EST 2005     root@erwin.number6:/usr/obj/usr/src/sys/ERWIN  alpha
+>
+>
+>         panic: ffs_write: dir_write
+>panic
+>Stopped at Debugger+02xc: ldq ra,0(sp) <0xfffffe000bab5988> 
+><ra=0xfffffc0000557be0, sp=0xfffffe000ba5988>
+>
+>db> trace
+>
+>Debugger() at Debugger+02xc
+>panic() at panic+0x2c
+>ffs_write() at ffs_write+0x120
+>vnode_pager_generic_putpages() at vnode_pager_generic_putpages+0x21c
+>ffs_putpages() at ffs_putpages+0x30
+>vnode_pager_putpages() at vnode_pager_putpages+0x9c
+>vm_pageout_flush() at vm_pageout_flush+0x15c
+
+
+This crash happened again at exactly the same place.  Traceback gives 
+identical output
+
+Rob 
+
+
+From grossp at hawaii.edu  Thu Sep  8 13:28:49 2005
+From: grossp at hawaii.edu (Pete Gross)
+Date: Thu Sep  8 13:28:52 2005
+Subject: DEC 500a
+Message-ID: <Pine.GSO.4.58a.0509081026270.10992@uhunix2>
+
+Some of you have tried to help me fix my problem, but as I know have a
+boot log and a show conf output, I am posting it here so that someone
+could possibly give me some help in figuring out why I am not able to boot
+fbsd 5.4.  I have posted both the show conf and boot log at:
+
+http://carl.ics.hawaii.edu/~pete/alpha.txt
+
+
+Thanks.
+Pete
+
+
+
+From tinderbox at freebsd.org  Sat Sep 10 21:53:39 2005
+From: tinderbox at freebsd.org (FreeBSD Tinderbox)
+Date: Sat Sep 10 21:53:44 2005
+Subject: [head tinderbox] failure on alpha/alpha
+Message-ID: <20050911045336.5402D7302F@freebsd-current.sentex.ca>
+
+TB --- 2005-09-11 03:16:39 - tinderbox 2.3 running on freebsd-current.sentex.ca
+TB --- 2005-09-11 03:16:39 - starting HEAD tinderbox run for alpha/alpha
+TB --- 2005-09-11 03:16:39 - cleaning the object tree
+TB --- 2005-09-11 03:17:01 - checking out the source tree
+TB --- 2005-09-11 03:17:01 - cd /tinderbox/HEAD/alpha/alpha
+TB --- 2005-09-11 03:17:01 - /usr/bin/cvs -f -R -q -d/home/ncvs update -Pd -A src
+TB --- 2005-09-11 03:22:45 - building world (CFLAGS=-O2 -pipe)
+TB --- 2005-09-11 03:22:45 - cd /src
+TB --- 2005-09-11 03:22:45 - /usr/bin/make -B buildworld
+>>> Rebuilding the temporary build tree
+>>> stage 1.1: legacy release compatibility shims
+>>> stage 1.2: bootstrap tools
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3: cross tools
+>>> stage 4.1: building includes
+>>> stage 4.2: building libraries
+>>> stage 4.3: make dependencies
+>>> stage 4.4: building everything
+TB --- 2005-09-11 04:33:30 - building generic kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-09-11 04:33:30 - cd /src
+TB --- 2005-09-11 04:33:30 - /usr/bin/make buildkernel KERNCONF=GENERIC
+>>> Kernel build for GENERIC started on Sun Sep 11 04:33:30 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+>>> Kernel build for GENERIC completed on Sun Sep 11 04:51:48 UTC 2005
+TB --- 2005-09-11 04:51:48 - generating LINT kernel config
+TB --- 2005-09-11 04:51:48 - cd /src/sys/alpha/conf
+TB --- 2005-09-11 04:51:48 - /usr/bin/make -B LINT
+TB --- 2005-09-11 04:51:48 - building LINT kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-09-11 04:51:48 - cd /src
+TB --- 2005-09-11 04:51:48 - /usr/bin/make buildkernel KERNCONF=LINT
+>>> Kernel build for LINT started on Sun Sep 11 04:51:49 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+[...]
+/src/sys/netgraph/atm/uni/ng_uni.c:52:35: netnatm/msg/unistruct.h: No such file or directory
+/src/sys/netgraph/atm/uni/ng_uni.c:54:35: netnatm/saal/sscopdef.h: No such file or directory
+/src/sys/netgraph/atm/uni/ng_uni.c:55:35: netnatm/saal/sscfudef.h: No such file or directory
+/src/sys/netgraph/atm/uni/ng_uni.c:57:29: netnatm/sig/uni.h: No such file or directory
+/src/sys/netgraph/atm/uni/ng_uni.c:58:32: netnatm/sig/unisig.h: No such file or directory
+/src/sys/netinet/in_proto.c:92:23: net/pfvar.h: No such file or directory
+/src/sys/netinet/in_proto.c:93:27: net/if_pfsync.h: No such file or directory
+mkdep: compile failed
+*** Error code 1
+
+Stop in /obj/alpha/src/sys/LINT.
+*** Error code 1
+
+Stop in /src.
+*** Error code 1
+
+Stop in /src.
+TB --- 2005-09-11 04:53:36 - WARNING: /usr/bin/make returned exit code  1 
+TB --- 2005-09-11 04:53:36 - ERROR: failed to build lint kernel
+TB --- 2005-09-11 04:53:36 - tinderbox aborted
+
+From bugmaster at freebsd.org  Mon Sep 12 04:01:57 2005
+From: bugmaster at freebsd.org (FreeBSD bugmaster)
+Date: Mon Sep 12 04:02:00 2005
+Subject: Current problem reports assigned to you
+Message-ID: <200509121101.j8CB1tNK025337@freefall.freebsd.org>
+
+Current FreeBSD problem reports
+Critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2004/12/20] alpha/75317 alpha       ATA DMA broken on PCalpha
+
+1 problem total.
+
+Serious problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2003/02/05] alpha/47952 alpha       DEFPA causes machine check with V5.0-rele
+o [2003/11/10] alpha/59116 alpha       [ntfs] mount_ntfs of a Windows 2000-forma
+o [2004/01/26] alpha/61940 alpha       Can't disklabel new disk from FreeBSD/alp
+o [2004/01/27] alpha/61973 alpha       Machine Check on boot-up of AlphaServer 2
+f [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+
+5 problems total.
+
+Non-critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2001/02/22] alpha/25284 alpha       PC164 won't reboot with graphics console
+f [2001/07/29] alpha/29299 alpha       FreeBSD 4.3 Alpha + Tekram SCSI adapter p
+o [2002/05/13] alpha/38031 alpha       osf1.ko not loaded during boot-time of li
+o [2003/02/25] alpha/48676 alpha       Changing the baud rate of serial consoles
+o [2003/04/12] alpha/50868 alpha       fd0 floppy device is not mapped into /dev
+o [2004/05/10] alpha/66478 alpha       unexpected machine check: panic for 4.9, 
+o [2004/06/13] alpha/67903 alpha       hw.chipset.memory: 1099511627776 - thats 
+
+7 problems total.
+
+From tillman at seekingfire.com  Wed Sep 14 20:20:25 2005
+From: tillman at seekingfire.com (Tillman Hodgson)
+Date: Wed Sep 14 20:20:27 2005
+Subject: 6.0-beta4 on 2100A: unexpected machine check
+Message-ID: <20050915032021.GO33112@seekingfire.com>
+
+Howdy folks,
+
+I recently acquired a nice 4-CPU 512MB 2100A "Lynx" machine. This is my
+first FreeBSD install on Alpha (though I've run it on i386 and sparc64
+for years). I ran into rouble while trying to boot the install kernel.
+THis might be related to the thread I found at
+http://lists.freebsd.org/pipermail/freebsd-alpha/2005-August/002659.html
+... at least, the symptoms seem similar to my uneducated-in-Alpha eye.
+
+Unfortunately, I don't have a serial console hooked up at the moment
+(it's in the wrong room to connect to my digiport and it's much too
+large to move up the stairs), so all of the following is tped in from my
+handwritten notes.
+
+After issuing a 'boot DKA600':
+
+----------
+FreeBSD/SMP: Multiprocessor system detected: 4 CPUs
+CPU0 (BSP): PAL ID: 0
+CPU1  (AP): PAL ID: 1
+CPU2  (AP): PAL ID: 2
+CPU3  (AP): PAL ID: 3
+t20: using interrupt typ1 on pci bus 0
+t20: <T2 Core Logic chipset>
+pcib0: <T2 PCI host bus adapter> on t20
+eisab0: <PCI-EISA bridge> at device 2.0 on pci0
+----------
+
+(Note that there are no EISA cards, just some PCI cards)
+
+The error then occurs, and looks like this:
+
+----------
+unexpected machine check:
+
+    mces    = 0x1
+    vector  = 0x670
+    param   = 0xfffffc0000006000
+    pc      = 0xfffffc00003d49f0
+    ra      = 0xfffffc00003d49d4
+    curproc = 0xfffffc0000912be0
+        pid = 0, comm = swapper
+
+[thread pid 0 tid 0]
+stopped at eisa_probe_slot+0x80: add s0,#01,s0 <s0=0x0>
+----------
+
+I notice that at this point I've been dumped to the db> debugger prompt,
+but the key mapping is messed up ... pressing 'g' gives me ',' for
+example.
+
+The output of 'show device' is:
+----------
+DKA0.0.0.2001.0   DKA0   Seagate ST32550W 9104
+DKA600.6.0.2001.0 DKA600 RRD45 1645
+DRA0.0.0.2007.0   DRA0   5 member RAID 5
+DVA0.0.0.1000.0   DVA0   RX25/RX23
+EWA0.0.0.2008.0   EWA0   (the MAC address)
+PKA0.7.0.2001.0   PKA0   SCSI Bus ID 7
+PKB0.7.0.7.0      PKB0   SCSI Bus ID 7 R01 A12
+----------
+
+The output of 'show FRU' doesn't include any errors. Aside from the
+network card and the video card, all the remaining PCI cards are SCSI
+adapters (including the one full-length DAC960 RAID controller). I did
+pull 2 additional SCSI adapter that weren't in use to reduce the
+device-related possibilities.
+
+Does this problem look familiar to anyone? What's the best way to
+approach an "unexpected machine check" error?
+
+Thanks in advance for your time,
+
+-T
+
+
+
+-- 
+Infinity attracts us like a floodlight in the night, blinding us to the 
+excesses it can inflict upon the finite.
+	- Meditations from Bifrost Eyrie
+From phb1 at psulias.psu.edu  Thu Sep 15 07:46:55 2005
+From: phb1 at psulias.psu.edu (Paul Baughman)
+Date: Thu Sep 15 07:47:06 2005
+Subject: 6.0-beta4 on 2100A: unexpected machine check
+In-Reply-To: <20050915032021.GO33112@seekingfire.com>
+References: <20050915032021.GO33112@seekingfire.com>
+Message-ID: <6.2.1.2.2.20050915104109.02aa8e28@psulias.psu.edu>
+
+Tillman,
+
+I have two of these beasts, and recent freeBSD releases do not recognize 
+the machine.  The last I tried (5.2) freebsd will not install directly.  I 
+had to go back to 4.11 in order for the installer to recognize the machine 
+type.
+
+My plan when I got 4.11 installed was to build a release manually, but I 
+haven't had the time to do this.
+
+Unless one of the gurus says otherwise, I don't think you can install 
+directly.  Contrary-wise, if they *do* say it can be done, someone *please* 
+tell me how also.
+
+Paul Baughman
+
+At 11:20 PM 9/14/2005, Tillman Hodgson wrote:
+>Howdy folks,
+>
+>I recently acquired a nice 4-CPU 512MB 2100A "Lynx" machine. This is my
+>first FreeBSD install on Alpha (though I've run it on i386 and sparc64
+>for years). I ran into rouble while trying to boot the install kernel.
+>THis might be related to the thread I found at
+>http://lists.freebsd.org/pipermail/freebsd-alpha/2005-August/002659.html
+>... at least, the symptoms seem similar to my uneducated-in-Alpha eye.
+>
+>Unfortunately, I don't have a serial console hooked up at the moment
+>(it's in the wrong room to connect to my digiport and it's much too
+>large to move up the stairs), so all of the following is tped in from my
+>handwritten notes.
+>
+>After issuing a 'boot DKA600':
+>
+>----------
+>FreeBSD/SMP: Multiprocessor system detected: 4 CPUs
+>CPU0 (BSP): PAL ID: 0
+>CPU1  (AP): PAL ID: 1
+>CPU2  (AP): PAL ID: 2
+>CPU3  (AP): PAL ID: 3
+>t20: using interrupt typ1 on pci bus 0
+>t20: <T2 Core Logic chipset>
+>pcib0: <T2 PCI host bus adapter> on t20
+>eisab0: <PCI-EISA bridge> at device 2.0 on pci0
+>----------
+>
+>(Note that there are no EISA cards, just some PCI cards)
+>
+>The error then occurs, and looks like this:
+>
+>----------
+>unexpected machine check:
+>
+>     mces    = 0x1
+>     vector  = 0x670
+>     param   = 0xfffffc0000006000
+>     pc      = 0xfffffc00003d49f0
+>     ra      = 0xfffffc00003d49d4
+>     curproc = 0xfffffc0000912be0
+>         pid = 0, comm = swapper
+>
+>[thread pid 0 tid 0]
+>stopped at eisa_probe_slot+0x80: add s0,#01,s0 <s0=0x0>
+>----------
+>
+>I notice that at this point I've been dumped to the db> debugger prompt,
+>but the key mapping is messed up ... pressing 'g' gives me ',' for
+>example.
+>
+>The output of 'show device' is:
+>----------
+>DKA0.0.0.2001.0   DKA0   Seagate ST32550W 9104
+>DKA600.6.0.2001.0 DKA600 RRD45 1645
+>DRA0.0.0.2007.0   DRA0   5 member RAID 5
+>DVA0.0.0.1000.0   DVA0   RX25/RX23
+>EWA0.0.0.2008.0   EWA0   (the MAC address)
+>PKA0.7.0.2001.0   PKA0   SCSI Bus ID 7
+>PKB0.7.0.7.0      PKB0   SCSI Bus ID 7 R01 A12
+>----------
+>
+>The output of 'show FRU' doesn't include any errors. Aside from the
+>network card and the video card, all the remaining PCI cards are SCSI
+>adapters (including the one full-length DAC960 RAID controller). I did
+>pull 2 additional SCSI adapter that weren't in use to reduce the
+>device-related possibilities.
+>
+>Does this problem look familiar to anyone? What's the best way to
+>approach an "unexpected machine check" error?
+>
+>Thanks in advance for your time,
+>
+>-T
+>
+>
+>
+>--
+>Infinity attracts us like a floodlight in the night, blinding us to the
+>excesses it can inflict upon the finite.
+>         - Meditations from Bifrost Eyrie
+>_______________________________________________
+>freebsd-alpha@freebsd.org mailing list
+>http://lists.freebsd.org/mailman/listinfo/freebsd-alpha
+>To unsubscribe, send any mail to "freebsd-alpha-unsubscribe@freebsd.org"
+
+-----
+Paul Baughman
+Digital Library Technologies
+814-865-1818 
+
+From tillman at seekingfire.com  Thu Sep 15 21:00:49 2005
+From: tillman at seekingfire.com (Tillman Hodgson)
+Date: Thu Sep 15 21:00:51 2005
+Subject: 6.0-beta4 on 2100A: unexpected machine check
+In-Reply-To: <6.2.1.2.2.20050915104109.02aa8e28@psulias.psu.edu>
+References: <20050915032021.GO33112@seekingfire.com>
+	<6.2.1.2.2.20050915104109.02aa8e28@psulias.psu.edu>
+Message-ID: <20050916040047.GY33112@seekingfire.com>
+
+On Thu, Sep 15, 2005 at 10:46:44AM -0400, Paul Baughman wrote:
+> Tillman,
+> 
+> I have two of these beasts, and recent freeBSD releases do not recognize 
+> the machine.  The last I tried (5.2) freebsd will not install directly.  I 
+> had to go back to 4.11 in order for the installer to recognize the machine 
+> type.
+
+Ahhh. That's unfortunate, I was hoping to use this box to replace my
+last 4.X server.
+
+> My plan when I got 4.11 installed was to build a release manually, but I 
+> haven't had the time to do this.
+> 
+> Unless one of the gurus says otherwise, I don't think you can install 
+> directly.  Contrary-wise, if they *do* say it can be done, someone *please* 
+> tell me how also.
+
+Do you mean that once installed, a normal cvsup & build process will
+successfully get it to -CURRENT?
+
+-T
+
+
+-- 
+Look inside yourself and you can see the universe.
+	- Zensunni Aphorism
+From tillman at seekingfire.com  Fri Sep 16 06:05:00 2005
+From: tillman at seekingfire.com (Tillman Hodgson)
+Date: Fri Sep 16 06:05:03 2005
+Subject: 6.0-beta4 on 2100A: unexpected machine check
+In-Reply-To: <20050915032021.GO33112@seekingfire.com>
+References: <20050915032021.GO33112@seekingfire.com>
+Message-ID: <20050916130459.GC33112@seekingfire.com>
+
+On Wed, Sep 14, 2005 at 09:20:21PM -0600, Tillman Hodgson wrote:
+> Howdy folks,
+> 
+> I recently acquired a nice 4-CPU 512MB 2100A "Lynx" machine. This is my
+> first FreeBSD install on Alpha (though I've run it on i386 and sparc64
+> for years). I ran into rouble while trying to boot the install kernel.
+> THis might be related to the thread I found at
+> http://lists.freebsd.org/pipermail/freebsd-alpha/2005-August/002659.html
+> ... at least, the symptoms seem similar to my uneducated-in-Alpha eye.
+
+There appears to be a PR for this issue:
+http://www.freebsd.org/cgi/query-pr.cgi?pr=61973
+
+Unfortunately, it hasn't been touched in a year.
+
+
+-T
+
+
+-- 
+Zen is like looking for spectacles that are sitting on your nose.
+	- Zen saying
+From tinderbox at freebsd.org  Fri Sep 16 12:33:49 2005
+From: tinderbox at freebsd.org (FreeBSD Tinderbox)
+Date: Fri Sep 16 12:34:07 2005
+Subject: [head tinderbox] failure on alpha/alpha
+Message-ID: <20050916193347.21CAE7302F@freebsd-current.sentex.ca>
+
+TB --- 2005-09-16 18:02:46 - tinderbox 2.3 running on freebsd-current.sentex.ca
+TB --- 2005-09-16 18:02:46 - starting HEAD tinderbox run for alpha/alpha
+TB --- 2005-09-16 18:02:46 - cleaning the object tree
+TB --- 2005-09-16 18:03:07 - checking out the source tree
+TB --- 2005-09-16 18:03:07 - cd /tinderbox/HEAD/alpha/alpha
+TB --- 2005-09-16 18:03:07 - /usr/bin/cvs -f -R -q -d/home/ncvs update -Pd -A src
+TB --- 2005-09-16 18:08:59 - building world (CFLAGS=-O2 -pipe)
+TB --- 2005-09-16 18:08:59 - cd /src
+TB --- 2005-09-16 18:08:59 - /usr/bin/make -B buildworld
+>>> Rebuilding the temporary build tree
+>>> stage 1.1: legacy release compatibility shims
+>>> stage 1.2: bootstrap tools
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3: cross tools
+>>> stage 4.1: building includes
+>>> stage 4.2: building libraries
+>>> stage 4.3: make dependencies
+>>> stage 4.4: building everything
+TB --- 2005-09-16 19:12:25 - building generic kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-09-16 19:12:25 - cd /src
+TB --- 2005-09-16 19:12:25 - /usr/bin/make buildkernel KERNCONF=GENERIC
+>>> Kernel build for GENERIC started on Fri Sep 16 19:12:25 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+>>> Kernel build for GENERIC completed on Fri Sep 16 19:25:38 UTC 2005
+TB --- 2005-09-16 19:25:38 - generating LINT kernel config
+TB --- 2005-09-16 19:25:38 - cd /src/sys/alpha/conf
+TB --- 2005-09-16 19:25:38 - /usr/bin/make -B LINT
+TB --- 2005-09-16 19:25:38 - building LINT kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-09-16 19:25:38 - cd /src
+TB --- 2005-09-16 19:25:38 - /usr/bin/make buildkernel KERNCONF=LINT
+>>> Kernel build for LINT started on Fri Sep 16 19:25:38 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+[...]
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/net/if_spppsubr.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/net/if_stf.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/net/if_tun.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/net/if_tap.c
+cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/net/if_vlan.c
+/src/sys/net/if_vlan.c: In function `vlan_start':
+/src/sys/net/if_vlan.c:540: warning: format argument is not a pointer (arg 2)
+/src/sys/net/if_vlan.c:540: warning: field width is not type int (arg 3)
+*** Error code 1
+
+Stop in /obj/alpha/src/sys/LINT.
+*** Error code 1
+
+Stop in /src.
+*** Error code 1
+
+Stop in /src.
+TB --- 2005-09-16 19:33:46 - WARNING: /usr/bin/make returned exit code  1 
+TB --- 2005-09-16 19:33:46 - ERROR: failed to build lint kernel
+TB --- 2005-09-16 19:33:46 - tinderbox aborted
+
+From ru at FreeBSD.org  Fri Sep 16 13:39:24 2005
+From: ru at FreeBSD.org (Ruslan Ermilov)
+Date: Fri Sep 16 13:39:36 2005
+Subject: [head tinderbox] failure on alpha/alpha
+In-Reply-To: <20050916193347.21CAE7302F@freebsd-current.sentex.ca>
+References: <20050916193347.21CAE7302F@freebsd-current.sentex.ca>
+Message-ID: <20050916203935.GB22151@ip.net.ua>
+
+On Fri, Sep 16, 2005 at 03:33:47PM -0400, FreeBSD Tinderbox wrote:
+> >>> stage 3.2: building everything
+> [...]
+> cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/net/if_spppsubr.c
+> cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/net/if_stf.c
+> cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/net/if_tun.c
+> cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/net/if_tap.c
+> cc -c -O2 -pipe -fno-strict-aliasing -mcpu=ev4 -mtune=ev5 -mieee -Wall -Wredundant-decls -Wnested-externs -Wstrict-prototypes  -Wmissing-prototypes -Wpointer-arith -Winline -Wcast-qual  -fformat-extensions -std=c99  -nostdinc -I-  -I. -I/src/sys -I/src/sys/contrib/dev/acpica -I/src/sys/contrib/altq -D_KERNEL -include opt_global.h -fno-common -finline-limit=15000 --param inline-unit-growth=100 --param large-function-growth=1000 -fno-builtin -mno-fp-regs -ffixed-8 -Wa,-mev6 -ffreestanding -Werror  /src/sys/net/if_vlan.c
+> /src/sys/net/if_vlan.c: In function `vlan_start':
+> /src/sys/net/if_vlan.c:540: warning: format argument is not a pointer (arg 2)
+> /src/sys/net/if_vlan.c:540: warning: field width is not type int (arg 3)
+> *** Error code 1
+> 
+> Stop in /obj/alpha/src/sys/LINT.
+> *** Error code 1
+> 
+Should be fixed.
+
+
+Cheers,
+-- 
+Ruslan Ermilov
+ru@FreeBSD.org
+FreeBSD committer
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: not available
+Type: application/pgp-signature
+Size: 187 bytes
+Desc: not available
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050916/17617758/attachment.bin
+From macgyver at calibre-solutions.co.uk  Sun Sep 18 09:10:27 2005
+From: macgyver at calibre-solutions.co.uk (Angus MacGyver)
+Date: Sun Sep 18 09:10:31 2005
+Subject: more Fun with Jails.
+Message-ID: <1127059823.13699.20.camel@yavin4.calibre-solutions.co.uk>
+
+Hi all...
+
+Currently running 5.4, p5 with 4 jails configured and running their own
+nice software..
+
+Coming up to looking at the firewall situation..
+
+so, did this..
+ipfw add 0100 allow ip from any to any via lo0
+... 
+...
+
+When I actually set this rule up to log, i can see all traffice between
+the 4 jails is going via lo0..
+Ok, great, sorta....
+
+1) It's good as nothing is seen on the outside world
+
+2) It's bad, as it means that any traffic to/from all jails and it's
+host is allowed, which I may not want to do for any obvious reason.
+
+
+Question is..
+Can I force any traffic from one jail, say 10.0.1.2 to 10.0.1.3 go via a
+real interface, say xl0, and then apply nice firewall rules as expected,
+
+or do i have to put up with this situation???
+
+(I am setting up allowing ip from any to any via lo0 simply as a lot of
+internal things will break, or so I am led to beleive)
+
+Can anyone assist ?
+
+Regards
+AM
+
+-- 
+Angus MacGyver <macgyver@calibre-solutions.co.uk>
+
+From bugmaster at freebsd.org  Mon Sep 19 04:02:05 2005
+From: bugmaster at freebsd.org (FreeBSD bugmaster)
+Date: Mon Sep 19 04:02:07 2005
+Subject: Current problem reports assigned to you
+Message-ID: <200509191102.j8JB23Ld017970@freefall.freebsd.org>
+
+Current FreeBSD problem reports
+Critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2004/12/20] alpha/75317 alpha       ATA DMA broken on PCalpha
+
+1 problem total.
+
+Serious problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2003/02/05] alpha/47952 alpha       DEFPA causes machine check with V5.0-rele
+o [2003/11/10] alpha/59116 alpha       [ntfs] mount_ntfs of a Windows 2000-forma
+o [2004/01/26] alpha/61940 alpha       Can't disklabel new disk from FreeBSD/alp
+o [2004/01/27] alpha/61973 alpha       Machine Check on boot-up of AlphaServer 2
+f [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+
+5 problems total.
+
+Non-critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2001/02/22] alpha/25284 alpha       PC164 won't reboot with graphics console
+f [2001/07/29] alpha/29299 alpha       FreeBSD 4.3 Alpha + Tekram SCSI adapter p
+o [2002/05/13] alpha/38031 alpha       osf1.ko not loaded during boot-time of li
+o [2003/02/25] alpha/48676 alpha       Changing the baud rate of serial consoles
+o [2003/04/12] alpha/50868 alpha       fd0 floppy device is not mapped into /dev
+o [2004/05/10] alpha/66478 alpha       unexpected machine check: panic for 4.9, 
+o [2004/06/13] alpha/67903 alpha       hw.chipset.memory: 1099511627776 - thats 
+
+7 problems total.
+
+From tinderbox at freebsd.org  Mon Sep 19 07:55:27 2005
+From: tinderbox at freebsd.org (FreeBSD Tinderbox)
+Date: Mon Sep 19 07:55:35 2005
+Subject: [head tinderbox] failure on alpha/alpha
+Message-ID: <20050919145521.A4F767302F@freebsd-current.sentex.ca>
+
+TB --- 2005-09-19 14:38:19 - tinderbox 2.3 running on freebsd-current.sentex.ca
+TB --- 2005-09-19 14:38:19 - starting HEAD tinderbox run for alpha/alpha
+TB --- 2005-09-19 14:38:19 - cleaning the object tree
+TB --- 2005-09-19 14:38:40 - checking out the source tree
+TB --- 2005-09-19 14:38:40 - cd /tinderbox/HEAD/alpha/alpha
+TB --- 2005-09-19 14:38:40 - /usr/bin/cvs -f -R -q -d/home/ncvs update -Pd -A src
+TB --- 2005-09-19 14:44:47 - building world (CFLAGS=-O2 -pipe)
+TB --- 2005-09-19 14:44:47 - cd /src
+TB --- 2005-09-19 14:44:47 - /usr/bin/make -B buildworld
+>>> Rebuilding the temporary build tree
+>>> stage 1.1: legacy release compatibility shims
+>>> stage 1.2: bootstrap tools
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3: cross tools
+>>> stage 4.1: building includes
+>>> stage 4.2: building libraries
+[...]
+                 from /src/lib/libkvm/kvm.c:48:
+/obj/alpha/src/tmp/usr/include/machine/pmap.h:45:1: unterminated #ifndef
+In file included from /obj/alpha/src/tmp/usr/include/sys/user.h:50,
+                 from /src/lib/libkvm/kvm.c:48:
+/obj/alpha/src/tmp/usr/include/vm/pmap.h:68:1: unterminated #ifndef
+In file included from /src/lib/libkvm/kvm.c:48:
+/obj/alpha/src/tmp/usr/include/sys/user.h:37:1: unterminated #ifndef
+/obj/alpha/src/tmp/usr/include/sys/user.h:33:1: unterminated #ifndef
+*** Error code 1
+
+Stop in /src/lib/libkvm.
+*** Error code 1
+
+Stop in /src.
+*** Error code 1
+
+Stop in /src.
+*** Error code 1
+
+Stop in /src.
+*** Error code 1
+
+Stop in /src.
+TB --- 2005-09-19 14:55:21 - WARNING: /usr/bin/make returned exit code  1 
+TB --- 2005-09-19 14:55:21 - ERROR: failed to build world
+TB --- 2005-09-19 14:55:21 - tinderbox aborted
+
+From ticso at cicely12.cicely.de  Mon Sep 19 10:41:48 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Mon Sep 19 10:41:56 2005
+Subject: [head tinderbox] failure on alpha/alpha
+In-Reply-To: <20050919145521.A4F767302F@freebsd-current.sentex.ca>
+References: <20050919145521.A4F767302F@freebsd-current.sentex.ca>
+Message-ID: <20050919174104.GC552@cicely12.cicely.de>
+
+On Mon, Sep 19, 2005 at 10:55:21AM -0400, FreeBSD Tinderbox wrote:
+> [...]
+>                  from /src/lib/libkvm/kvm.c:48:
+> /obj/alpha/src/tmp/usr/include/machine/pmap.h:45:1: unterminated #ifndef
+> In file included from /obj/alpha/src/tmp/usr/include/sys/user.h:50,
+>                  from /src/lib/libkvm/kvm.c:48:
+> /obj/alpha/src/tmp/usr/include/vm/pmap.h:68:1: unterminated #ifndef
+> In file included from /src/lib/libkvm/kvm.c:48:
+> /obj/alpha/src/tmp/usr/include/sys/user.h:37:1: unterminated #ifndef
+> /obj/alpha/src/tmp/usr/include/sys/user.h:33:1: unterminated #ifndef
+
+My fault, just tested kernel builds.
+Will commit a fix soon.
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+
+From kris at FreeBSD.org  Tue Sep 20 23:46:50 2005
+From: kris at FreeBSD.org (Kris Kennaway)
+Date: Tue Sep 20 23:46:52 2005
+Subject: alpha/85346: PREEMPTION causes unstability in Alpha4000 SMP
+	kernel
+Message-ID: <200509210646.j8L6knAR067622@freefall.freebsd.org>
+
+Synopsis: PREEMPTION causes unstability in Alpha4000 SMP kernel
+
+Responsible-Changed-From-To: freebsd-bugs->freebsd-alpha
+Responsible-Changed-By: kris
+Responsible-Changed-When: Wed Sep 21 06:46:32 GMT 2005
+Responsible-Changed-Why: 
+Sounds alpha-specific
+
+http://www.freebsd.org/cgi/query-pr.cgi?pr=85346
+From bobhead at frontiernet.net  Wed Sep 21 08:00:39 2005
+From: bobhead at frontiernet.net (Ron Nelson)
+Date: Wed Sep 21 08:01:11 2005
+Subject: school mascot items
+Message-ID: <20050921150021.9F6F5358541@relay03.roc.ny.frontiernet.net>
+
+Mascot items made to your specifications.
+Minimum quantity is only 120.
+
+Priced for great profits
+
+Bobblehead mascots--
+Mascot ornaments--
+Magnets--
+Chain pulls--
+Garden stepping stones with school name and logo or mascot--
+Special teacher, coach or individual
+
+We can probably make any item you can think of at an unbelievably low price.
+
+Email us for quotes and questions.  rnelson@bobhead.com 
+
+go here for a details page www.bobhead.com/process.htm
+
+Please pass this information on to your sports boosters or anyone interested in mascot items for fund raising.
+
+Our online school catalog  www.bobhead.com/catalog.htm 
+
+Nelson Sports Collectibles
+www.bobhead.com
+800 275 3586
+
+
+
+From jhb at FreeBSD.org  Wed Sep 21 12:20:12 2005
+From: jhb at FreeBSD.org (John Baldwin)
+Date: Wed Sep 21 12:20:18 2005
+Subject: alpha/85346: PREEMPTION causes unstability in Alpha4000 SMP
+	kernel
+Message-ID: <200509211920.j8LJKBSJ063080@freefall.freebsd.org>
+
+The following reply was made to PR alpha/85346; it has been noted by GNATS.
+
+From: John Baldwin <jhb@FreeBSD.org>
+To: bug-followup@FreeBSD.org,
+ ken@alicorntech.com
+Cc:  
+Subject: Re: alpha/85346: PREEMPTION causes unstability in Alpha4000 SMP kernel
+Date: Wed, 21 Sep 2005 15:17:01 -0400
+
+ Hmm, I still don't run with PREEMPTION enabled on my DS20 on HEAD.  In my 
+ experience I haven't gotten any panics, just hard locks when I have enabled 
+ PREEMPTION and SMP on Alpha.  You can try testing this patch to see if it 
+ helps things at all though:
+ 
+ --- //depot/projects/smpng/sys/alpha/alpha/interrupt.c	2005/04/14 18:55:16
+ +++ //depot/user/jhb/preemption/alpha/alpha/interrupt.c	2005/04/14 19:32:16
+ @@ -427,6 +427,13 @@
+  	atomic_add_long(i->cntp, 1);
+  
+  	/*
+ +	 * It seems that we need to return from an interrupt back to PAL
+ +	 * on the same CPU that received the interrupt, so pin the interrupted
+ +	 * thread to the current CPU until we return from the interrupt.
+ +	 */
+ +	sched_pin();
+ +
+ +	/*
+  	 * Handle a fast interrupt if there is no actual thread for this
+  	 * interrupt by calling the handler directly without Giant.  Note
+  	 * that this means that any fast interrupt handler must be MP safe.
+ @@ -435,26 +442,18 @@
+  	if ((ih->ih_flags & IH_FAST) != 0) {
+  		critical_enter();
+  		ih->ih_handler(ih->ih_argument);
+ -		/* XXX */
+ -		curthread->td_owepreempt = 0;
+  		critical_exit();
+ -		return;
+ -	}
+ +	} else {
+ +		if (ithd->it_disable) {
+ +			CTR1(KTR_INTR,
+ +			    "alpha_dispatch_intr: disabling vector 0x%x",
+ +			    i->vector);
+ +			ithd->it_disable(ithd->it_vector);
+ +		}
+  
+ -	if (ithd->it_disable) {
+ -		CTR1(KTR_INTR,
+ -		    "alpha_dispatch_intr: disabling vector 0x%x", i->vector);
+ -		ithd->it_disable(ithd->it_vector);
+ +		error = ithread_schedule(ithd);
+ +		KASSERT(error == 0, ("got an impossible stray interrupt"));
+  	}
+ -
+ -	/*
+ -	 * It seems that we need to return from an interrupt back to PAL
+ -	 * on the same CPU that received the interrupt, so pin the interrupted
+ -	 * thread to the current CPU until we return from the interrupt.
+ -	 */
+ -	sched_pin();
+ -	error = ithread_schedule(ithd);
+ -	KASSERT(error == 0, ("got an impossible stray interrupt"));
+  	sched_unpin();
+  }
+  
+ --- //depot/projects/smpng/sys/kern/kern_thread.c	2005/05/27 14:58:46
+ +++ //depot/user/jhb/preemption/kern/kern_thread.c	2005/05/27 19:03:12
+ @@ -955,9 +957,11 @@
+  	mtx_assert(&sched_lock, MA_OWNED);
+  	PROC_LOCK_ASSERT(p, MA_OWNED);
+  	if (!P_SHOULDSTOP(p)) {
+ +		critical_enter();
+  		while ((td = TAILQ_FIRST(&p->p_suspended))) {
+  			thread_unsuspend_one(td);
+  		}
+ +		critical_exit();
+  	} else if ((P_SHOULDSTOP(p) == P_STOPPED_SINGLE) &&
+  	    (p->p_numthreads == p->p_suspcount)) {
+  		/*
+ @@ -992,9 +996,11 @@
+  	 * to continue however as this is a bad place to stop.
+  	 */
+  	if ((p->p_numthreads != 1) && (!P_SHOULDSTOP(p))) {
+ +		critical_enter();
+  		while ((td = TAILQ_FIRST(&p->p_suspended))) {
+  			thread_unsuspend_one(td);
+  		}
+ +		critical_exit();
+  	}
+  	mtx_unlock_spin(&sched_lock);
+  }
+ --- //depot/projects/smpng/sys/kern/subr_sleepqueue.c	2005/09/15 19:40:43
+ +++ //depot/user/jhb/preemption/kern/subr_sleepqueue.c	2005/09/15 20:09:55
+ @@ -410,9 +410,10 @@
+  	 * just return.
+  	 */
+  	if (td->td_sleepqueue != NULL) {
+ -		MPASS(!TD_ON_SLEEPQ(td));
+  		mtx_unlock_spin(&sc->sc_lock);
+  		mtx_lock_spin(&sched_lock);
+ +		MPASS(!TD_ON_SLEEPQ(td));
+ +		MPASS(!TD_IS_SLEEPING(td));
+  		return;
+  	}
+  
+ --- //depot/projects/smpng/sys/vm/vm_glue.c	2005/05/27 14:58:46
+ +++ //depot/user/jhb/preemption/vm/vm_glue.c	2005/05/27 19:03:12
+ @@ -556,6 +556,7 @@
+  			vm_thread_swapin(td);
+  
+  		PROC_LOCK(p);
+ +		critical_enter();
+  		mtx_lock_spin(&sched_lock);
+  		p->p_sflag &= ~PS_SWAPPINGIN;
+  		p->p_sflag |= PS_INMEM;
+ @@ -570,6 +571,7 @@
+  
+  		/* Allow other threads to swap p out now. */
+  		--p->p_lock;
+ +		critical_exit();
+  	}
+  #endif /* NO_SWAPPING */
+  }
+ 
+ -- 
+ John Baldwin <jhb@FreeBSD.org>  <><  http://www.FreeBSD.org/~jhb/
+ "Power Users Use the Power to Serve"  =  http://www.FreeBSD.org
+From procedurally at armachining.com  Fri Sep 23 14:29:56 2005
+From: procedurally at armachining.com (Job)
+Date: Fri Sep 23 14:30:06 2005
+Subject: soft at incredibly low prices 
+Message-ID: <482140405.4291045539@chb63.neoplus.adsl.tpnet.pl>
+
+A wide range of software applications, drivers, and more.
+http://rcazfm.429msbsssnsum44zrm4hrm4m.restesibmb.com/?dgj
+
+
+Machines take me by surprise with great frequency.     
+Appearances often are deceiving.         
+
+Accept what people offer. Drink their milkshakes. Take their love.   
+Hardness shatters; strength endures.         
+
+When you come to a fork in the road, take it.  
+Anger at lies lasts forever. Anger at truth can't last.   
+
+
+From tinderbox at freebsd.org  Sun Sep 25 00:41:32 2005
+From: tinderbox at freebsd.org (FreeBSD Tinderbox)
+Date: Sun Sep 25 00:41:44 2005
+Subject: [head tinderbox] failure on alpha/alpha
+Message-ID: <20050925074129.C15607302F@freebsd-current.sentex.ca>
+
+TB --- 2005-09-25 06:01:41 - tinderbox 2.3 running on freebsd-current.sentex.ca
+TB --- 2005-09-25 06:01:41 - starting HEAD tinderbox run for alpha/alpha
+TB --- 2005-09-25 06:01:41 - cleaning the object tree
+TB --- 2005-09-25 06:02:15 - checking out the source tree
+TB --- 2005-09-25 06:02:15 - cd /tinderbox/HEAD/alpha/alpha
+TB --- 2005-09-25 06:02:15 - /usr/bin/cvs -f -R -q -d/home/ncvs update -Pd -A src
+TB --- 2005-09-25 06:18:25 - building world (CFLAGS=-O2 -pipe)
+TB --- 2005-09-25 06:18:25 - cd /src
+TB --- 2005-09-25 06:18:25 - /usr/bin/make -B buildworld
+>>> Rebuilding the temporary build tree
+>>> stage 1.1: legacy release compatibility shims
+>>> stage 1.2: bootstrap tools
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3: cross tools
+>>> stage 4.1: building includes
+>>> stage 4.2: building libraries
+>>> stage 4.3: make dependencies
+>>> stage 4.4: building everything
+TB --- 2005-09-25 07:35:30 - building generic kernel (COPTFLAGS=-O2 -pipe)
+TB --- 2005-09-25 07:35:30 - cd /src
+TB --- 2005-09-25 07:35:30 - /usr/bin/make buildkernel KERNCONF=GENERIC
+>>> Kernel build for GENERIC started on Sun Sep 25 07:35:31 UTC 2005
+>>> stage 1: configuring the kernel
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3.1: making dependencies
+>>> stage 3.2: building everything
+[...]
+/src/sys/alpha/isa/isa.c: In function `isa_setup_intr':
+/src/sys/alpha/isa/isa.c:362: error: structure has no member named `r_start'
+/src/sys/alpha/isa/isa.c:366: error: structure has no member named `r_start'
+/src/sys/alpha/isa/isa.c:369: error: structure has no member named `r_start'
+/src/sys/alpha/isa/isa.c:376: error: structure has no member named `r_start'
+/src/sys/alpha/isa/isa.c:383: error: structure has no member named `r_start'
+/src/sys/alpha/isa/isa.c: In function `isa_teardown_intr':
+/src/sys/alpha/isa/isa.c:409: error: structure has no member named `r_start'
+*** Error code 1
+
+Stop in /obj/alpha/src/sys/GENERIC.
+*** Error code 1
+
+Stop in /src.
+*** Error code 1
+
+Stop in /src.
+TB --- 2005-09-25 07:41:29 - WARNING: /usr/bin/make returned exit code  1 
+TB --- 2005-09-25 07:41:29 - ERROR: failed to build generic kernel
+TB --- 2005-09-25 07:41:29 - tinderbox aborted
+
+From wb at freebie.xs4all.nl  Sun Sep 25 23:44:55 2005
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Sun Sep 25 23:45:24 2005
+Subject: FreeBSD 6.0/alpha estbuild available with limited EISA probing
+In-Reply-To: <200509251834.j8PIYILp009593@repoman.freebsd.org>
+References: <200509251834.j8PIYILp009593@repoman.freebsd.org>
+Message-ID: <20050926064449.GA19636@freebie.xs4all.nl>
+
+Folks,
+
+Please try a testbuild based on BETA5 that is currently uploading
+to ftp-master.  You will soon be able to find it 
+in /pub/FreeBSD/releases/alpha/ISO-IMAGES/6.0 on the various ftp mirror
+sites.
+
+MD5 (6.0-BETA5-EISA-bootonly.iso) = 71b32e9c03e972f53c5d1e879b9b3b65
+
+I have boot tested it on a DS10 but I do not have any EISA equipped
+Alpha boxes so I am really curious if Bernd's (ticso) suggestion
+works for your machine model.
+
+Wilko
+
+
+On Sun, Sep 25, 2005 at 06:34:18PM +0000, Wilko Bulte wrote..
+> wilko       2005-09-25 18:34:18 UTC
+> 
+>   FreeBSD src repository
+> 
+>   Modified files:        (Branch: RELENG_6)
+>     sys/alpha/conf       GENERIC 
+>   Log:
+>   Try to avoid crashes during kernel startup by limiting the # of EISA
+>   slots to probe.  Problems have been reported in this area, lets hope
+>   this  bandaid helps.
+>   
+>           !! Owners of EISA-equipped Alpha machines are requested to at least
+>           !! boot-test a 6-BETA build and report back to the Alpha list. Thanks!
+>   
+>   Approved by: re (scottl)
+>   Suggested by: ticso
+>   
+>   Revision   Changes    Path
+>   1.186.2.3  +3 -0      src/sys/alpha/conf/GENERIC
+--- end of quoted text ---
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From phk at phk.freebsd.dk  Sun Sep 25 23:59:05 2005
+From: phk at phk.freebsd.dk (Poul-Henning Kamp)
+Date: Sun Sep 25 23:59:07 2005
+Subject: FreeBSD 6.0/alpha estbuild available with limited EISA probing 
+In-Reply-To: Your message of "Mon, 26 Sep 2005 08:44:49 +0200."
+	<20050926064449.GA19636@freebie.xs4all.nl> 
+Message-ID: <82578.1127717942@critter.freebsd.dk>
+
+In message <20050926064449.GA19636@freebie.xs4all.nl>, Wilko Bulte writes:
+
+>Please try a testbuild based on BETA5 that is currently uploading
+>to ftp-master.
+
+I tried -current/GENERIC and it still fails on my AlphaServer 1000A
+5/400, 400MHz:
+
+fxp0: Reserved 0x1000 bytes for rid 0x10 type 3 at 0x81300000
+fxp0: using memory space register mapping
+fxp0: PCI IDs: 8086 1229 8086 000c 0008
+fxp0: Dynamic Standby mode is disabled
+miibus0: <MII bus> on fxp0
+inphy0: <i82555 10/100 media interface> on miibus0
+inphy0:  10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, auto
+fxp0: bpf attached
+fxp0: Ethernet address: 00:d0:b7:49:e6:c9
+fxp0: interrupting at CIA irq 5
+fxp0: [MPSAFE]
+
+halted CPU 0
+
+halt code = 7
+machine check while in PAL mode
+PC = 18100           
+>>>
+
+
+
+-- 
+Poul-Henning Kamp       | UNIX since Zilog Zeus 3.20
+phk@FreeBSD.ORG         | TCP/IP since RFC 956
+FreeBSD committer       | BSD since 4.3-tahoe    
+Never attribute to malice what can adequately be explained by incompetence.
+From wb at freebie.xs4all.nl  Mon Sep 26 02:25:01 2005
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Mon Sep 26 02:25:03 2005
+Subject: FreeBSD 6.0/alpha estbuild available with limited EISA probing
+In-Reply-To: <82578.1127717942@critter.freebsd.dk>
+References: <20050926064449.GA19636@freebie.xs4all.nl>
+	<82578.1127717942@critter.freebsd.dk>
+Message-ID: <20050926092457.GA21784@freebie.xs4all.nl>
+
+On Mon, Sep 26, 2005 at 08:59:02AM +0200, Poul-Henning Kamp wrote..
+> In message <20050926064449.GA19636@freebie.xs4all.nl>, Wilko Bulte writes:
+> 
+> >Please try a testbuild based on BETA5 that is currently uploading
+> >to ftp-master.
+> 
+> I tried -current/GENERIC and it still fails on my AlphaServer 1000A
+> 5/400, 400MHz:
+> 
+> fxp0: Reserved 0x1000 bytes for rid 0x10 type 3 at 0x81300000
+> fxp0: using memory space register mapping
+> fxp0: PCI IDs: 8086 1229 8086 000c 0008
+> fxp0: Dynamic Standby mode is disabled
+> miibus0: <MII bus> on fxp0
+> inphy0: <i82555 10/100 media interface> on miibus0
+> inphy0:  10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, auto
+> fxp0: bpf attached
+> fxp0: Ethernet address: 00:d0:b7:49:e6:c9
+> fxp0: interrupting at CIA irq 5
+> fxp0: [MPSAFE]
+> 
+> halted CPU 0
+> 
+> halt code = 7
+> machine check while in PAL mode
+> PC = 18100           
+> >>>
+
+Bah..
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From bugmaster at freebsd.org  Mon Sep 26 04:02:05 2005
+From: bugmaster at freebsd.org (FreeBSD bugmaster)
+Date: Mon Sep 26 04:02:06 2005
+Subject: Current problem reports assigned to you
+Message-ID: <200509261102.j8QB22OP026919@freefall.freebsd.org>
+
+Current FreeBSD problem reports
+Critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2004/12/20] alpha/75317 alpha       ATA DMA broken on PCalpha
+
+1 problem total.
+
+Serious problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2003/02/05] alpha/47952 alpha       DEFPA causes machine check with V5.0-rele
+o [2003/11/10] alpha/59116 alpha       [ntfs] mount_ntfs of a Windows 2000-forma
+o [2004/01/26] alpha/61940 alpha       Can't disklabel new disk from FreeBSD/alp
+o [2004/01/27] alpha/61973 alpha       Machine Check on boot-up of AlphaServer 2
+f [2004/06/06] alpha/67626 alpha       X crashes an alpha machine, resulting reb
+o [2005/08/27] alpha/85346 alpha       PREEMPTION causes unstability in Alpha400
+
+6 problems total.
+
+Non-critical problems
+
+S  Submitted   Tracker     Resp.       Description
+-------------------------------------------------------------------------------
+o [2001/02/22] alpha/25284 alpha       PC164 won't reboot with graphics console
+f [2001/07/29] alpha/29299 alpha       FreeBSD 4.3 Alpha + Tekram SCSI adapter p
+o [2002/05/13] alpha/38031 alpha       osf1.ko not loaded during boot-time of li
+o [2003/02/25] alpha/48676 alpha       Changing the baud rate of serial consoles
+o [2003/04/12] alpha/50868 alpha       fd0 floppy device is not mapped into /dev
+o [2004/05/10] alpha/66478 alpha       unexpected machine check: panic for 4.9, 
+o [2004/06/13] alpha/67903 alpha       hw.chipset.memory: 1099511627776 - thats 
+
+7 problems total.
+
+From ticso at cicely12.cicely.de  Mon Sep 26 04:09:19 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Mon Sep 26 04:09:23 2005
+Subject: FreeBSD 6.0/alpha estbuild available with limited EISA probing
+In-Reply-To: <82578.1127717942@critter.freebsd.dk>
+References: <20050926064449.GA19636@freebie.xs4all.nl>
+	<82578.1127717942@critter.freebsd.dk>
+Message-ID: <20050926110857.GK552@cicely12.cicely.de>
+
+On Mon, Sep 26, 2005 at 08:59:02AM +0200, Poul-Henning Kamp wrote:
+> In message <20050926064449.GA19636@freebie.xs4all.nl>, Wilko Bulte writes:
+> 
+> >Please try a testbuild based on BETA5 that is currently uploading
+> >to ftp-master.
+> 
+> I tried -current/GENERIC and it still fails on my AlphaServer 1000A
+> 5/400, 400MHz:
+> 
+> fxp0: Reserved 0x1000 bytes for rid 0x10 type 3 at 0x81300000
+> fxp0: using memory space register mapping
+> fxp0: PCI IDs: 8086 1229 8086 000c 0008
+> fxp0: Dynamic Standby mode is disabled
+> miibus0: <MII bus> on fxp0
+> inphy0: <i82555 10/100 media interface> on miibus0
+> inphy0:  10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, auto
+> fxp0: bpf attached
+> fxp0: Ethernet address: 00:d0:b7:49:e6:c9
+> fxp0: interrupting at CIA irq 5
+> fxp0: [MPSAFE]
+> 
+> halted CPU 0
+> 
+> halt code = 7
+> machine check while in PAL mode
+> PC = 18100           
+> >>>
+
+I remember that you had 2 problems.
+One was the EISA probing and the other was still unaddressed.
+Do you remember the these are the EISA symptoms?
+If yes, do you remember the slot count required?
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+
+From phk at phk.freebsd.dk  Mon Sep 26 04:55:16 2005
+From: phk at phk.freebsd.dk (Poul-Henning Kamp)
+Date: Mon Sep 26 04:55:18 2005
+Subject: FreeBSD 6.0/alpha estbuild available with limited EISA probing 
+In-Reply-To: Your message of "Mon, 26 Sep 2005 13:08:58 +0200."
+	<20050926110857.GK552@cicely12.cicely.de> 
+Message-ID: <83728.1127735709@critter.freebsd.dk>
+
+In message <20050926110857.GK552@cicely12.cicely.de>, Bernd Walter writes:
+>> fxp0: interrupting at CIA irq 5
+>> fxp0: [MPSAFE]
+>> 
+>> halted CPU 0
+>> 
+>> halt code = 7
+>> machine check while in PAL mode
+>> PC = 18100           
+>> >>>
+>
+>I remember that you had 2 problems.
+>One was the EISA probing and the other was still unaddressed.
+>Do you remember the these are the EISA symptoms?
+>If yes, do you remember the slot count required?
+
+I usually run with eisa_slots=2 and I havn't seen anything missing
+(but I don't belive I actually use any of the eisa slots so I'm
+not sure what evidence that really is.
+
+-- 
+Poul-Henning Kamp       | UNIX since Zilog Zeus 3.20
+phk@FreeBSD.ORG         | TCP/IP since RFC 956
+FreeBSD committer       | BSD since 4.3-tahoe    
+Never attribute to malice what can adequately be explained by incompetence.
+From tillman at seekingfire.com  Mon Sep 26 17:23:12 2005
+From: tillman at seekingfire.com (Tillman Hodgson)
+Date: Mon Sep 26 17:23:14 2005
+Subject: FreeBSD 6.0/alpha estbuild available with limited EISA probing
+In-Reply-To: <20050926064449.GA19636@freebie.xs4all.nl>
+References: <200509251834.j8PIYILp009593@repoman.freebsd.org>
+	<20050926064449.GA19636@freebie.xs4all.nl>
+Message-ID: <20050927002307.GA74300@seekingfire.com>
+
+On Mon, Sep 26, 2005 at 08:44:49AM +0200, Wilko Bulte wrote:
+> Folks,
+> 
+> Please try a testbuild based on BETA5 that is currently uploading
+> to ftp-master.
+
+I just finished a test boot on it -- it panics in the same way as
+before. My hardware is 2100A, and I don't have any EISA cards (though it
+does have an EISA bus).
+
+-T
+
+
+-- 
+A world is supported by four things:  the teaming of the wise, the justice of 
+the great, the prayers of the righteous, and the valor of the brave.  But all 
+of these are as nothing without a ruler who knows the art of ruling.
+	- Prince Raphael Corrino, Discourses on Galactic Leadership
+From ticso at cicely12.cicely.de  Tue Sep 27 04:14:38 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Tue Sep 27 04:14:39 2005
+Subject: FreeBSD 6.0/alpha estbuild available with limited EISA probing
+In-Reply-To: <20050927002307.GA74300@seekingfire.com>
+References: <200509251834.j8PIYILp009593@repoman.freebsd.org>
+	<20050926064449.GA19636@freebie.xs4all.nl>
+	<20050927002307.GA74300@seekingfire.com>
+Message-ID: <20050927111328.GB54923@cicely12.cicely.de>
+
+On Mon, Sep 26, 2005 at 06:23:07PM -0600, Tillman Hodgson wrote:
+> On Mon, Sep 26, 2005 at 08:44:49AM +0200, Wilko Bulte wrote:
+> > Folks,
+> > 
+> > Please try a testbuild based on BETA5 that is currently uploading
+> > to ftp-master.
+> 
+> I just finished a test boot on it -- it panics in the same way as
+> before. My hardware is 2100A, and I don't have any EISA cards (though it
+> does have an EISA bus).
+
+:(
+
+A boot -v would be fine, although I have to admit that this is just a
+blind try to get at least any idea.
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+
+From tillman at seekingfire.com  Tue Sep 27 12:00:56 2005
+From: tillman at seekingfire.com (Tillman Hodgson)
+Date: Tue Sep 27 12:00:59 2005
+Subject: FreeBSD 6.0/alpha estbuild available with limited EISA probing
+In-Reply-To: <20050927111328.GB54923@cicely12.cicely.de>
+References: <200509251834.j8PIYILp009593@repoman.freebsd.org>
+	<20050926064449.GA19636@freebie.xs4all.nl>
+	<20050927002307.GA74300@seekingfire.com>
+	<20050927111328.GB54923@cicely12.cicely.de>
+Message-ID: <20050927190054.GL75459@seekingfire.com>
+
+On Tue, Sep 27, 2005 at 01:13:29PM +0200, Bernd Walter wrote:
+> On Mon, Sep 26, 2005 at 06:23:07PM -0600, Tillman Hodgson wrote:
+> > On Mon, Sep 26, 2005 at 08:44:49AM +0200, Wilko Bulte wrote:
+> > > Folks,
+> > > 
+> > > Please try a testbuild based on BETA5 that is currently uploading
+> > > to ftp-master.
+> > 
+> > I just finished a test boot on it -- it panics in the same way as
+> > before. My hardware is 2100A, and I don't have any EISA cards (though it
+> > does have an EISA bus).
+> 
+> :(
+> 
+> A boot -v would be fine, although I have to admit that this is just a
+> blind try to get at least any idea.
+
+I'll hook up a serial console able and try to capture that. I'd also be
+willing to set up remote access (via serial port over a Digi box) to
+Alpha developers who'd like to take a look at it.
+
+-T
+
+
+-- 
+"For those concerned about the virality of the GPL, a suggestion: Write
+ Your Own Damn Code."
+	- ubiquitin (user #28396) on Slashdot
+From tillman at seekingfire.com  Tue Sep 27 19:47:42 2005
+From: tillman at seekingfire.com (Tillman Hodgson)
+Date: Tue Sep 27 19:47:44 2005
+Subject: FreeBSD 6.0/alpha estbuild available with limited EISA probing
+In-Reply-To: <20050927111328.GB54923@cicely12.cicely.de>
+References: <200509251834.j8PIYILp009593@repoman.freebsd.org>
+	<20050926064449.GA19636@freebie.xs4all.nl>
+	<20050927002307.GA74300@seekingfire.com>
+	<20050927111328.GB54923@cicely12.cicely.de>
+Message-ID: <20050928024738.GA89409@seekingfire.com>
+
+On Tue, Sep 27, 2005 at 01:13:29PM +0200, Bernd Walter wrote:
+> On Mon, Sep 26, 2005 at 06:23:07PM -0600, Tillman Hodgson wrote:
+> > On Mon, Sep 26, 2005 at 08:44:49AM +0200, Wilko Bulte wrote:
+> > > Folks,
+> > > 
+> > > Please try a testbuild based on BETA5 that is currently uploading
+> > > to ftp-master.
+> > 
+> > I just finished a test boot on it -- it panics in the same way as
+> > before. My hardware is 2100A, and I don't have any EISA cards (though it
+> > does have an EISA bus).
+> 
+> :(
+> 
+> A boot -v would be fine, although I have to admit that this is just a
+> blind try to get at least any idea.
+
+A regular boot followed by a boot -v can be found at
+http://www.seekingfire.com/tmp/alpha_boot.txt.
+
+I've also set up serial access accessible over IP if any alpha
+developers want to take a live poke at the box.
+
+-T
+
+
+-- 
+"Statistics are the triumph of the quantitative method, and the
+ quantitative method is the victory of sterility and death."
+    -- Hillaire Belloc, _The Silence of the Sea_
+From ticso at cicely12.cicely.de  Wed Sep 28 03:46:44 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Wed Sep 28 03:46:47 2005
+Subject: FreeBSD 6.0/alpha estbuild available with limited EISA probing
+In-Reply-To: <20050928024738.GA89409@seekingfire.com>
+References: <200509251834.j8PIYILp009593@repoman.freebsd.org>
+	<20050926064449.GA19636@freebie.xs4all.nl>
+	<20050927002307.GA74300@seekingfire.com>
+	<20050927111328.GB54923@cicely12.cicely.de>
+	<20050928024738.GA89409@seekingfire.com>
+Message-ID: <20050928104628.GH54923@cicely12.cicely.de>
+
+On Tue, Sep 27, 2005 at 08:47:38PM -0600, Tillman Hodgson wrote:
+> On Tue, Sep 27, 2005 at 01:13:29PM +0200, Bernd Walter wrote:
+> > On Mon, Sep 26, 2005 at 06:23:07PM -0600, Tillman Hodgson wrote:
+> > > On Mon, Sep 26, 2005 at 08:44:49AM +0200, Wilko Bulte wrote:
+> > > > Folks,
+> > > > 
+> > > > Please try a testbuild based on BETA5 that is currently uploading
+> > > > to ftp-master.
+> > > 
+> > > I just finished a test boot on it -- it panics in the same way as
+> > > before. My hardware is 2100A, and I don't have any EISA cards (though it
+> > > does have an EISA bus).
+> > 
+> > :(
+> > 
+> > A boot -v would be fine, although I have to admit that this is just a
+> > blind try to get at least any idea.
+> 
+> A regular boot followed by a boot -v can be found at
+> http://www.seekingfire.com/tmp/alpha_boot.txt.
+
+The panic locks similar, but it is different.
+We even have a different panic vector 0x660 instead of 0x670.
+That really means that the EISA slot number did something good.
+What we see is a oanic that happens when probing the secondary PCI
+bus - we are over the EISA stuff at this point.
+The brigde seems to be onboard and according to SRM you have 3 chips
+behind it.
+I don't know how good we are with PCI-bridges on AS2100A.
+Please try to remove all PCI cards from that bus and see if it makes
+a difference.
+If it boots then try shuffling the cards.
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+
+From ticso at cicely12.cicely.de  Wed Sep 28 04:03:45 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Wed Sep 28 04:03:47 2005
+Subject: FreeBSD 6.0/alpha estbuild available with limited EISA probing
+In-Reply-To: <82578.1127717942@critter.freebsd.dk>
+References: <20050926064449.GA19636@freebie.xs4all.nl>
+	<82578.1127717942@critter.freebsd.dk>
+Message-ID: <20050928110308.GK54923@cicely12.cicely.de>
+
+On Mon, Sep 26, 2005 at 08:59:02AM +0200, Poul-Henning Kamp wrote:
+> In message <20050926064449.GA19636@freebie.xs4all.nl>, Wilko Bulte writes:
+> 
+> >Please try a testbuild based on BETA5 that is currently uploading
+> >to ftp-master.
+> 
+> I tried -current/GENERIC and it still fails on my AlphaServer 1000A
+> 5/400, 400MHz:
+> 
+> fxp0: Reserved 0x1000 bytes for rid 0x10 type 3 at 0x81300000
+> fxp0: using memory space register mapping
+> fxp0: PCI IDs: 8086 1229 8086 000c 0008
+> fxp0: Dynamic Standby mode is disabled
+> miibus0: <MII bus> on fxp0
+> inphy0: <i82555 10/100 media interface> on miibus0
+> inphy0:  10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, auto
+> fxp0: bpf attached
+> fxp0: Ethernet address: 00:d0:b7:49:e6:c9
+> fxp0: interrupting at CIA irq 5
+> fxp0: [MPSAFE]
+> 
+> halted CPU 0
+> 
+> halt code = 7
+> machine check while in PAL mode
+> PC = 18100           
+> >>>
+
+Can you please supply a boot -v.
+This panic could be a PCI problem as well.
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+
+From phk at phk.freebsd.dk  Wed Sep 28 04:55:21 2005
+From: phk at phk.freebsd.dk (Poul-Henning Kamp)
+Date: Wed Sep 28 04:55:25 2005
+Subject: FreeBSD 6.0/alpha estbuild available with limited EISA probing 
+In-Reply-To: Your message of "Wed, 28 Sep 2005 13:03:08 +0200."
+	<20050928110308.GK54923@cicely12.cicely.de> 
+Message-ID: <874.1127908509@critter.freebsd.dk>
+
+In message <20050928110308.GK54923@cicely12.cicely.de>, Bernd Walter writes:
+>On Mon, Sep 26, 2005 at 08:59:02AM +0200, Poul-Henning Kamp wrote:
+>> In message <20050926064449.GA19636@freebie.xs4all.nl>, Wilko Bulte writes:
+>> 
+>> >Please try a testbuild based on BETA5 that is currently uploading
+>> >to ftp-master.
+>> 
+>> I tried -current/GENERIC and it still fails on my AlphaServer 1000A
+>> 5/400, 400MHz:
+>> 
+>> fxp0: Reserved 0x1000 bytes for rid 0x10 type 3 at 0x81300000
+>> fxp0: using memory space register mapping
+>> fxp0: PCI IDs: 8086 1229 8086 000c 0008
+>> fxp0: Dynamic Standby mode is disabled
+>> miibus0: <MII bus> on fxp0
+>> inphy0: <i82555 10/100 media interface> on miibus0
+>> inphy0:  10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, auto
+>> fxp0: bpf attached
+>> fxp0: Ethernet address: 00:d0:b7:49:e6:c9
+>> fxp0: interrupting at CIA irq 5
+>> fxp0: [MPSAFE]
+>> 
+>> halted CPU 0
+>> 
+>> halt code = 7
+>> machine check while in PAL mode
+>> PC = 18100           
+>> >>>
+>
+>Can you please supply a boot -v.
+>This panic could be a PCI problem as well.
+
+OK boot -vs
+Entering /boot/kernel/kernel at 0xfffffc000034c5e0...
+GDB: debug ports: sio
+GDB: current port: sio
+KDB: debugger backends: ddb gdb
+KDB: current backend: ddb
+Copyright (c) 1992-2005 The FreeBSD Project.
+Copyright (c) 1979, 1980, 1983, 1986, 1988, 1989, 1991, 1992, 1993, 1994
+        The Regents of the University of California. All rights reserved.
+FreeBSD 7.0-CURRENT #1: Mon Sep 26 06:42:40 UTC 2005
+    root@monster.freebsd.dk:/monster/src/sys/alpha/compile/GENERIC
+Preloaded elf kernel "/boot/kernel/kernel" at 0xfffffc0000a18000.
+AlphaServer 1000/1000A
+AlphaServer 1000A 5/400, 400MHz
+8192 byte page size, 1 processor.
+CPU: EV56 (21164A) major=7 minor=2 extensions=0x1<BWX>
+OSF PAL rev: 0x1000600020117
+real memory  = 182484992 (174 MB)
+Physical memory chunk(s):
+0x00a38000 - 0x0acf5fff, 170647552 bytes (20831 pages)
+avail memory = 168828928 (161 MB)
+null: <null device, zero device>
+random: <entropy source, Software, Yarrow>
+nfslock: pseudo-device
+mem: <memory>
+cia0: <2117x Core Logic chipset>
+cia0: ALCOR/ALCOR2, pass 3
+cia0: extended capabilities: 21<DWEN,BWEN>
+pcib0: <2117x PCI host bus adapter> on cia0
+pci0: <PCI bus> on pcib0
+pci0: physical bus=0
+found-> vendor=0x8086, dev=0x0482, revid=0x05
+        bus=0, slot=7, func=0
+        class=00-00-00, hdrtype=0x00, mfdev=0
+        cmdreg=0x0007, statreg=0x0200, cachelnsz=0 (dwords)
+        lattimer=0xf8 (7440 ns), mingnt=0x00 (0 ns), maxlat=0x00 (0 ns)
+found-> vendor=0x1011, dev=0x0001, revid=0x02
+        bus=0, slot=8, func=0
+        class=06-04-00, hdrtype=0x01, mfdev=0
+        cmdreg=0x0007, statreg=0x0a80, cachelnsz=16 (dwords)
+        lattimer=0xf8 (7440 ns), mingnt=0x27 (9750 ns), maxlat=0x00 (0 ns)
+found-> vendor=0x1011, dev=0x0002, revid=0x24
+        bus=0, slot=12, func=0
+        class=02-00-00, hdrtype=0x00, mfdev=0
+        cmdreg=0x0007, statreg=0x0280, cachelnsz=0 (dwords)
+        lattimer=0xff (7650 ns), mingnt=0x00 (0 ns), maxlat=0x00 (0 ns)
+        intpin=a, irq=3
+        map[10]: type 4, range 32, base 00010000, size  7, enabled
+        map[14]: type 1, range 32, base 81301000, size  7, enabled
+found-> vendor=0x8086, dev=0x1229, revid=0x08
+        bus=0, slot=13, func=0
+        class=02-00-00, hdrtype=0x00, mfdev=0
+        cmdreg=0x0007, statreg=0x0290, cachelnsz=16 (dwords)
+        lattimer=0xff (7650 ns), mingnt=0x08 (2000 ns), maxlat=0x38 (14000 ns)
+        intpin=a, irq=5
+        powerspec 2  supports D0 D1 D2 D3  current D0
+        map[10]: type 1, range 32, base 81300000, size 12, enabled
+        map[14]: type 4, range 32, base 00010080, size  6, enabled
+        map[18]: type 1, range 32, base 81100000, size 20, enabled
+eisab0: <PCI-EISA bridge> at device 7.0 on pci0
+eisa0: <EISA bus> on eisab0
+mainboard0: <DEC5000 (System Board)> at slot 0 on eisa0
+eisa0: CPQ3111 (0x0e113111) at slot 1 (no driver attached)
+isa0: <ISA bus> on eisab0
+pcib1: <PCI-PCI bridge> at device 8.0 on pci0
+pcib1:   secondary bus     2
+pcib1:   subordinate bus   2
+pcib1:   I/O decode        0x9000-0x9fff
+pcib1:   memory decode     0x81000000-0x810fffff
+pcib1:   prefetched decode 0xfff00000-0xfffff
+pci2: <PCI bus> on pcib1
+pci2: physical bus=2
+found-> vendor=0x1077, dev=0x1020, revid=0x02
+        bus=2, slot=0, func=0
+        class=01-00-00, hdrtype=0x00, mfdev=0
+        cmdreg=0x0007, statreg=0x0200, cachelnsz=16 (dwords)
+        lattimer=0xf8 (7440 ns), mingnt=0x00 (0 ns), maxlat=0x00 (0 ns)
+        intpin=a, irq=0
+        map[10]: type 4, range 32, base 00009000, size  8, enabled
+pcib1: (null) requested I/O range 0x9000-0x90ff: in range
+        map[14]: type 1, range 32, base 81010000, size 12, enabled
+pcib1: (null) requested memory range 0x81010000-0x81010fff: good
+Qlogic ISP Driver, FreeBSD Version 5.9, Core Version 2.9
+isp0: <Qlogic ISP 1020/1040 PCI SCSI Adapter> port 0x9000-0x90ff mem 0x81010000-
+0x81010fff irq 0 at device 0.0 on pci2
+isp0: Reserved 0x1000 bytes for rid 0x14 type 3 at 0x81010000
+isp0: using Memory space register mapping
+isp0: interrupting at CIA irq 0
+isp0: [GIANT-LOCKED]
+isp0: Board Type 1020A, Chip Revision 0x2, loaded F/W Revision 4.66.0
+isp0: Last F/W revision was 5.57.1
+isp0: 243 max I/O commands supported
+isp0: Initiator ID is 7 on Channel 0
+de0: <Digital 21040 Ethernet> port 0x10000-0x1007f mem 0x81301000-0x8130107f irq
+ 3 at device 12.0 on pci0
+de0: Reserved 0x80 bytes for rid 0x14 type 3 at 0x81301000
+de0: DEC 21040 [10Mb/s] pass 2.4
+de0: bpf attached
+de0: Ethernet address: 00:00:f8:21:89:2f
+de0: interrupting at CIA irq 3
+de0: [MPSAFE]
+fxp0: <Intel 82559 Pro/100 Ethernet> port 0x10080-0x100bf mem 0x81300000-0x81300
+fff,0x81100000-0x811fffff irq 5 at device 13.0 on pci0
+fxp0: Reserved 0x1000 bytes for rid 0x10 type 3 at 0x81300000
+fxp0: using memory space register mapping
+fxp0: PCI IDs: 8086 1229 8086 000c 0008
+fxp0: Dynamic Standby mode is disabled
+miibus0: <MII bus> on fxp0
+inphy0: <i82555 10/100 media interface> on miibus0
+inphy0:  10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, auto
+fxp0: bpf attached
+fxp0: Ethernet address: 00:d0:b7:49:e6:c9
+fxp0: interrupting at CIA irq 5
+fxp0: [MPSAFE]
+
+halted CPU 0
+
+halt code = 7
+machine check while in PAL mode
+PC = 18100           
+
+
+-- 
+Poul-Henning Kamp       | UNIX since Zilog Zeus 3.20
+phk@FreeBSD.ORG         | TCP/IP since RFC 956
+FreeBSD committer       | BSD since 4.3-tahoe    
+Never attribute to malice what can adequately be explained by incompetence.
+From ticso at cicely12.cicely.de  Wed Sep 28 05:41:47 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Wed Sep 28 05:41:50 2005
+Subject: FreeBSD 6.0/alpha estbuild available with limited EISA probing
+In-Reply-To: <874.1127908509@critter.freebsd.dk>
+References: <20050928110308.GK54923@cicely12.cicely.de>
+	<874.1127908509@critter.freebsd.dk>
+Message-ID: <20050928124100.GN54923@cicely12.cicely.de>
+
+On Wed, Sep 28, 2005 at 01:55:09PM +0200, Poul-Henning Kamp wrote:
+> In message <20050928110308.GK54923@cicely12.cicely.de>, Bernd Walter writes:
+> >On Mon, Sep 26, 2005 at 08:59:02AM +0200, Poul-Henning Kamp wrote:
+> >> In message <20050926064449.GA19636@freebie.xs4all.nl>, Wilko Bulte writes:
+> >> 
+> >> >Please try a testbuild based on BETA5 that is currently uploading
+> >> >to ftp-master.
+> >> 
+> >> I tried -current/GENERIC and it still fails on my AlphaServer 1000A
+> >> 5/400, 400MHz:
+> >> 
+> >> fxp0: Reserved 0x1000 bytes for rid 0x10 type 3 at 0x81300000
+> >> fxp0: using memory space register mapping
+> >> fxp0: PCI IDs: 8086 1229 8086 000c 0008
+> >> fxp0: Dynamic Standby mode is disabled
+> >> miibus0: <MII bus> on fxp0
+> >> inphy0: <i82555 10/100 media interface> on miibus0
+> >> inphy0:  10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, auto
+> >> fxp0: bpf attached
+> >> fxp0: Ethernet address: 00:d0:b7:49:e6:c9
+> >> fxp0: interrupting at CIA irq 5
+> >> fxp0: [MPSAFE]
+> >> 
+> >> halted CPU 0
+> >> 
+> >> halt code = 7
+> >> machine check while in PAL mode
+> >> PC = 18100           
+> >> >>>
+> >
+> >Can you please supply a boot -v.
+> >This panic could be a PCI problem as well.
+> 
+> OK boot -vs
+> Entering /boot/kernel/kernel at 0xfffffc000034c5e0...
+> GDB: debug ports: sio
+> GDB: current port: sio
+> KDB: debugger backends: ddb gdb
+> KDB: current backend: ddb
+> Copyright (c) 1992-2005 The FreeBSD Project.
+> Copyright (c) 1979, 1980, 1983, 1986, 1988, 1989, 1991, 1992, 1993, 1994
+>         The Regents of the University of California. All rights reserved.
+> FreeBSD 7.0-CURRENT #1: Mon Sep 26 06:42:40 UTC 2005
+>     root@monster.freebsd.dk:/monster/src/sys/alpha/compile/GENERIC
+> Preloaded elf kernel "/boot/kernel/kernel" at 0xfffffc0000a18000.
+> AlphaServer 1000/1000A
+> AlphaServer 1000A 5/400, 400MHz
+[...]
+> eisab0: <PCI-EISA bridge> at device 7.0 on pci0
+> eisa0: <EISA bus> on eisab0
+> mainboard0: <DEC5000 (System Board)> at slot 0 on eisa0
+> eisa0: CPQ3111 (0x0e113111) at slot 1 (no driver attached)
+> isa0: <ISA bus> on eisab0
+OK - we have finished EISA here.
+
+[...]
+> fxp0: <Intel 82559 Pro/100 Ethernet> port 0x10080-0x100bf mem 0x81300000-0x81300
+> fff,0x81100000-0x811fffff irq 5 at device 13.0 on pci0
+> fxp0: Reserved 0x1000 bytes for rid 0x10 type 3 at 0x81300000
+> fxp0: using memory space register mapping
+> fxp0: PCI IDs: 8086 1229 8086 000c 0008
+> fxp0: Dynamic Standby mode is disabled
+> miibus0: <MII bus> on fxp0
+> inphy0: <i82555 10/100 media interface> on miibus0
+> inphy0:  10baseT, 10baseT-FDX, 100baseTX, 100baseTX-FDX, auto
+> fxp0: bpf attached
+> fxp0: Ethernet address: 00:d0:b7:49:e6:c9
+> fxp0: interrupting at CIA irq 5
+> fxp0: [MPSAFE]
+
+This was the last PCI device, we are over PCI at this point.
+So this is likely a different problem than that on the AS2100A.
+IIRC the next should be ISA.
+Your have loaded an up to date device.hints file?
+Namely ata, atkbdc and fdc are the next.
+Your machine likely doesn't have an ata connector, but the PCI-EISA
+bridge may have one embedded that could confuse the ata driver.
+Maybe removing ata entries from device.hints will help, unfortunately
+this is not an acceptable workaround for distribution CDs.
+What OS version are you running on that machine right now?
+
+> halted CPU 0
+> 
+> halt code = 7
+> machine check while in PAL mode
+> PC = 18100           
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+
+From tinderbox at freebsd.org  Wed Sep 28 06:53:00 2005
+From: tinderbox at freebsd.org (FreeBSD Tinderbox)
+Date: Wed Sep 28 06:53:19 2005
+Subject: [head tinderbox] failure on alpha/alpha
+Message-ID: <20050928135258.6D4727302F@freebsd-current.sentex.ca>
+
+TB --- 2005-09-28 13:34:26 - tinderbox 2.3 running on freebsd-current.sentex.ca
+TB --- 2005-09-28 13:34:26 - starting HEAD tinderbox run for alpha/alpha
+TB --- 2005-09-28 13:34:26 - cleaning the object tree
+TB --- 2005-09-28 13:34:50 - checking out the source tree
+TB --- 2005-09-28 13:34:50 - cd /tinderbox/HEAD/alpha/alpha
+TB --- 2005-09-28 13:34:50 - /usr/bin/cvs -f -R -q -d/home/ncvs update -Pd -A src
+TB --- 2005-09-28 13:41:03 - building world (CFLAGS=-O2 -pipe)
+TB --- 2005-09-28 13:41:03 - cd /src
+TB --- 2005-09-28 13:41:03 - /usr/bin/make -B buildworld
+>>> Rebuilding the temporary build tree
+>>> stage 1.1: legacy release compatibility shims
+>>> stage 1.2: bootstrap tools
+>>> stage 2.1: cleaning up the object tree
+>>> stage 2.2: rebuilding the object tree
+>>> stage 2.3: build tools
+>>> stage 3: cross tools
+>>> stage 4.1: building includes
+>>> stage 4.2: building libraries
+[...]
+===> lib/libpam/modules/pam_self (all)
+cc -O2 -pipe -mcpu=ev4 -mtune=ev5 -mieee -I/src/lib/libpam/modules/pam_self/../../../../contrib/openpam/include -I/src/lib/libpam/modules/pam_self/../../libpam -Wsystem-headers -Werror -Wall -Wno-format-y2k -W -Wno-unused-parameter -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wreturn-type -Wcast-qual -Wwrite-strings -Wswitch -Wshadow -Wcast-align -Wunused-parameter -Wno-uninitialized -c /src/lib/libpam/modules/pam_self/pam_self.c
+building static pam_self library
+ranlib libpam_self.a
+===> lib/libpam/modules/pam_ssh (all)
+cc -O2 -pipe -mcpu=ev4 -mtune=ev5 -mieee -I/src/lib/libpam/modules/pam_ssh/../../../../crypto/openssh -I/src/lib/libpam/modules/pam_ssh/../../../../contrib/openpam/include -I/src/lib/libpam/modules/pam_ssh/../../libpam -Wsystem-headers -Werror -Wall -Wno-format-y2k -W -Wno-unused-parameter -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith -Wreturn-type -Wcast-qual -Wwrite-strings -Wswitch -Wshadow -Wcast-align -Wunused-parameter -Wno-uninitialized -c /src/lib/libpam/modules/pam_ssh/pam_ssh.c
+/src/lib/libpam/modules/pam_ssh/pam_ssh.c:81: warning: initialization discards qualifiers from pointer target type
+/src/lib/libpam/modules/pam_ssh/pam_ssh.c:81: warning: initialization discards qualifiers from pointer target type
+*** Error code 1
+
+Stop in /src/lib/libpam/modules/pam_ssh.
+*** Error code 1
+
+Stop in /src/lib/libpam/modules.
+*** Error code 1
+
+Stop in /src/lib/libpam.
+*** Error code 1
+
+Stop in /src.
+*** Error code 1
+
+Stop in /src.
+*** Error code 1
+
+Stop in /src.
+*** Error code 1
+
+Stop in /src.
+TB --- 2005-09-28 13:52:58 - WARNING: /usr/bin/make returned exit code  1 
+TB --- 2005-09-28 13:52:58 - ERROR: failed to build world
+TB --- 2005-09-28 13:52:58 - tinderbox aborted
+
+From ticso at cicely12.cicely.de  Wed Sep 28 06:56:54 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Wed Sep 28 06:57:13 2005
+Subject: FreeBSD 6.0/alpha estbuild available with limited EISA probing
+In-Reply-To: <20050928104628.GH54923@cicely12.cicely.de>
+References: <200509251834.j8PIYILp009593@repoman.freebsd.org>
+	<20050926064449.GA19636@freebie.xs4all.nl>
+	<20050927002307.GA74300@seekingfire.com>
+	<20050927111328.GB54923@cicely12.cicely.de>
+	<20050928024738.GA89409@seekingfire.com>
+	<20050928104628.GH54923@cicely12.cicely.de>
+Message-ID: <20050928135607.GO54923@cicely12.cicely.de>
+
+On Wed, Sep 28, 2005 at 12:46:29PM +0200, Bernd Walter wrote:
+> On Tue, Sep 27, 2005 at 08:47:38PM -0600, Tillman Hodgson wrote:
+> > On Tue, Sep 27, 2005 at 01:13:29PM +0200, Bernd Walter wrote:
+> > > On Mon, Sep 26, 2005 at 06:23:07PM -0600, Tillman Hodgson wrote:
+> > > > On Mon, Sep 26, 2005 at 08:44:49AM +0200, Wilko Bulte wrote:
+> > > > > Folks,
+> > > > > 
+> > > > > Please try a testbuild based on BETA5 that is currently uploading
+> > > > > to ftp-master.
+> > > > 
+> > > > I just finished a test boot on it -- it panics in the same way as
+> > > > before. My hardware is 2100A, and I don't have any EISA cards (though it
+> > > > does have an EISA bus).
+> > > 
+> > > :(
+> > > 
+> > > A boot -v would be fine, although I have to admit that this is just a
+> > > blind try to get at least any idea.
+> > 
+> > A regular boot followed by a boot -v can be found at
+> > http://www.seekingfire.com/tmp/alpha_boot.txt.
+> 
+> The panic locks similar, but it is different.
+> We even have a different panic vector 0x660 instead of 0x670.
+> That really means that the EISA slot number did something good.
+> What we see is a oanic that happens when probing the secondary PCI
+> bus - we are over the EISA stuff at this point.
+> The brigde seems to be onboard and according to SRM you have 3 chips
+> behind it.
+> I don't know how good we are with PCI-bridges on AS2100A.
+> Please try to remove all PCI cards from that bus and see if it makes
+> a difference.
+> If it boots then try shuffling the cards.
+
+Vector 0x660 should be uncorrectable memory error.
+Normally this means faulty RAM producing multiple error bits, but in
+this case it likely is accessing non available PCI space during probing.
+Under normal conditions we should expect such machine checks when
+probing PCI config space and ignore them.
+Either a PCI device tells us about memory that is not configured or
+we do something wrong ignoring probing errors.
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+
+From walter at alasir.com  Fri Sep 30 05:43:08 2005
+From: walter at alasir.com (Paul V. Bolotoff)
+Date: Fri Sep 30 05:43:11 2005
+Subject: [patch] cia BWX oddity in RELENG4
+Message-ID: <E1ELKE8-0004RA-1b@webmail05.int.bizland.net>
+
+Good time of day,
+
+There is a strange issue in alpha/pci/cia.c, which prevents the kernel from utilising the BWX features of the Alcor 2 chipset (21172). In fact, the code makes no difference between Alcor 2 and Alcor (21171), which has no BWX support at all. The patch attached fixes this behaviour.
+
+Before and after the patch. As you can see, BWX has been enabled successfully. The system (AlphaServer 800) is up and running as usual.
+
+# sysctl -a | grep hw.chipset
+
+hw.chipset.type: cia
+hw.chipset.bwx: 0
+hw.chipset.ports: 573378134016
+hw.chipset.memory: 549755813888
+hw.chipset.dense: 575525617664
+hw.chipset.hae_mask: 3758096384
+
+hw.chipset.type: alcor2
+hw.chipset.bwx: 1
+hw.chipset.ports: 588410519552
+hw.chipset.memory: 584115552256
+hw.chipset.dense: 575525617664
+hw.chipset.hae_mask: 0
+
+By the way, I see this issue has been fixed in RELENG5 some time ago, though in somewhat different way. Why not in RELENG4?
+
+PVB
+
+
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: cia.patch
+Type: application/octet-stream
+Size: 1713 bytes
+Desc: not available
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050930/7c6462c4/cia.obj
+From jhb at FreeBSD.org  Fri Sep 30 07:06:06 2005
+From: jhb at FreeBSD.org (John Baldwin)
+Date: Fri Sep 30 07:06:36 2005
+Subject: [patch] cia BWX oddity in RELENG4
+In-Reply-To: <E1ELKE8-0004RA-1b@webmail05.int.bizland.net>
+References: <E1ELKE8-0004RA-1b@webmail05.int.bizland.net>
+Message-ID: <200509300917.10020.jhb@FreeBSD.org>
+
+On Friday 30 September 2005 08:43 am, Paul V. Bolotoff wrote:
+> Good time of day,
+>
+> There is a strange issue in alpha/pci/cia.c, which prevents the kernel from
+> utilising the BWX features of the Alcor 2 chipset (21172). In fact, the
+> code makes no difference between Alcor 2 and Alcor (21171), which has no
+> BWX support at all. The patch attached fixes this behaviour.
+>
+> Before and after the patch. As you can see, BWX has been enabled
+> successfully. The system (AlphaServer 800) is up and running as usual.
+>
+> # sysctl -a | grep hw.chipset
+>
+> hw.chipset.type: cia
+> hw.chipset.bwx: 0
+> hw.chipset.ports: 573378134016
+> hw.chipset.memory: 549755813888
+> hw.chipset.dense: 575525617664
+> hw.chipset.hae_mask: 3758096384
+>
+> hw.chipset.type: alcor2
+> hw.chipset.bwx: 1
+> hw.chipset.ports: 588410519552
+> hw.chipset.memory: 584115552256
+> hw.chipset.dense: 575525617664
+> hw.chipset.hae_mask: 0
+>
+> By the way, I see this issue has been fixed in RELENG5 some time ago,
+> though in somewhat different way. Why not in RELENG4?
+
+Probably because development on RELENG_4 has basically stopped.  4.11 was the 
+last release on 4.x.
+
+-- 
+John Baldwin <jhb@FreeBSD.org>  <><  http://www.FreeBSD.org/~jhb/
+"Power Users Use the Power to Serve"  =  http://www.FreeBSD.org
+From richardlo at admin.athabascau.ca  Fri Sep 30 13:06:15 2005
+From: richardlo at admin.athabascau.ca (Richard Loken)
+Date: Fri Sep 30 13:06:17 2005
+Subject: PC164 and the KZPAC raid controller
+Message-ID: <Pine.PMDF.3.95.1050930135716.541323471d-100000@admin.athabascau.ca>
+
+I have a PC164 (no suffix) running 4.11 and I want to put one of my collection
+of DEC KZPAC (DAC960) raid controllers into it and upgrade to 5.4.
+
+Will a KZPAC boot on a PC164?
+
+The FreeBSD hardware notes are obscure on this point: they seem to say that
+genuine DAC 960 will NOT boot but can be used for other disks but there is a
+footnote suggesting that a KZPAC will boot on some systems. 
+
+Anybody know for sure?  
+
+I administer various DS20's and AlphaServer 4100's who are happy to boot Tru64
+off a KZPAC but I don't know about a PC164. 
+
+-- 
+   Richard Loken VE6BSV, Systems Programmer - VMS  : "Anybody can be a father
+   Athabasca University                            :  but you have to earn 
+   Athabasca, Alberta Canada                       :  the title of 'daddy'"
+   ** richardlo@admin.athabascau.ca **             :  - Lynn Johnston
+
+From wb at freebie.xs4all.nl  Fri Sep 30 15:03:52 2005
+From: wb at freebie.xs4all.nl (Wilko Bulte)
+Date: Fri Sep 30 15:03:55 2005
+Subject: PC164 and the KZPAC raid controller
+In-Reply-To: <Pine.PMDF.3.95.1050930135716.541323471d-100000@admin.athabascau.ca>
+References: <Pine.PMDF.3.95.1050930135716.541323471d-100000@admin.athabascau.ca>
+Message-ID: <20050930220344.GA53112@freebie.xs4all.nl>
+
+On Fri, Sep 30, 2005 at 02:05:43PM -0700, Richard Loken wrote..
+> I have a PC164 (no suffix) running 4.11 and I want to put one of my collection
+> of DEC KZPAC (DAC960) raid controllers into it and upgrade to 5.4.
+> 
+> Will a KZPAC boot on a PC164?
+> 
+> The FreeBSD hardware notes are obscure on this point: they seem to say that
+> genuine DAC 960 will NOT boot but can be used for other disks but there is a
+> footnote suggesting that a KZPAC will boot on some systems. 
+
+Some systems is the key.  The only way to find out for sure if the SRM
+console understands the KZPAC is to try it.
+
+PC164 was never a mainstream Alpha for the DEC main commercial customer
+base.
+
+-- 
+Wilko Bulte				wilko@FreeBSD.org
+From richardlo at admin.athabascau.ca  Fri Sep 30 15:19:34 2005
+From: richardlo at admin.athabascau.ca (Richard Loken)
+Date: Fri Sep 30 15:19:41 2005
+Subject: PC164 and the KZPAC raid controller
+In-Reply-To: <20050930220344.GA53112@freebie.xs4all.nl>
+Message-ID: <Pine.PMDF.3.95.1050930161517.541323471e-100000@admin.athabascau.ca>
+
+On Sat, 1 Oct 2005, Wilko Bulte wrote:
+
+> PC164 was never a mainstream Alpha for the DEC main commercial customer
+> base.
+
+That is for sure.
+
+I guess I will put in the card and if the SRM recognizes it then I am half
+way there.  Any thoughts on VGA cards?  I would like to get rid of this
+Matrox Millenium that the PC164 SRM is so fond of.
+
+-- 
+   Richard Loken VE6BSV, Systems Programmer - VMS  : "Anybody can be a father
+   Athabasca University                            :  but you have to earn 
+   Athabasca, Alberta Canada                       :  the title of 'daddy'"
+   ** richardlo@admin.athabascau.ca **             :  - Lynn Johnston
+
+From ticso at cicely12.cicely.de  Fri Sep 30 15:40:39 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Fri Sep 30 15:40:44 2005
+Subject: PC164 and the KZPAC raid controller
+In-Reply-To: <Pine.PMDF.3.95.1050930161517.541323471e-100000@admin.athabascau.ca>
+References: <20050930220344.GA53112@freebie.xs4all.nl>
+	<Pine.PMDF.3.95.1050930161517.541323471e-100000@admin.athabascau.ca>
+Message-ID: <20050930223918.GL54923@cicely12.cicely.de>
+
+On Fri, Sep 30, 2005 at 04:19:02PM -0700, Richard Loken wrote:
+> On Sat, 1 Oct 2005, Wilko Bulte wrote:
+> 
+> > PC164 was never a mainstream Alpha for the DEC main commercial customer
+> > base.
+> 
+> That is for sure.
+> 
+> I guess I will put in the card and if the SRM recognizes it then I am half
+> way there.  Any thoughts on VGA cards?  I would like to get rid of this
+> Matrox Millenium that the PC164 SRM is so fond of.
+
+What's wrong with Millenium cards?
+They are still great for desktop use and servers don't need graphic
+anyway.
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+
+From emillbrandt at coldhaus.com  Fri Sep 30 16:15:20 2005
+From: emillbrandt at coldhaus.com (Eric Millbrandt)
+Date: Fri Sep 30 16:15:22 2005
+Subject: PC164 and the KZPAC raid controller
+In-Reply-To: <Pine.PMDF.3.95.1050930135716.541323471d-100000@admin.athabascau.ca>
+References: <Pine.PMDF.3.95.1050930135716.541323471d-100000@admin.athabascau.ca>
+Message-ID: <433DC6EE.6020003@coldhaus.com>
+
+My PC164 used to boot off of a KZPSC controller.  Then one day the card 
+went belly up.  In a panic I replaced it with a mylex dac960pd (for 
+intel).  To my suprise the SRM treated it as a KZPSC and would boot off 
+it.  The only tricky part is you have to configure the logical drive on 
+an intel box running msdos and daccf.exe.
+
+Richard Loken wrote:
+
+>I have a PC164 (no suffix) running 4.11 and I want to put one of my collection
+>of DEC KZPAC (DAC960) raid controllers into it and upgrade to 5.4.
+>
+>Will a KZPAC boot on a PC164?
+>
+>The FreeBSD hardware notes are obscure on this point: they seem to say that
+>genuine DAC 960 will NOT boot but can be used for other disks but there is a
+>footnote suggesting that a KZPAC will boot on some systems. 
+>
+>Anybody know for sure?  
+>
+>I administer various DS20's and AlphaServer 4100's who are happy to boot Tru64
+>off a KZPAC but I don't know about a PC164. 
+>
+>  
+>
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: smime.p7s
+Type: application/x-pkcs7-signature
+Size: 6179 bytes
+Desc: S/MIME Cryptographic Signature
+Url : http://lists.freebsd.org/pipermail/freebsd-alpha/attachments/20050930/13639f9b/smime.bin
+From richardlo at admin.athabascau.ca  Fri Sep 30 16:32:17 2005
+From: richardlo at admin.athabascau.ca (Richard Loken)
+Date: Fri Sep 30 16:32:18 2005
+Subject: PC164 and the KZPAC raid controller
+In-Reply-To: <20050930223918.GL54923@cicely12.cicely.de>
+Message-ID: <Pine.PMDF.3.95.1050930171117.541323471h-100000@admin.athabascau.ca>
+
+On Sat, 1 Oct 2005, Bernd Walter wrote:
+
+> On Fri, Sep 30, 2005 at 04:19:02PM -0700, Richard Loken wrote:
+> > On Sat, 1 Oct 2005, Wilko Bulte wrote:
+
+> > way there.  Any thoughts on VGA cards?  I would like to get rid of this
+> > Matrox Millenium that the PC164 SRM is so fond of.
+ 
+> What's wrong with Millenium cards?
+> They are still great for desktop use and servers don't need graphic
+> anyway.
+
+This server is my desktop at home and the Millenium only has 2 Mbyte of 
+memory and X11 has some strong opinions on how many bits of colour and how
+much resolution he will provide me with that setup...  I could scarf the 
+Oxygen out of the 4100 here at work - that guy IS a server and he doesn't 
+need that much video card.  Alas, I find that managers grow restless when
+I knock down the servers (much less steal their video cards).
+
+If I put in an Oxygen I can run VMS!!!!!!!!!!!!!!!!!
+
+-- 
+   Richard Loken VE6BSV, Systems Programmer - VMS  : "Anybody can be a father
+   Athabasca University                            :  but you have to earn 
+   Athabasca, Alberta Canada                       :  the title of 'daddy'"
+   ** richardlo@admin.athabascau.ca **             :  - Lynn Johnston
+
+From ticso at cicely12.cicely.de  Fri Sep 30 17:02:24 2005
+From: ticso at cicely12.cicely.de (Bernd Walter)
+Date: Fri Sep 30 17:02:27 2005
+Subject: PC164 and the KZPAC raid controller
+In-Reply-To: <Pine.PMDF.3.95.1050930171117.541323471h-100000@admin.athabascau.ca>
+References: <20050930223918.GL54923@cicely12.cicely.de>
+	<Pine.PMDF.3.95.1050930171117.541323471h-100000@admin.athabascau.ca>
+Message-ID: <20051001000158.GN54923@cicely12.cicely.de>
+
+On Fri, Sep 30, 2005 at 05:31:46PM -0700, Richard Loken wrote:
+> On Sat, 1 Oct 2005, Bernd Walter wrote:
+> 
+> > On Fri, Sep 30, 2005 at 04:19:02PM -0700, Richard Loken wrote:
+> > > On Sat, 1 Oct 2005, Wilko Bulte wrote:
+> 
+> > > way there.  Any thoughts on VGA cards?  I would like to get rid of this
+> > > Matrox Millenium that the PC164 SRM is so fond of.
+>  
+> > What's wrong with Millenium cards?
+> > They are still great for desktop use and servers don't need graphic
+> > anyway.
+> 
+> This server is my desktop at home and the Millenium only has 2 Mbyte of 
+> memory and X11 has some strong opinions on how many bits of colour and how
+> much resolution he will provide me with that setup...  I could scarf the 
+> Oxygen out of the 4100 here at work - that guy IS a server and he doesn't 
+> need that much video card.  Alas, I find that managers grow restless when
+> I knock down the servers (much less steal their video cards).
+
+OK - 2M is not much.
+That an ISA ET4000 always worked for me is not much of help, I think.
+Maybe a G450 or S3 will work, but can't say for shure.
+I would say try out what you have and if you have to buy a card then
+try getting a used Millenium with 4 or 8M.
+
+> If I put in an Oxygen I can run VMS!!!!!!!!!!!!!!!!!
+
+But who wants this if one can run FreeBSD :)
+The PC164 is very well supported, the only drawback is the interrupt
+PAL, which has problems masking interrupts, therefor we currently
+raise the CPU IPL as a workaround.
+As a result you'll see additional interrupt latency on higher interrupt
+load.
+Unfortunately both of my PC164 are production machines and I can't
+analyse the PAL.
+
+-- 
+B.Walter                   BWCT                http://www.bwct.de
+bernd@bwct.de                                  info@bwct.de
+

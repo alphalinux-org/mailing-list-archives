@@ -1,0 +1,795 @@
+From openbsd-alpha  Wed Aug 28 07:04:04 2002
+From: "f.johan.beisser" <jan () caustic ! org>
+Date: Wed, 28 Aug 2002 07:04:04 +0000
+To: openbsd-alpha
+Subject: odd timeouts, redux
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=103051835227098
+
+this evening has given me more time to check things out.
+
+first, the network interface (fxp0) is probably the culprit. once the
+interface goes down during heavy network load (nfs serving of /usr/src,
+for example), it can be recovered through a simple ifconfig fxp0 [down |
+up]. this seems to reset the buffer(s).. but, it is a far from ideal
+solution for this problem. again, given some assistance, i'll gladly start
+digging in to this, as far as i can.
+
+an example of outgoing pings from the alpha:
+
+	[jan@globalhead jan] {44}$ ping 192.168.1.100
+	64 bytes from 192.168.1.100: icmp_seq=0 ttl=255 time=0.978 ms
+	...
+	64 bytes from 192.168.1.100: icmp_seq=57 ttl=255 time=3.908 ms
+	ping: sendto: No buffer space available
+	ping: wrote 192.168.1.100 64 chars, ret=-1
+	ping: sendto: No buffer space available
+	ping: wrote 192.168.1.100 64 chars, ret=-1
+	ping: sendto: No buffer space available
+	ping: wrote 192.168.1.100 64 chars, ret=-1
+	...
+
+this only happens intermittantly. from the NFS client side, the machine
+simply stops responding to all network traffic for a while.
+
+dmesg output with the GENERIC kernel, and sources from Aug 26
+
+[ using 486616 bytes of bsd ELF symbol table ]
+consinit: not using prom console
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+	The Regents of the University of California.  All rights reserved.
+Copyright (c) 1995-2002 OpenBSD. All rights reserved.  http://www.OpenBSD.org
+
+OpenBSD 3.1-current (GENERIC) #1: Tue Aug 27 09:49:37 PDT 2002
+    jan@globalhead:/usr/src/sys/arch/alpha/compile/GENERIC
+Digital AlphaPC 164LX 533 MHz
+8192 byte page size, 1 processor.
+total memory = 134217728 (131072K)
+(2179072 reserved for PROM, 132038656 used by OpenBSD)
+avail memory = 109699072 (107128K)
+using 1611 buffers containing 13197312 bytes (12888K) of memory
+mainbus0 (root)
+cpu0 at mainbus0: ID 0 (primary), 21164A-2 (pass 2)
+cpu0: Architecture extensions: 1<BWX>
+cia0 at mainbus0: DECchip 2117x Core Logic Chipset (Pyxis), pass 1
+cia0: extended capabilities: 1<BWEN>
+cia0: using BWX for PCI config and bus access
+pci0 at cia0 bus 0
+fxp0 at pci0 dev 6 function 0 "Intel 82557" rev 0x08: eb164 irq 0, address 00:d0:b7:75:f0:a6
+inphy0 at fxp0 phy 1: i82555 10/100 media interface, rev. 4
+ahc0 at pci0 dev 7 function 0 "Adaptec AHA-2940U" rev 0x00: eb164 irq 1
+ahc0: aic7880: Ultra Wide Channel A, SCSI Id=7, 16/255 SCBs
+scsibus0 at ahc0: 16 targets
+ahc0: target 0 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 0 using tagged queuing
+sd0 at scsibus0 targ 0 lun 0: <WDIGTL, ENTERPRISE, 1.91> SCSI2 0/direct fixed
+sd0: 4157MB, 5720 cyl, 8 head, 186 sec, 512 bytes/sec, 8515173 sec total
+ahc0: target 2 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 2 using tagged queuing
+sd1 at scsibus0 targ 2 lun 0: <IBM, DNES-309170W, SAH0> SCSI3 0/direct fixed
+sd1: 8748MB, 11474 cyl, 5 head, 312 sec, 512 bytes/sec, 17916240 sec total
+sio0 at pci0 dev 8 function 0 "Intel 82378IB PCI-ISA" rev 0x43
+vga0 at pci0 dev 9 function 0 "Matrox MGA Millenium 2064W (Storm)" rev 0x01
+wsdisplay0 at vga0: console (80x25, vt100 emulation)
+pciide0 at pci0 dev 11 function 0 "CMD Technology PCI0646" rev 0x01: DMA, channel 0 wired to compatibility, channel 1 wired to compatibility
+atapiscsi0 at pciide0 channel 0 drive 0
+scsibus1 at atapiscsi0: 2 targets
+cd0 at scsibus1 targ 0 lun 0: <MITSUMI, CD-ROM FX240S !B, j01> SCSI0 5/cdrom removable
+cd0(pciide0:0:0): using PIO mode 3, DMA mode 1
+isa0 at sio0
+isadma0 at isa0
+com0 at isa0 port 0x3f8/8 irq 4: ns16550a, 16 byte fifo
+com1 at isa0 port 0x2f8/8 irq 3: ns16550a, 16 byte fifo
+pckbc0 at isa0 port 0x60/5
+pckbd0 at pckbc0 (kbd slot)
+pckbc0: using irq 1 for kbd slot
+wskbd0 at pckbd0: console keyboard, using wsdisplay0
+pms0 at pckbc0 (aux slot)
+pckbc0: using irq 12 for aux slot
+wsmouse0 at pms0
+pcppi0 at isa0 port 0x61
+spkr0 at pcppi0
+midi0 at pcppi0: <PC speaker>
+isabeep0 at pcppi0
+lpt0 at isa0 port 0x3bc/4 irq 7
+fdc0 at isa0 port 0x3f0/6 irq 6 drq 2
+fd0 at fdc0 drive 0: 1.44MB 80 cyl, 2 head, 18 sec
+mcclock0 at isa0 port 0x70/2: mc146818 or compatible
+stray isa irq 3
+stray isa irq 4
+root on sd0a swap on sd0b
+rootdev=0x800 rrootdev=0x800 rawdev=0x802
+stray isa irq 4
+stray isa irq 3
+
+From openbsd-alpha  Tue Aug 27 16:15:09 2002
+From: "f.johan.beisser" <jan () caustic ! org>
+Date: Tue, 27 Aug 2002 16:15:09 +0000
+To: openbsd-alpha
+Subject: odd timeouts..
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=103046497404185
+
+i've been using OpenBSD/alpha snapshots on my alphaPC 164 for a little
+while. i've been finding, recently on a couple different kernels (GENERIC,
+and my own custom kernel) that there've been odd timeouts during heavy
+network usage. upon an attempted ping, i've been informed of insufficiant
+buffer space, once.
+
+my question for you, it would seem, is where to look to start solving this
+problem.
+
+nothing shows up in the alpha's dmesg.
+
+on the console, the interface is reported correctly by the kernel (it's
+up, active, and working).
+
+sometimes, when sending an outbound packet, the interface is restored, and
+everything recovers.
+
+the amount of data seems to be arbitrary, but fully related to inbound
+packets.
+
+-------/ f. johan beisser /--------------------------------------+
+  http://caustic.org/~jan                      jan@caustic.org
+    "John Ashcroft is really just the reanimated corpse
+         of J. Edgar Hoover." -- Tim Triche
+
+From openbsd-alpha  Wed Aug 21 03:27:39 2002
+From: Rob Harris <rharris () fuzzfactor ! com>
+Date: Wed, 21 Aug 2002 03:27:39 +0000
+To: openbsd-alpha
+Subject: Last chance, API UP2000 Alpha Server For Sale
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=102990050219698
+
+The offers I had fell through, so I'll offer it up one more time at a 
+reduced price to get it out of my house.
+
+Again, I have a dual processor AlphaProcessor, Inc. UP2000 (akin to a 
+DS20) server system for sale. I personally spec'ed, purchased and used 
+this machine when I worked for a former dot com. When I was laid off, I 
+bought it from them for a potential project which never happened.
+
+6U Rack-mount chassis
+600W Power Supply (new)
+API UP2000 Motherboard
+Dual 667mhz 21264 Slot B processors, 2Mb cache
+1G of RAM
+Dual Intel 10/100 Ethernet
+Elsa Synergy III
+3.5" Floppy
+12x IDE CDROM drive
+27G (18Gx1, 9Gx1) LVD SCSI drives (more/different drives can be 
+negotiated in.)
+Plenty of internal cooling fans.
+(I can provide pix of system if interested.)
+
+It has run Tru64, Linux, NetBSD, and FreeBSD all flawlessly in a 
+production environment for various tasks. (We used it for doing 
+client-server prototyping.)
+
+Was over $10k when purchased less than 2 years ago. I would like $2000 + 
+shipping, completely negotiable. If you live on the east coast north 
+between MA and NC, I can hand deliver it to you. Please reply if 
+interested. Thanks. I promise I won't spam this list anymore. :)
+
+-=[ Rob ]=-
+___________________________________________________________________
+  Rob Harris -=- Technological Pragmatist -=- rharris@fuzzfactor.com
+"There's nothing more dangerous than a resourceful idiot." -Dilbert
+
+From openbsd-alpha  Mon Aug 12 18:42:12 2002
+From: rharris () fuzzfactor ! com
+Date: Mon, 12 Aug 2002 18:42:12 +0000
+To: openbsd-alpha
+Subject: UP2000 For Sale
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=102917796100396
+
+Greetings. I apologize if I'm off topic, but I figured someone here may
+be interested before I threw this on eBay... I have a UP2000 server
+system for sale. I personally spec'ed, purchased and used this machine
+when I worked for a former dot com. When I was laid off, I bought it
+from them for a potential project which never happened.
+
+6U Rack-mount chassis
+600W Power Supply (new)
+API UP2000 Motherboard
+Dual 667mhz 21264 Slot B processors, 2Mb cache
+1G of RAM
+Dual Intel 10/100 Ethernet
+Elsa Synergy III
+3.5" Floppy
+9G LVD SCSI drive
+45G (18Gx2, 9Gx1)  RPM LVD SCSI drives
+    (the 18G's are 10k RPM)
+TONS of internal cooling fans.
+(I can provide pix of system if interested.)
+
+It has run Tru64, Linux, NetBSD, and FreeBSD all flawlessly in a
+production environment for various tasks. (We used it for doing
+client-server prototyping.)
+
+Was over $10k when purchased less than 2 years ago. I would like $3500 +
+shipping. (negotiable). Please reply if interested. Thanks.
+
+-=[ Rob ]=-
+___________________________________________________________________
+  Rob Harris -=- Technological Pragmatist -=- rharris@fuzzfactor.com
+"There's nothing more dangerous than a resourceful idiot." -Dilbert
+
+From openbsd-alpha  Wed Aug 07 15:31:08 2002
+From: Miod Vallat <miod () online ! fr>
+Date: Wed, 07 Aug 2002 15:31:08 +0000
+To: openbsd-alpha
+Subject: Re: X again..
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=102873430322653
+
+> Using this file however reslults in a machine crash with the folowing
+> symptoms: 
+> Dmesg (full dmesg appenden at the bottom of this mail) shows:
+> 
+> unexpected machine check:
+> 
+>     mces    = 0x1
+>     vector  = 0x670
+>     param   = 0xfffffc0000006068
+>     pc      = 0x1603165a4
+>     ra      = 0x12003f09c
+>     curproc = 0xfffffc0003e3bc78
+> 	pid = 8833, comm = XFree86
+
+I have been getting a few 670 on an LX164 recently, not X11 related. I
+am slowly tracking this down - it is not related to the bwx enabled by
+default for cia/pyxis chipsets, but some subtle recent breakage.
+
+Miod
+
+From openbsd-alpha  Wed Aug 07 11:47:44 2002
+From: "Chad L. Cook" <ccook () illusive ! org>
+Date: Wed, 07 Aug 2002 11:47:44 +0000
+To: openbsd-alpha
+Subject: corrected email address
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=102872107305746
+
+Hi again-
+
+This is my correct email address - (ccook@illusive.org).  Sorry about
+that.
+:)
+
+Thanks,
+Chad
+
+From openbsd-alpha  Wed Aug 07 11:40:59 2002
+From: "Chad L. Cook" <chadcook () attbi ! com>
+Date: Wed, 07 Aug 2002 11:40:59 +0000
+To: openbsd-alpha
+Subject: ?
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=102872065805445
+
+Hi -
+
+I'm not sure if this is a mailing list - if so, sorry for adding
+clutter... I was
+curious as to the status of alpha development (active or not?).  I just
+brought
+up a 500MHz PC164 with 3.1 and wouldn't mind helping out if you need it.
+
+I don't have a huge amount of free time, but I'll do what I can! :)
+
+Thanks,
+Chad
+
+From openbsd-alpha  Sun Sep 29 04:59:25 2002
+From: "f.johan.beisser" <jan () caustic ! org>
+Date: Sun, 29 Sep 2002 04:59:25 +0000
+To: openbsd-alpha
+Subject: Re: X again..
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=103327560312231
+
+On Wed, 7 Aug 2002, Miod Vallat wrote:
+
+> I have been getting a few 670 on an LX164 recently, not X11 related. I
+> am slowly tracking this down - it is not related to the bwx enabled by
+> default for cia/pyxis chipsets, but some subtle recent breakage.
+
+has this been figured out as of yet?
+
+i've recently started working on the alpha again, trying to figure out why
+X11 (still) doesn't work.
+
+from the recent snapshots (X11 from the 25th of sept, system binaries from
+the 28th) i still end up with system freezes when i try to do it as root,
+and a simple failure when it runs as a user via startx. xdm simply fails,
+somewhat quietly.
+
+via startx, it seems that the wsfb is the holding point:
+
+(II) wsfb(0): using /dev/ttyC0
+(II) Running in FRAMEBUFFER Mode
+(EE) wsfb(0): ioctl WSDISPLAY_GINFO: Inappropriate ioctl for device
+(II) UnloadModule: "wsfb"
+(EE) Screen(s) found, but none have a usable configuration.
+
+Fatal server error:
+no screens found
+
+any thoughts?
+
+-------/ f. johan beisser /--------------------------------------+
+  http://caustic.org/~jan                      jan@caustic.org
+    "John Ashcroft is really just the reanimated corpse
+         of J. Edgar Hoover." -- Tim Triche
+
+From openbsd-alpha  Wed Aug 07 15:14:46 2002
+From: janjaap () stack ! nl (Janjaap van Velthooven)
+Date: Wed, 07 Aug 2002 15:14:46 +0000
+To: openbsd-alpha
+Subject: Re: X again..
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=102873343521454
+
+f.johan.beisser wrote and mailed:
+> On Mon, 5 Aug 2002, Matthieu Herrb wrote:
+> the current result, with the mga driver:
+> 
+> crash. takes down the entire machine. this may be due to a
+> misconfiguration on my part, though. i'll look at it a bit more in depth
+> later on.
+
+I've been playing with X also also. My results (also with a 
+Matrox millenium II) look very similar...
+
+The XF86Config file from the snapshot binaries seem to support only
+wsfb so I made an XF86Config file with 'XFree86 -configure'
+Apart from not finding a mouse and changing blue in the colormap
+permanently to red this seems to make a believable config file.
+
+Using this file however reslults in a machine crash with the folowing
+symptoms: 
+Dmesg (full dmesg appenden at the bottom of this mail) shows:
+
+unexpected machine check:
+
+    mces    = 0x1
+    vector  = 0x670
+    param   = 0xfffffc0000006068
+    pc      = 0x1603165a4
+    ra      = 0x12003f09c
+    curproc = 0xfffffc0003e3bc78
+	pid = 8833, comm = XFree86
+
+panic: machine check
+syncing disks... 6 6 2 done
+
+Since the video is mangled I cant do a trace or ps here; but gdb on the 
+core file shows:
+(gdb) bt
+#0  0xfffffc00005e1558 in dumpsys ()
+#1  0xfffffc00005e1198 in boot ()
+#2  0xfffffc000032919c in panic ()
+#3  0xfffffc00005df424 in machine_check ()
+#4  0xfffffc00005df0f4 in interrupt ()
+#5  0xfffffc00002303fc in XentInt ()
+warning: Hit heuristic-fence-post without finding
+warning: enclosing function for address 0x12003f124
+
+If anyone needs more info or wants the core file just yell...
+
+> thanks again for the pointers.
+> 
+> -------/ f. johan beisser /--------------------------------------+
+>   http://caustic.org/~jan                      jan@caustic.org
+>     "John Ashcroft is really just the reanimated corpse
+>          of J. Edgar Hoover." -- Tim Triche
+
+	Janjaap van Velthooven
+--  ________________________________________
+   / __/ /_    / ______/ /_  __/ __/ /___  / 
+  / /_  __/___/_/_  /___  / / __/ /___  / /          janjaap@stack.nl
+ /___/_/_________/_____/_/_/_/_______/_/_/        
+
+Dmesg:
+[ using 486648 bytes of bsd ELF symbol table ]
+consinit: not using prom console
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+	The Regents of the University of California.  All rights reserved.
+Copyright (c) 1995-2002 OpenBSD. All rights reserved.  http://www.OpenBSD.org
+
+OpenBSD 3.1-current (GENERIC) #3: Tue Jul 30 16:33:55 CEST 2002
+    janjaap@alf:/usr/src/sys/arch/alpha/compile/GENERIC
+Digital AlphaPC 164SX 533 MHz
+8192 byte page size, 1 processor.
+total memory = 67108864 (65536K)
+(1966080 reserved for PROM, 65142784 used by OpenBSD)
+avail memory = 51027968 (49832K)
+using 795 buffers containing 6512640 bytes (6360K) of memory
+mainbus0 (root)
+cpu0 at mainbus0: ID 0 (primary), PCA56-2 (unknown minor type 2)
+cpu0: Architecture extensions: 1<BWX>
+cia0 at mainbus0: DECchip 2117x Core Logic Chipset (Pyxis), pass 1
+cia0: extended capabilities: 1<BWEN>
+cia0: using BWX for PCI config and bus access
+pci0 at cia0 bus 0
+vga0 at pci0 dev 6 function 0 "Matrox MGA Millennium II 2164W" rev 0x00
+wsdisplay0 at vga0: console (80x25, vt100 emulation)
+de0 at pci0 dev 7 function 0 "DEC 21140" rev 0x22: eb164 irq 10
+de0: DEC DE500-AA 21140A [10-100Mb/s] pass 2.2 address 00:00:f8:1b:4f:3e
+sio0 at pci0 dev 8 function 0 "Contaq Microsystems CY82C693U PCI-ISA" rev 0x00
+pciide0 at pci0 dev 8 function 1 "Contaq Microsystems CY82C693U PCI-ISA" rev 0x00: DMA, channel 0 wired to compatibility
+wd0 at pciide0 channel 0 drive 0: <ST36531A>
+wd0: 32-sector PIO, LBA, 6204MB, 13446 cyl, 15 head, 63 sec, 12706470 sectors
+wd0(pciide0:0:0): using PIO mode 4, DMA mode 2
+pciide1 at pci0 dev 8 function 2 "Contaq Microsystems CY82C693U PCI-ISA" rev 0x00: no DMA, channel 0 wired to compatibility
+atapiscsi0 at pciide1 channel 0 drive 0
+scsibus0 at atapiscsi0: 2 targets
+cd0 at scsibus0 targ 0 lun 0: <LITEON, CD-ROM LTN301, MM11> SCSI0 5/cdrom removable
+cd0(pciide1:0:0): using PIO mode 4
+"Contaq Microsystems CY82C693U PCI-ISA" rev 0x00 at pci0 dev 8 function 3 not configured
+isa0 at sio0
+isadma0 at isa0
+com0 at isa0 port 0x3f8/8 irq 4: ns16550a, 16 byte fifo
+com1 at isa0 port 0x2f8/8 irq 3: ns16550a, 16 byte fifo
+pckbc0 at isa0 port 0x60/5
+pckbd0 at pckbc0 (kbd slot)
+pckbc0: using irq 1 for kbd slot
+wskbd0 at pckbd0: console keyboard, using wsdisplay0
+pms0 at pckbc0 (aux slot)
+pckbc0: using irq 12 for aux slot
+wsmouse0 at pms0
+pcppi0 at isa0 port 0x61
+spkr0 at pcppi0
+midi0 at pcppi0: <PC speaker>
+isabeep0 at pcppi0
+lpt0 at isa0 port 0x3bc/4 irq 7
+fdc0 at isa0 port 0x3f0/6 irq 6 drq 2
+fd0 at fdc0 drive 0: 1.44MB 80 cyl, 2 head, 18 sec
+mcclock0 at isa0 port 0x70/2: mc146818 or compatible
+stray isa irq 3
+stray isa irq 4
+root on wd0a swap on wd0b
+rootdev=0x0 rrootdev=0x2400 rawdev=0x2402
+de0: enabling Full Duplex 100baseTX port
+stray isa irq 4
+stray isa irq 3
+wsdisplay0: screen 1 added (80x25, vt100 emulation)
+wsdisplay0: screen 2 added (80x25, vt100 emulation)
+wsdisplay0: screen 3 added (80x25, vt100 emulation)
+wsdisplay0: screen 4 added (80x50, vt100 emulation)
+wsdisplay0: screen 5 added (80x50, vt100 emulation)
+wsdisplay0: screen 6 added (80x50, vt100 emulation)
+wsdisplay0: screen 7 added (80x50, vt100 emulation)
+wsdisplay0: screen 11 added (80x50, vt100 emulation)
+
+unexpected machine check:
+
+    mces    = 0x1
+    vector  = 0x670
+    param   = 0xfffffc0000006068
+    pc      = 0x1603165a4
+    ra      = 0x12003f124
+    curproc = 0xfffffc0003609a48
+        pid = 7156, comm = XFree86
+
+panic: machine check
+syncing disks... 5 5 done
+[ using 486648 bytes of bsd ELF symbol table ]
+consinit: not using prom console
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+	The Regents of the University of California.  All rights reserved.
+Copyright (c) 1995-2002 OpenBSD. All rights reserved.  http://www.OpenBSD.org
+
+OpenBSD 3.1-current (GENERIC) #3: Tue Jul 30 16:33:55 CEST 2002
+    janjaap@alf:/usr/src/sys/arch/alpha/compile/GENERIC
+Digital AlphaPC 164SX 533 MHz
+8192 byte page size, 1 processor.
+total memory = 67108864 (65536K)
+(1966080 reserved for PROM, 65142784 used by OpenBSD)
+avail memory = 51027968 (49832K)
+using 795 buffers containing 6512640 bytes (6360K) of memory
+mainbus0 (root)
+cpu0 at mainbus0: ID 0 (primary), PCA56-2 (unknown minor type 2)
+cpu0: Architecture extensions: 1<BWX>
+cia0 at mainbus0: DECchip 2117x Core Logic Chipset (Pyxis), pass 1
+cia0: extended capabilities: 1<BWEN>
+cia0: using BWX for PCI config and bus access
+pci0 at cia0 bus 0
+vga0 at pci0 dev 6 function 0 "Matrox MGA Millennium II 2164W" rev 0x00
+wsdisplay0 at vga0: console (80x25, vt100 emulation)
+de0 at pci0 dev 7 function 0 "DEC 21140" rev 0x22: eb164 irq 10
+de0: DEC DE500-AA 21140A [10-100Mb/s] pass 2.2 address 00:00:f8:1b:4f:3e
+sio0 at pci0 dev 8 function 0 "Contaq Microsystems CY82C693U PCI-ISA" rev 0x00
+pciide0 at pci0 dev 8 function 1 "Contaq Microsystems CY82C693U PCI-ISA" rev 0x00: DMA, channel 0 wired to compatibility
+wd0 at pciide0 channel 0 drive 0: <ST36531A>
+wd0: 32-sector PIO, LBA, 6204MB, 13446 cyl, 15 head, 63 sec, 12706470 sectors
+wd0(pciide0:0:0): using PIO mode 4, DMA mode 2
+pciide1 at pci0 dev 8 function 2 "Contaq Microsystems CY82C693U PCI-ISA" rev 0x00: no DMA, channel 0 wired to compatibility
+atapiscsi0 at pciide1 channel 0 drive 0
+scsibus0 at atapiscsi0: 2 targets
+cd0 at scsibus0 targ 0 lun 0: <LITEON, CD-ROM LTN301, MM11> SCSI0 5/cdrom removable
+cd0(pciide1:0:0): using PIO mode 4
+"Contaq Microsystems CY82C693U PCI-ISA" rev 0x00 at pci0 dev 8 function 3 not configured
+isa0 at sio0
+isadma0 at isa0
+com0 at isa0 port 0x3f8/8 irq 4: ns16550a, 16 byte fifo
+com1 at isa0 port 0x2f8/8 irq 3: ns16550a, 16 byte fifo
+pckbc0 at isa0 port 0x60/5
+pckbd0 at pckbc0 (kbd slot)
+pckbc0: using irq 1 for kbd slot
+wskbd0 at pckbd0: console keyboard, using wsdisplay0
+pms0 at pckbc0 (aux slot)
+pckbc0: using irq 12 for aux slot
+wsmouse0 at pms0
+pcppi0 at isa0 port 0x61
+spkr0 at pcppi0
+midi0 at pcppi0: <PC speaker>
+isabeep0 at pcppi0
+lpt0 at isa0 port 0x3bc/4 irq 7
+fdc0 at isa0 port 0x3f0/6 irq 6 drq 2
+fd0 at fdc0 drive 0: 1.44MB 80 cyl, 2 head, 18 sec
+mcclock0 at isa0 port 0x70/2: mc146818 or compatible
+root on wd0a swap on wd0b
+rootdev=0x0 rrootdev=0x2400 rawdev=0x2402
+WARNING: / was not properly unmounted
+de0: enabling Full Duplex 100baseTX port
+stray isa irq 4
+stray isa irq 3
+wsdisplay0: screen 1 added (80x25, vt100 emulation)
+wsdisplay0: screen 2 added (80x25, vt100 emulation)
+wsdisplay0: screen 3 added (80x25, vt100 emulation)
+wsdisplay0: screen 4 added (80x50, vt100 emulation)
+wsdisplay0: screen 5 added (80x50, vt100 emulation)
+wsdisplay0: screen 6 added (80x50, vt100 emulation)
+wsdisplay0: screen 7 added (80x50, vt100 emulation)
+wsdisplay0: screen 11 added (80x50, vt100 emulation)
+
+From openbsd-alpha  Mon Aug 05 18:53:05 2002
+From: "f.johan.beisser" <jan () caustic ! org>
+Date: Mon, 05 Aug 2002 18:53:05 +0000
+To: openbsd-alpha
+Subject: Re: X again..
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=102857360605913
+
+On Mon, 5 Aug 2002, Matthieu Herrb wrote:
+
+> Hmm, there's something I forgot to add: since aperture driver
+> is not yet implemented on alpha, you need to set securelevel to -1 in
+> /etc/rc.securelevel. It's so obvious for me that I always forget about
+> it. Sorry for the confusion.
+
+oosp. that's the one thing i'd not tried as of yet.
+
+the current result, with the mga driver:
+
+crash. takes down the entire machine. this may be due to a
+misconfiguration on my part, though. i'll look at it a bit more in depth
+later on.
+
+thanks again for the pointers.
+
+-------/ f. johan beisser /--------------------------------------+
+  http://caustic.org/~jan                      jan@caustic.org
+    "John Ashcroft is really just the reanimated corpse
+         of J. Edgar Hoover." -- Tim Triche
+
+From openbsd-alpha  Mon Aug 05 18:27:18 2002
+From: Matthieu Herrb <matthieu.herrb () wanadoo ! fr>
+Date: Mon, 05 Aug 2002 18:27:18 +0000
+To: openbsd-alpha
+Subject: Re: X again..
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=102857215203925
+
+f.johan.beisser wrote (in a message from Monday 5)
+ > On Mon, 5 Aug 2002, Matthieu Herrb wrote:
+ > 
+ > > Probably, yes.  The X support for VGA cards on the alpha is still very
+ > > experimental, so failures can be expected. But the Matrox driver is
+ > > one of those that I successfully tested last month.
+ > 
+ > i waited as you recommended, and did try the new XF864 versions. i'll
+ > update to the latest snapshots this evening, and see how this works
+   out.
+
+Hmm, there's something I forgot to add: since aperture driver
+is not yet implemented on alpha, you need to set securelevel to -1 in 
+/etc/rc.securelevel. It's so obvious for me that I always forget about
+it. Sorry for the confusion. 
+
+
+					Matthieu
+
+From openbsd-alpha  Mon Aug 05 18:16:30 2002
+From: "f.johan.beisser" <jan () caustic ! org>
+Date: Mon, 05 Aug 2002 18:16:30 +0000
+To: openbsd-alpha
+Subject: Re: X again..
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=102857149403168
+
+On Mon, 5 Aug 2002, Matthieu Herrb wrote:
+
+> Probably, yes.  The X support for VGA cards on the alpha is still very
+> experimental, so failures can be expected. But the Matrox driver is
+> one of those that I successfully tested last month.
+
+i waited as you recommended, and did try the new XF864 versions. i'll
+update to the latest snapshots this evening, and see how this works out.
+
+> In recent snapshots, I think I've introduced a problem that will
+> prevent the server from working when started by xinit or startx. On a
+> fresh system (ie GENERIC kernel) try to run just 'XFree86' as root. If
+> the X wave background and the X shaped cursor appear after a while,
+> then the X server is basically working. You can use xdm to start it.
+
+i'll test this out right now, since it should just be one of those "just
+works" things from the sound of it.
+
+> Otherwise, please send the contents of /var/log/XFree86.0.log.
+
+i did in my last message. essentially it's just XFree86 complaining about
+not being able to access /dev/mem.
+
+(WW) checkDevMem: failed to open /dev/mem (Operation not permitted)
+        linear framebuffer access unavailable
+
+this problem comes up in securelevel 1 and 0. i've not tried -1, as of
+yet. that is, by the way, the entirety of the log.
+
+> I'm going to try to fix those bugs before I leave for vacation, but I
+> don't promise anything.
+
+no pressure. i wish i knew more about the kernel and X to be of some
+decent help.
+
+thanks for the work,
+- johan
+
+-------/ f. johan beisser /--------------------------------------+
+  http://caustic.org/~jan                      jan@caustic.org
+    "John Ashcroft is really just the reanimated corpse
+         of J. Edgar Hoover." -- Tim Triche
+
+From openbsd-alpha  Mon Aug 05 17:55:03 2002
+From: Matthieu Herrb <matthieu.herrb () wanadoo ! fr>
+Date: Mon, 05 Aug 2002 17:55:03 +0000
+To: openbsd-alpha
+Subject: Re: X again..
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=102857020301369
+
+f.johan.beisser wrote (in a message from Monday 5)
+ > in recent versions of OpenBSD alpha's kernel sources (updated as of 03 Aug
+ > 2002) i've been attempting to convert the aperture driver to work. this is
+ > due to XFree86 wanting to access /dev/mem directly.
+ > 
+ > so, even with recent snapshots, and a recompiled XF86 source tree i've
+ > not been able to get the VGA cards working..
+ > 
+ > the question is, am i missing something? should i be looking
+   elsewhere?
+
+Probably, yes.  The X support for VGA cards on the alpha is still very
+experimental, so failures can be expected. But the Matrox driver is
+one of those that I successfully tested last month.
+
+In recent snapshots, I think I've introduced a problem that will
+prevent the server from working when started by xinit or startx. On a
+fresh system (ie GENERIC kernel) try to run just 'XFree86' as root. If
+the X wave background and the X shaped cursor appear after a while,
+then the X server is basically working. You can use xdm to start it. 
+
+Otherwise, please send the contents of /var/log/XFree86.0.log. 
+
+I'm going to try to fix those bugs before I leave for vacation, but I
+don't promise anything. 
+
+
+					Matthieu
+
+From openbsd-alpha  Mon Aug 05 08:00:53 2002
+From: "f.johan.beisser" <jan () caustic ! org>
+Date: Mon, 05 Aug 2002 08:00:53 +0000
+To: openbsd-alpha
+Subject: X again..
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=102853455731598
+
+in recent versions of OpenBSD alpha's kernel sources (updated as of 03 Aug
+2002) i've been attempting to convert the aperture driver to work. this is
+due to XFree86 wanting to access /dev/mem directly.
+
+so, even with recent snapshots, and a recompiled XF86 source tree i've
+not been able to get the VGA cards working..
+
+the question is, am i missing something? should i be looking elsewhere?
+
+i've installed the recent snapshots, before upgrading the kernel and
+rebuilding XF4 from anoncvs.
+
+
+dmesg output:
+
+[ using 428728 bytes of bsd ELF symbol table ]
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+	The Regents of the University of California.  All rights reserved.
+Copyright (c) 1995-2002 OpenBSD. All rights reserved.  http://www.OpenBSD.org
+
+OpenBSD 3.1-current (GLOBALHEAD) #2: Sat Aug  3 23:59:23 PDT 2002
+    jan@globalhead:/usr/src/sys/arch/alpha/compile/GLOBALHEAD
+Digital AlphaPC 164LX 533 MHz
+8192 byte page size, 1 processor.
+total memory = 134217728 (131072K)
+(2179072 reserved for PROM, 132038656 used by OpenBSD)
+avail memory = 110239744 (107656K)
+using 1611 buffers containing 13197312 bytes (12888K) of memory
+mainbus0 (root)
+cpu0 at mainbus0: ID 0 (primary), 21164A-2 (pass 2)
+cpu0: Architecture extensions: 1<BWX>
+cia0 at mainbus0: DECchip 2117x Core Logic Chipset (Pyxis), pass 1
+cia0: extended capabilities: 1<BWEN>
+cia0: using BWX for PCI config and bus access
+pci0 at cia0 bus 0
+fxp0 at pci0 dev 6 function 0 "Intel 82557" rev 0x08: eb164 irq 0, address 00:d0:b7:75:f0:a6
+inphy0 at fxp0 phy 1: i82555 10/100 media interface, rev. 4
+ahc0 at pci0 dev 7 function 0 "Adaptec AHA-2940U" rev 0x00: eb164 irq 1
+ahc0: aic7880: Ultra Wide Channel A, SCSI Id=7, 16/255 SCBs
+scsibus0 at ahc0: 16 targets
+ahc0: target 0 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 0 using tagged queuing
+sd0 at scsibus0 targ 0 lun 0: <WDIGTL, ENTERPRISE, 1.91> SCSI2 0/direct fixed
+sd0: 4157MB, 5720 cyl, 8 head, 186 sec, 512 bytes/sec, 8515173 sec total
+ahc0: target 2 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 2 using tagged queuing
+sd1 at scsibus0 targ 2 lun 0: <IBM, DNES-309170W, SAH0> SCSI3 0/direct fixed
+sd1: 8748MB, 11474 cyl, 5 head, 312 sec, 512 bytes/sec, 17916240 sec total
+sio0 at pci0 dev 8 function 0 "Intel 82378IB PCI-ISA" rev 0x43
+vga0 at pci0 dev 9 function 0 "Matrox MGA Millenium 2064W (Storm)" rev 0x01
+wsdisplay0 at vga0: console (80x25, vt100 emulation)
+pciide0 at pci0 dev 11 function 0 "CMD Technology PCI0646" rev 0x01: DMA, channel 0 wired to compatibility, channel 1 wired to compatibility
+atapiscsi0 at pciide0 channel 0 drive 0
+scsibus1 at atapiscsi0: 2 targets
+cd0 at scsibus1 targ 0 lun 0: <MITSUMI, CD-ROM FX240S !B, j01> SCSI0 5/cdrom removable
+cd0(pciide0:0:0): using PIO mode 3, DMA mode 1
+isa0 at sio0
+isadma0 at isa0
+com0 at isa0 port 0x3f8/8 irq 4: ns16550a, 16 byte fifo
+com1 at isa0 port 0x2f8/8 irq 3: ns16550a, 16 byte fifo
+pckbc0 at isa0 port 0x60/5
+pckbd0 at pckbc0 (kbd slot)
+pckbc0: using irq 1 for kbd slot
+wskbd0 at pckbd0: console keyboard, using wsdisplay0
+pms0 at pckbc0 (aux slot)
+pckbc0: using irq 12 for aux slot
+wsmouse0 at pms0
+pcppi0 at isa0 port 0x61
+spkr0 at pcppi0
+midi0 at pcppi0: <PC speaker>
+isabeep0 at pcppi0
+lpt0 at isa0 port 0x3bc/4 irq 7
+fdc0 at isa0 port 0x3f0/6 irq 6 drq 2
+fd0 at fdc0 drive 0: 1.44MB 80 cyl, 2 head, 18 sec
+mcclock0 at isa0 port 0x70/2: mc146818 or compatible
+stray isa irq 3
+stray isa irq 4
+root on sd0a swap on sd0b
+rootdev=0x800 rrootdev=0x800 rawdev=0x802
+stray isa irq 4
+stray isa irq 3
+
+
+errors from attempted kernel build with "option APERTURE" in it:
+
+ld -N -Ttext fffffc0000230000 -e __start -G 4 -S -o bsd ${SYSTEM_OBJ}
+vers.o
+pci.o: In function `pciopen':
+pci.o(.text+0x7c0): undefined reference to `allowaperture'
+*** Error code 1
+
+Stop in /usr/src/sys/arch/alpha/compile/GLOBALHEAD2 (line 450 of
+Makefile).
+
+
+the entire XFree86.0.log:
+(WW) checkDevMem: failed to open /dev/mem (Operation not permitted)
+        linear framebuffer access unavailable
+
+
+-------/ f. johan beisser /--------------------------------------+
+  http://caustic.org/~jan                      jan@caustic.org
+    "John Ashcroft is really just the reanimated corpse
+         of J. Edgar Hoover." -- Tim Triche
+

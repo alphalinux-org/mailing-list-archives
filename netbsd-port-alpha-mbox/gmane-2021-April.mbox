@@ -1,0 +1,3090 @@
+From thorpej@me.com  Thu Apr 1 09:18:29 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Panic on -current with MULTIPROCESSOR
+Date: Thu, 1 Apr 2021 09:18:29 -0700
+Approved: news@gmane.org
+Message-ID: <FFEF8C0D-C58C-471C-B194-5BF10F0D44C8@me.com>
+References: <Pine.NEB.4.64.2103302005430.7971@athena.zia.io>
+ <8522DC30-03C4-4A45-8B87-B260BF7C2024@me.com>
+Mime-Version: 1.0 (Mac OS X Mail 14.0 \(3654.60.0.2.21\))
+Content-Type: text/plain;
+	charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="10710"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org
+To: John Klos <john@ziaspace.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Thu Apr 01 18:18:57 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lS024-0002bj-Kn
+	for netbsd-port-alpha@m.gmane-mx.org; Thu, 01 Apr 2021 18:18:57 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 253AC84DAC; Thu,  1 Apr 2021 16:18:53 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id AB2F584D16
+	for <port-alpha@netbsd.org>; Thu,  1 Apr 2021 16:18:32 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id M4SS9x6uu-Bi for <port-alpha@netbsd.org>;
+	Thu,  1 Apr 2021 16:18:31 +0000 (UTC)
+Original-Received: from pv34p98im-ztdg02172101.me.com (pv34p98im-ztdg02172101.me.com [17.143.234.142])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 5758184CE9
+	for <port-alpha@netbsd.org>; Thu,  1 Apr 2021 16:18:31 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=1a1hai;
+	t=1617293910; bh=h0HzMR92hbWGPjrfftrD2SmfmsK1TWGNMZbJYSjiSOA=;
+	h=Content-Type:Mime-Version:Subject:From:Date:Message-Id:To;
+	b=CRqjPf9WNEACH1wi0nHug2Nk8c252qCkKze7EQdQCnwgZVWl2E8Vw8ZCrhosrsZOC
+	 sMZICKuZTMQeJvDl4h3JoFvfJALY9NBmojm1XJwm/rFx/5Yv0jHtvYmCeJLl9iIWsL
+	 VBMhF5AcZYUwoqpmWqT43OXtPcvZteiZwpd1kC5gT2zkaw7qRONo4lPCdgDhblE8cw
+	 xFutuazVITghWVbSORczugmkVDZyje5vTsQJXRd8x/OprvchRZzsZtxtXqN6ZLeBJ0
+	 uPA+mdFMUi2dSSqb121PFud1mvGxKudV87PADkP6vpxKsfcJ1IB75d/G/+wm0BCj3q
+	 hd9rSe+WVHdBg==
+Original-Received: from [17.234.11.210] (unknown [17.234.11.210])
+	by pv34p98im-ztdg02172101.me.com (Postfix) with ESMTPSA id 80C4C540087;
+	Thu,  1 Apr 2021 16:18:30 +0000 (UTC)
+In-Reply-To: <8522DC30-03C4-4A45-8B87-B260BF7C2024@me.com>
+X-Mailer: Apple Mail (2.3654.60.0.2.21)
+X-Proofpoint-Virus-Version: vendor=fsecure engine=2.50.10434:6.0.369,18.0.761
+ definitions=2021-04-01_07:2021-04-01,2021-04-01 signatures=0
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 suspectscore=0 malwarescore=0
+ phishscore=0 bulkscore=0 spamscore=0 clxscore=1015 mlxscore=0
+ mlxlogscore=822 adultscore=0 classifier=spam adjust=0 reason=mlx
+ scancount=1 engine=8.0.1-2006250000 definitions=main-2104010107
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5250
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5250>
+
+
+> On Mar 30, 2021, at 2:49 PM, Jason Thorpe <thorpej@me.com> wrote:
+>=20
+> So, something is a little fishy here.  I think there=E2=80=99s a =
+chance that there is some slight brokenness with spin mutexes on Alpha =
+that only show up on MULTIPROCESSOR kernels.  I=E2=80=99ll take a deeper =
+look a little later today.
+
+So, I spent a bunch of time looking at the Alpha spin lock handling code =
+today, and it looks OK to me.  I don=E2=80=99t think there=E2=80=99s a =
+generic problem with those here.
+
+So let=E2=80=99s take a look at what else might be going on=E2=80=A6
+
+pmap_tlb_shootnow() takes 2 locks:
+
+- The tlb_lock (1st)
+- The specific pmap=E2=80=99s =E2=80=9Cactivation lock=E2=80=9D (2nd).  =
+This is a global lock hash; multiple pmaps will share a lock.
+
+tlb_lock is a spin mutex at IPL_VM.
+
+The pmap activation locks are spin mutexes at IPL_SCHED.
+
+Hmm.
+
+So, spin mutexes are kind of interesting.  For those not aware of that =
+they are, in the NetBSD kernel they=E2=80=99re basically like the old =
+=E2=80=9Cs =3D splbio(); =E2=80=A6 splx(s);=E2=80=9D pair, but in =
+addition to blocking interrupts on the current cpu, they also block =
+other CPUs from accessing data protected by that mutex.
+
+When you acquire a spin mutex, the IPL is raised to what the mutex =
+requires, and a counter is bumped (it=E2=80=99s actually decremented, =
+but never mind that right now=E2=80=A6), and if the new value of the =
+count is 1, then the previous IPL is stashed away in a per-cpu variable.
+
+When a spin mutex is released, the count is dropped, and if the new =
+value is 0, is restores the saved IPL.
+
+So, if you acquire tlb_lock and then a pmap activation lock, and the =
+releasing them (in either order, but in this case it=E2=80=99s the same =
+order), it=E2=80=99s:
+
+	s =3D splraise(IPL_VM) -> splraise(IPL_SCHED) -> /* nothing */ =
+-> splx(s)
+
+Now, near the top of pmap_tlb_shootnow(), we have the comment:
+
+        /*
+         * Acquire the shootdown mutex.  This will also block IPL_VM
+         * interrupts and disable preemption.  It is critically =
+important
+         * that IPIs not be blocked in this routine.
+         */
+
+This is because while we are spinning waiting for other CPUs to process =
+TLB invalidations we=E2=80=99ve signaled, we need to be able to respond =
+to IPIs that they might send (they might be waiting for US to respond to =
+that one before they can process the one that we=E2=80=99ve sent=E2=80=A6)=
+
+
+Being at IPL_SCHED would normally block processing of IPIs sent to this =
+CPU.  It=E2=80=99s kind of unfortunate that I forgot about this little =
+detail of how spin mutexes work when I overhauled the Alpha pmap =
+recently.
+
+I can fix this easily enough (with a call to alpha_pal_swpipl() after =
+releasing the activation lock)=E2=80=A6 but it shouldn=E2=80=99t =
+actually be necessary because of another thing that the low-level spin =
+lock code does=E2=80=A6
+
+When spinning, the locking code is supposed to implement a backoff =
+algorithm to reduce the expensive bus traffic that=E2=80=99s needed to =
+implement the atomic memory operations underpinning the locks.  This is =
+implemented by the SPINLOCK_BACKOFF() macro in <sys/lock.h>:
+
+#define SPINLOCK_BACKOFF(count)                                 \
+do {                                                            \
+        int __i;                                                \
+        for (__i =3D (count); __i !=3D 0; __i--) {                  \
+                SPINLOCK_BACKOFF_HOOK;                          \
+        }                                                       \
+        if ((count) < SPINLOCK_BACKOFF_MAX)                     \
+                (count) +=3D (count);                             \
+} while (/* CONSTCOND */ 0);
+
+Note that SPINLOCK_BACKOFF_HOOK =E2=80=A6 On the Alpha, this is defined =
+as:
+
+#define SPINLOCK_SPIN_HOOK                                              =
+\
+do {                                                                    =
+\
+        struct cpu_info *__ci =3D curcpu();                              =
+ \
+        int __s;                                                        =
+\
+                                                                        =
+\
+        if (__ci->ci_ipis !=3D 0) {                                      =
+ \
+                /* printf("CPU %lu has IPIs pending\n",                 =
+\
+                    __ci->ci_cpuid); */                                 =
+\
+                __s =3D splhigh();                                       =
+         \
+                alpha_ipi_process(__ci, NULL);                          =
+\
+                splx(__s);                                              =
+\
+        }                                                               =
+\
+} while (0)
+
+
+I.e. while spinning, we should be able to process IPIs=E2=80=A6 but I =
+wonder if this hook is not working for some reason=E2=80=A6
+
+>=20
+>=20
+>=20
+>=20
+>=20
+>=20
+>>=20
+>> Thanks,
+>> John
+>>=20
+>>=20
+>> [ 74219.1614327] TLB LOCAL MASK  =3D 0x0000000000000001
+>> [ 74219.1614327] TLB REMOTE MASK =3D 0x0000000000000002
+>> [ 74219.1614327] TLB REMOTE PENDING =3D 0x0000000000000002
+>> [ 74219.1614327] TLB CONTEXT =3D 0xfffffc001b83dd58
+>> [ 74219.1614327] TLB LOCAL IPL =3D 6
+>> [ 74219.1614327] panic: pmap_tlb_shootnow
+>> [ 74219.1614327] cpu0: Begin traceback...
+>> [ 74219.1614327] alpha trace requires known PC =3Deject=3D
+>> [ 74219.1614327] cpu0: End traceback...
+>> Stopped in pid 5054.5054 (echo) at      netbsd:cpu_Debugger+0x4: ret
+>> zero,(ra)
+>> db{0}>
+>> db{0}> bt
+>> cpu_Debugger() at netbsd:cpu_Debugger+0x4
+>> db_panic() at netbsd:db_panic+0xc8
+>> vpanic() at netbsd:vpanic+0x10c
+>> panic() at netbsd:panic+0x58
+>> pmap_tlb_shootnow.part.0() at netbsd:pmap_tlb_shootnow.part.0+0x234
+>> pmap_remove_internal() at netbsd:pmap_remove_internal+0x328
+>> pmap_remove() at netbsd:pmap_remove+0x2c
+>> uvm_unmap_remove() at netbsd:uvm_unmap_remove+0x158
+>> sys_munmap() at netbsd:sys_munmap+0xb8
+>> syscall() at netbsd:syscall+0x260
+>> XentSys() at netbsd:XentSys+0x5c
+>> --- syscall (73) ---
+>> --- user mode ---
+>> PID    LID S CPU     FLAGS       STRUCT LWP *               NAME WAIT
+>> 5054 >5054 7   0         0   fffffc02e8db0500               echo
+>> 20918 20918 3   1       180   fffffc000ef9e480               make =
+wait
+>> 19235 19235 3   0       180   fffffc0019d9ee40               make =
+pipe_rd
+>> 28954 28954 3   1       180   fffffc001aa5c140               make =
+pipe_rd
+>> 2913  2913 3   0       180   fffffc001b093a80                top =
+select
+>> 7334  7334 3   1       180   fffffc0016176080         pbulk-scan =
+pipe_rd
+>> 17864 17864 3   1       180   fffffc000c14ea80                 sh =
+wait
+>> 28220 28220 3   0       180   fffffc0019d9e5c0                 sh =
+wait
+>> 26180 26180 3   1       180   fffffc001aa5c9c0               tcsh =
+pause
+>> 15702 15702 3   1       180   fffffc001b092100               tcsh =
+pause
+>> 5805  5805 3   1       180   fffffc001aa5d240               tcsh =
+pause
+>> 16556 16556 3   0       180   fffffc000c14eec0               tcsh =
+pause
+>> 18472 18472 3   1       180   fffffc000c14f300               tmux =
+kqueue
+>> 28224 28224 3   1       180   fffffc001aa5ce00               tcsh =
+pause
+>> 11357 11357 3   0       180   fffffc0019d9f280               sshd =
+select
+>> 14035 14035 3   0       180   fffffc0016176d40               sshd =
+poll
+>> 17970 17970 3   1       180   fffffc000c234680               tcsh =
+ttyraw
+>> 18858 18858 3   1       180   fffffc00161764c0               sshd =
+select
+>> 23130 23130 3   0       180   fffffc001b093200               sshd =
+poll
+>> 338    338 3   0       1c0   fffffc02fd68cdc0              getty =
+ttyraw
+>> 326    326 3   1       180   fffffc000ef9f9c0               cron =
+nanoslp
+>> 2204  2204 3   1       180   fffffc000ef9f580              inetd =
+kqueue
+>> 1695  1695 3   0       180   fffffc000ef9f140               sshd =
+select
+>> 206    206 3   0       180   fffffc000ef9e8c0                 cu poll
+>> 205    205 3   1       180   fffffc000c234ac0                 cu =
+ttyraw
+>> 203    203 3   1       180   fffffc000c235bc0               ntpd =
+pause
+>> 2213  2213 3   0       180   fffffc000c235780               tcsh =
+pause
+>> 2043  2043 3   0       180   fffffc000c235340               tmux =
+kqueue
+>> 1240  1240 3   0       180   fffffc000c234f00            syslogd =
+kqueue
+>> 1        1 3   1       180   fffffc000086ee80               init wait
+>> 0     1313 3   1       200   fffffc000c234240          acctwatch =
+actwat
+>> 0      228 3   0       200   fffffc00007d4140            physiod =
+physiod
+>> 0      126 3   1       200   fffffc000c14e200          pooldrain =
+pooldrain
+>> 0      125 3   1       200   fffffc000086fb40            ioflush =
+syncer
+>> 0      124 3   1       200   fffffc000086f700           pgdaemon =
+pgdaemon
+>> 0      121 3   1       200   fffffc02fd68c540            raidio0 =
+raidiow
+>> 0      120 3   0       200   fffffc02fd68d640              raid0 =
+rfnodeq
+>> 0      119 3   1       200   fffffc000086f2c0             npfgc0 =
+npfgcw
+>> 0      118 3   0       200   fffffc000086ea40            rt_free =
+rt_free
+>> 0      117 3   0       200   fffffc000086e600              unpgc =
+unpgc
+>> 0      116 3   1       200   fffffc000086e1c0    icmp6_wqinput/1 =
+icmp6_wqinput
+>> 0      115 3   0       200   fffffc0000787b00    icmp6_wqinput/0 =
+icmp6_wqinput
+>> 0      114 3   1       200   fffffc00007876c0            ip6flow =
+ip6flow
+>> 0      113 3   1       200   fffffc0000787280          nd6_timer =
+nd6_timer
+>> 0      112 3   1       200   fffffc0000786e40    carp6_wqinput/1 =
+carp6_wqinput
+>> 0      111 3   0       200   fffffc0000786a00    carp6_wqinput/0 =
+carp6_wqinput
+>> 0      110 3   1       200   fffffc00007865c0     carp_wqinput/1 =
+carp_wqinput
+>> 0      109 3   0       200   fffffc00007d4580     carp_wqinput/0 =
+carp_wqinput
+>> 0      108 3   1       200   fffffc00007d49c0     icmp_wqinput/1 =
+icmp_wqinput
+>> 0      107 3   0       200   fffffc00007d4e00     icmp_wqinput/0 =
+icmp_wqinput
+>> 0      106 3   1       200   fffffc00007d5240           rt_timer =
+rt_timer
+>> 0      105 3   0       200   fffffc00007d5680    ipflow_slowtimo =
+ipflow_slowtimo
+>>=20
+>> 0      104 3   1       200   fffffc00007d5ac0        vmem_rehash =
+vmem_rehash
+>> 0      103 3   1       200   fffffc0000786180          entbutler =
+entropy
+>> 0       29 3   0       200   fffffc02fd68da80               iic0 =
+iicintr
+>> 0       27 3   0       200   fffffc02fd68d200           scsibus2 =
+sccomp
+>> 0       25 3   0       200   fffffc02fd68c980           scsibus1 =
+sccomp
+>> 0       23 3   0       200   fffffc02fd68c100           scsibus0 =
+sccomp
+>> 0       22 3   0       200   fffffc02fd713a40            atabus1 =
+atath
+>> 0       21 3   0       200   fffffc02fd713600            atabus0 =
+atath
+>> 0       20 3   1       200   fffffc02fd7131c0            xcall/1 =
+xcall
+>> 0       19 1   1       200   fffffc02fd712d80          softser/1
+>> 0       18 1   1       200   fffffc02fd712940          softclk/1
+>> 0       17 1   1       200   fffffc02fd712500          softbio/1
+>> 0       16 1   1       200   fffffc02fd7120c0          softnet/1
+>> 0    >  15 1   1       201   fffffc02fef39a00             idle/1
+>> 0       14 3   0       200   fffffc02fef395c0         pmfsuspend =
+pmfsuspend
+>> 0       13 3   0       200   fffffc02fef39180           pmfevent =
+pmfevent
+>> 0       12 3   0       200   fffffc02fef38d40         sopendfree =
+sopendfr
+>> 0       11 3   1       200   fffffc02fef38900            iflnkst =
+iflnkst
+>> 0       10 3   0       200   fffffc02fef384c0           nfssilly =
+nfssilly
+>> 0        9 3   0       240   fffffc02fef38080             vdrain =
+vdrain
+>> 0        8 3   0       200   fffffc02ff74f9c0          modunload =
+mod_unld
+>> 0        7 3   0       200   fffffc02ff74f580            xcall/0 =
+xcall
+>> 0        6 1   0       200   fffffc02ff74f140          softser/0
+>> 0        5 1   0       200   fffffc02ff74ed00          softclk/0
+>> 0        4 1   0       200   fffffc02ff74e8c0          softbio/0
+>> 0        3 1   0       200   fffffc02ff74e480          softnet/0
+>> 0        2 1   0       201   fffffc02ff74e040             idle/0
+>> 0        0 3   1       200   fffffc00014d0f80            swapper uvm
+>=20
+
+-- thorpej
+
+
+
+From thorpej@me.com  Thu Apr 1 09:22:26 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Panic on -current with MULTIPROCESSOR
+Date: Thu, 1 Apr 2021 09:22:26 -0700
+Approved: news@gmane.org
+Message-ID: <41A0AFEB-E2EB-4AE1-A2BB-B1E7E722789A@me.com>
+References: <Pine.NEB.4.64.2103302005430.7971@athena.zia.io>
+ <8522DC30-03C4-4A45-8B87-B260BF7C2024@me.com>
+ <FFEF8C0D-C58C-471C-B194-5BF10F0D44C8@me.com>
+Mime-Version: 1.0 (Mac OS X Mail 14.0 \(3654.60.0.2.21\))
+Content-Type: text/plain;
+	charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="27582"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org
+To: John Klos <john@ziaspace.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Thu Apr 01 18:22:37 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lS05d-00074u-6F
+	for netbsd-port-alpha@m.gmane-mx.org; Thu, 01 Apr 2021 18:22:37 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id CE3A684DA7; Thu,  1 Apr 2021 16:22:33 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 1B2F984D16
+	for <port-alpha@netbsd.org>; Thu,  1 Apr 2021 16:22:31 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id ogGmXo9vACIz for <port-alpha@netbsd.org>;
+	Thu,  1 Apr 2021 16:22:30 +0000 (UTC)
+Original-Received: from pv34p98im-ztdg02172101.me.com (pv34p98im-ztdg02172101.me.com [17.143.234.142])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 2893A84CE9
+	for <port-alpha@netbsd.org>; Thu,  1 Apr 2021 16:22:30 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=1a1hai;
+	t=1617294147; bh=COURfdSX+UH1WcdrpHzcPtbF2hpJrx4Ao6xbWEdsifw=;
+	h=Content-Type:Mime-Version:Subject:From:Date:Message-Id:To;
+	b=wdPeMuQzPenUeOaeGaHK7dzyPOdrahwaSZm2/HLX7g09sPh9JGnEKYLRCz6ju+Vow
+	 qwsDDSbvsSU8W/IlO4/Jw44zRMYYVLmbDt77UVsJBEykz+/b8P58D7/fJDs9CTK90M
+	 0U+CPUbj8/fsBrKLUkUD8bdwaNa1Tqpwnxsqw+EYF9XabzFfrl5ubyOJ4Ox6XO754Z
+	 cltG1DEXsh43YUOsFl5KdlbMf5JYAd22NMQSuwGfKvyHh7kQKsv3yJ/RTp6FijebTu
+	 BPe+6OMvwG4UIg/OGRdl74PSN90zlKRvr3hxpmUQNBF9q9II4+Eq9egtSXXAVFUJFn
+	 2sWyYGez1jB4Q==
+Original-Received: from [17.234.11.210] (unknown [17.234.11.210])
+	by pv34p98im-ztdg02172101.me.com (Postfix) with ESMTPSA id 37947540087;
+	Thu,  1 Apr 2021 16:22:27 +0000 (UTC)
+In-Reply-To: <FFEF8C0D-C58C-471C-B194-5BF10F0D44C8@me.com>
+X-Mailer: Apple Mail (2.3654.60.0.2.21)
+X-Proofpoint-Virus-Version: vendor=fsecure engine=2.50.10434:6.0.369,18.0.761
+ definitions=2021-04-01_07:2021-04-01,2021-04-01 signatures=0
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 suspectscore=0 malwarescore=0
+ phishscore=0 bulkscore=0 spamscore=0 clxscore=1015 mlxscore=0
+ mlxlogscore=569 adultscore=0 classifier=spam adjust=0 reason=mlx
+ scancount=1 engine=8.0.1-2006250000 definitions=main-2104010107
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5251
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5251>
+
+
+> On Apr 1, 2021, at 9:18 AM, Jason Thorpe <thorpej@me.com> wrote:
+>=20
+> #define SPINLOCK_BACKOFF(count)                                 \
+> do {                                                            \
+>        int __i;                                                \
+>        for (__i =3D (count); __i !=3D 0; __i--) {                  \
+>                SPINLOCK_BACKOFF_HOOK;                          \
+>        }                                                       \
+>        if ((count) < SPINLOCK_BACKOFF_MAX)                     \
+>                (count) +=3D (count);                             \
+> } while (/* CONSTCOND */ 0);
+
+Sorry, that=E2=80=99s the backoff hook =E2=80=A6 the spin hook is called =
+in _kernel_lock() (i.e. acquiring the big lock)=E2=80=A6. Ah, and I =
+think this is the problem=E2=80=A6 the spin hook does not appear to be =
+called in the spin mutex case.
+
+-- thorpej
+
+
+
+From thorpej@me.com  Sat Apr 3 08:04:52 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Panic on -current with MULTIPROCESSOR
+Date: Sat, 3 Apr 2021 08:04:52 -0700
+Approved: news@gmane.org
+Message-ID: <3C020AE7-0495-4680-8F0F-BDD941B7A1B8@me.com>
+References: <Pine.NEB.4.64.2103302005430.7971@athena.zia.io>
+ <8522DC30-03C4-4A45-8B87-B260BF7C2024@me.com>
+ <FFEF8C0D-C58C-471C-B194-5BF10F0D44C8@me.com>
+ <41A0AFEB-E2EB-4AE1-A2BB-B1E7E722789A@me.com>
+Mime-Version: 1.0 (Mac OS X Mail 14.0 \(3654.60.0.2.21\))
+Content-Type: text/plain;
+	charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="7718"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org
+To: John Klos <john@ziaspace.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Sat Apr 03 17:05:02 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lShpe-0001pw-5S
+	for netbsd-port-alpha@m.gmane-mx.org; Sat, 03 Apr 2021 17:05:02 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 7DDE7850E5; Sat,  3 Apr 2021 15:04:58 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 0799E850C5
+	for <port-alpha@netbsd.org>; Sat,  3 Apr 2021 15:04:55 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id GEK1Wxw2qfQC for <port-alpha@netbsd.org>;
+	Sat,  3 Apr 2021 15:04:54 +0000 (UTC)
+Original-Received: from pv34p98im-ztdg02162201.me.com (pv34p98im-ztdg02162201.me.com [17.143.234.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 65D5B84CED
+	for <port-alpha@netbsd.org>; Sat,  3 Apr 2021 15:04:54 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=1a1hai;
+	t=1617462293; bh=EFyxO0Zu6mDqDKPir24RTkOXCc0mXI5MGHqB5R4XlfE=;
+	h=Content-Type:Mime-Version:Subject:From:Date:Message-Id:To;
+	b=rwvJLh3CWRXAZVX7cWzTW6t+HfichGWMZJQTbT0nWT68bFOQn63XLLana6m1OrMiY
+	 +F9fxkbCgunljToGJ1FbuL+iehUknxKweHuv7py7J8v6zb+S2iFbchVRehpbVjaHxj
+	 TWLhoz7VPm5/zs+MB4gxGyZ/f2RbuK9oLc81tsbJEgfB+Uz8KxOo/ZeiV9/tYXaNiX
+	 4TpZ0Q3aDppNfwQNMSWhqZ05fPdJ9FIUfrgXjHvOJky6ozd+pX6GqBpDicC0S/bNMI
+	 4JxGlcTpCutCxicIHOUB4HQkB6hnGuZVDAgM/DAwr752RfdO8ZfOBe/dWS0oXROJnC
+	 bTJbt2jzW+yPQ==
+Original-Received: from [17.11.141.74] (unknown [17.11.141.74])
+	by pv34p98im-ztdg02162201.me.com (Postfix) with ESMTPSA id 897F11C0084;
+	Sat,  3 Apr 2021 15:04:53 +0000 (UTC)
+In-Reply-To: <41A0AFEB-E2EB-4AE1-A2BB-B1E7E722789A@me.com>
+X-Mailer: Apple Mail (2.3654.60.0.2.21)
+X-Proofpoint-Virus-Version: vendor=fsecure engine=2.50.10434:6.0.369,18.0.761
+ definitions=2021-04-03_07:2021-04-01,2021-04-03 signatures=0
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 suspectscore=0 malwarescore=0
+ phishscore=0 bulkscore=0 spamscore=0 clxscore=1015 mlxscore=0
+ mlxlogscore=414 adultscore=0 classifier=spam adjust=0 reason=mlx
+ scancount=1 engine=8.0.1-2009150000 definitions=main-2104030106
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5252
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5252>
+
+
+> On Apr 1, 2021, at 9:22 AM, Jason Thorpe <thorpej@me.com> wrote:
+>=20
+>=20
+>> On Apr 1, 2021, at 9:18 AM, Jason Thorpe <thorpej@me.com> wrote:
+>>=20
+>> #define SPINLOCK_BACKOFF(count)                                 \
+>> do {                                                            \
+>>       int __i;                                                \
+>>       for (__i =3D (count); __i !=3D 0; __i--) {                  \
+>>               SPINLOCK_BACKOFF_HOOK;                          \
+>>       }                                                       \
+>>       if ((count) < SPINLOCK_BACKOFF_MAX)                     \
+>>               (count) +=3D (count);                             \
+>> } while (/* CONSTCOND */ 0);
+>=20
+> Sorry, that=E2=80=99s the backoff hook =E2=80=A6 the spin hook is =
+called in _kernel_lock() (i.e. acquiring the big lock)=E2=80=A6. Ah, and =
+I think this is the problem=E2=80=A6 the spin hook does not appear to be =
+called in the spin mutex case.
+
+To close the loop on this, I sent John a patch off-list, and it appears =
+to have fixed the problem for him. I=E2=80=99ve gone ahead and checked =
+it in:
+
+	=
+http://mail-index.netbsd.org/source-changes/2021/04/03/msg128464.html
+
+Thanks for testing it, John!
+
+-- thorpej
+
+
+
+From mrg@eterna.com.au  Thu Apr 15 12:19:33 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: matthew green <mrg@eterna.com.au>
+Newsgroups: gmane.os.netbsd.ports.sh3,gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.powerpc,gmane.os.netbsd.ports.arm,gmane.os.netbsd.ports.m68k
+Subject: GCC 10 available for testing etc. in -current.
+Date: Thu, 15 Apr 2021 12:19:33 +1000
+Approved: news@gmane.org
+Message-ID: <27864.1618453173@splode.eterna.com.au>
+Reply-To: mrg@eterna.com.au
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="6184"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org, port-hppa@netbsd.org, port-powerpc@netbsd.org,
+    port-sh3@netbsd.org, port-arm@netbsd.org, port-m68k@netbsd.org
+To: current-users@netbsd.org
+Original-X-From: bounces-port-sh3-owner-netbsd-port-sh3=m.gmane-mx.org@NetBSD.org Thu Apr 15 04:19:45 2021
+Return-path: <bounces-port-sh3-owner-netbsd-port-sh3=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-sh3@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-sh3-owner-netbsd-port-sh3=m.gmane-mx.org@NetBSD.org>)
+	id 1lWrbc-0001VE-2N
+	for netbsd-port-sh3@m.gmane-mx.org; Thu, 15 Apr 2021 04:19:44 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id A3FC284D64; Thu, 15 Apr 2021 02:19:41 +0000 (UTC)
+Delivered-To: port-sh3@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 3369584D62
+	for <port-sh3@netbsd.org>; Thu, 15 Apr 2021 02:19:37 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id omjcYOysJfIH for <port-sh3@netbsd.org>;
+	Thu, 15 Apr 2021 02:19:36 +0000 (UTC)
+Original-Received: from splode.eterna.com.au (splode.eterna.com.au [203.15.111.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 100EE84CDF
+	for <port-sh3@netbsd.org>; Thu, 15 Apr 2021 02:19:35 +0000 (UTC)
+Original-Received: from splode.eterna.com.au (localhost [127.0.0.1])
+	by splode.eterna.com.au (Postfix) with ESMTP id E6C6B1590BC;
+	Thu, 15 Apr 2021 12:19:33 +1000 (AEST)
+organisation: people's front against (bozotic) www (softwar foundation)
+x-other-organisation: The NetBSD Foundation.
+x-message: step back from the shadows of war!  seek out the ways of peace
+Content-ID: <4945.1618453173.1@splode.eterna.com.au>
+Original-Sender: port-sh3-owner@NetBSD.org
+List-Id: <port-sh3.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-sh3&body=unsubscribe%20port-sh3>
+Xref: news.gmane.io gmane.os.netbsd.ports.sh3:510 gmane.os.netbsd.current:79853 gmane.os.netbsd.ports.alpha:5253 gmane.os.netbsd.ports.powerpc:2650 gmane.os.netbsd.ports.arm:9269 gmane.os.netbsd.ports.m68k:1340
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.sh3/510>
+
+hi folks.
+
+
+(please reply privately to this spams-many-lists message, and
+i will keep src/external/gpl3/gcc/README.gcc10 updated with
+the latest status.)
+
+
+i've just commited the final parts that make most platforms build
+(and many run) with GCC 10 as the system compiler.
+
+i've tested these systems:
+	- amd64
+	- sparc (qemu)
+	- sparc64
+	- shark
+	- evbarmv7hf (cubietruck)
+	- i386 (has a signal delivery issue, but that seems to
+	  have been introduced last year, however, things seem
+	  to be equally as functional/broken.)
+	- ia64 (ski boots as far as before)
+	- mipsel (malta gxemul)
+	- mips64 (either big or little endian)
+	- sh3-el (landisk gxemul)
+	- vax (simh)
+
+so i'm after testing for these targets:
+
+	- alpha
+	- hppa
+	- powerpc
+	- sh3-eb
+	- arm32-eb
+	- mipseb
+	- m68k
+
+there are still issues for these targets:
+	- arm64 -- 'LSE' extension issues, likely needs both
+	  fixes for libgcc and kernel work
+	- sun2 ramdisk overflows, and it's already at the limit
+	  of what can boot without crashing from lack of space
+	- x68k 'loadbsd' program appears to pull in TLS code from
+	  libc and does not link.
+
+the steps are fairly simple:
+
+- update -currnet srcs
+- build.sh with no -u (update), and set -V HAVE-GCC=10 as a
+  option.  this ensures that everything is actually rebuilt
+  with the new compiler.
+- install new kernel/userland and perform testing.  if you can
+  run atf that would be great, but other tests are useful too.
+- reply to this message with results.
+
+thanks!
+
+
+.mrg.
+
+
+From john@ziaspace.com  Thu Apr 15 04:45:52 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: John Klos <john@ziaspace.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: top shows 99% interrupt in -current
+Date: Thu, 15 Apr 2021 04:45:52 +0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.2104150441180.5492@athena.zia.io>
+References: <20210415001110.10BAEFA95@cvs.NetBSD.org>
+ <D83BD2C2-855A-4563-A804-9CFE3BE7304E@me.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="12055"; mail-complaints-to="usenet@ciao.gmane.io"
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Thu Apr 15 06:46:03 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lWttC-0002zu-PX
+	for netbsd-port-alpha@m.gmane-mx.org; Thu, 15 Apr 2021 06:46:03 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 5CDA184D75; Thu, 15 Apr 2021 04:45:58 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 1C76A84D65
+	for <port-alpha@netbsd.org>; Thu, 15 Apr 2021 04:45:55 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (1024-bit key) header.d=ziaspace.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id Nd_rOlxcjEBk for <port-alpha@netbsd.org>;
+	Thu, 15 Apr 2021 04:45:54 +0000 (UTC)
+Original-Received: from athena.zia.io (athena.zia.io [IPv6:2602:fe6b:1012:1::1])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 32EC684CEF
+	for <port-alpha@netbsd.org>; Thu, 15 Apr 2021 04:45:54 +0000 (UTC)
+Original-Received: from athena.zia.io (localhost [127.0.0.1])
+	by athena.zia.io (8.15.2/8.15.2) with ESMTPS id 13F4jqON008236
+	(version=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 bits=256 verify=NOT)
+	for <port-alpha@netbsd.org>; Thu, 15 Apr 2021 04:45:53 GMT
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=ziaspace.com;
+	s=selector; t=1618461953;
+	bh=FqEGrWtId20IOeWlZNcvNZ/rps03hfQ3VGr4B0CvXNo=;
+	h=Date:From:To:Subject:In-Reply-To:References;
+	b=olkwGAeo7/l57B8Lt0LzE9pg95YK1iaXt6ePgCVa8KhpNWF/iwYOYcAoje3N//ruE
+	 G/MZDe68KWWhvLlJtG4QjHx1fWU+Pa6aYRytkUbEhaWLbfIADmpvk9H71+EE4MS1P8
+	 XmXsw5T3r7rPC8cBzG/I7s18gX0w/E/nXTHF6o9g=
+Original-Received: from localhost (john@localhost)
+	by athena.zia.io (8.15.2/8.15.2/Submit) with ESMTP id 13F4jqFW011154
+	for <port-alpha@netbsd.org>; Thu, 15 Apr 2021 04:45:52 GMT
+X-Authentication-Warning: athena.zia.io: john owned process doing -bs
+X-X-Sender: john@athena.zia.io
+In-Reply-To: <D83BD2C2-855A-4563-A804-9CFE3BE7304E@me.com>
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.4.3 (athena.zia.io [127.0.0.1]); Thu, 15 Apr 2021 04:45:53 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5254
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5254>
+
+Hi,
+
+Jason suggested that this change might fix a lockup issue I've been 
+seeing, so I updated. top now shows 100% (well, 99% most of the time) 
+interrupt, even though sysstat definitely shows normal interrupt activity 
+and the system performs fine anyway, so this appears to be cosmetic.
+
+> Modified Files:
+> 	src/sys/arch/alpha/common: sgmap_typedep.c
+>
+> Log Message:
+> Fix inverted logic!!
+>
+> vmem_xalloc(9) should be used with VM_NOSLEEP for BUS_DMA_NOWAIT.
+
+If not this change, it would've had to have been something since 
+2-April-2021.
+
+Thanks,
+John
+
+
+From thorpej@me.com  Wed Apr 14 22:15:02 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: top shows 99% interrupt in -current
+Date: Wed, 14 Apr 2021 22:15:02 -0700
+Approved: news@gmane.org
+Message-ID: <49D52034-0348-4807-8E00-42993D265078@me.com>
+References: <Pine.NEB.4.64.2104150441180.5492@athena.zia.io>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="14632"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org, Rin Okuyama <rin@NetBSD.org>
+To: John Klos <john@ziaspace.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Thu Apr 15 07:15:14 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lWuLR-0003gW-TF
+	for netbsd-port-alpha@m.gmane-mx.org; Thu, 15 Apr 2021 07:15:14 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 223E384D80; Thu, 15 Apr 2021 05:15:10 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id AEB9E84DD4
+	for <port-alpha@netbsd.org>; Thu, 15 Apr 2021 05:15:06 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id RqsP5IUHusmO for <port-alpha@netbsd.org>;
+	Thu, 15 Apr 2021 05:15:05 +0000 (UTC)
+Original-Received: from pv34p98im-ztdg02162201.me.com (pv34p98im-ztdg02162201.me.com [17.143.234.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id F39A084D80
+	for <port-alpha@netbsd.org>; Thu, 15 Apr 2021 05:15:04 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=1a1hai;
+	t=1618463704; bh=JeJq8n6200cueVVp6HYq8/gKJWySp2UD435fewfaup0=;
+	h=Content-Type:From:Mime-Version:Subject:Date:Message-Id:To;
+	b=1HGEyZbqQA6cEUqPOjeE1cXjvNljeLxDa1vW6t2303tal1ESuXK7ncHmpUhiHKU4W
+	 bcnYkNm0NQY6EXp5YGC1R7WgOpXPgwXUL6n58S1RehSKboHg9TGoAzgSmSREej2ueA
+	 UbBJ0Z1IWEmeWvvq4NM1nTZ2eh52+pHo5X3C66UwVCC0h6E8Lf0VHy+9haUqwaTBnC
+	 /ye44FlJCMT3h+kZZfFujOZ0twmyUZdzBqSrflN/p0kkN4AoeOJ2/P1mMVl27L53LA
+	 A5N/dpMgpyvGCleoDQjX4SKMzAqHEOckURnMfmQKzgJCLm9GI97bvu6rJVZC19zn9W
+	 36MA05qxse0MQ==
+Original-Received: from [192.168.1.170] (c-67-180-181-196.hsd1.ca.comcast.net [67.180.181.196])
+	by pv34p98im-ztdg02162201.me.com (Postfix) with ESMTPSA id 3677B1C0087;
+	Thu, 15 Apr 2021 05:15:04 +0000 (UTC)
+In-Reply-To: <Pine.NEB.4.64.2104150441180.5492@athena.zia.io>
+X-Mailer: iPhone Mail (18D70)
+X-Proofpoint-Virus-Version: vendor=fsecure engine=2.50.10434:6.0.391,18.0.761
+ definitions=2021-04-15_02:2021-04-15,2021-04-15 signatures=0
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 suspectscore=0 malwarescore=0
+ phishscore=0 bulkscore=0 spamscore=0 clxscore=1015 mlxscore=0
+ mlxlogscore=764 adultscore=0 classifier=spam adjust=0 reason=mlx
+ scancount=1 engine=8.0.1-2009150000 definitions=main-2104150036
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5255
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5255>
+
+Yes, I think a separate change by rin@ caused this, but rest assured it is m=
+erely a reporting problem, not a functional problem.
+
+-- thorpej
+Sent from my iPhone.
+
+> On Apr 14, 2021, at 9:46 PM, John Klos <john@ziaspace.com> wrote:
+>=20
+> =EF=BB=BFHi,
+>=20
+> Jason suggested that this change might fix a lockup issue I've been seeing=
+, so I updated. top now shows 100% (well, 99% most of the time) interrupt, e=
+ven though sysstat definitely shows normal interrupt activity and the system=
+ performs fine anyway, so this appears to be cosmetic.
+>=20
+>> Modified Files:
+>>    src/sys/arch/alpha/common: sgmap_typedep.c
+>>=20
+>> Log Message:
+>> Fix inverted logic!!
+>>=20
+>> vmem_xalloc(9) should be used with VM_NOSLEEP for BUS_DMA_NOWAIT.
+>=20
+> If not this change, it would've had to have been something since 2-April-2=
+021.
+>=20
+> Thanks,
+> John
+
+
+From rokuyama.rk@gmail.com  Thu Apr 15 17:26:44 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Rin Okuyama <rokuyama.rk@gmail.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: top shows 99% interrupt in -current
+Date: Thu, 15 Apr 2021 17:26:44 +0900
+Approved: news@gmane.org
+Message-ID: <1af5af09-c68d-4bc6-3001-87fe984da3ee@gmail.com>
+References: <Pine.NEB.4.64.2104150441180.5492@athena.zia.io>
+ <49D52034-0348-4807-8E00-42993D265078@me.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="16349"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:78.0)
+ Gecko/20100101 Thunderbird/78.9.1
+Cc: port-alpha@netbsd.org
+To: Jason Thorpe <thorpej@me.com>, John Klos <john@ziaspace.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Thu Apr 15 10:27:32 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lWxLX-00048H-Mb
+	for netbsd-port-alpha@m.gmane-mx.org; Thu, 15 Apr 2021 10:27:32 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id F088484D65; Thu, 15 Apr 2021 08:27:27 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 166A284D2E
+	for <port-alpha@netbsd.org>; Thu, 15 Apr 2021 08:27:24 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=gmail.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id pDfMWiSp1Pmg for <port-alpha@netbsd.org>;
+	Thu, 15 Apr 2021 08:27:23 +0000 (UTC)
+Original-Received: from mail-pf1-x42d.google.com (mail-pf1-x42d.google.com [IPv6:2607:f8b0:4864:20::42d])
+	(using TLSv1.3 with cipher TLS_AES_128_GCM_SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 3763D84D29
+	for <port-alpha@netbsd.org>; Thu, 15 Apr 2021 08:27:23 +0000 (UTC)
+Original-Received: by mail-pf1-x42d.google.com with SMTP id a85so15132197pfa.0
+        for <port-alpha@netbsd.org>; Thu, 15 Apr 2021 01:27:23 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20161025;
+        h=subject:to:cc:references:from:message-id:date:user-agent
+         :mime-version:in-reply-to:content-language:content-transfer-encoding;
+        bh=9DDjzfww5Hycc2mufs1zyc545idZstKLLVoZsMiJI6I=;
+        b=irOsHvV7PsXopKM7ukNzgxxxhp53DckrUJiJh93Evf4963wRIw95R4m06v2yaBgSeu
+         NcBc6tiR7+TotmvYW3GhsPcDiSvD9hLSdeT9HkKUUlz9MxCYZUdi2rQOJ/o8EclYdiU+
+         iZB2NrSj6JjZdKa6wxfK8HX3ZlNkHXJ4dF+sGbLD0sRbvNjbw14ZAJWw1J9Ij7e6ynyk
+         MrOnLpMsKeGEl8BaqOy/q/dAXSpfIZP5SzPu/9LLEWEj/qnW4si21xnwdJRNQ3uO192w
+         XU6EV76CzwU/MilpLFsIg4RtinVeb6XpXDqU6eZTD8MT0JQgUd0gsOad5Fqq3yObdLkO
+         Y0Yw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20161025;
+        h=x-gm-message-state:subject:to:cc:references:from:message-id:date
+         :user-agent:mime-version:in-reply-to:content-language
+         :content-transfer-encoding;
+        bh=9DDjzfww5Hycc2mufs1zyc545idZstKLLVoZsMiJI6I=;
+        b=jE222bRX6j0uvQxF0jDpUYXm5ZLG4QlN8PVAvcLdY92aTpP78aJQuccTVSY/yFbQqz
+         Y2CPPSevmRJHSak8XvenKl5OJ31tVj6l/4Kym34TqmuyyiwuuoGT1x2Vmf4wzBRZRxde
+         RoFXdSe4CE7ZChrl+GqArseo81wNHsOcJxpUcdoZ71wG1y4gFoLj/jE9z4ESAceZcPEI
+         c0TjQlCsoQ/rhq2mV+pcoJy31JC8B5sQ2UdMmeyznf1ySpf6rCN/1wfo++yrWn//aHmO
+         IxekbC4+p5TE0RS/tcCd54PHghtzqpU/ClFIfdDhANOWkwpr/tNMGm4Th/kHNFxB3G7u
+         3MrQ==
+X-Gm-Message-State: AOAM533Yw49bgaiJCKUe75Djvw1WwjbtmQuo0JpAVqMOt730pKUh35w0
+	v+Te46Xc+36DPKssTh2VKh+UmhIWLN8=
+X-Google-Smtp-Source: ABdhPJyabp9eHVwuf3wq/zc6DHKyH2RzsY67KMw00iUfsK+mYFGGYQM9sVhm83go1GmI3hRkSIMA4A==
+X-Received: by 2002:a62:7556:0:b029:255:f802:45f with SMTP id q83-20020a6275560000b0290255f802045fmr2287353pfc.56.1618475242627;
+        Thu, 15 Apr 2021 01:27:22 -0700 (PDT)
+Original-Received: from mbp13.local (p2430081-ipngn16401hodogaya.kanagawa.ocn.ne.jp. [180.35.30.81])
+        by smtp.gmail.com with ESMTPSA id a7sm1058583pfg.65.2021.04.15.01.27.21
+        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
+        Thu, 15 Apr 2021 01:27:22 -0700 (PDT)
+In-Reply-To: <49D52034-0348-4807-8E00-42993D265078@me.com>
+Content-Language: en-US
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5256
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5256>
+
+Oops! I didn't notice that. I committed the fix. Please try
+sys/arch/alpha/include/cpu.h rev 1.100.
+
+I'm sorry for inconvenient. And thanks for notification!
+
+rin
+
+On 2021/04/15 14:15, Jason Thorpe wrote:
+> Yes, I think a separate change by rin@ caused this, but rest assured it is merely a reporting problem, not a functional problem.
+> 
+> -- thorpej
+> Sent from my iPhone.
+> 
+>> On Apr 14, 2021, at 9:46 PM, John Klos <john@ziaspace.com> wrote:
+>>
+>> ﻿Hi,
+>>
+>> Jason suggested that this change might fix a lockup issue I've been seeing, so I updated. top now shows 100% (well, 99% most of the time) interrupt, even though sysstat definitely shows normal interrupt activity and the system performs fine anyway, so this appears to be cosmetic.
+>>
+>>> Modified Files:
+>>>     src/sys/arch/alpha/common: sgmap_typedep.c
+>>>
+>>> Log Message:
+>>> Fix inverted logic!!
+>>>
+>>> vmem_xalloc(9) should be used with VM_NOSLEEP for BUS_DMA_NOWAIT.
+>>
+>> If not this change, it would've had to have been something since 2-April-2021.
+>>
+>> Thanks,
+>> John
+> 
+
+
+From john@ziaspace.com  Thu Apr 15 23:23:16 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: John Klos <john@ziaspace.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: HAVE_GCC=10 notes
+Date: Thu, 15 Apr 2021 23:23:16 +0000 (UTC)
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.2104152308590.4468@athena.zia.io>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="37806"; mail-complaints-to="usenet@ciao.gmane.io"
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Fri Apr 16 01:23:41 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lXBKk-0009db-84
+	for netbsd-port-alpha@m.gmane-mx.org; Fri, 16 Apr 2021 01:23:40 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 9FDDE84D15; Thu, 15 Apr 2021 23:23:34 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 7FE1584D1F
+	for <port-alpha@netbsd.org>; Thu, 15 Apr 2021 23:23:21 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (1024-bit key) header.d=ziaspace.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id N4XOk5RluZH5 for <port-alpha@netbsd.org>;
+	Thu, 15 Apr 2021 23:23:20 +0000 (UTC)
+Original-Received: from athena.zia.io (athena.zia.io [IPv6:2602:fe6b:1012:1::1])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id ECE4984D15
+	for <port-alpha@netbsd.org>; Thu, 15 Apr 2021 23:23:19 +0000 (UTC)
+Original-Received: from athena.zia.io (localhost [127.0.0.1])
+	by athena.zia.io (8.15.2/8.15.2) with ESMTPS id 13FNNGuK014115
+	(version=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 bits=256 verify=NOT)
+	for <port-alpha@netbsd.org>; Thu, 15 Apr 2021 23:23:17 GMT
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=ziaspace.com;
+	s=selector; t=1618528997;
+	bh=qbmmmXUq/ru1dvLbsYU/pRmzPGA0/Re0cK1qJiLECQs=;
+	h=Date:From:To:Subject;
+	b=c4AQNkZA5vBkA2P2EmUTu7q22qHDxxy/9wJoL73BmttmNNRMRgjGlDH97TgUP9iOb
+	 02kIPq5QxIMmSqyiHFKQeD58H3zWP5d/BXNXsGcNopB/EsL9hz61TgIR9ZnSS/wQtu
+	 oSTthHq5Zno6ikrSneDeRFSJUHzTOapXQlet2Y7k=
+Original-Received: from localhost (john@localhost)
+	by athena.zia.io (8.15.2/8.15.2/Submit) with ESMTP id 13FNNGtH008967
+	for <port-alpha@netbsd.org>; Thu, 15 Apr 2021 23:23:16 GMT
+X-Authentication-Warning: athena.zia.io: john owned process doing -bs
+X-X-Sender: john@athena.zia.io
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.4.3 (athena.zia.io [127.0.0.1]); Thu, 15 Apr 2021 23:23:17 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5257
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5257>
+
+I've updated to -current with HAVE_GCC=10, and I've come across a few 
+issues. I'm not entirely sure how much is related to GCC 10, but I can 
+reload a non-GCC 10 -current if it'd help.
+
+First, over the course of about a dozen reboots, the system locked up 
+twice at this point:
+
+[   1.0000000] tsciic0 at tsc0
+[   1.0000000] iic0 at tsciic0: I2C bus
+[   1.0000000] entropy: WARNING: extracting entropy too early
+...
+
+What normally comes after that is:
+
+[     1.000000] timecounter: Timecounter "PCC" frequency 999953920 Hz quality 1000
+[     1.000003] timecounter: Timecounter "clockinterrupt" frequency 1024 Hz quality 0
+[     3.591834] scsibus0: waiting 2 seconds for devices to settle...
+
+Both times I had to use the RMC to do a hardware reset.
+
+
+Next, running a pkg_rolling-replace fails in textproc/gnome-doc-utils 
+consistently here:
+
+checking for msgfmt... /usr/pkgsrc/textproc/gnome-doc-utils/work/.tools/bin/msgfmt
+checking for gmsgfmt... /usr/pkgsrc/textproc/gnome-doc-utils/work/.tools/bin/msgfmt
+[1]   Segmentation fault (core dumped) ${XGETTEXT} --version |
+       Done(1)                 grep "(GNU " 2>/dev/null
+configure: error: GNU gettext tools not found; required for intltool
+*** Error code 1
+
+Stop.
+make[1]: stopped in /usr/pkgsrc/textproc/gnome-doc-utils
+*** Error code 1
+
+
+Finally, when trying to run atf tests, the testing stops here:
+
+tc-start: 1618465564.997950, bytes_transfer_eof_piod_write_i
+tc-end: 1618465565.22800, bytes_transfer_eof_piod_write_i, passed
+tc-start: 1618465565.23292, bytes_transfer_eof_pt_read_d
+
+These processes run forever and can't be killed:
+
+   PID USERNAME PRI NICE   SIZE   RES STATE       TIME  WCPU   CPU   COMMAND
+   469 root      31    0  7952K 2984K CPU/1      30:08 99.07% 99.07% t_ptrace_wait
+20110 root      43    0  8936K 3160K poll/0      0:00  0.00%  0.00% t_ptrace_wait
+
+A second time after a reboot, trying to kill these locked up the system. 
+Good news, though, is that a "reboot" actually syncs and reboots, which 
+hasn't worked in a while :)
+
+If there's any other information I can collect or anything else I can try 
+which might help to figure out what's going on, please let me know.
+
+Thanks,
+John
+
+
+db{0}> bt
+cpu_Debugger() at netbsd:cpu_Debugger+0x4
+comintr.part.0() at netbsd:comintr.part.0+0xb28
+alpha_shared_intr_wrapper() at netbsd:alpha_shared_intr_wrapper+0x38
+alpha_shared_intr_dispatch() at netbsd:alpha_shared_intr_dispatch+0x5c
+sio_iointr() at netbsd:sio_iointr+0x38
+interrupt() at netbsd:interrupt+0x2d4
+XentInt() at netbsd:XentInt+0x1c
+--- interrupt (from ipl 0) ---
+uvm_fault_internal() at netbsd:uvm_fault_internal+0x888
+trap() at netbsd:trap+0x570
+XentMM() at netbsd:XentMM+0x20
+--- memory management fault ---
+kcopyerr() at netbsd:kcopyerr+0xc
+kcopy() at netbsd:kcopy+0x40
+copyout_vmspace() at netbsd:copyout_vmspace+0x84
+uiomove() at netbsd:uiomove+0xb0
+uvm_io() at netbsd:uvm_io+0x148
+process_domem() at netbsd:process_domem+0xc0
+ptrace_doio() at netbsd:ptrace_doio+0xe4
+do_ptrace() at netbsd:do_ptrace+0x6e0
+sys_ptrace() at netbsd:sys_ptrace+0x40
+syscall() at netbsd:syscall+0x260
+XentSys() at netbsd:XentSys+0x5c
+--- syscall (26) ---
+--- user mode ---
+db{0}>
+
+db{0}> ps
+PID    LID S CPU     FLAGS       STRUCT LWP *               NAME WAIT
+1093  1093 3   1       180   fffffc00170e0500               sshd netio
+949    949 3   1       180   fffffc00170e00c0                top select
+936    936 3   1       180   fffffc0015581a00               tcsh pause
+989    989 3   1       180   fffffc000c274680               tcsh pause
+3036  3036 3   1       180   fffffc0015580d40               sshd select
+1434  1434 3   1       180   fffffc000c184ec0               sshd poll
+2911  2911 3   1   1000000   fffffc0015580900      t_ptrace_wait tstile
+963  > 963 7   0   1000100   fffffc0015580080      t_ptrace_wait
+2332  2332 2   0   1000100   fffffc00155804c0               tcsh
+310    310 3   1       180   fffffc000c274ac0               tcsh pause
+313    313 2   0       100   fffffc000e03ad00               sshd
+311    311 3   0       180   fffffc000c184a80               sshd poll
+342    342 2   0       140   fffffc02fd68cdc0              getty
+328    328 2   0       140   fffffc000e03b9c0               cron
+2213  2213 3   0       180   fffffc000e03b580              inetd kqueue
+355    355 3   1       180   fffffc000c274f00               sshd select
+211    211 2   0       100   fffffc000c185b80               ntpd
+210    210 3   1       180   fffffc000e03a8c0               ntpd pause
+194    194 3   1       180   fffffc000e03a480                 cu poll
+193    193 3   0       180   fffffc000c274240                 cu ttyraw
+2170  2170 3   1       180   fffffc000e03a040               tcsh pause
+2043  2043 2   0       140   fffffc000c275780               tmux
+1240  1240 3   1       180   fffffc000c275340            syslogd kqueue
+1        1 3   1       180   fffffc000086ee80               init wait
+0     1312 3   1       200   fffffc000c275bc0          acctwatch actwat
+0      228 3   0       200   fffffc00007d4140            physiod physiod
+0      126 3   0       200   fffffc000c184200          pooldrain pooldrain
+0      125 3   1       200   fffffc000086fb40            ioflush syncer
+0      124 3   1       200   fffffc000086f700           pgdaemon pgdaemon
+0      121 3   1       200   fffffc02fd68c540            raidio0 raidiow
+0      120 3   1       200   fffffc02fd68d640              raid0 rfnodeq
+0      119 3   1       200   fffffc000086f2c0             npfgc0 npfgcw
+0      118 3   0       200   fffffc000086ea40            rt_free rt_free
+0      117 3   0       200   fffffc000086e600              unpgc unpgc
+0      116 3   1       200   fffffc000086e1c0    icmp6_wqinput/1 
+icmp6_wqinput
+0      115 2   0       200   fffffc0000787b00    icmp6_wqinput/0
+0      114 3   1       200   fffffc00007876c0            ip6flow ip6flow
+0      113 3   1       200   fffffc0000787280          nd6_timer nd6_timer
+0      112 3   1       200   fffffc0000786e40    carp6_wqinput/1 
+carp6_wqinput
+0      111 3   0       200   fffffc0000786a00    carp6_wqinput/0 
+carp6_wqinput
+0      110 3   1       200   fffffc00007865c0     carp_wqinput/1 
+carp_wqinput
+0      109 3   0       200   fffffc00007d4580     carp_wqinput/0 
+carp_wqinput
+0      108 3   1       200   fffffc00007d49c0     icmp_wqinput/1 
+icmp_wqinput
+0      107 3   0       200   fffffc00007d4e00     icmp_wqinput/0 
+icmp_wqinput
+0      106 3   1       200   fffffc00007d5240           rt_timer rt_timer
+0      105 3   1       200   fffffc00007d5680    ipflow_slowtimo 
+ipflow_slowtimo
+
+0      104 3   1       200   fffffc00007d5ac0        vmem_rehash 
+vmem_rehash
+0      103 3   1       200   fffffc0000786180          entbutler entropy
+0       29 3   1       200   fffffc02fd68da80               iic0 iicintr
+0       27 3   0       200   fffffc02fd68d200           scsibus2 sccomp
+0       25 3   0       200   fffffc02fd68c980           scsibus1 sccomp
+0       23 3   0       200   fffffc02fd68c100           scsibus0 sccomp
+0       22 3   0       200   fffffc02fd713a40            atabus1 atath
+0       21 3   0       200   fffffc02fd713600            atabus0 atath
+0       20 3   1       200   fffffc02fd7131c0            xcall/1 xcall
+0       19 1   1       200   fffffc02fd712d80          softser/1
+0       18 1   1       200   fffffc02fd712940          softclk/1
+0       17 1   1       200   fffffc02fd712500          softbio/1
+0       16 1   1       200   fffffc02fd7120c0          softnet/1
+0    >  15 1   1       201   fffffc02fef39a00             idle/1
+0       14 3   0       200   fffffc02fef395c0         pmfsuspend 
+pmfsuspend
+0       13 3   0       200   fffffc02fef39180           pmfevent pmfevent
+0       12 3   0       200   fffffc02fef38d40         sopendfree sopendfr
+0       11 3   1       200   fffffc02fef38900            iflnkst iflnkst
+0       10 3   0       200   fffffc02fef384c0           nfssilly nfssilly
+0        9 3   0       200   fffffc02fef38080             vdrain vdrain
+0        8 3   0       200   fffffc02ff74f9c0          modunload mod_unld
+0        7 3   0       200   fffffc02ff74f580            xcall/0 xcall
+0        6 1   0       200   fffffc02ff74f140          softser/0
+0        5 1   0       200   fffffc02ff74ed00          softclk/0
+0        4 1   0       200   fffffc02ff74e8c0          softbio/0
+0        3 2   0       200   fffffc02ff74e480          softnet/0
+0        2 1   0       201   fffffc02ff74e040             idle/0
+0        0 3   1       200   fffffc0001503280            swapper uvm
+
+
+From rokuyama.rk@gmail.com  Fri Apr 16 11:49:41 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Rin Okuyama <rokuyama.rk@gmail.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: HAVE_GCC=10 notes
+Date: Fri, 16 Apr 2021 11:49:41 +0900
+Approved: news@gmane.org
+Message-ID: <9afeaf6f-db36-b956-9705-1d7662c2de5d@gmail.com>
+References: <Pine.NEB.4.64.2104152308590.4468@athena.zia.io>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="13929"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:78.0)
+ Gecko/20100101 Thunderbird/78.9.1
+To: John Klos <john@ziaspace.com>, port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Fri Apr 16 04:50:31 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lXEYw-0003UZ-T0
+	for netbsd-port-alpha@m.gmane-mx.org; Fri, 16 Apr 2021 04:50:31 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id C9F0184D10; Fri, 16 Apr 2021 02:50:26 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 614B284D0B
+	for <port-alpha@netbsd.org>; Fri, 16 Apr 2021 02:50:21 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=gmail.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id S1JJ_kgNxCW7 for <port-alpha@netbsd.org>;
+	Fri, 16 Apr 2021 02:50:20 +0000 (UTC)
+Original-Received: from mail-pl1-x636.google.com (mail-pl1-x636.google.com [IPv6:2607:f8b0:4864:20::636])
+	(using TLSv1.3 with cipher TLS_AES_128_GCM_SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 6C02B84CD8
+	for <port-alpha@netbsd.org>; Fri, 16 Apr 2021 02:50:20 +0000 (UTC)
+Original-Received: by mail-pl1-x636.google.com with SMTP id h20so13203683plr.4
+        for <port-alpha@netbsd.org>; Thu, 15 Apr 2021 19:50:20 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20161025;
+        h=subject:to:references:from:message-id:date:user-agent:mime-version
+         :in-reply-to:content-language:content-transfer-encoding;
+        bh=hUHAZP0NsOohhwIFbpKrqlS5MsR97cWKaO30r9/08iA=;
+        b=X8GsymTyUc0+JM3BkBTqmfaNt275ic6da0z26dTHxQniu2tG+K6cGUp4cWTU2GIM+l
+         T1GNT28SVBO2FxYQIztLWrOg2JYiyv1Gkgjxmx/EhxGsJYtsS7pmFhvsR5ikFZSdv0ya
+         KYaZv4U+k6036i5Q1/BSiNXBeCBLLNeKl89liLyDwENKiB5IGlJDoGusb4JGPC3n1oRs
+         fyw1L1NxoKSnTqn0LY/ZHl3iJp+8m9qHBZ8I1SOQ13Sfx+8vvba8xbPrhN8oRdr6AQtO
+         X9jujHWXdzkQrq70RqREF4Z0CACsnl6eOjG7ncHY5DdDSqz/WJCvgpAm2nn10XDYKFtb
+         4gRw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20161025;
+        h=x-gm-message-state:subject:to:references:from:message-id:date
+         :user-agent:mime-version:in-reply-to:content-language
+         :content-transfer-encoding;
+        bh=hUHAZP0NsOohhwIFbpKrqlS5MsR97cWKaO30r9/08iA=;
+        b=RswXXZvLH8bSFR2Jvm1bTq6DE+pLmnWyE/raAUAcVMzdkkHlm2Bo3at32gA3gZ+3wN
+         4RVRbK/eXE06mdcUtEx1zpwpc37uiYFtWissR3IgabrjdUXw3Pxk4Ws0UNx+Ef+oakdq
+         Ql1KUjkVArezjvth2oVKnLR8L0UxNZotTcM+VyQQtHnevCGl0lxU9dToeJpcghAnKM2m
+         8LhN7Hnma/zSJe9ZEK8UvWKe1cRWz78qCpbLG1FC/zMTgc3Qi4hOCJQ83QHPLecmusGr
+         6Yj3bQf3yn2IeP1WqYSVJlCKkqtFsoWsYpB3Fu0LTisorBca75Caz8d4WbeBuzgRWWDY
+         c6AA==
+X-Gm-Message-State: AOAM532ve/beeggf29WyU10jPwfs+rjUY4lSgJEDwapVtzAUq0XqEt5m
+	1R1HFM7P4+6DpVB1GVWEqxKqxUIg6Wk=
+X-Google-Smtp-Source: ABdhPJyyI+HxW6CVrlbKAbT4N1H1Qm/6bf0PIXIHaR9FkvgBDPtPMfJg+SeWii3pwaqm7GMQ9Hqxgw==
+X-Received: by 2002:a17:90a:c81:: with SMTP id v1mr6896332pja.23.1618541419812;
+        Thu, 15 Apr 2021 19:50:19 -0700 (PDT)
+Original-Received: from mbp13.local (p2430081-ipngn16401hodogaya.kanagawa.ocn.ne.jp. [180.35.30.81])
+        by smtp.gmail.com with ESMTPSA id d3sm3773995pjw.35.2021.04.15.19.50.18
+        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
+        Thu, 15 Apr 2021 19:50:19 -0700 (PDT)
+In-Reply-To: <Pine.NEB.4.64.2104152308590.4468@athena.zia.io>
+Content-Language: en-US
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5258
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5258>
+
+Hi,
+
+On 2021/04/16 8:23, John Klos wrote:
+> I've updated to -current with HAVE_GCC=10, and I've come across a few issues. I'm not entirely sure how much is related to GCC 10, but I can reload a non-GCC 10 -current if it'd help.
+> 
+> First, over the course of about a dozen reboots, the system locked up twice at this point:
+> 
+> [   1.0000000] tsciic0 at tsc0
+> [   1.0000000] iic0 at tsciic0: I2C bus
+> [   1.0000000] entropy: WARNING: extracting entropy too early
+> ...
+> 
+> What normally comes after that is:
+> 
+> [     1.000000] timecounter: Timecounter "PCC" frequency 999953920 Hz quality 1000
+> [     1.000003] timecounter: Timecounter "clockinterrupt" frequency 1024 Hz quality 0
+> [     3.591834] scsibus0: waiting 2 seconds for devices to settle...
+> 
+> Both times I had to use the RMC to do a hardware reset.
+
+I've never seen this problem for my DS10. Maybe because mine is
+single processor and yours is MP?
+
+> Next, running a pkg_rolling-replace fails in textproc/gnome-doc-utils consistently here:
+> 
+> checking for msgfmt... /usr/pkgsrc/textproc/gnome-doc-utils/work/.tools/bin/msgfmt
+> checking for gmsgfmt... /usr/pkgsrc/textproc/gnome-doc-utils/work/.tools/bin/msgfmt
+> [1]   Segmentation fault (core dumped) ${XGETTEXT} --version |
+>       Done(1)                 grep "(GNU " 2>/dev/null
+> configure: error: GNU gettext tools not found; required for intltool
+> *** Error code 1
+> 
+> Stop.
+> make[1]: stopped in /usr/pkgsrc/textproc/gnome-doc-utils
+> *** Error code 1
+
+This is not a regression for GCC10. devel/gettext-tools seems to be
+miscompiled by GCC9 and GCC10. (IIRC, there is no such a problem in
+GCC8 era.) As a workaround, building devel/gettext-tools with -O0
+fixes problems for me.
+
+> Finally, when trying to run atf tests, the testing stops here:
+> 
+> tc-start: 1618465564.997950, bytes_transfer_eof_piod_write_i
+> tc-end: 1618465565.22800, bytes_transfer_eof_piod_write_i, passed
+> tc-start: 1618465565.23292, bytes_transfer_eof_pt_read_d
+...(snip)...
+
+This is also not a regression for GCC10. This problem was reported as
+port-alpha/55652:
+
+	http://gnats.netbsd.org/55652
+
+Many tests in tests/lib/libc/sys cause similar lock-up. I just skip
+this directory when I test alpha.
+
+Thanks,
+rin
+
+
+From mrg@eterna.com.au  Sat Apr 17 14:15:13 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: matthew green <mrg@eterna.com.au>
+Newsgroups: gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64
+Subject: HEADS UP: GCC 10 now default on several ports
+Date: Sat, 17 Apr 2021 14:15:13 +1000
+Approved: news@gmane.org
+Message-ID: <15531.1618632913@splode.eterna.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="665"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: scole_mail@gmx.com
+To: port-alpha@netbsd.org, port-amd64@netbsd.org, port-vax@netbsd.org,
+    port-sparc@netbsd.org, port-sparc64@netbsd.org,
+    current-users@netbsd.org
+Original-X-From: bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org Sat Apr 17 06:15:31 2021
+Return-path: <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-current-users@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>)
+	id 1lXcMk-000Adn-CY
+	for netbsd-current-users@m.gmane-mx.org; Sat, 17 Apr 2021 06:15:30 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 037AF850E4; Sat, 17 Apr 2021 04:15:23 +0000 (UTC)
+Delivered-To: current-users@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 50985850EB;
+	Sat, 17 Apr 2021 04:15:21 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id n1sa0xsccY2b; Sat, 17 Apr 2021 04:15:20 +0000 (UTC)
+Original-Received: from splode.eterna.com.au (splode.eterna.com.au [203.15.111.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 2A84084D5F;
+	Sat, 17 Apr 2021 04:15:14 +0000 (UTC)
+Original-Received: from splode.eterna.com.au (localhost [127.0.0.1])
+	by splode.eterna.com.au (Postfix) with ESMTP id D3EC01590B9;
+	Sat, 17 Apr 2021 14:15:13 +1000 (AEST)
+organisation: people's front against (bozotic) www (softwar foundation)
+x-other-organisation: The NetBSD Foundation.
+x-message: step back from the shadows of war!  seek out the ways of peace
+Content-ID: <12225.1618632913.1@splode.eterna.com.au>
+Original-Sender: current-users-owner@NetBSD.org
+List-Id: <current-users.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20current-users&body=unsubscribe%20current-users>
+Xref: news.gmane.io gmane.os.netbsd.current:79877 gmane.os.netbsd.ports.alpha:5259 gmane.os.netbsd.ports.x86-64:6233 gmane.os.netbsd.ports.vax:8822 gmane.os.netbsd.ports.sparc:9346 gmane.os.netbsd.ports.sparc64:8831
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.current/79877>
+
+hi folks.
+
+
+i've switched the alpha, amd64, sparc*, riscv*, ia64, and vax ports
+have all been switched to GCC 10.
+
+please send-pr or send email here about problems you encounter.
+
+thanks.
+
+
+.mrg.
+
+
+From mueller6725@twc.com  Sat Apr 17 05:45:33 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: "Thomas Mueller" <mueller6725@twc.com>
+Newsgroups: gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc64,gmane.os.netbsd.current
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sat, 17 Apr 2021 05:45:33 +0000
+Approved: news@gmane.org
+Message-ID: <20210417074304.1DDB7A800E@mail.duskware.de>
+References: <15531.1618632913@splode.eterna.com.au>
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="7686"; mail-complaints-to="usenet@ciao.gmane.io"
+To: port-alpha@netbsd.org, port-amd64@netbsd.org, port-vax@netbsd.org,
+        port-sparc@netbsd.org, port-sparc64@netbsd.org,
+        current-users@netbsd.org
+Original-X-From: bounces-port-sparc-owner-netbsd-port-sparc=m.gmane-mx.org@NetBSD.org Sat Apr 17 09:43:12 2021
+Return-path: <bounces-port-sparc-owner-netbsd-port-sparc=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-sparc@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-sparc-owner-netbsd-port-sparc=m.gmane-mx.org@NetBSD.org>)
+	id 1lXfbj-0001us-Dk
+	for netbsd-port-sparc@m.gmane-mx.org; Sat, 17 Apr 2021 09:43:11 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id E6D6A84D73; Sat, 17 Apr 2021 07:43:07 +0000 (UTC)
+Delivered-To: port-sparc@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 21A3084D25
+	for <port-sparc@netbsd.org>; Sat, 17 Apr 2021 07:43:07 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id DouuWQKR9gFg for <port-sparc@netbsd.org>;
+	Sat, 17 Apr 2021 07:43:06 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [IPv6:2a00:19e0:3004:291::144])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 53CC684CBC
+	for <port-sparc@netbsd.org>; Sat, 17 Apr 2021 07:43:05 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id 1DDB7A800E; Sat, 17 Apr 2021 09:43:04 +0200 (CEST)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id E0ECD84D25;
+	Sat, 17 Apr 2021 07:02:09 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id BaXaxRoDicf0; Sat, 17 Apr 2021 07:02:09 +0000 (UTC)
+Original-Received: from p-impout003.msg.pkvw.co.charter.net (p-impout003aa.msg.pkvw.co.charter.net [47.43.26.134])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id ED9D384CBC;
+	Sat, 17 Apr 2021 07:02:03 +0000 (UTC)
+Original-Received: from localhost ([96.28.177.163])
+	by cmsmtp with ESMTP
+	id XdldlKeOYGLZxXdldlMQ0p; Sat, 17 Apr 2021 05:45:18 +0000
+X-Authority-Analysis: v=2.3 cv=FpV7AFjq c=1 sm=1 tr=0
+ a=xqrt2BZAGHte7XHhrxJgbA==:117 a=xqrt2BZAGHte7XHhrxJgbA==:17
+ a=HpEJnUlJZJkA:10 a=EKaC3Yo8Yw6YRHqHFAIA:9
+X-CMAE-Envelope: MS4wfMDrAPFRhnEB7LqfbaSxE3Sa+r0eCkjFyLGVWWnYgS3cU9SOwy+dmO6D9+peIgzy/5CPXTxIqv8Gm4Vm1yV2oMRVwR7QE3rh/QLlzw3SC9GVEZw3uJ4K
+ M93QAoLkU/Vm2CYBzqDAska1vz4gO5G2D1A4k+sTEOqjoYRwcZ1zzePsjFvGqhwUhlx4NF5LTJ+FOLIPG6hxUJucNQG0XS9d6+LsgsLdgrud41Fu1nvOUMjI
+ A0rGfaA9JIQnvhD+IyXKbhIJHQ+FnZfGsC5AH5Naz+yFyy63AxFNh1yYHKny5ULYShWWgaN1RktH2jmfTU55AO7DfsWJRy6RJyvHkTjFteI=
+Original-Sender: port-sparc-owner@NetBSD.org
+List-Id: <port-sparc.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-sparc&body=unsubscribe%20port-sparc>
+Xref: news.gmane.io gmane.os.netbsd.ports.sparc:9347 gmane.os.netbsd.ports.alpha:5260 gmane.os.netbsd.ports.x86-64:6234 gmane.os.netbsd.ports.vax:8823 gmane.os.netbsd.ports.sparc64:8832 gmane.os.netbsd.current:79880
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.sparc/9347>
+
+> i've switched the alpha, amd64, sparc*, riscv*, ia64, and vax ports
+> have all been switched to GCC 10. 
+
+> please send-pr or send email here about problems you encounter.
+        
+> thanks. 
+        
+        
+> .mrg.
+
+What about the i386 port?
+
+Upgrading from NetBSD (amd64 and i386) 8.99.51, might the build encounter trouble jumping from GCC 7.4 to 10?
+
+My NetBSD ports of interest are amd64 and i386.
+
+Or might it be better to do a two-step. source-upgrading to NetBSD 9.1_STABLE first and then to current?
+
+Or is it OK to upgrade straight to current (9.99.81)?
+
+Tom
+
+
+
+From glaubitz@physik.fu-berlin.de  Sat Apr 17 10:01:08 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Newsgroups: gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sat, 17 Apr 2021 10:01:08 +0200
+Approved: news@gmane.org
+Message-ID: <81e3c84a-5a5f-3624-b74f-5df6a7ad36bf@physik.fu-berlin.de>
+References: <15531.1618632913@splode.eterna.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="5764"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101
+ Thunderbird/78.9.1
+Cc: scole_mail@gmx.com
+To: matthew green <mrg@eterna.com.au>, port-alpha@netbsd.org,
+ port-amd64@netbsd.org, port-vax@netbsd.org, port-sparc@netbsd.org,
+ port-sparc64@netbsd.org, current-users@netbsd.org
+Original-X-From: bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org Sat Apr 17 10:01:27 2021
+Return-path: <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-current-users@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>)
+	id 1lXftN-0001Pk-R5
+	for netbsd-current-users@m.gmane-mx.org; Sat, 17 Apr 2021 10:01:26 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 82B2484D90; Sat, 17 Apr 2021 08:01:19 +0000 (UTC)
+Delivered-To: current-users@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 2058784D54;
+	Sat, 17 Apr 2021 08:01:17 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id lMXAXFggHEDi; Sat, 17 Apr 2021 08:01:16 +0000 (UTC)
+Original-Received: from outpost1.zedat.fu-berlin.de (outpost1.zedat.fu-berlin.de [130.133.4.66])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 4524984CD8;
+	Sat, 17 Apr 2021 08:01:11 +0000 (UTC)
+Original-Received: from inpost2.zedat.fu-berlin.de ([130.133.4.69])
+          by outpost.zedat.fu-berlin.de (Exim 4.94)
+          with esmtps (TLS1.2)
+          tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+          (envelope-from <glaubitz@zedat.fu-berlin.de>)
+          id 1lXft7-002VK8-54; Sat, 17 Apr 2021 10:01:09 +0200
+Original-Received: from p5b13a1ac.dip0.t-ipconnect.de ([91.19.161.172] helo=[192.168.178.139])
+          by inpost2.zedat.fu-berlin.de (Exim 4.94)
+          with esmtpsa (TLS1.2)
+          tls TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+          (envelope-from <glaubitz@physik.fu-berlin.de>)
+          id 1lXft6-002sDe-Qw; Sat, 17 Apr 2021 10:01:09 +0200
+In-Reply-To: <15531.1618632913@splode.eterna.com.au>
+Content-Language: en-US
+X-Original-Sender: glaubitz@physik.fu-berlin.de
+X-Originating-IP: 91.19.161.172
+Original-Sender: current-users-owner@NetBSD.org
+List-Id: <current-users.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20current-users&body=unsubscribe%20current-users>
+Xref: news.gmane.io gmane.os.netbsd.current:79881 gmane.os.netbsd.ports.alpha:5261 gmane.os.netbsd.ports.x86-64:6235 gmane.os.netbsd.ports.vax:8824 gmane.os.netbsd.ports.sparc:9348 gmane.os.netbsd.ports.sparc64:8833
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.current/79881>
+
+On 4/17/21 6:15 AM, matthew green wrote:
+> i've switched the alpha, amd64, sparc*, riscv*, ia64, and vax ports
+> have all been switched to GCC 10.
+> 
+> please send-pr or send email here about problems you encounter.
+
+And please report compiler-specific issues such as miscompiliations to the
+GCC bug tracker such that a broader audience becomes aware of these problems.
+
+Thanks,
+Adrian
+
+-- 
+ .''`.  John Paul Adrian Glaubitz
+: :' :  Debian Developer - glaubitz@debian.org
+`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
+  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+
+
+From mrg@eterna.com.au  Sat Apr 17 21:00:49 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: matthew green <mrg@eterna.com.au>
+Newsgroups: gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64
+Subject: re: HEADS UP: GCC 10 now default on several ports
+Date: Sat, 17 Apr 2021 21:00:49 +1000
+Approved: news@gmane.org
+Message-ID: <16614.1618657249@splode.eterna.com.au>
+References: <20210417074304.1DDB7A800E@mail.duskware.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="37785"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org, port-amd64@netbsd.org, port-vax@netbsd.org,
+    port-sparc@netbsd.org, port-sparc64@netbsd.org,
+    current-users@netbsd.org
+To: "Thomas Mueller" <mueller6725@twc.com>
+Original-X-From: bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org Sat Apr 17 13:01:10 2021
+Return-path: <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-current-users@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>)
+	id 1lXihJ-0009i0-Oa
+	for netbsd-current-users@m.gmane-mx.org; Sat, 17 Apr 2021 13:01:10 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 50F008514F; Sat, 17 Apr 2021 11:01:01 +0000 (UTC)
+Delivered-To: current-users@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 784B184D1C;
+	Sat, 17 Apr 2021 11:00:57 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id hkPWPf2JxIQg; Sat, 17 Apr 2021 11:00:57 +0000 (UTC)
+Original-Received: from splode.eterna.com.au (splode.eterna.com.au [203.15.111.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 3F26784CF1;
+	Sat, 17 Apr 2021 11:00:50 +0000 (UTC)
+Original-Received: from splode.eterna.com.au (localhost [127.0.0.1])
+	by splode.eterna.com.au (Postfix) with ESMTP id CC0BF1590B9;
+	Sat, 17 Apr 2021 21:00:49 +1000 (AEST)
+in-reply-to: <20210417074304.1DDB7A800E@mail.duskware.de>
+organisation: people's front against (bozotic) www (softwar foundation)
+x-other-organisation: The NetBSD Foundation.
+x-message: step back from the shadows of war!  seek out the ways of peace
+Content-ID: <4086.1618657249.1@splode.eterna.com.au>
+Original-Sender: current-users-owner@NetBSD.org
+List-Id: <current-users.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20current-users&body=unsubscribe%20current-users>
+Xref: news.gmane.io gmane.os.netbsd.current:79882 gmane.os.netbsd.ports.alpha:5262 gmane.os.netbsd.ports.x86-64:6236 gmane.os.netbsd.ports.vax:8825 gmane.os.netbsd.ports.sparc:9349 gmane.os.netbsd.ports.sparc64:8834
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.current/79882>
+
+"Thomas Mueller" writes:
+> > i've switched the alpha, amd64, sparc*, riscv*, ia64, and vax ports
+> > have all been switched to GCC 10. =
+
+>
+> > please send-pr or send email here about problems you encounter.
+>         =
+
+> > thanks. =
+
+>         =
+
+>         =
+
+> > .mrg.
+>
+> What about the i386 port?
+
+see README.gcc10:
+
+---
+[8] - i386 seems to have a signal delivery issue.  pthread tests hang and =
+then
+      complain with eg:
+          threads_and_exec: q[ 627.6700846] sorry, pid 3154 was killed: or=
+phaned traced process
+      this problem occurs with GCC 9 as well.
+---
+
+it all builds and mostly works, but atf hangs for me (with GCC 9
+as well, so it's not a compiler issue, or, it's not a *new*
+compiler issue..)
+
+> Upgrading from NetBSD (amd64 and i386) 8.99.51, might the build encounte=
+r trouble jumping from GCC 7.4 to 10?
+>
+> My NetBSD ports of interest are amd64 and i386.
+>
+> Or might it be better to do a two-step. source-upgrading to NetBSD 9.1_S=
+TABLE first and then to current?
+>
+> Or is it OK to upgrade straight to current (9.99.81)?
+
+it shouldn't be necessary to go to netbsd-9 branch first.
+
+
+.mrg.
+
+
+From mueller6725@twc.com  Sat Apr 17 05:45:33 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: "Thomas Mueller" <mueller6725@twc.com>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64,gmane.os.netbsd.current
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sat, 17 Apr 2021 05:45:33 +0000
+Approved: news@gmane.org
+Message-ID: <20210418090035.7C2B784D4D@mail.netbsd.org>
+References: <15531.1618632913@splode.eterna.com.au>
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="5650"; mail-complaints-to="usenet@ciao.gmane.io"
+To: port-alpha@netbsd.org, port-amd64@netbsd.org, port-vax@netbsd.org,
+        port-sparc@netbsd.org, port-sparc64@netbsd.org,
+        current-users@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Sun Apr 18 11:00:39 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lY3IE-0001M6-SU
+	for netbsd-port-alpha@m.gmane-mx.org; Sun, 18 Apr 2021 11:00:39 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id E510084D50; Sun, 18 Apr 2021 09:00:35 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: by mail.netbsd.org (Postfix, from userid 1347)
+	id 7C2B784D4D; Sun, 18 Apr 2021 09:00:35 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id E0ECD84D25;
+	Sat, 17 Apr 2021 07:02:09 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id BaXaxRoDicf0; Sat, 17 Apr 2021 07:02:09 +0000 (UTC)
+Original-Received: from p-impout003.msg.pkvw.co.charter.net (p-impout003aa.msg.pkvw.co.charter.net [47.43.26.134])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id ED9D384CBC;
+	Sat, 17 Apr 2021 07:02:03 +0000 (UTC)
+Original-Received: from localhost ([96.28.177.163])
+	by cmsmtp with ESMTP
+	id XdldlKeOYGLZxXdldlMQ0p; Sat, 17 Apr 2021 05:45:18 +0000
+X-Authority-Analysis: v=2.3 cv=FpV7AFjq c=1 sm=1 tr=0
+ a=xqrt2BZAGHte7XHhrxJgbA==:117 a=xqrt2BZAGHte7XHhrxJgbA==:17
+ a=HpEJnUlJZJkA:10 a=EKaC3Yo8Yw6YRHqHFAIA:9
+X-CMAE-Envelope: MS4wfMDrAPFRhnEB7LqfbaSxE3Sa+r0eCkjFyLGVWWnYgS3cU9SOwy+dmO6D9+peIgzy/5CPXTxIqv8Gm4Vm1yV2oMRVwR7QE3rh/QLlzw3SC9GVEZw3uJ4K
+ M93QAoLkU/Vm2CYBzqDAska1vz4gO5G2D1A4k+sTEOqjoYRwcZ1zzePsjFvGqhwUhlx4NF5LTJ+FOLIPG6hxUJucNQG0XS9d6+LsgsLdgrud41Fu1nvOUMjI
+ A0rGfaA9JIQnvhD+IyXKbhIJHQ+FnZfGsC5AH5Naz+yFyy63AxFNh1yYHKny5ULYShWWgaN1RktH2jmfTU55AO7DfsWJRy6RJyvHkTjFteI=
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5263 gmane.os.netbsd.ports.x86-64:6237 gmane.os.netbsd.ports.vax:8826 gmane.os.netbsd.ports.sparc:9350 gmane.os.netbsd.ports.sparc64:8835 gmane.os.netbsd.current:79892
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5263>
+
+> i've switched the alpha, amd64, sparc*, riscv*, ia64, and vax ports
+> have all been switched to GCC 10. 
+
+> please send-pr or send email here about problems you encounter.
+        
+> thanks. 
+        
+        
+> .mrg.
+
+What about the i386 port?
+
+Upgrading from NetBSD (amd64 and i386) 8.99.51, might the build encounter trouble jumping from GCC 7.4 to 10?
+
+My NetBSD ports of interest are amd64 and i386.
+
+Or might it be better to do a two-step. source-upgrading to NetBSD 9.1_STABLE first and then to current?
+
+Or is it OK to upgrade straight to current (9.99.81)?
+
+Tom
+
+
+From mueller6725@twc.com  Sat Apr 17 05:45:33 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: "Thomas Mueller" <mueller6725@twc.com>
+Newsgroups: gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64,gmane.os.netbsd.current
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sat, 17 Apr 2021 05:45:33 +0000
+Approved: news@gmane.org
+Message-ID: <20210418090044.B0D1E84D55@mail.netbsd.org>
+References: <15531.1618632913@splode.eterna.com.au>
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="6525"; mail-complaints-to="usenet@ciao.gmane.io"
+To: port-alpha@netbsd.org, port-amd64@netbsd.org, port-vax@netbsd.org,
+        port-sparc@netbsd.org, port-sparc64@netbsd.org,
+        current-users@netbsd.org
+Original-X-From: bounces-port-amd64-owner-gonpx-port-x86_64=m.gmane-mx.org@NetBSD.org Sun Apr 18 11:00:51 2021
+Return-path: <bounces-port-amd64-owner-gonpx-port-x86_64=m.gmane-mx.org@NetBSD.org>
+Envelope-to: gonpx-port-x86_64@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-amd64-owner-gonpx-port-x86_64=m.gmane-mx.org@NetBSD.org>)
+	id 1lY3IQ-0001bg-Pp
+	for gonpx-port-x86_64@m.gmane-mx.org; Sun, 18 Apr 2021 11:00:51 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 265BC84D60; Sun, 18 Apr 2021 09:00:45 +0000 (UTC)
+Delivered-To: port-amd64@netbsd.org
+Original-Received: by mail.netbsd.org (Postfix, from userid 1347)
+	id B0D1E84D55; Sun, 18 Apr 2021 09:00:44 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id E0ECD84D25;
+	Sat, 17 Apr 2021 07:02:09 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id BaXaxRoDicf0; Sat, 17 Apr 2021 07:02:09 +0000 (UTC)
+Original-Received: from p-impout003.msg.pkvw.co.charter.net (p-impout003aa.msg.pkvw.co.charter.net [47.43.26.134])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id ED9D384CBC;
+	Sat, 17 Apr 2021 07:02:03 +0000 (UTC)
+Original-Received: from localhost ([96.28.177.163])
+	by cmsmtp with ESMTP
+	id XdldlKeOYGLZxXdldlMQ0p; Sat, 17 Apr 2021 05:45:18 +0000
+X-Authority-Analysis: v=2.3 cv=FpV7AFjq c=1 sm=1 tr=0
+ a=xqrt2BZAGHte7XHhrxJgbA==:117 a=xqrt2BZAGHte7XHhrxJgbA==:17
+ a=HpEJnUlJZJkA:10 a=EKaC3Yo8Yw6YRHqHFAIA:9
+X-CMAE-Envelope: MS4wfMDrAPFRhnEB7LqfbaSxE3Sa+r0eCkjFyLGVWWnYgS3cU9SOwy+dmO6D9+peIgzy/5CPXTxIqv8Gm4Vm1yV2oMRVwR7QE3rh/QLlzw3SC9GVEZw3uJ4K
+ M93QAoLkU/Vm2CYBzqDAska1vz4gO5G2D1A4k+sTEOqjoYRwcZ1zzePsjFvGqhwUhlx4NF5LTJ+FOLIPG6hxUJucNQG0XS9d6+LsgsLdgrud41Fu1nvOUMjI
+ A0rGfaA9JIQnvhD+IyXKbhIJHQ+FnZfGsC5AH5Naz+yFyy63AxFNh1yYHKny5ULYShWWgaN1RktH2jmfTU55AO7DfsWJRy6RJyvHkTjFteI=
+Original-Sender: port-amd64-owner@NetBSD.org
+List-Id: <port-amd64.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-amd64&body=unsubscribe%20port-amd64>
+Xref: news.gmane.io gmane.os.netbsd.ports.x86-64:6238 gmane.os.netbsd.ports.alpha:5264 gmane.os.netbsd.ports.vax:8827 gmane.os.netbsd.ports.sparc:9351 gmane.os.netbsd.ports.sparc64:8836 gmane.os.netbsd.current:79893
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.x86-64/6238>
+
+> i've switched the alpha, amd64, sparc*, riscv*, ia64, and vax ports
+> have all been switched to GCC 10. 
+
+> please send-pr or send email here about problems you encounter.
+        
+> thanks. 
+        
+        
+> .mrg.
+
+What about the i386 port?
+
+Upgrading from NetBSD (amd64 and i386) 8.99.51, might the build encounter trouble jumping from GCC 7.4 to 10?
+
+My NetBSD ports of interest are amd64 and i386.
+
+Or might it be better to do a two-step. source-upgrading to NetBSD 9.1_STABLE first and then to current?
+
+Or is it OK to upgrade straight to current (9.99.81)?
+
+Tom
+
+
+From mueller6725@twc.com  Sat Apr 17 05:45:33 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: "Thomas Mueller" <mueller6725@twc.com>
+Newsgroups: gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64,gmane.os.netbsd.current
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sat, 17 Apr 2021 05:45:33 +0000
+Approved: news@gmane.org
+Message-ID: <20210418090049.BC65284D55@mail.netbsd.org>
+References: <15531.1618632913@splode.eterna.com.au>
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="7415"; mail-complaints-to="usenet@ciao.gmane.io"
+To: port-alpha@netbsd.org, port-amd64@netbsd.org, port-vax@netbsd.org,
+        port-sparc@netbsd.org, port-sparc64@netbsd.org,
+        current-users@netbsd.org
+Original-X-From: bounces-port-vax-owner-netbsd-port-vax=m.gmane-mx.org@NetBSD.org Sun Apr 18 11:01:02 2021
+Return-path: <bounces-port-vax-owner-netbsd-port-vax=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-vax@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-vax-owner-netbsd-port-vax=m.gmane-mx.org@NetBSD.org>)
+	id 1lY3Ia-0001n1-PD
+	for netbsd-port-vax@m.gmane-mx.org; Sun, 18 Apr 2021 11:01:01 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 32B1E84D6C; Sun, 18 Apr 2021 09:00:50 +0000 (UTC)
+Delivered-To: port-vax@netbsd.org
+Original-Received: by mail.netbsd.org (Postfix, from userid 1347)
+	id BC65284D55; Sun, 18 Apr 2021 09:00:49 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id E0ECD84D25;
+	Sat, 17 Apr 2021 07:02:09 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id BaXaxRoDicf0; Sat, 17 Apr 2021 07:02:09 +0000 (UTC)
+Original-Received: from p-impout003.msg.pkvw.co.charter.net (p-impout003aa.msg.pkvw.co.charter.net [47.43.26.134])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id ED9D384CBC;
+	Sat, 17 Apr 2021 07:02:03 +0000 (UTC)
+Original-Received: from localhost ([96.28.177.163])
+	by cmsmtp with ESMTP
+	id XdldlKeOYGLZxXdldlMQ0p; Sat, 17 Apr 2021 05:45:18 +0000
+X-Authority-Analysis: v=2.3 cv=FpV7AFjq c=1 sm=1 tr=0
+ a=xqrt2BZAGHte7XHhrxJgbA==:117 a=xqrt2BZAGHte7XHhrxJgbA==:17
+ a=HpEJnUlJZJkA:10 a=EKaC3Yo8Yw6YRHqHFAIA:9
+X-CMAE-Envelope: MS4wfMDrAPFRhnEB7LqfbaSxE3Sa+r0eCkjFyLGVWWnYgS3cU9SOwy+dmO6D9+peIgzy/5CPXTxIqv8Gm4Vm1yV2oMRVwR7QE3rh/QLlzw3SC9GVEZw3uJ4K
+ M93QAoLkU/Vm2CYBzqDAska1vz4gO5G2D1A4k+sTEOqjoYRwcZ1zzePsjFvGqhwUhlx4NF5LTJ+FOLIPG6hxUJucNQG0XS9d6+LsgsLdgrud41Fu1nvOUMjI
+ A0rGfaA9JIQnvhD+IyXKbhIJHQ+FnZfGsC5AH5Naz+yFyy63AxFNh1yYHKny5ULYShWWgaN1RktH2jmfTU55AO7DfsWJRy6RJyvHkTjFteI=
+Original-Sender: port-vax-owner@NetBSD.org
+List-Id: <port-vax.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-vax&body=unsubscribe%20port-vax>
+Xref: news.gmane.io gmane.os.netbsd.ports.vax:8828 gmane.os.netbsd.ports.alpha:5265 gmane.os.netbsd.ports.x86-64:6239 gmane.os.netbsd.ports.sparc:9352 gmane.os.netbsd.ports.sparc64:8837 gmane.os.netbsd.current:79894
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.vax/8828>
+
+> i've switched the alpha, amd64, sparc*, riscv*, ia64, and vax ports
+> have all been switched to GCC 10. 
+
+> please send-pr or send email here about problems you encounter.
+        
+> thanks. 
+        
+        
+> .mrg.
+
+What about the i386 port?
+
+Upgrading from NetBSD (amd64 and i386) 8.99.51, might the build encounter trouble jumping from GCC 7.4 to 10?
+
+My NetBSD ports of interest are amd64 and i386.
+
+Or might it be better to do a two-step. source-upgrading to NetBSD 9.1_STABLE first and then to current?
+
+Or is it OK to upgrade straight to current (9.99.81)?
+
+Tom
+
+
+From bqt@update.uu.se  Sun Apr 18 15:09:17 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Johnny Billquist <bqt@update.uu.se>
+Newsgroups: gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sun, 18 Apr 2021 15:09:17 +0200
+Approved: news@gmane.org
+Message-ID: <c5c44c6b-10eb-bd83-1f35-88bdc2f4fc8d@update.uu.se>
+References: <15531.1618632913@splode.eterna.com.au>
+ <81e3c84a-5a5f-3624-b74f-5df6a7ad36bf@physik.fu-berlin.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="9060"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.11; rv:78.0)
+ Gecko/20100101 Thunderbird/78.9.1
+Cc: scole_mail@gmx.com
+To: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+ matthew green <mrg@eterna.com.au>, port-alpha@netbsd.org,
+ port-amd64@netbsd.org, port-vax@netbsd.org, port-sparc@netbsd.org,
+ port-sparc64@netbsd.org, current-users@netbsd.org
+Original-X-From: bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org Sun Apr 18 15:09:45 2021
+Return-path: <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-current-users@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>)
+	id 1lY7BI-0002G8-P6
+	for netbsd-current-users@m.gmane-mx.org; Sun, 18 Apr 2021 15:09:45 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 7FEE884D6C; Sun, 18 Apr 2021 13:09:35 +0000 (UTC)
+Delivered-To: current-users@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 0B7ED84D31;
+	Sun, 18 Apr 2021 13:09:32 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id 6ewd0ytiWLtl; Sun, 18 Apr 2021 13:09:31 +0000 (UTC)
+Original-Received: from Psilocybe.Update.UU.SE (Psilocybe.Update.UU.SE [130.238.19.25])
+	by mail.netbsd.org (Postfix) with ESMTP id 1914184D0B;
+	Sun, 18 Apr 2021 13:09:23 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by Psilocybe.Update.UU.SE (Postfix) with ESMTP id 3F39A803D7;
+	Sun, 18 Apr 2021 15:09:22 +0200 (CEST)
+X-Virus-Scanned: Debian amavisd-new at Update.UU.SE
+Original-Received: from Psilocybe.Update.UU.SE ([127.0.0.1])
+	by localhost (psilocybe.update.uu.se [127.0.0.1]) (amavisd-new, port 10040)
+	with ESMTP id 76tYsZbp9vTq; Sun, 18 Apr 2021 15:09:18 +0200 (CEST)
+Original-Received: from Trollet.BQTnet.SE (80-219-208-93.dclient.hispeed.ch [80.219.208.93])
+	by Psilocybe.Update.UU.SE (Postfix) with ESMTPSA;
+	Sun, 18 Apr 2021 15:09:18 +0200 (CEST)
+In-Reply-To: <81e3c84a-5a5f-3624-b74f-5df6a7ad36bf@physik.fu-berlin.de>
+Content-Language: en-US
+Original-Sender: current-users-owner@NetBSD.org
+List-Id: <current-users.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20current-users&body=unsubscribe%20current-users>
+Xref: news.gmane.io gmane.os.netbsd.current:79895 gmane.os.netbsd.ports.alpha:5266 gmane.os.netbsd.ports.x86-64:6240 gmane.os.netbsd.ports.vax:8829 gmane.os.netbsd.ports.sparc:9353 gmane.os.netbsd.ports.sparc64:8838
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.current/79895>
+
+On 2021-04-17 10:01, John Paul Adrian Glaubitz wrote:
+> On 4/17/21 6:15 AM, matthew green wrote:
+>> i've switched the alpha, amd64, sparc*, riscv*, ia64, and vax ports
+>> have all been switched to GCC 10.
+>>
+>> please send-pr or send email here about problems you encounter.
+> 
+> And please report compiler-specific issues such as miscompiliations to the
+> GCC bug tracker such that a broader audience becomes aware of these problems.
+
+Building from NetBSD-8 does not work. Unsure if this is a known limitation.
+
+Basically, the problem is that HAVE_GCC is there set to 8, and in 
+bsd.own.mk there is this piece:
+
+.if ${HAVE_GCC} == 9
+EXTERNAL_GCC_SUBDIR?=   gcc.old
+.elif ${HAVE_GCC} == 10
+EXTERNAL_GCC_SUBDIR?=   gcc
+.else
+EXTERNAL_GCC_SUBDIR?=   /does/not/exist
+.endif
+
+Which means EXTERNAL_GCC_SUBDIR gets set to /does/not/exist
+and then build.sh borks out with non-existing directory pretty quickly 
+when building the tools.
+
+   Johnny
+
+-- 
+Johnny Billquist                  || "I'm on a bus
+                                   ||  on a psychedelic trip
+email: bqt@softjar.se             ||  Reading murder books
+pdp is alive!                     ||  tryin' to stay hip" - B. Idol
+
+
+From martin@duskware.de  Sun Apr 18 17:42:21 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sun, 18 Apr 2021 17:42:21 +0200
+Approved: news@gmane.org
+Message-ID: <20210418154221.GE14194@mail.duskware.de>
+References: <15531.1618632913@splode.eterna.com.au>
+ <81e3c84a-5a5f-3624-b74f-5df6a7ad36bf@physik.fu-berlin.de>
+ <c5c44c6b-10eb-bd83-1f35-88bdc2f4fc8d@update.uu.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="12667"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mutt/1.7.2 (2016-11-26)
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+	matthew green <mrg@eterna.com.au>, port-alpha@netbsd.org,
+	port-amd64@netbsd.org, port-vax@netbsd.org, port-sparc@netbsd.org,
+	port-sparc64@netbsd.org, current-users@netbsd.org,
+	scole_mail@gmx.com
+To: Johnny Billquist <bqt@update.uu.se>
+Original-X-From: bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org Sun Apr 18 17:42:38 2021
+Return-path: <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-current-users@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>)
+	id 1lY9ZG-0003BN-Gs
+	for netbsd-current-users@m.gmane-mx.org; Sun, 18 Apr 2021 17:42:38 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 5FC2184D8C; Sun, 18 Apr 2021 15:42:31 +0000 (UTC)
+Delivered-To: current-users@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id D68D284D16;
+	Sun, 18 Apr 2021 15:42:29 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id 6I5FKYNQpxYb; Sun, 18 Apr 2021 15:42:29 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [91.199.88.144])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 1AB4684CED;
+	Sun, 18 Apr 2021 15:42:23 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id F2702A801B; Sun, 18 Apr 2021 17:42:21 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <c5c44c6b-10eb-bd83-1f35-88bdc2f4fc8d@update.uu.se>
+Original-Sender: current-users-owner@NetBSD.org
+List-Id: <current-users.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20current-users&body=unsubscribe%20current-users>
+Xref: news.gmane.io gmane.os.netbsd.current:79899 gmane.os.netbsd.ports.alpha:5267 gmane.os.netbsd.ports.x86-64:6241 gmane.os.netbsd.ports.vax:8830 gmane.os.netbsd.ports.sparc:9354 gmane.os.netbsd.ports.sparc64:8839
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.current/79899>
+
+On Sun, Apr 18, 2021 at 03:09:17PM +0200, Johnny Billquist wrote:
+> Basically, the problem is that HAVE_GCC is there set to 8,
+
+Where and why? This should not happen - HAVE_GCC for -current is either 9
+or 10, no matter on what host / which tools you compile with.
+
+Martin
+
+
+From bqt@update.uu.se  Sun Apr 18 17:44:36 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Johnny Billquist <bqt@update.uu.se>
+Newsgroups: gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sun, 18 Apr 2021 17:44:36 +0200
+Approved: news@gmane.org
+Message-ID: <7a7b6deb-195d-8bef-b68e-12e36391bda0@update.uu.se>
+References: <15531.1618632913@splode.eterna.com.au>
+ <81e3c84a-5a5f-3624-b74f-5df6a7ad36bf@physik.fu-berlin.de>
+ <c5c44c6b-10eb-bd83-1f35-88bdc2f4fc8d@update.uu.se>
+ <20210418154221.GE14194@mail.duskware.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="21265"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.11; rv:78.0)
+ Gecko/20100101 Thunderbird/78.9.1
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+ matthew green <mrg@eterna.com.au>, port-alpha@netbsd.org,
+ port-amd64@netbsd.org, port-vax@netbsd.org, port-sparc@netbsd.org,
+ port-sparc64@netbsd.org, current-users@netbsd.org, scole_mail@gmx.com
+To: Martin Husemann <martin@duskware.de>
+Original-X-From: bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org Sun Apr 18 17:44:56 2021
+Return-path: <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-current-users@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>)
+	id 1lY9bT-0005Ri-KT
+	for netbsd-current-users@m.gmane-mx.org; Sun, 18 Apr 2021 17:44:55 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 5333384DAA; Sun, 18 Apr 2021 15:44:50 +0000 (UTC)
+Delivered-To: current-users@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id B801984D9A;
+	Sun, 18 Apr 2021 15:44:47 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id Xx8B4LgXKbBP; Sun, 18 Apr 2021 15:44:47 +0000 (UTC)
+Original-Received: from Psilocybe.Update.UU.SE (Psilocybe.Update.UU.SE [130.238.19.25])
+	by mail.netbsd.org (Postfix) with ESMTP id CE07384D16;
+	Sun, 18 Apr 2021 15:44:40 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by Psilocybe.Update.UU.SE (Postfix) with ESMTP id EE809803D7;
+	Sun, 18 Apr 2021 17:44:38 +0200 (CEST)
+X-Virus-Scanned: Debian amavisd-new at Update.UU.SE
+Original-Received: from Psilocybe.Update.UU.SE ([127.0.0.1])
+	by localhost (psilocybe.update.uu.se [127.0.0.1]) (amavisd-new, port 10040)
+	with ESMTP id djy9zbQZRMbH; Sun, 18 Apr 2021 17:44:36 +0200 (CEST)
+Original-Received: from Trollet.BQTnet.SE (80-219-208-93.dclient.hispeed.ch [80.219.208.93])
+	by Psilocybe.Update.UU.SE (Postfix) with ESMTPSA;
+	Sun, 18 Apr 2021 17:44:36 +0200 (CEST)
+In-Reply-To: <20210418154221.GE14194@mail.duskware.de>
+Content-Language: en-US
+Original-Sender: current-users-owner@NetBSD.org
+List-Id: <current-users.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20current-users&body=unsubscribe%20current-users>
+Xref: news.gmane.io gmane.os.netbsd.current:79900 gmane.os.netbsd.ports.alpha:5268 gmane.os.netbsd.ports.x86-64:6242 gmane.os.netbsd.ports.vax:8831 gmane.os.netbsd.ports.sparc:9355 gmane.os.netbsd.ports.sparc64:8840
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.current/79900>
+
+On 2021-04-18 17:42, Martin Husemann wrote:
+> On Sun, Apr 18, 2021 at 03:09:17PM +0200, Johnny Billquist wrote:
+>> Basically, the problem is that HAVE_GCC is there set to 8,
+> 
+> Where and why? This should not happen - HAVE_GCC for -current is either 9
+> or 10, no matter on what host / which tools you compile with.
+
+GW:/usr/src# uname -a
+NetBSD GW.SoftJAR.SE 8.0 NetBSD 8.0 (GENERIC) #0: Tue Jul 17 14:59:51 
+UTC 2018 
+mkrepro@mkrepro.NetBSD.org:/usr/src/sys/arch/amd64/compile/GENERIC amd64
+
+Cross compiling for vax with a current checkout from a couple of hours ago.
+
+   Johnny
+
+-- 
+Johnny Billquist                  || "I'm on a bus
+                                   ||  on a psychedelic trip
+email: bqt@softjar.se             ||  Reading murder books
+pdp is alive!                     ||  tryin' to stay hip" - B. Idol
+
+
+From bqt@update.uu.se  Sun Apr 18 17:46:39 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Johnny Billquist <bqt@update.uu.se>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64,gmane.os.netbsd.current
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sun, 18 Apr 2021 17:46:39 +0200
+Approved: news@gmane.org
+Message-ID: <d209e119-30bd-fb27-14da-5f9796c39c9b@update.uu.se>
+References: <15531.1618632913@splode.eterna.com.au>
+ <81e3c84a-5a5f-3624-b74f-5df6a7ad36bf@physik.fu-berlin.de>
+ <c5c44c6b-10eb-bd83-1f35-88bdc2f4fc8d@update.uu.se>
+ <20210418154221.GE14194@mail.duskware.de>
+ <7a7b6deb-195d-8bef-b68e-12e36391bda0@update.uu.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="29309"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.11; rv:78.0)
+ Gecko/20100101 Thunderbird/78.9.1
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+ matthew green <mrg@eterna.com.au>, port-alpha@netbsd.org,
+ port-amd64@netbsd.org, port-vax@netbsd.org, port-sparc@netbsd.org,
+ port-sparc64@netbsd.org, current-users@netbsd.org, scole_mail@gmx.com
+To: Martin Husemann <martin@duskware.de>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Sun Apr 18 17:46:54 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lY9dO-0007X3-C2
+	for netbsd-port-alpha@m.gmane-mx.org; Sun, 18 Apr 2021 17:46:54 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 8049D84DE4; Sun, 18 Apr 2021 15:46:51 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 277BF84DD4;
+	Sun, 18 Apr 2021 15:46:48 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id 4pSBgaYGcF3S; Sun, 18 Apr 2021 15:46:47 +0000 (UTC)
+Original-Received: from Psilocybe.Update.UU.SE (Psilocybe.Update.UU.SE [130.238.19.25])
+	by mail.netbsd.org (Postfix) with ESMTP id 44B6884DA9;
+	Sun, 18 Apr 2021 15:46:42 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by Psilocybe.Update.UU.SE (Postfix) with ESMTP id 975D7803DA;
+	Sun, 18 Apr 2021 17:46:41 +0200 (CEST)
+X-Virus-Scanned: Debian amavisd-new at Update.UU.SE
+Original-Received: from Psilocybe.Update.UU.SE ([127.0.0.1])
+	by localhost (psilocybe.update.uu.se [127.0.0.1]) (amavisd-new, port 10040)
+	with ESMTP id Ap4TmyZiGBOP; Sun, 18 Apr 2021 17:46:39 +0200 (CEST)
+Original-Received: from Trollet.BQTnet.SE (80-219-208-93.dclient.hispeed.ch [80.219.208.93])
+	by Psilocybe.Update.UU.SE (Postfix) with ESMTPSA;
+	Sun, 18 Apr 2021 17:46:39 +0200 (CEST)
+In-Reply-To: <7a7b6deb-195d-8bef-b68e-12e36391bda0@update.uu.se>
+Content-Language: en-US
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5269 gmane.os.netbsd.ports.x86-64:6243 gmane.os.netbsd.ports.vax:8832 gmane.os.netbsd.ports.sparc:9356 gmane.os.netbsd.ports.sparc64:8841 gmane.os.netbsd.current:79901
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5269>
+
+On 2021-04-18 17:44, Johnny Billquist wrote:
+> On 2021-04-18 17:42, Martin Husemann wrote:
+>> On Sun, Apr 18, 2021 at 03:09:17PM +0200, Johnny Billquist wrote:
+>>> Basically, the problem is that HAVE_GCC is there set to 8,
+>>
+>> Where and why? This should not happen - HAVE_GCC for -current is either 9
+>> or 10, no matter on what host / which tools you compile with.
+> 
+> GW:/usr/src# uname -a
+> NetBSD GW.SoftJAR.SE 8.0 NetBSD 8.0 (GENERIC) #0: Tue Jul 17 14:59:51 
+> UTC 2018 
+> mkrepro@mkrepro.NetBSD.org:/usr/src/sys/arch/amd64/compile/GENERIC amd64
+> 
+> Cross compiling for vax with a current checkout from a couple of hours ago.
+
+I said in my original mail:
+
+"Building from NetBSD-8 does not work. Unsure if this is a known 
+limitation."
+
+So, not building from current, but am trying to build current.
+
+   Johnny
+
+-- 
+Johnny Billquist                  || "I'm on a bus
+                                   ||  on a psychedelic trip
+email: bqt@softjar.se             ||  Reading murder books
+pdp is alive!                     ||  tryin' to stay hip" - B. Idol
+
+
+From martin@duskware.de  Sun Apr 18 17:48:01 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sun, 18 Apr 2021 17:48:01 +0200
+Approved: news@gmane.org
+Message-ID: <20210418154801.GF14194@mail.duskware.de>
+References: <15531.1618632913@splode.eterna.com.au>
+ <81e3c84a-5a5f-3624-b74f-5df6a7ad36bf@physik.fu-berlin.de>
+ <c5c44c6b-10eb-bd83-1f35-88bdc2f4fc8d@update.uu.se>
+ <20210418154221.GE14194@mail.duskware.de>
+ <7a7b6deb-195d-8bef-b68e-12e36391bda0@update.uu.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="35351"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mutt/1.7.2 (2016-11-26)
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+	matthew green <mrg@eterna.com.au>, port-alpha@netbsd.org,
+	port-amd64@netbsd.org, port-vax@netbsd.org, port-sparc@netbsd.org,
+	port-sparc64@netbsd.org, current-users@netbsd.org,
+	scole_mail@gmx.com
+To: Johnny Billquist <bqt@update.uu.se>
+Original-X-From: bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org Sun Apr 18 17:48:18 2021
+Return-path: <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-current-users@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>)
+	id 1lY9ek-000959-D9
+	for netbsd-current-users@m.gmane-mx.org; Sun, 18 Apr 2021 17:48:18 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id B3AB584DD4; Sun, 18 Apr 2021 15:48:12 +0000 (UTC)
+Delivered-To: current-users@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 0A2C284D9A;
+	Sun, 18 Apr 2021 15:48:09 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id Wj0qUU-L7YIS; Sun, 18 Apr 2021 15:48:08 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [IPv6:2a00:19e0:3004:291::144])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id DDE8084D8C;
+	Sun, 18 Apr 2021 15:48:02 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id 4B6D8A801B; Sun, 18 Apr 2021 17:48:01 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <7a7b6deb-195d-8bef-b68e-12e36391bda0@update.uu.se>
+Original-Sender: current-users-owner@NetBSD.org
+List-Id: <current-users.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20current-users&body=unsubscribe%20current-users>
+Xref: news.gmane.io gmane.os.netbsd.current:79902 gmane.os.netbsd.ports.alpha:5270 gmane.os.netbsd.ports.x86-64:6244 gmane.os.netbsd.ports.vax:8833 gmane.os.netbsd.ports.sparc:9357 gmane.os.netbsd.ports.sparc64:8842
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.current/79902>
+
+On Sun, Apr 18, 2021 at 05:44:36PM +0200, Johnny Billquist wrote:
+> On 2021-04-18 17:42, Martin Husemann wrote:
+> > On Sun, Apr 18, 2021 at 03:09:17PM +0200, Johnny Billquist wrote:
+> > > Basically, the problem is that HAVE_GCC is there set to 8,
+> > 
+> > Where and why? This should not happen - HAVE_GCC for -current is either 9
+> > or 10, no matter on what host / which tools you compile with.
+> 
+> GW:/usr/src# uname -a
+> NetBSD GW.SoftJAR.SE 8.0 NetBSD 8.0 (GENERIC) #0: Tue Jul 17 14:59:51 UTC
+> 2018 mkrepro@mkrepro.NetBSD.org:/usr/src/sys/arch/amd64/compile/GENERIC
+> amd64
+> 
+> Cross compiling for vax with a current checkout from a couple of hours ago.
+
+No, I mean where the HAVE_GCC=8 comes from.
+
+The only places where we set is is in bsd.own.mk, in this code:
+
+#
+# What GCC is used?
+#
+.if ${MACHINE} == "alpha" || \
+    ${MACHINE_ARCH} == "x86_64" || \
+    ${MACHINE} == "ia64" || \
+    ${MACHINE} == "sparc" || \
+    ${MACHINE} == "sparc64" || \
+    ${MACHINE} == "vax" || \
+    ${MACHINE_ARCH} == "riscv32" || \
+    ${MACHINE_ARCH} == "riscv64"
+HAVE_GCC?=      10
+.else
+HAVE_GCC?=      9
+.endif
+
+
+... so if you end up with "8" here, something is wrong in your setup.
+
+Martin
+
+
+From martin@duskware.de  Sun Apr 18 17:49:12 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64,gmane.os.netbsd.current
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sun, 18 Apr 2021 17:49:12 +0200
+Approved: news@gmane.org
+Message-ID: <20210418154912.GG14194@mail.duskware.de>
+References: <15531.1618632913@splode.eterna.com.au>
+ <81e3c84a-5a5f-3624-b74f-5df6a7ad36bf@physik.fu-berlin.de>
+ <c5c44c6b-10eb-bd83-1f35-88bdc2f4fc8d@update.uu.se>
+ <20210418154221.GE14194@mail.duskware.de>
+ <7a7b6deb-195d-8bef-b68e-12e36391bda0@update.uu.se>
+ <d209e119-30bd-fb27-14da-5f9796c39c9b@update.uu.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="40506"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mutt/1.7.2 (2016-11-26)
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+	matthew green <mrg@eterna.com.au>, port-alpha@netbsd.org,
+	port-amd64@netbsd.org, port-vax@netbsd.org, port-sparc@netbsd.org,
+	port-sparc64@netbsd.org, current-users@netbsd.org,
+	scole_mail@gmx.com
+To: Johnny Billquist <bqt@update.uu.se>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Sun Apr 18 17:49:28 2021
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1lY9fr-000ASl-Vz
+	for netbsd-port-alpha@m.gmane-mx.org; Sun, 18 Apr 2021 17:49:28 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id DBF25850BA; Sun, 18 Apr 2021 15:49:23 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id F242A84E36;
+	Sun, 18 Apr 2021 15:49:21 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id rfW4VZzCgW9l; Sun, 18 Apr 2021 15:49:21 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [IPv6:2a00:19e0:3004:291::144])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 444DB84E05;
+	Sun, 18 Apr 2021 15:49:16 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id 27ADAA801B; Sun, 18 Apr 2021 17:49:12 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <d209e119-30bd-fb27-14da-5f9796c39c9b@update.uu.se>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5271 gmane.os.netbsd.ports.x86-64:6245 gmane.os.netbsd.ports.vax:8834 gmane.os.netbsd.ports.sparc:9358 gmane.os.netbsd.ports.sparc64:8843 gmane.os.netbsd.current:79903
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5271>
+
+On Sun, Apr 18, 2021 at 05:46:39PM +0200, Johnny Billquist wrote:
+> I said in my original mail:
+> 
+> "Building from NetBSD-8 does not work. Unsure if this is a known
+> limitation."
+> 
+> So, not building from current, but am trying to build current.
+
+Yes, but you are overriding HAVE_GCC somehow.
+
+Martin
+
+
+From bqt@update.uu.se  Sun Apr 18 17:49:55 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Johnny Billquist <bqt@update.uu.se>
+Newsgroups: gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sun, 18 Apr 2021 17:49:55 +0200
+Approved: news@gmane.org
+Message-ID: <9d13aae1-3b1d-8c15-4cdf-b74e9bc30189@update.uu.se>
+References: <15531.1618632913@splode.eterna.com.au>
+ <81e3c84a-5a5f-3624-b74f-5df6a7ad36bf@physik.fu-berlin.de>
+ <c5c44c6b-10eb-bd83-1f35-88bdc2f4fc8d@update.uu.se>
+ <20210418154221.GE14194@mail.duskware.de>
+ <7a7b6deb-195d-8bef-b68e-12e36391bda0@update.uu.se>
+ <20210418154801.GF14194@mail.duskware.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="6234"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.11; rv:78.0)
+ Gecko/20100101 Thunderbird/78.9.1
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+ matthew green <mrg@eterna.com.au>, port-alpha@netbsd.org,
+ port-amd64@netbsd.org, port-vax@netbsd.org, port-sparc@netbsd.org,
+ port-sparc64@netbsd.org, current-users@netbsd.org, scole_mail@gmx.com
+To: Martin Husemann <martin@duskware.de>
+Original-X-From: bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org Sun Apr 18 17:50:53 2021
+Return-path: <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-current-users@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>)
+	id 1lY9hF-0001V1-7w
+	for netbsd-current-users@m.gmane-mx.org; Sun, 18 Apr 2021 17:50:53 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 2C62C850C8; Sun, 18 Apr 2021 15:50:10 +0000 (UTC)
+Delivered-To: current-users@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 5B75D850C7;
+	Sun, 18 Apr 2021 15:50:05 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id clG-7sHmbMhP; Sun, 18 Apr 2021 15:50:04 +0000 (UTC)
+Original-Received: from Psilocybe.Update.UU.SE (Psilocybe.Update.UU.SE [130.238.19.25])
+	by mail.netbsd.org (Postfix) with ESMTP id 608A5850BE;
+	Sun, 18 Apr 2021 15:49:59 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by Psilocybe.Update.UU.SE (Postfix) with ESMTP id 2DD64803DD;
+	Sun, 18 Apr 2021 17:49:58 +0200 (CEST)
+X-Virus-Scanned: Debian amavisd-new at Update.UU.SE
+Original-Received: from Psilocybe.Update.UU.SE ([127.0.0.1])
+	by localhost (psilocybe.update.uu.se [127.0.0.1]) (amavisd-new, port 10040)
+	with ESMTP id 3vlFhbPqCpDY; Sun, 18 Apr 2021 17:49:56 +0200 (CEST)
+Original-Received: from Trollet.BQTnet.SE (80-219-208-93.dclient.hispeed.ch [80.219.208.93])
+	by Psilocybe.Update.UU.SE (Postfix) with ESMTPSA;
+	Sun, 18 Apr 2021 17:49:56 +0200 (CEST)
+In-Reply-To: <20210418154801.GF14194@mail.duskware.de>
+Content-Language: en-US
+Original-Sender: current-users-owner@NetBSD.org
+List-Id: <current-users.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20current-users&body=unsubscribe%20current-users>
+Xref: news.gmane.io gmane.os.netbsd.current:79904 gmane.os.netbsd.ports.alpha:5272 gmane.os.netbsd.ports.x86-64:6246 gmane.os.netbsd.ports.vax:8835 gmane.os.netbsd.ports.sparc:9359 gmane.os.netbsd.ports.sparc64:8844
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.current/79904>
+
+On 2021-04-18 17:48, Martin Husemann wrote:
+> On Sun, Apr 18, 2021 at 05:44:36PM +0200, Johnny Billquist wrote:
+>> On 2021-04-18 17:42, Martin Husemann wrote:
+>>> On Sun, Apr 18, 2021 at 03:09:17PM +0200, Johnny Billquist wrote:
+>>>> Basically, the problem is that HAVE_GCC is there set to 8,
+>>>
+>>> Where and why? This should not happen - HAVE_GCC for -current is either 9
+>>> or 10, no matter on what host / which tools you compile with.
+>>
+>> GW:/usr/src# uname -a
+>> NetBSD GW.SoftJAR.SE 8.0 NetBSD 8.0 (GENERIC) #0: Tue Jul 17 14:59:51 UTC
+>> 2018 mkrepro@mkrepro.NetBSD.org:/usr/src/sys/arch/amd64/compile/GENERIC
+>> amd64
+>>
+>> Cross compiling for vax with a current checkout from a couple of hours ago.
+> 
+> No, I mean where the HAVE_GCC=8 comes from.
+> 
+> The only places where we set is is in bsd.own.mk, in this code:
+> 
+> #
+> # What GCC is used?
+> #
+> .if ${MACHINE} == "alpha" || \
+>      ${MACHINE_ARCH} == "x86_64" || \
+>      ${MACHINE} == "ia64" || \
+>      ${MACHINE} == "sparc" || \
+>      ${MACHINE} == "sparc64" || \
+>      ${MACHINE} == "vax" || \
+>      ${MACHINE_ARCH} == "riscv32" || \
+>      ${MACHINE_ARCH} == "riscv64"
+> HAVE_GCC?=      10
+> .else
+> HAVE_GCC?=      9
+> .endif
+> 
+> 
+> ... so if you end up with "8" here, something is wrong in your setup.
+
+bsd.own.mk only conditionally sets it if it is unset.
+I have no idea where it comes from. I certainly have not touched it.
+I only added a .info to print out what the actual value is, and it's 
+already set to 8 by something previous, obviously, since it's not being 
+set there.
+
+   Johnny
+
+-- 
+Johnny Billquist                  || "I'm on a bus
+                                   ||  on a psychedelic trip
+email: bqt@softjar.se             ||  Reading murder books
+pdp is alive!                     ||  tryin' to stay hip" - B. Idol
+
+
+From bqt@update.uu.se  Sun Apr 18 17:52:38 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Johnny Billquist <bqt@update.uu.se>
+Newsgroups: gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sun, 18 Apr 2021 17:52:38 +0200
+Approved: news@gmane.org
+Message-ID: <573fa403-2a13-77ca-6aa7-9da703954e5a@update.uu.se>
+References: <15531.1618632913@splode.eterna.com.au>
+ <81e3c84a-5a5f-3624-b74f-5df6a7ad36bf@physik.fu-berlin.de>
+ <c5c44c6b-10eb-bd83-1f35-88bdc2f4fc8d@update.uu.se>
+ <20210418154221.GE14194@mail.duskware.de>
+ <7a7b6deb-195d-8bef-b68e-12e36391bda0@update.uu.se>
+ <d209e119-30bd-fb27-14da-5f9796c39c9b@update.uu.se>
+ <20210418154912.GG14194@mail.duskware.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="15538"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.11; rv:78.0)
+ Gecko/20100101 Thunderbird/78.9.1
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+ matthew green <mrg@eterna.com.au>, port-alpha@netbsd.org,
+ port-amd64@netbsd.org, port-vax@netbsd.org, port-sparc@netbsd.org,
+ port-sparc64@netbsd.org, current-users@netbsd.org, scole_mail@gmx.com
+To: Martin Husemann <martin@duskware.de>
+Original-X-From: bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org Sun Apr 18 17:52:57 2021
+Return-path: <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-current-users@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>)
+	id 1lY9jE-0003pE-Ct
+	for netbsd-current-users@m.gmane-mx.org; Sun, 18 Apr 2021 17:52:56 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id B3E4284E36; Sun, 18 Apr 2021 15:52:50 +0000 (UTC)
+Delivered-To: current-users@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id A4A5284DA4;
+	Sun, 18 Apr 2021 15:52:47 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id lnSXKY1MNaAv; Sun, 18 Apr 2021 15:52:47 +0000 (UTC)
+Original-Received: from Psilocybe.Update.UU.SE (Psilocybe.Update.UU.SE [130.238.19.25])
+	by mail.netbsd.org (Postfix) with ESMTP id C7BDD84D9A;
+	Sun, 18 Apr 2021 15:52:41 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by Psilocybe.Update.UU.SE (Postfix) with ESMTP id 244A2803DD;
+	Sun, 18 Apr 2021 17:52:41 +0200 (CEST)
+X-Virus-Scanned: Debian amavisd-new at Update.UU.SE
+Original-Received: from Psilocybe.Update.UU.SE ([127.0.0.1])
+	by localhost (psilocybe.update.uu.se [127.0.0.1]) (amavisd-new, port 10040)
+	with ESMTP id vUsRqBB-qeT9; Sun, 18 Apr 2021 17:52:39 +0200 (CEST)
+Original-Received: from Trollet.BQTnet.SE (80-219-208-93.dclient.hispeed.ch [80.219.208.93])
+	by Psilocybe.Update.UU.SE (Postfix) with ESMTPSA;
+	Sun, 18 Apr 2021 17:52:39 +0200 (CEST)
+In-Reply-To: <20210418154912.GG14194@mail.duskware.de>
+Content-Language: en-US
+Original-Sender: current-users-owner@NetBSD.org
+List-Id: <current-users.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20current-users&body=unsubscribe%20current-users>
+Xref: news.gmane.io gmane.os.netbsd.current:79905 gmane.os.netbsd.ports.alpha:5273 gmane.os.netbsd.ports.x86-64:6247 gmane.os.netbsd.ports.vax:8836 gmane.os.netbsd.ports.sparc:9360 gmane.os.netbsd.ports.sparc64:8845
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.current/79905>
+
+On 2021-04-18 17:49, Martin Husemann wrote:
+> On Sun, Apr 18, 2021 at 05:46:39PM +0200, Johnny Billquist wrote:
+>> I said in my original mail:
+>>
+>> "Building from NetBSD-8 does not work. Unsure if this is a known
+>> limitation."
+>>
+>> So, not building from current, but am trying to build current.
+> 
+> Yes, but you are overriding HAVE_GCC somehow.
+
+Not that I am aware of. But obviously it has been set by something 
+already before it comes to those lines in bsd.own.mk
+
+But I checked, and my whole source tree is pretty much unmodified, 
+except for some vax specific files, where I have my own development 
+stuff going on. Nothing that affects this.
+
+   Johnny
+
+-- 
+Johnny Billquist                  || "I'm on a bus
+                                   ||  on a psychedelic trip
+email: bqt@softjar.se             ||  Reading murder books
+pdp is alive!                     ||  tryin' to stay hip" - B. Idol
+
+
+From paul@whooppee.com  Sun Apr 18 08:55:22 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Paul Goyette <paul@whooppee.com>
+Newsgroups: gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sun, 18 Apr 2021 08:55:22 -0700 (PDT)
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.2104180854490.4520@speedy.whooppee.com>
+References: <15531.1618632913@splode.eterna.com.au>
+ <81e3c84a-5a5f-3624-b74f-5df6a7ad36bf@physik.fu-berlin.de>
+ <c5c44c6b-10eb-bd83-1f35-88bdc2f4fc8d@update.uu.se> <20210418154221.GE14194@mail.duskware.de>
+ <7a7b6deb-195d-8bef-b68e-12e36391bda0@update.uu.se>
+ <d209e119-30bd-fb27-14da-5f9796c39c9b@update.uu.se> <20210418154912.GG14194@mail.duskware.de>
+ <573fa403-2a13-77ca-6aa7-9da703954e5a@update.uu.se>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="28004"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: Martin Husemann <martin@duskware.de>, 
+    John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, 
+    matthew green <mrg@eterna.com.au>, port-alpha@netbsd.org, 
+    port-amd64@netbsd.org, port-vax@netbsd.org, port-sparc@netbsd.org, 
+    port-sparc64@netbsd.org, current-users@netbsd.org, scole_mail@gmx.com
+To: Johnny Billquist <bqt@update.uu.se>
+Original-X-From: bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org Sun Apr 18 17:55:40 2021
+Return-path: <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-current-users@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>)
+	id 1lY9lr-0007Au-IO
+	for netbsd-current-users@m.gmane-mx.org; Sun, 18 Apr 2021 17:55:39 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id C708584DAA; Sun, 18 Apr 2021 15:55:33 +0000 (UTC)
+Delivered-To: current-users@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 4350384DA9;
+	Sun, 18 Apr 2021 15:55:30 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id 7nh5HCAMrQRV; Sun, 18 Apr 2021 15:55:29 +0000 (UTC)
+Original-Received: from vps1.whooppee.com (vps1.whooppee.com [IPv6:2605:2700:0:2::4713:9012])
+	by mail.netbsd.org (Postfix) with ESMTP id 4642B84DA4;
+	Sun, 18 Apr 2021 15:55:24 +0000 (UTC)
+Original-Received: from speedy.whooppee.com (173-28-88-75.client.mchsi.com [173.28.88.75])
+	by vps1.whooppee.com (Postfix) with ESMTP id D57D96FCA9;
+	Sun, 18 Apr 2021 08:49:02 -0700 (PDT)
+Original-Received: by speedy.whooppee.com (Postfix, from userid 1000)
+	id 3F9DA30F2C4; Sun, 18 Apr 2021 08:55:22 -0700 (PDT)
+In-Reply-To: <573fa403-2a13-77ca-6aa7-9da703954e5a@update.uu.se>
+X-Secure: Never
+Original-Sender: current-users-owner@NetBSD.org
+List-Id: <current-users.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20current-users&body=unsubscribe%20current-users>
+Xref: news.gmane.io gmane.os.netbsd.current:79906 gmane.os.netbsd.ports.alpha:5274 gmane.os.netbsd.ports.x86-64:6248 gmane.os.netbsd.ports.vax:8837 gmane.os.netbsd.ports.sparc:9361 gmane.os.netbsd.ports.sparc64:8846
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.current/79906>
+
+Something in your environment? /etc/mk.conf ?
+
+On Sun, 18 Apr 2021, Johnny Billquist wrote:
+
+> On 2021-04-18 17:49, Martin Husemann wrote:
+>> On Sun, Apr 18, 2021 at 05:46:39PM +0200, Johnny Billquist wrote:
+>>> I said in my original mail:
+>>> 
+>>> "Building from NetBSD-8 does not work. Unsure if this is a known
+>>> limitation."
+>>> 
+>>> So, not building from current, but am trying to build current.
+>> 
+>> Yes, but you are overriding HAVE_GCC somehow.
+>
+> Not that I am aware of. But obviously it has been set by something already 
+> before it comes to those lines in bsd.own.mk
+>
+> But I checked, and my whole source tree is pretty much unmodified, except for 
+> some vax specific files, where I have my own development stuff going on. 
+> Nothing that affects this.
+>
+>  Johnny
+>
+> -- 
+> Johnny Billquist                  || "I'm on a bus
+>                                  ||  on a psychedelic trip
+> email: bqt@softjar.se             ||  Reading murder books
+> pdp is alive!                     ||  tryin' to stay hip" - B. Idol
+>
+> !DSPAM:607c55fb81081654361426!
+>
+>
+
++--------------------+--------------------------+-----------------------+
+| Paul Goyette       | PGP Key fingerprint:     | E-mail addresses:     |
+| (Retired)          | FA29 0E3B 35AF E8AE 6651 | paul@whooppee.com     |
+| Software Developer | 0786 F758 55DE 53BA 7731 | pgoyette@netbsd.org   |
++--------------------+--------------------------+-----------------------+
+
+
+From bqt@update.uu.se  Sun Apr 18 17:57:21 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Johnny Billquist <bqt@update.uu.se>
+Newsgroups: gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Sun, 18 Apr 2021 17:57:21 +0200
+Approved: news@gmane.org
+Message-ID: <3681982c-16b0-f5a3-fa6e-d90a6d9f8799@update.uu.se>
+References: <15531.1618632913@splode.eterna.com.au>
+ <81e3c84a-5a5f-3624-b74f-5df6a7ad36bf@physik.fu-berlin.de>
+ <c5c44c6b-10eb-bd83-1f35-88bdc2f4fc8d@update.uu.se>
+ <20210418154221.GE14194@mail.duskware.de>
+ <7a7b6deb-195d-8bef-b68e-12e36391bda0@update.uu.se>
+ <d209e119-30bd-fb27-14da-5f9796c39c9b@update.uu.se>
+ <20210418154912.GG14194@mail.duskware.de>
+ <573fa403-2a13-77ca-6aa7-9da703954e5a@update.uu.se>
+ <Pine.NEB.4.64.2104180854490.4520@speedy.whooppee.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="37134"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.11; rv:78.0)
+ Gecko/20100101 Thunderbird/78.9.1
+Cc: Martin Husemann <martin@duskware.de>,
+ John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+ matthew green <mrg@eterna.com.au>, port-alpha@netbsd.org,
+ port-amd64@netbsd.org, port-vax@netbsd.org, port-sparc@netbsd.org,
+ port-sparc64@netbsd.org, current-users@netbsd.org, scole_mail@gmx.com
+To: Paul Goyette <paul@whooppee.com>
+Original-X-From: bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org Sun Apr 18 17:57:42 2021
+Return-path: <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-current-users@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>)
+	id 1lY9np-0009Xm-TK
+	for netbsd-current-users@m.gmane-mx.org; Sun, 18 Apr 2021 17:57:42 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id EDB26850E4; Sun, 18 Apr 2021 15:57:35 +0000 (UTC)
+Delivered-To: current-users@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 3F78F850E2;
+	Sun, 18 Apr 2021 15:57:31 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id keD5OiqP12Iy; Sun, 18 Apr 2021 15:57:30 +0000 (UTC)
+Original-Received: from Psilocybe.Update.UU.SE (Psilocybe.Update.UU.SE [130.238.19.25])
+	by mail.netbsd.org (Postfix) with ESMTP id 40786850DD;
+	Sun, 18 Apr 2021 15:57:25 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by Psilocybe.Update.UU.SE (Postfix) with ESMTP id 0802E803D7;
+	Sun, 18 Apr 2021 17:57:24 +0200 (CEST)
+X-Virus-Scanned: Debian amavisd-new at Update.UU.SE
+Original-Received: from Psilocybe.Update.UU.SE ([127.0.0.1])
+	by localhost (psilocybe.update.uu.se [127.0.0.1]) (amavisd-new, port 10040)
+	with ESMTP id KCufLTgesBqy; Sun, 18 Apr 2021 17:57:22 +0200 (CEST)
+Original-Received: from Trollet.BQTnet.SE (80-219-208-93.dclient.hispeed.ch [80.219.208.93])
+	by Psilocybe.Update.UU.SE (Postfix) with ESMTPSA;
+	Sun, 18 Apr 2021 17:57:22 +0200 (CEST)
+In-Reply-To: <Pine.NEB.4.64.2104180854490.4520@speedy.whooppee.com>
+Content-Language: en-US
+Original-Sender: current-users-owner@NetBSD.org
+List-Id: <current-users.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20current-users&body=unsubscribe%20current-users>
+Xref: news.gmane.io gmane.os.netbsd.current:79907 gmane.os.netbsd.ports.alpha:5275 gmane.os.netbsd.ports.x86-64:6249 gmane.os.netbsd.ports.vax:8838 gmane.os.netbsd.ports.sparc:9362 gmane.os.netbsd.ports.sparc64:8847
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.current/79907>
+
+On 2021-04-18 17:55, Paul Goyette wrote:
+> Something in your environment? /etc/mk.conf ?
+
+Dang. You're right. I wonder when any why I got that in there...?
+
+Ok. Nothing to see here. Sorry for the noise.
+
+   Johnny
+
+> 
+> On Sun, 18 Apr 2021, Johnny Billquist wrote:
+> 
+>> On 2021-04-18 17:49, Martin Husemann wrote:
+>>> On Sun, Apr 18, 2021 at 05:46:39PM +0200, Johnny Billquist wrote:
+>>>> I said in my original mail:
+>>>>
+>>>> "Building from NetBSD-8 does not work. Unsure if this is a known
+>>>> limitation."
+>>>>
+>>>> So, not building from current, but am trying to build current.
+>>>
+>>> Yes, but you are overriding HAVE_GCC somehow.
+>>
+>> Not that I am aware of. But obviously it has been set by something 
+>> already before it comes to those lines in bsd.own.mk
+>>
+>> But I checked, and my whole source tree is pretty much unmodified, 
+>> except for some vax specific files, where I have my own development 
+>> stuff going on. Nothing that affects this.
+>>
+>>  Johnny
+>>
+>> -- 
+>> Johnny Billquist                  || "I'm on a bus
+>>                                  ||  on a psychedelic trip
+>> email: bqt@softjar.se             ||  Reading murder books
+>> pdp is alive!                     ||  tryin' to stay hip" - B. Idol
+>>
+>> !DSPAM:607c55fb81081654361426!
+>>
+>>
+> 
+> +--------------------+--------------------------+-----------------------+
+> | Paul Goyette       | PGP Key fingerprint:     | E-mail addresses:     |
+> | (Retired)          | FA29 0E3B 35AF E8AE 6651 | paul@whooppee.com     |
+> | Software Developer | 0786 F758 55DE 53BA 7731 | pgoyette@netbsd.org   |
+> +--------------------+--------------------------+-----------------------+
+
+
+-- 
+Johnny Billquist                  || "I'm on a bus
+                                   ||  on a psychedelic trip
+email: bqt@softjar.se             ||  Reading murder books
+pdp is alive!                     ||  tryin' to stay hip" - B. Idol
+
+
+From bqt@update.uu.se  Mon Apr 19 02:14:06 2021
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Johnny Billquist <bqt@update.uu.se>
+Newsgroups: gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha,gmane.os.netbsd.ports.x86-64,gmane.os.netbsd.ports.vax,gmane.os.netbsd.ports.sparc,gmane.os.netbsd.ports.sparc64
+Subject: Re: HEADS UP: GCC 10 now default on several ports
+Date: Mon, 19 Apr 2021 02:14:06 +0200
+Approved: news@gmane.org
+Message-ID: <57591fdc-fc8f-4f09-1249-060155173680@update.uu.se>
+References: <15531.1618632913@splode.eterna.com.au>
+ <81e3c84a-5a5f-3624-b74f-5df6a7ad36bf@physik.fu-berlin.de>
+ <c5c44c6b-10eb-bd83-1f35-88bdc2f4fc8d@update.uu.se>
+ <20210418154221.GE14194@mail.duskware.de>
+ <7a7b6deb-195d-8bef-b68e-12e36391bda0@update.uu.se>
+ <d209e119-30bd-fb27-14da-5f9796c39c9b@update.uu.se>
+ <20210418154912.GG14194@mail.duskware.de>
+ <573fa403-2a13-77ca-6aa7-9da703954e5a@update.uu.se>
+ <Pine.NEB.4.64.2104180854490.4520@speedy.whooppee.com>
+ <3681982c-16b0-f5a3-fa6e-d90a6d9f8799@update.uu.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="36974"; mail-complaints-to="usenet@ciao.gmane.io"
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:78.0)
+ Gecko/20100101 Thunderbird/78.9.1
+Cc: Martin Husemann <martin@duskware.de>,
+ John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+ matthew green <mrg@eterna.com.au>, port-alpha@netbsd.org,
+ port-amd64@netbsd.org, port-vax@netbsd.org, port-sparc@netbsd.org,
+ port-sparc64@netbsd.org, current-users@netbsd.org, scole_mail@gmx.com
+To: Paul Goyette <paul@whooppee.com>
+Original-X-From: bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org Mon Apr 19 02:14:36 2021
+Return-path: <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-current-users@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-current-users-owner-netbsd-current-users=m.gmane-mx.org@NetBSD.org>)
+	id 1lYHYh-0009Pd-Po
+	for netbsd-current-users@m.gmane-mx.org; Mon, 19 Apr 2021 02:14:36 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 740FC85114; Mon, 19 Apr 2021 00:14:26 +0000 (UTC)
+Delivered-To: current-users@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 4B2958510E;
+	Mon, 19 Apr 2021 00:14:20 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id jBEg2oM2HuB9; Mon, 19 Apr 2021 00:14:19 +0000 (UTC)
+Original-Received: from GW.SoftJAR.SE (gw.softjar.se [213.115.73.154])
+	by mail.netbsd.org (Postfix) with ESMTP id 0AF4484CBC;
+	Mon, 19 Apr 2021 00:14:11 +0000 (UTC)
+Original-Received: from Smurf.BQTnet.SE (80-219-208-93.dclient.hispeed.ch [80.219.208.93])
+	by GW.SoftJAR.SE (Postfix) with ESMTPSA id E131738FCF2;
+	Mon, 19 Apr 2021 02:14:07 +0200 (CEST)
+	(envelope-from bqt@update.uu.se)
+In-Reply-To: <3681982c-16b0-f5a3-fa6e-d90a6d9f8799@update.uu.se>
+Content-Language: en-US
+Original-Sender: current-users-owner@NetBSD.org
+List-Id: <current-users.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20current-users&body=unsubscribe%20current-users>
+Xref: news.gmane.io gmane.os.netbsd.current:79910 gmane.os.netbsd.ports.alpha:5276 gmane.os.netbsd.ports.x86-64:6250 gmane.os.netbsd.ports.vax:8839 gmane.os.netbsd.ports.sparc:9363 gmane.os.netbsd.ports.sparc64:8848
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.current/79910>
+
+New one:
+
+In the process of running build.sh for a full distribution:
+
+#   compile  tmux/cmd-display-menu.o
+/usr/src/obj/tooldir.NetBSD-8.0-amd64/bin/vax--netbsdelf-gcc -O2 
+-std=gnu99    -Wall -Wstrict-prototypes -Wmissing-prototypes 
+-Wpointer-arith -Wno-sign-compare  -Wsystem-headers   -Wno-traditional 
+  -Wa,--fatal-warnings  -Wreturn-type -Wswitch -Wshadow -Wcast-qual 
+-Wwrite-strings -Wextra -Wno-unused-parameter -Wno-sign-compare 
+-Wsign-compare -Wformat=2  -Wno-format-zero-length  -Werror 
+--sysroot=/usr/src/obj/destdir.vax -DSUPPORT_UTMP -DSUPPORT_UTMPX 
+-I/usr/src/external/bsd/tmux/dist 
+-I/usr/src/external/bsd/tmux/usr.bin/tmux -DHAVE_ASPRINTF=1 
+-DHAVE_B64_NTOP=1  -DHAVE_BITSTRING_H=1  -DHAVE_BSD_GETOPT=1 
+-DHAVE_CFMAKERAW=1  -DHAVE_CLOCK_GETTIME=1  -DHAVE_CLOSEFROM=1 
+-DHAVE_CURSES_H=1  -DHAVE_DAEMON=1  -DHAVE_DIRENT_H=1 
+-DHAVE_EVENT2_EVENT_H=1  -DHAVE_FCNTL_CLOSEM=1  -DHAVE_FCNTL_H=1 
+-DHAVE_FGETLN=1  -DHAVE_FLOCK=1  -DHAVE_FORKPTY=1  -DHAVE_FPARSELN=1 
+-DHAVE_GETDTABLESIZE=1  -DHAVE_GETLINE=1  -DHAVE_GETOPT=1 
+-DHAVE_GETPROGNAME=1  -DHAVE_INTTYPES_H=1  -DHAVE_LIBM=1 
+-DHAVE_LIBPROC_H=1  -DHAVE_MEMMEM=1  -DHAVE_MEMORY_H=1  -DHAVE_PATHS_H=1 
+  -DHAVE_PROC_PID=1  -DHAVE_QUEUE_H=1  -DHAVE_REALLOCARRAY=1 
+-DHAVE_SETENV=1  -DHAVE_SETPROCTITLE=1  -DHAVE_STDINT_H=1 
+-DHAVE_STDLIB_H=1  -DHAVE_STRCASESTR=1  -DHAVE_STRINGS_H=1 
+-DHAVE_STRING_H=1  -DHAVE_STRLCAT=1  -DHAVE_STRLCPY=1  -DHAVE_STRNDUP=1 
+  -DHAVE_STRSEP=1  -DHAVE_STRTONUM=1  -DHAVE_SYSCONF=1 
+-DHAVE_SYS_DIR_H=1  -DHAVE_SYS_SIGNAME=1  -DHAVE_SYS_STAT_H=1 
+-DHAVE_SYS_TREE_H=1  -DHAVE_SYS_TYPES_H=1  -DHAVE_TREE_H=1 
+-DHAVE_UNISTD_H=1  -DHAVE_UTEMPTER=1  -DHAVE_UTIL_H=1  -DHAVE_VIS=1 
+-DHAVE___PROGNAME=1  -DPACKAGE=\"tmux\"  -DPACKAGE_BUGREPORT=\"\" 
+-DPACKAGE_NAME=\"tmux\"  -DPACKAGE_STRING=\"tmux\ 3.2\" 
+-DPACKAGE_TARNAME=\"tmux\"  -DPACKAGE_URL=\"\" 
+-DPACKAGE_VERSION=\"3.2\"  -DSTDC_HEADERS=1 
+-DTMUX_CONF="\"/etc/tmux.conf:~/.tmux.conf:~/.config/tmux/tmux.conf\"" 
+-DTMUX_VERSION='"3.2"'  -DVERSION=\"3.2\"  -D_ALL_SOURCE=1 
+-D_GNU_SOURCE=1  -D_NETBSD_SOURCE  -D_OPENBSD_SOURCE 
+-D_POSIX_PTHREAD_SEMANTICS=1  -D_TANDEM_SOURCE=1  -D_XOPEN_SOURCE=500 
+-D__EXTENSIONS__=1  -c 
+/usr/src/external/bsd/tmux/dist/cmd-display-menu.c -o cmd-display-menu.o
+/usr/src/external/bsd/tmux/dist/cmd-display-menu.c: In function 
+'cmd_display_menu_get_position':
+/usr/src/external/bsd/tmux/dist/cmd-display-menu.c:158:8: error: 
+comparison of integer expressions of different signedness: 'long int' 
+and 'u_int' {aka 'unsigned int'} [-Werror=sign-compare]
+   158 |  if (n >= tty->sy)
+       |        ^~
+/usr/src/external/bsd/tmux/dist/cmd-display-menu.c:191:8: error: 
+comparison of integer expressions of different signedness: 'long int' 
+and 'u_int' {aka 'unsigned int'} [-Werror=sign-compare]
+   191 |  if (n >= tty->sy)
+       |        ^~
+/usr/src/external/bsd/tmux/dist/cmd-display-menu.c:239:8: error: 
+comparison of integer expressions of different signedness: 'long int' 
+and 'u_int' {aka 'unsigned int'} [-Werror=sign-compare]
+   239 |  if (n < h)
+       |        ^
+cc1: all warnings being treated as errors
+
+*** Failed target:  cmd-display-menu.o
+
+
+Anyone have any idea about that one?
+
+   Johnny
+
+-- 
+Johnny Billquist                  || "I'm on a bus
+                                   ||  on a psychedelic trip
+email: bqt@softjar.se             ||  Reading murder books
+pdp is alive!                     ||  tryin' to stay hip" - B. Idol
+
+

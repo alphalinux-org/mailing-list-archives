@@ -1,0 +1,282 @@
+From khym@azeotrope.org  Sat Aug 8 18:03:35 2015
+Path: news.gmane.org!not-for-mail
+From: Dave Huang <khym@azeotrope.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: gdb internal error when trying to get stack trace from kernel dump
+Date: Sat, 8 Aug 2015 18:03:35 -0500
+Lines: 92
+Approved: news@gmane.org
+Message-ID: <D524F481-144F-4CC3-AF30-5DA8CBA4C72C@azeotrope.org>
+NNTP-Posting-Host: plane.gmane.org
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2102\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+X-Trace: ger.gmane.org 1439075030 26429 80.91.229.3 (8 Aug 2015 23:03:50 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sat, 8 Aug 2015 23:03:50 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Aug 09 01:03:50 2015
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([149.20.53.66])
+	by plane.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1ZOD9Z-0001kU-Qi
+	for netbsd-port-alpha@m.gmane.org; Sun, 09 Aug 2015 01:03:50 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 4577514A1FA; Sat,  8 Aug 2015 23:03:46 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id A5AF414A1EF
+	for <port-alpha@netbsd.org>; Sat,  8 Aug 2015 23:03:39 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id NZxg-21OVWxO for <port-alpha@netbsd.org>;
+	Sat,  8 Aug 2015 23:03:39 +0000 (UTC)
+Original-Received: from x.azeotrope.org (x.azeotrope.org [IPv6:2600:3c00::f03c:91ff:fe96:1fb4])
+	by mail.netbsd.org (Postfix) with ESMTP id B2AB514A1D1
+	for <port-alpha@netbsd.org>; Sat,  8 Aug 2015 23:03:38 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by x.azeotrope.org (Postfix) with ESMTP id EFE3B960D5
+	for <port-alpha@netbsd.org>; Sat,  8 Aug 2015 18:03:37 -0500 (CDT)
+X-Virus-Scanned: Debian amavisd-new at azeotrope.org
+Original-Received: from x.azeotrope.org ([127.0.0.1])
+	by localhost (x.azeotrope.org [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id I9nTM0U0rrW4 for <port-alpha@netbsd.org>;
+	Sat,  8 Aug 2015 18:03:37 -0500 (CDT)
+Original-Received: from [IPv6:2001:470:1f0f:14b:4da7:d654:45a6:6e6a] (unknown [IPv6:2001:470:1f0f:14b:4da7:d654:45a6:6e6a])
+	by x.azeotrope.org (Postfix) with ESMTPSA id 51210960D0
+	for <port-alpha@netbsd.org>; Sat,  8 Aug 2015 18:03:37 -0500 (CDT)
+X-Mailer: Apple Mail (2.2102)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4875
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4875>
+
+It seems like ever since I increased some networking-related buffer=20
+sizes, my system, an AlphaPC 164 with 256MB RAM running 7.0_RC2,=20
+frequently crashes when a Mac on the network starts a Time Machine=20
+backup to the Alpha (which is running netatalk/afpd). The sysctls I=20
+changed are:
+
+kern.sbmax=3D4194304
+net.inet.tcp.recvbuf_max=3D4194304
+net.inet.tcp.sendbuf_max=3D4194304
+net.inet.tcp.recvbuf_inc=3D131072
+net.inet.tcp.sendbuf_inc=3D131072
+
+and I recompiled the kernel for:
+kern.mbuf.nmbclusters =3D 16384
+
+The alpha crashes with the following messages:
+
+CPU 0: fatal kernel trap:
+
+CPU 0    trap entry =3D 0x2 (memory management fault)
+CPU 0    a0         =3D 0x78
+CPU 0    a1         =3D 0x1
+CPU 0    a2         =3D 0x0
+CPU 0    pc         =3D 0xfffffc00004c7d00
+CPU 0    ra         =3D 0xfffffc00004c7cc0
+CPU 0    pv         =3D 0xfffffc000044da70
+CPU 0    curlwp     =3D 0xfffffc000fe55980
+CPU 0        pid =3D 0, comm =3D system
+
+panic: trap
+cpu0: Begin traceback...
+alpha trace requires known PC =3Deject=3D
+cpu0: End traceback...
+
+So, I wanted to try to figure out what was going on, but I can't get=20
+gdb to give me a stack trace:
+
+# gdb netbsd.gdb
+GNU gdb (GDB) 7.7.1
+[ ... ]
+Reading symbols from netbsd.gdb...done.
+(gdb) target kvm /var/crash/netbsd.57.core
+PC not available
+<unavailable> in ?? ()
+(gdb) bt
+#-1 <unavailable> in ?? ()
+#0  <unavailable> in ?? ()
+/usr/src/external/gpl3/gdb/dist/gdb/frame.c:472: internal-error: =
+get_frame_id: Assertion `fi->this_id.p' failed.
+A problem internal to GDB has been detected,
+further debugging may prove unreliable.
+Quit this debugging session? (y or n) y
+
+/usr/src/external/gpl3/gdb/dist/gdb/frame.c:472: internal-error: =
+get_frame_id: Assertion `fi->this_id.p' failed.
+A problem internal to GDB has been detected,
+further debugging may prove unreliable.
+Create a core file of GDB? (y or n) n
+
+Is this related to "alpha trace requires known PC" and "PC not=20
+available"?
+
+The trap message does show a pc though, and the info from that does=20
+seem to be good:
+
+(gdb) list *0xfffffc00004c7d00
+0xfffffc00004c7d00 is in fxp_txintr (/usr/src/sys/dev/ic/i82557.c:1182).
+1177                    txstat =3D le16toh(txd->txd_txcb.cb_status);
+1178
+1179                    if ((txstat & FXP_CB_STATUS_C) =3D=3D 0)
+1180                            break;
+1181
+1182                    bus_dmamap_sync(sc->sc_dmat, txs->txs_dmamap,
+1183                        0, txs->txs_dmamap->dm_mapsize,
+1184                        BUS_DMASYNC_POSTWRITE);
+1185                    bus_dmamap_unload(sc->sc_dmat, txs->txs_dmamap);
+1186                    m_freem(txs->txs_mbuf);
+
+So, I wanted to mention the gdb problem, and also ask if anyone had=20
+tips on how to further debug this. I guess I could manually select a=20
+stack frame using the "frame" command if I knew its address, but I=20
+don't know where to get that. And why would bus_dmamap_sync() cause a=20
+memory management fault?
+
+--=20
+Name: Dave Huang         |  Mammal, mammal / their names are called /
+INet: khym@azeotrope.org |  they raise a paw / the bat, the cat /
+FurryMUCK: Dahan         |  dolphin and dog / koala bear and hog -- TMBG
+Dahan: Hani G Y+C 39 Y++ L+++ W- C++ T++ A+ E+ S++ V++ F- Q+++ P+ B+ PA+ =
+PL++
+
+
+
+From christos@astron.com  Sun Aug 9 05:58:45 2015
+Path: news.gmane.org!not-for-mail
+From: christos@astron.com (Christos Zoulas)
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: gdb internal error when trying to get stack trace from kernel dump
+Date: Sun, 9 Aug 2015 05:58:45 +0000 (UTC)
+Lines: 70
+Approved: news@gmane.org
+Message-ID: <mq6q6l$4p1$1@ger.gmane.org>
+References: <D524F481-144F-4CC3-AF30-5DA8CBA4C72C@azeotrope.org>
+NNTP-Posting-Host: plane.gmane.org
+X-Trace: ger.gmane.org 1439099957 5398 80.91.229.3 (9 Aug 2015 05:59:17 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sun, 9 Aug 2015 05:59:17 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Aug 09 07:59:09 2015
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([149.20.53.66])
+	by plane.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1ZOJdT-00069N-Ur
+	for netbsd-port-alpha@m.gmane.org; Sun, 09 Aug 2015 07:59:08 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 8FBEF14A203; Sun,  9 Aug 2015 05:59:02 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id CA2D214A1C1
+	for <port-alpha@netbsd.org>; Sun,  9 Aug 2015 05:58:56 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id khmxHJeFRA01 for <port-alpha@netbsd.org>;
+	Sun,  9 Aug 2015 05:58:56 +0000 (UTC)
+Original-Received: from plane.gmane.org (plane.gmane.org [80.91.229.3])
+	(using TLSv1 with cipher AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id DDFCC14A1B2
+	for <port-alpha@netbsd.org>; Sun,  9 Aug 2015 05:58:54 +0000 (UTC)
+Original-Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <netbsd-port-alpha@m.gmane.org>)
+	id 1ZOJdC-0005x9-CL
+	for port-alpha@netbsd.org; Sun, 09 Aug 2015 07:58:50 +0200
+Original-Received: from rebar.astron.com ([38.117.134.17])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <port-alpha@netbsd.org>; Sun, 09 Aug 2015 07:58:50 +0200
+Original-Received: from christos by rebar.astron.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <port-alpha@netbsd.org>; Sun, 09 Aug 2015 07:58:50 +0200
+X-Injected-Via-Gmane: http://gmane.org/
+Original-Lines: 68
+Original-X-Complaints-To: usenet@ger.gmane.org
+X-Gmane-NNTP-Posting-Host: rebar.astron.com
+X-Newsreader: trn 4.0-test76 (Apr 2, 2001)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4876
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4876>
+
+In article <D524F481-144F-4CC3-AF30-5DA8CBA4C72C@azeotrope.org>,
+Dave Huang  <khym@azeotrope.org> wrote:
+>It seems like ever since I increased some networking-related buffer 
+>sizes, my system, an AlphaPC 164 with 256MB RAM running 7.0_RC2, 
+>frequently crashes when a Mac on the network starts a Time Machine 
+>backup to the Alpha (which is running netatalk/afpd). The sysctls I 
+>changed are:
+>
+>kern.sbmax=4194304
+>net.inet.tcp.recvbuf_max=4194304
+>net.inet.tcp.sendbuf_max=4194304
+>net.inet.tcp.recvbuf_inc=131072
+>net.inet.tcp.sendbuf_inc=131072
+>
+>and I recompiled the kernel for:
+>kern.mbuf.nmbclusters = 16384
+>
+>The alpha crashes with the following messages:
+>
+>CPU 0: fatal kernel trap:
+>
+>CPU 0    trap entry = 0x2 (memory management fault)
+>CPU 0    a0         = 0x78
+>CPU 0    a1         = 0x1
+>CPU 0    a2         = 0x0
+>CPU 0    pc         = 0xfffffc00004c7d00
+>CPU 0    ra         = 0xfffffc00004c7cc0
+>CPU 0    pv         = 0xfffffc000044da70
+>CPU 0    curlwp     = 0xfffffc000fe55980
+>CPU 0        pid = 0, comm = system
+>
+>panic: trap
+>cpu0: Begin traceback...
+>alpha trace requires known PC =eject=
+>cpu0: End traceback...
+>
+>So, I wanted to try to figure out what was going on, but I can't get 
+>gdb to give me a stack trace:
+>
+># gdb netbsd.gdb
+>GNU gdb (GDB) 7.7.1
+>[ ... ]
+>Reading symbols from netbsd.gdb...done.
+>(gdb) target kvm /var/crash/netbsd.57.core
+>PC not available
+><unavailable> in ?? ()
+>(gdb) bt
+>#-1 <unavailable> in ?? ()
+>#0  <unavailable> in ?? ()
+>/usr/src/external/gpl3/gdb/dist/gdb/frame.c:472: internal-error:
+>get_frame_id: Assertion `fi->this_id.p' failed.
+>A problem internal to GDB has been detected,
+>further debugging may prove unreliable.
+>Quit this debugging session? (y or n) y
+>
+>/usr/src/external/gpl3/gdb/dist/gdb/frame.c:472: internal-error:
+>get_frame_id: Assertion `fi->this_id.p' failed.
+>A problem internal to GDB has been detected,
+>further debugging may prove unreliable.
+>Create a core file of GDB? (y or n) n
+>
+>Is this related to "alpha trace requires known PC" and "PC not 
+>available"?
+
+Looks like the alpha kvm support has grown stale. Can you compare the register
+layout in gdb with the one in the kernel?
+
+christos
+
+
+

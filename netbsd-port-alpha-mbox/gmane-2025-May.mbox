@@ -1,0 +1,166 @@
+From tnn@NetBSD.org  Sat May 3 04:20:04 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Tobias Nygren <tnn@NetBSD.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Size limit of GENERIC alpha kernel?
+Date: Sat, 3 May 2025 04:20:04 +0200
+Approved: news@gmane.org
+Message-ID: <20250503042004.8bb69df398298f26f2ca96b0@NetBSD.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="24820"; mail-complaints-to="usenet@ciao.gmane.io"
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Sat May 03 04:20:14 2025
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1uB2U8-0006Im-K7
+	for netbsd-port-alpha@m.gmane-mx.org; Sat, 03 May 2025 04:20:13 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 9A2C0855EB; Sat,  3 May 2025 02:20:08 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=netbsd.org;
+	s=20240131; t=1746238808;
+	bh=J2FFXofbTzWsOqV4B5NNiW/Re/bA+o3uJP6vAK/l/Jo=;
+	h=Date:From:To:Subject:List-Id:List-Unsubscribe;
+	b=NHJNdXOeEunWBwqrCyHpE2ldvs/E83Wg3PT9RJhGJIj77rvJdRqkThNLnnzWfx2lg
+	 CkJYr7jdKoSFShsn+sAaIruRJ+OfFuhlYylmhGs6x1wVDWoqOt6m8GbzhpV8a2ydwv
+	 FPEZm+V1SGWKm9YqIQxtotFFGtTStTxsXw7Yhudg=
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from altra.rymdfartsverket.se (localhost [IPv6:::1])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 4D77C84D07
+	for <port-alpha@netbsd.org>; Sat,  3 May 2025 02:20:05 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=netbsd.org;
+	s=20240131; t=1746238806;
+	bh=J2FFXofbTzWsOqV4B5NNiW/Re/bA+o3uJP6vAK/l/Jo=;
+	h=Date:From:To:Subject;
+	b=rBKsDcby3AMpUCJKmKxvKTM66RLBsCNEiPmAXhXo9G4GGd62RG2DVqr0NzXEdw/h+
+	 9+OACGxWEx27bOx8ZAYXcR7yHt31c+O1iqgQ2yXozuGe0by1Hi4nBivZfQ2aAFDsWy
+	 QNoCTEOjB5RDrnXV8YjEUSvWfN9feieZcVN6isiU=
+X-Mailer: Sylpheed 3.7.0 (GTK+ 2.24.33; aarch64--netbsd)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5520
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5520>
+
+hi,
+
+My PC164SX became unstable updating from an April 18 kernel to May 02.
+Symptoms are rc.d scripts random segfaults and the build.sh shell
+hangs during fork. Userland is still from last year.
+
+So I tried to bisect the regression and it started misbehaving when
+viaide.c r1.97 was applied. This makes no sense because the machine does
+not have a viaide(4) adapter.
+
+I moved back to HEAD and removed some unused filesystems and
+pseudo-devices from GENERIC and now it is much happier.
+
+Is there any known limit of kernel size on this platform? If not maybe
+the RAM went bad and the size happens to tickle it in an unfortunate way.
+
+-Tobias
+
+
+From thorpej@me.com  Fri May 2 19:42:00 2025
+Path: news.gmane.io!.POSTED.blaine.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Size limit of GENERIC alpha kernel?
+Date: Fri, 2 May 2025 19:42:00 -0700
+Approved: news@gmane.org
+Message-ID: <C4AA8271-A27E-4DE1-B0A2-345ACE070563@me.com>
+References: <20250503042004.8bb69df398298f26f2ca96b0@NetBSD.org>
+Mime-Version: 1.0 (Mac OS X Mail 16.0 \(3826.500.181.1.5\))
+Content-Type: text/plain;
+	charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Injection-Info: ciao.gmane.io; posting-host="blaine.gmane.org:116.202.254.214";
+	logging-data="40195"; mail-complaints-to="usenet@ciao.gmane.io"
+Cc: port-alpha@netbsd.org
+To: Tobias Nygren <tnn@NetBSD.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org Sat May 03 04:50:49 2025
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane-mx.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by ciao.gmane.io with esmtps (TLS1.3:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.92)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane-mx.org@NetBSD.org>)
+	id 1uB2xl-000AKP-0X
+	for netbsd-port-alpha@m.gmane-mx.org; Sat, 03 May 2025 04:50:49 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 7A8D185603; Sat,  3 May 2025 02:50:43 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 395B285602
+	for <port-alpha@netbsd.org>; Sat,  3 May 2025 02:50:41 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id lHaI2qrBv5d5 for <port-alpha@netbsd.org>;
+	Sat,  3 May 2025 02:50:40 +0000 (UTC)
+Original-Received: from outbound.pv.icloud.com (p-west1-cluster4-host6-snip6-8.eps.apple.com [IPv6:2a01:b747:3003:206::33])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 75B3684D07
+	for <port-alpha@netbsd.org>; Sat,  3 May 2025 02:50:40 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=1a1hai;
+	bh=kueYD6xLWwZqyY/kXSGbkdYwrIWfxn45BZsU0tCsXFU=;
+	h=Content-Type:Mime-Version:Subject:From:Date:Message-Id:To:x-icloud-hme;
+	b=bYTHzI9ujFdiCm9dfrA8ycaI+VWVfNgJLpysSQOQvCCcXkXe/qM1iluQuAtmwE68M
+	 mqO9zp3P5DiBOc4rXwlyEWb8wpSsGHEdrkCeUdmHR/589U9zZmKP7gBeiz4rSstogw
+	 DWJtEaC43hZvZobEoFOCpTQ83z0asahdR+D1RgvbWfxiwJVCHp5DtaGdQ0hzNw4us8
+	 fWkRHeV8NeaAU6YwzaJfLFeXNI8Quueg+r/Wi3fIgCxE5TBgoH5LJ8oDABmh6H7Zwk
+	 Mef0zJtx5kJCPEDMqetGEQXQUzhu2vwtXujcS7CUu1/w8Bzd7Q4j0BKYFS537dNEgd
+	 s/iU2JbIgSdTg==
+Original-Received: from outbound.pv.icloud.com (localhost [127.0.0.1])
+	by outbound.pv.icloud.com (Postfix) with ESMTPS id E14F0C0009D;
+	Sat,  3 May 2025 02:42:11 +0000 (UTC)
+Original-Received: from smtpclient.apple (asmtp-me-k8s.p98.prod.me.com [17.56.9.34])
+	by outbound.pv.icloud.com (Postfix) with ESMTPSA id DA617C00092;
+	Sat,  3 May 2025 02:42:10 +0000 (UTC)
+In-Reply-To: <20250503042004.8bb69df398298f26f2ca96b0@NetBSD.org>
+X-Mailer: Apple Mail (2.3826.500.181.1.5)
+X-Proofpoint-ORIG-GUID: BAW7f2xWO4XmsfWtxWK3Gr1YkOkdW9ar
+X-Proofpoint-GUID: BAW7f2xWO4XmsfWtxWK3Gr1YkOkdW9ar
+X-Proofpoint-Virus-Version: vendor=baseguard
+ engine=ICAP:2.0.272,Aquarius:18.0.1099,Hydra:6.0.736,FMLib:17.12.80.40
+ definitions=2025-05-03_01,2025-04-30_01,2025-02-21_01
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 malwarescore=0 clxscore=1011
+ spamscore=0 phishscore=0 bulkscore=0 mlxscore=0 adultscore=0
+ suspectscore=0 mlxlogscore=962 classifier=spam adjust=0 reason=mlx
+ scancount=1 engine=8.19.0-2308100000 definitions=main-2505030021
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: <port-alpha.NetBSD.org>
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.io gmane.os.netbsd.ports.alpha:5521
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5521>
+
+
+> On May 2, 2025, at 7:20=E2=80=AFPM, Tobias Nygren <tnn@NetBSD.org> =
+wrote:
+>=20
+> Is there any known limit of kernel size on this platform? If not maybe
+> the RAM went bad and the size happens to tickle it in an unfortunate =
+way.
+
+There should not be a kernel size limit =E2=80=A6 This weekend, I=E2=80=99=
+ll update my AlphaStation to see if it suffers from the same problem.
+
+-- thorpej
+
+
+

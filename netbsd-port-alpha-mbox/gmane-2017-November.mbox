@@ -1,0 +1,1063 @@
+From riastradh@NetBSD.org  Wed Nov 1 16:41:29 2017
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Taylor R Campbell <riastradh@NetBSD.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Alpha timecounter
+Date: Wed, 1 Nov 2017 16:41:29 +0000
+Lines: 124
+Approved: news@gmane.org
+Message-ID: <20171101164457.5F7A260B7C@jupiter.mumble.net>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="=_EB2+pG1jyd85+Ih15F0DAtv8NRgI1rPo"
+Content-Transfer-Encoding: 7bit
+X-Trace: blaine.gmane.org 1509554511 32739 195.159.176.226 (1 Nov 2017 16:41:51 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 1 Nov 2017 16:41:51 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Nov 01 17:41:46 2017
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1e9w58-000707-Ch
+	for netbsd-port-alpha@m.gmane.org; Wed, 01 Nov 2017 17:41:34 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 319A4855E4; Wed,  1 Nov 2017 16:41:37 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id B416684D41
+	for <port-alpha@NetBSD.org>; Wed,  1 Nov 2017 16:41:31 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id dWZ3A01GHKJI for <port-alpha@netbsd.org>;
+	Wed,  1 Nov 2017 16:41:31 +0000 (UTC)
+Original-Received: from jupiter.mumble.net (jupiter.mumble.net [74.50.56.165])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id C670B84CE1
+	for <port-alpha@NetBSD.org>; Wed,  1 Nov 2017 16:41:30 +0000 (UTC)
+Original-Received: by jupiter.mumble.net (Postfix, from userid 1014)
+	id 5F7A260B7C; Wed,  1 Nov 2017 16:44:57 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5026
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5026>
+
+This is a multi-part message in MIME format.
+--=_EB2+pG1jyd85+Ih15F0DAtv8NRgI1rPo
+
+NetBSD/alpha uses a timecounter based on what I assume is the
+`processor cycle counter' (PCC), implemented in the MI
+sys/kern/kern_cctr.c based on an old version of the x86 TSC
+synchronization.  It seems to have some problems, as noted in an
+earlier thread:
+
+https://mail-index.netbsd.org/port-alpha/2017/07/13/msg000830.html
+
+Judging by the cross-CPU calibration that kern_cctr.c does every
+second, I assume this means that alpha does not present a global view
+of a monotonic clock to all CPUs.
+
+The attached compile-tested patch attempts to fix it by enforcing a
+global ordering, and calling tc_gonebad if the calibration fails to
+keep it within 1sec.  The patch is for code that is nominally MI,
+kern_cctr.c, but only alpha uses it.
+
+My alpha is out of commission right now, but if anyone would like to
+give this a shot, let me know how it goes.
+
+
+Some background:
+
+The periodic cross-CPU calibration was discarded for the x86 TSC
+timecounter in rev. 1.16 of sys/arch/x86/x86/tsc.c, because `it didn't
+work properly, and it's near impossible to synchronize the CPUs in a
+running system, because bus traffic will interfere with any
+calibration attempt'.
+
+Now the x86 TSC timecounter does all calibration at boot when nothing
+else is running, and gets pretty well synchronized.  But it too fails
+to provide a global monotonic clock on MP x86 systems like my laptop,
+although it's close enough that I had to run a clock_gettime loop
+constantly all night to detect it a handful of times.
+
+I'm not addressing the value of periodic vs boot-time cross-CPU
+calibration.  Maybe it's a good idea on alpha even if not on x86;
+maybe it's a bad idea everywhere.  I'm also not addressing whether we
+should have an MI concept of a CPU-local timecounter -- it would be
+nice to support calibrating the frequency of a CPU-local timecounter
+for relative durations without requiring global synchronization of a
+reference point, but that's outside the scope of timecounter(9).
+
+--=_EB2+pG1jyd85+Ih15F0DAtv8NRgI1rPo
+Content-Type: text/plain; charset="ISO-8859-1"; name="global_cctr"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment; filename="global_cctr.patch"
+
+Index: sys/kern/kern_cctr.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /cvsroot/src/sys/kern/kern_cctr.c,v
+retrieving revision 1.9
+diff -p -u -r1.9 kern_cctr.c
+--- sys/kern/kern_cctr.c	3 Jan 2009 03:31:23 -0000	1.9
++++ sys/kern/kern_cctr.c	1 Nov 2017 16:32:25 -0000
+@@ -95,6 +95,12 @@ void cc_calibrate_cpu(struct cpu_info *)
+=20
+ static int64_t cc_cal_val;  /* last calibrate time stamp */
+=20
++/*
++ * Highest cc witnessed globally.  We assume the calibration happens
++ * once a second.
++ */
++static volatile u_int cc_global __cacheline_aligned;
++
+ static struct timecounter cc_timecounter =3D {
+ 	.tc_get_timecount	=3D cc_get_timecount,
+ 	.tc_poll_pps		=3D cc_calibrate,
+@@ -132,8 +138,8 @@ cc_init(timecounter_get_t getcc, uint64_
+ /*
+  * pick up tick count scaled to reference tick count
+  */
+-u_int
+-cc_get_timecount(struct timecounter *tc)
++static u_int
++cc_get_timecount_local(struct timecounter *tc)
+ {
+ 	struct cpu_info *ci;
+ 	int64_t rcc, cc, ncsw;
+@@ -186,6 +192,36 @@ cc_get_timecount(struct timecounter *tc)
+ }
+=20
+ /*
++ * advance the global view of the clock by our tick count and return it
++ */
++u_int
++cc_get_timecount(struct timecounter *tc)
++{
++	u_int freq =3D tc->tc_frequency;
++	u_int local, global, result;
++
++	do {
++		local =3D cc_get_timecount_local(tc);
++		global =3D cc_global;
++		if ((local - global) < freq) {
++			/* We're ahead, so use our counter.  */
++			result =3D local;
++		} else {
++			/* We're behind or desynced, so use the global.  */
++			result =3D global + 1;
++		}
++	} while (atomic_cas_uint(&cc_global, global, result) !=3D global);
++
++	if (__predict_false((global - local) > freq)) {
++		/* More than 1sec away from global: bad.  */
++		printf("%s: local cc desynchronized\n", tc->tc_name);
++		tc_gonebad(tc);
++	}
++
++	return result;
++}
++
++/*
+  * called once per clock tick via the pps callback
+  * for the calibration of the TSC counters.
+  * it is called only for the PRIMARY cpu. all
+
+--=_EB2+pG1jyd85+Ih15F0DAtv8NRgI1rPo--
+
+
+From riastradh@NetBSD.org  Wed Nov 1 17:07:30 2017
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Taylor R Campbell <riastradh@NetBSD.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Alpha timecounter
+Date: Wed, 1 Nov 2017 17:07:30 +0000
+Lines: 94
+Approved: news@gmane.org
+Message-ID: <20171101171058.E5E2E60B7C@jupiter.mumble.net>
+References: <20171101164457.5F7A260B7C@jupiter.mumble.net>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="=_lSoBu9DO2aOnNpzD6VIokst6d2D/E6yE"
+Content-Transfer-Encoding: 7bit
+X-Trace: blaine.gmane.org 1509560744 32013 195.159.176.226 (1 Nov 2017 18:25:44 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 1 Nov 2017 18:25:44 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Nov 01 19:25:37 2017
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1e9xhg-00072w-T6
+	for netbsd-port-alpha@m.gmane.org; Wed, 01 Nov 2017 19:25:29 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 592C6855F0; Wed,  1 Nov 2017 18:25:34 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id E966484D88
+	for <port-alpha@NetBSD.org>; Wed,  1 Nov 2017 18:25:29 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id cs396UKL_Xp7 for <port-alpha@netbsd.org>;
+	Wed,  1 Nov 2017 18:25:29 +0000 (UTC)
+Original-Received: from jupiter.mumble.net (jupiter.mumble.net [74.50.56.165])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 571C984D1F
+	for <port-alpha@NetBSD.org>; Wed,  1 Nov 2017 18:25:29 +0000 (UTC)
+Original-Received: by jupiter.mumble.net (Postfix, from userid 1014)
+	id E5E2E60B7C; Wed,  1 Nov 2017 17:10:58 +0000 (UTC)
+In-reply-to: <20171101164457.5F7A260B7C@jupiter.mumble.net> (riastradh@NetBSD.org)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5027
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5027>
+
+This is a multi-part message in MIME format.
+--=_lSoBu9DO2aOnNpzD6VIokst6d2D/E6yE
+
+> Date: Wed, 1 Nov 2017 16:41:29 +0000
+> From: Taylor R Campbell <riastradh@NetBSD.org>
+> 
+> The attached compile-tested patch attempts to fix it by enforcing a
+> global ordering, and calling tc_gonebad if the calibration fails to
+> keep it within 1sec.  The patch is for code that is nominally MI,
+> kern_cctr.c, but only alpha uses it.
+
+Made a mistake in a little tweak just before I sent it, so that the
+timecounter would pretty much unconditionally conclude the timecounter
+has gone bad.  Attached patch should avoid that.
+
+--=_lSoBu9DO2aOnNpzD6VIokst6d2D/E6yE
+Content-Type: text/plain; charset="ISO-8859-1"; name="global_cctr"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment; filename="global_cctr.patch"
+
+Index: sys/kern/kern_cctr.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /cvsroot/src/sys/kern/kern_cctr.c,v
+retrieving revision 1.9
+diff -p -u -r1.9 kern_cctr.c
+--- sys/kern/kern_cctr.c	3 Jan 2009 03:31:23 -0000	1.9
++++ sys/kern/kern_cctr.c	1 Nov 2017 17:04:58 -0000
+@@ -95,6 +95,12 @@ void cc_calibrate_cpu(struct cpu_info *)
+=20
+ static int64_t cc_cal_val;  /* last calibrate time stamp */
+=20
++/*
++ * Highest cc witnessed globally.  We assume the calibration happens
++ * once a second.
++ */
++static volatile u_int cc_global __cacheline_aligned;
++
+ static struct timecounter cc_timecounter =3D {
+ 	.tc_get_timecount	=3D cc_get_timecount,
+ 	.tc_poll_pps		=3D cc_calibrate,
+@@ -132,8 +138,8 @@ cc_init(timecounter_get_t getcc, uint64_
+ /*
+  * pick up tick count scaled to reference tick count
+  */
+-u_int
+-cc_get_timecount(struct timecounter *tc)
++static u_int
++cc_get_timecount_local(struct timecounter *tc)
+ {
+ 	struct cpu_info *ci;
+ 	int64_t rcc, cc, ncsw;
+@@ -186,6 +192,37 @@ cc_get_timecount(struct timecounter *tc)
+ }
+=20
+ /*
++ * advance the global view of the clock by our tick count and return it
++ */
++u_int
++cc_get_timecount(struct timecounter *tc)
++{
++	u_int freq =3D tc->tc_frequency;
++	u_int local, global, result;
++
++	do {
++		local =3D cc_get_timecount_local(tc);
++		global =3D cc_global;
++		if ((local - global) < freq) {
++			/* We're ahead, so use our counter.  */
++			result =3D local;
++		} else {
++			/* We're behind or desynced, so use the global.  */
++			result =3D global + 1;
++		}
++	} while (atomic_cas_uint(&cc_global, global, result) !=3D global);
++
++	if (__predict_false((local - global) > freq &&
++		(global - local) > freq)) {
++		/* More than 1sec away from global: bad.  */
++		printf("%s: local cc desynchronized\n", tc->tc_name);
++		tc_gonebad(tc);
++	}
++
++	return result;
++}
++
++/*
+  * called once per clock tick via the pps callback
+  * for the calibration of the TSC counters.
+  * it is called only for the PRIMARY cpu. all
+
+--=_lSoBu9DO2aOnNpzD6VIokst6d2D/E6yE--
+
+
+From john@ziaspace.com  Thu Nov 2 07:52:08 2017
+Path: news.gmane.org!.POSTED!not-for-mail
+From: John Klos <john@ziaspace.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Alpha timecounter
+Date: Thu, 2 Nov 2017 07:52:08 +0000 (UTC)
+Lines: 11
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.1711020750240.28706@hlin.zia.io>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: blaine.gmane.org 1509609136 13805 195.159.176.226 (2 Nov 2017 07:52:16 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Thu, 2 Nov 2017 07:52:16 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Nov 02 08:52:13 2017
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1eAAIM-00035B-P9
+	for netbsd-port-alpha@m.gmane.org; Thu, 02 Nov 2017 08:52:11 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 638F8855F1; Thu,  2 Nov 2017 07:52:15 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 503CE85586
+	for <port-alpha@netbsd.org>; Thu,  2 Nov 2017 07:52:14 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id M6udiUmDZ03n for <port-alpha@netbsd.org>;
+	Thu,  2 Nov 2017 07:52:13 +0000 (UTC)
+Original-Received: from hlin.zia.io (hlin.zia.io [82.221.135.73])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 54C6184D93
+	for <port-alpha@netbsd.org>; Thu,  2 Nov 2017 07:52:12 +0000 (UTC)
+Original-Received: from hlin.zia.io (localhost [127.0.0.1])
+	by hlin.zia.io (8.15.2/8.15.2) with ESMTPS id vA27q91X014279
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT)
+	for <port-alpha@netbsd.org>; Thu, 2 Nov 2017 07:52:10 GMT
+Original-Received: from localhost (john@localhost)
+	by hlin.zia.io (8.15.2/8.15.2/Submit) with ESMTP id vA27q8aO016335
+	for <port-alpha@netbsd.org>; Thu, 2 Nov 2017 07:52:09 GMT
+X-Authentication-Warning: hlin.zia.io: john owned process doing -bs
+X-X-Sender: john@hlin.zia.io
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.4.3 (hlin.zia.io [127.0.0.1]); Thu, 02 Nov 2017 07:52:10 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5028
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5028>
+
+> From: Taylor R Campbell <riastradh%NetBSD.org@localhost>
+>
+> The attached compile-tested patch attempts to fix it by enforcing a
+> global ordering, and calling tc_gonebad if the calibration fails to
+> keep it within 1sec.  The patch is for code that is nominally MI,
+> kern_cctr.c, but only alpha uses it.
+
+I tested the patch, and no more ??? times. Thanks!
+
+John
+
+
+From martin@duskware.de  Thu Nov 2 09:23:26 2017
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Alpha timecounter
+Date: Thu, 2 Nov 2017 09:23:26 +0100
+Lines: 16
+Approved: news@gmane.org
+Message-ID: <20171102082325.GA23953@mail.duskware.de>
+References: <Pine.NEB.4.64.1711020750240.28706@hlin.zia.io>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: blaine.gmane.org 1509611014 17442 195.159.176.226 (2 Nov 2017 08:23:34 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Thu, 2 Nov 2017 08:23:34 +0000 (UTC)
+User-Agent: Mutt/1.7.2 (2016-11-26)
+Cc: port-alpha@netbsd.org
+To: Taylor R Campbell <riastradh@NetBSD.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Nov 02 09:23:30 2017
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1eAAmc-0003pq-Fz
+	for netbsd-port-alpha@m.gmane.org; Thu, 02 Nov 2017 09:23:26 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id A2754855F8; Thu,  2 Nov 2017 08:23:31 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 78C63855EC;
+	Thu,  2 Nov 2017 08:23:30 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id Du0rUhkeaHKg; Thu,  2 Nov 2017 08:23:30 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [IPv6:2a00:19e0:3004:291::144])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id C42BA84D38;
+	Thu,  2 Nov 2017 08:23:27 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id 24467A7FAC; Thu,  2 Nov 2017 09:23:26 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <Pine.NEB.4.64.1711020750240.28706@hlin.zia.io>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5029
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5029>
+
+On Thu, Nov 02, 2017 at 07:52:08AM +0000, John Klos wrote:
+> > From: Taylor R Campbell <riastradh%NetBSD.org@localhost>
+> > 
+> > The attached compile-tested patch attempts to fix it by enforcing a
+> > global ordering, and calling tc_gonebad if the calibration fails to
+> > keep it within 1sec.  The patch is for code that is nominally MI,
+> > kern_cctr.c, but only alpha uses it.
+> 
+> I tested the patch, and no more ??? times. Thanks!
+
+I tested it too. I get two "PCC: local cc desynchronized" messages at boot time
+and then everything seems to be working fine. Ran full atf tests and the
+hardwareclockbackward (for a few minutes only though, have it still running).
+
+Martin
+
+
+From martin@duskware.de  Thu Nov 2 15:15:24 2017
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Alpha timecounter
+Date: Thu, 2 Nov 2017 15:15:24 +0100
+Lines: 16
+Approved: news@gmane.org
+Message-ID: <20171102141524.GB23953@mail.duskware.de>
+References: <Pine.NEB.4.64.1711020750240.28706@hlin.zia.io>
+ <20171102082325.GA23953@mail.duskware.de>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: blaine.gmane.org 1509632138 25907 195.159.176.226 (2 Nov 2017 14:15:38 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Thu, 2 Nov 2017 14:15:38 +0000 (UTC)
+User-Agent: Mutt/1.7.2 (2016-11-26)
+Cc: port-alpha@netbsd.org
+To: Taylor R Campbell <riastradh@NetBSD.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Nov 02 15:15:30 2017
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1eAGHF-0005nT-QM
+	for netbsd-port-alpha@m.gmane.org; Thu, 02 Nov 2017 15:15:26 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 77D7A84DEE; Thu,  2 Nov 2017 14:15:30 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 4B3BF84D44;
+	Thu,  2 Nov 2017 14:15:29 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id dcgtntaOQa-W; Thu,  2 Nov 2017 14:15:28 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [91.199.88.144])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id AFC1684CD8;
+	Thu,  2 Nov 2017 14:15:25 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id 54319A7FF4; Thu,  2 Nov 2017 15:15:24 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20171102082325.GA23953@mail.duskware.de>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5030
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5030>
+
+On Thu, Nov 02, 2017 at 09:23:26AM +0100, Martin Husemann wrote:
+> I tested it too. I get two "PCC: local cc desynchronized" messages at boot time
+> and then everything seems to be working fine. Ran full atf tests and the
+> hardwareclockbackward (for a few minutes only though, have it still running).
+
+Still no errors printed, after:
+
+  PID USERNAME PRI NICE   SIZE   RES STATE      TIME   WCPU    CPU COMMAND
+   73 martin    28    0  3232K  928K CPU/0    236:21 74.07% 74.07% a.out
+   39 martin    28    0  3232K  928K RUN/1    253:47 73.34% 73.34% a.out
+  555 martin    28    0  3232K  928K RUN/0    181:27 49.56% 49.56% a.out
+
+(and all three process traveling back and forth between the cpus.)
+
+Martin
+
+
+From riastradh@NetBSD.org  Thu Nov 2 15:29:50 2017
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Taylor R Campbell <riastradh@NetBSD.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Alpha timecounter
+Date: Thu, 2 Nov 2017 15:29:50 +0000
+Lines: 111
+Approved: news@gmane.org
+Message-ID: <20171102153321.036CE60A4A@jupiter.mumble.net>
+References: <20171102082325.GA23953@mail.duskware.de>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="=_goIetmk8WluyiTCSQP8n/qFzrYsl0P6p"
+Content-Transfer-Encoding: 7bit
+X-Trace: blaine.gmane.org 1509636607 12483 195.159.176.226 (2 Nov 2017 15:30:07 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Thu, 2 Nov 2017 15:30:07 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Martin Husemann <martin@duskware.de>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Nov 02 16:30:00 2017
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1eAHRH-00026L-T2
+	for netbsd-port-alpha@m.gmane.org; Thu, 02 Nov 2017 16:29:52 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id A663D85605; Thu,  2 Nov 2017 15:29:57 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id B26EB84D44
+	for <port-alpha@netbsd.org>; Thu,  2 Nov 2017 15:29:52 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id 91gcpoLn9Qtx for <port-alpha@netbsd.org>;
+	Thu,  2 Nov 2017 15:29:52 +0000 (UTC)
+Original-Received: from jupiter.mumble.net (jupiter.mumble.net [74.50.56.165])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id E115784D22
+	for <port-alpha@netbsd.org>; Thu,  2 Nov 2017 15:29:51 +0000 (UTC)
+Original-Received: by jupiter.mumble.net (Postfix, from userid 1014)
+	id 036CE60A4A; Thu,  2 Nov 2017 15:33:20 +0000 (UTC)
+In-reply-to: <20171102082325.GA23953@mail.duskware.de> (martin@duskware.de)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5031
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5031>
+
+This is a multi-part message in MIME format.
+--=_goIetmk8WluyiTCSQP8n/qFzrYsl0P6p
+
+> Date: Thu, 2 Nov 2017 09:23:26 +0100
+> From: Martin Husemann <martin@duskware.de>
+> 
+> I tested it too. I get two "PCC: local cc desynchronized" messages
+> at boot time and then everything seems to be working fine. Ran full
+> atf tests and the hardwareclockbackward (for a few minutes only
+> though, have it still running).
+
+Oops.  The `PCC: local cc desynchronized' message means it _didn't_
+work, and the system probably switched you to using the clockinterrupt
+timecounter.  Check `sysctl kern.timecounter' to see.
+
+Maybe, if it happened at boot time, the cross-CPU calibration simply
+had not yet run.  So try the attached patch instead?
+
+--=_goIetmk8WluyiTCSQP8n/qFzrYsl0P6p
+Content-Type: text/plain; charset="ISO-8859-1"; name="global_cctr1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment; filename="global_cctr1.patch"
+
+Index: sys/kern/kern_cctr.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /cvsroot/src/sys/kern/kern_cctr.c,v
+retrieving revision 1.9
+diff -p -u -r1.9 kern_cctr.c
+--- sys/kern/kern_cctr.c	3 Jan 2009 03:31:23 -0000	1.9
++++ sys/kern/kern_cctr.c	2 Nov 2017 15:08:27 -0000
+@@ -95,6 +95,12 @@ void cc_calibrate_cpu(struct cpu_info *)
+=20
+ static int64_t cc_cal_val;  /* last calibrate time stamp */
+=20
++/*
++ * Highest cc witnessed globally.  We assume the calibration happens
++ * once a second.
++ */
++static volatile u_int cc_global __cacheline_aligned;
++
+ static struct timecounter cc_timecounter =3D {
+ 	.tc_get_timecount	=3D cc_get_timecount,
+ 	.tc_poll_pps		=3D cc_calibrate,
+@@ -124,6 +130,13 @@ cc_init(timecounter_get_t getcc, uint64_
+ 	cc_timecounter.tc_frequency =3D freq;
+ 	cc_timecounter.tc_name =3D name;
+ 	cc_timecounter.tc_quality =3D quality;
++
++	/* Calibrate the local CPU and prime it before we try to use it.  */
++	kpreempt_disable();
++	cc_calibrate_cpu(&cc_timecounter);
++	cc_global =3D cc_get_timecount_local(&cc_timecounter);
++	kpreempt_enable();
++
+ 	tc_init(&cc_timecounter);
+=20
+ 	return &cc_timecounter;
+@@ -132,8 +145,8 @@ cc_init(timecounter_get_t getcc, uint64_
+ /*
+  * pick up tick count scaled to reference tick count
+  */
+-u_int
+-cc_get_timecount(struct timecounter *tc)
++static u_int
++cc_get_timecount_local(struct timecounter *tc)
+ {
+ 	struct cpu_info *ci;
+ 	int64_t rcc, cc, ncsw;
+@@ -186,6 +199,37 @@ cc_get_timecount(struct timecounter *tc)
+ }
+=20
+ /*
++ * advance the global view of the clock by our tick count and return it
++ */
++u_int
++cc_get_timecount(struct timecounter *tc)
++{
++	u_int freq =3D tc->tc_frequency;
++	u_int local, global, result;
++
++	do {
++		local =3D cc_get_timecount_local(tc);
++		global =3D cc_global;
++		if ((local - global) < freq) {
++			/* We're ahead, so use our counter.  */
++			result =3D local;
++		} else {
++			/* We're behind or desynced, so use the global.  */
++			result =3D global + 1;
++		}
++	} while (atomic_cas_uint(&cc_global, global, result) !=3D global);
++
++	if (__predict_false((local - global) > freq &&
++		(global - local) > freq)) {
++		/* More than 1sec away from global: bad.  */
++		printf("%s: local cc desynchronized\n", tc->tc_name);
++		tc_gonebad(tc);
++	}
++
++	return result;
++}
++
++/*
+  * called once per clock tick via the pps callback
+  * for the calibration of the TSC counters.
+  * it is called only for the PRIMARY cpu. all
+
+--=_goIetmk8WluyiTCSQP8n/qFzrYsl0P6p--
+
+
+From riastradh@NetBSD.org  Thu Nov 2 15:48:35 2017
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Taylor R Campbell <riastradh@NetBSD.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Alpha timecounter
+Date: Thu, 2 Nov 2017 15:48:35 +0000
+Lines: 112
+Approved: news@gmane.org
+Message-ID: <20171102155206.1605960A4A@jupiter.mumble.net>
+References: <20171102153321.036CE60A4A@jupiter.mumble.net>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="=_e4vgFBbl+sEDZSC/GR1dQkK4ly3WT9L0"
+Content-Transfer-Encoding: 7bit
+X-Trace: blaine.gmane.org 1509642341 22949 195.159.176.226 (2 Nov 2017 17:05:41 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Thu, 2 Nov 2017 17:05:41 +0000 (UTC)
+Cc: port-alpha@netbsd.org
+To: Martin Husemann <martin@duskware.de>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Nov 02 18:05:32 2017
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1eAIvp-00056e-Uw
+	for netbsd-port-alpha@m.gmane.org; Thu, 02 Nov 2017 18:05:30 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id C0EA084D73; Thu,  2 Nov 2017 17:05:34 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id C4C3384D44
+	for <port-alpha@netbsd.org>; Thu,  2 Nov 2017 17:05:29 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id Wje1ms8Vwu3g for <port-alpha@netbsd.org>;
+	Thu,  2 Nov 2017 17:05:29 +0000 (UTC)
+Original-Received: from jupiter.mumble.net (jupiter.mumble.net [74.50.56.165])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 01F3484D23
+	for <port-alpha@netbsd.org>; Thu,  2 Nov 2017 17:05:28 +0000 (UTC)
+Original-Received: by jupiter.mumble.net (Postfix, from userid 1014)
+	id 1605960A4A; Thu,  2 Nov 2017 15:52:06 +0000 (UTC)
+In-reply-to: <20171102153321.036CE60A4A@jupiter.mumble.net> (riastradh@NetBSD.org)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5032
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5032>
+
+This is a multi-part message in MIME format.
+--=_e4vgFBbl+sEDZSC/GR1dQkK4ly3WT9L0
+
+> Date: Thu, 2 Nov 2017 15:29:50 +0000
+> From: Taylor R Campbell <riastradh@NetBSD.org>
+> 
+> Maybe, if it happened at boot time, the cross-CPU calibration simply
+> had not yet run.  So try the attached patch instead?
+
+Maybe I should compile-test things first before posting them to
+mailing lists.
+
+--=_e4vgFBbl+sEDZSC/GR1dQkK4ly3WT9L0
+Content-Type: text/plain; charset="ISO-8859-1"; name="global_cctr1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment; filename="global_cctr1.patch"
+
+Index: sys/kern/kern_cctr.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /cvsroot/src/sys/kern/kern_cctr.c,v
+retrieving revision 1.9
+diff -p -u -r1.9 kern_cctr.c
+--- sys/kern/kern_cctr.c	3 Jan 2009 03:31:23 -0000	1.9
++++ sys/kern/kern_cctr.c	2 Nov 2017 15:48:10 -0000
+@@ -89,12 +89,17 @@ __KERNEL_RCSID(0, "$NetBSD: kern_cctr.c,
+=20
+ /* XXX make cc_timecounter.tc_frequency settable by sysctl() */
+=20
++static u_int cc_get_timecount_local(struct timecounter *);
+ static timecounter_pps_t cc_calibrate;
+=20
+-void cc_calibrate_cpu(struct cpu_info *);
+-
+ static int64_t cc_cal_val;  /* last calibrate time stamp */
+=20
++/*
++ * Highest cc witnessed globally.  We assume the calibration happens
++ * once a second.
++ */
++static volatile u_int cc_global __cacheline_aligned;
++
+ static struct timecounter cc_timecounter =3D {
+ 	.tc_get_timecount	=3D cc_get_timecount,
+ 	.tc_poll_pps		=3D cc_calibrate,
+@@ -124,6 +129,13 @@ cc_init(timecounter_get_t getcc, uint64_
+ 	cc_timecounter.tc_frequency =3D freq;
+ 	cc_timecounter.tc_name =3D name;
+ 	cc_timecounter.tc_quality =3D quality;
++
++	/* Calibrate the local CPU and prime it before we try to use it.  */
++	kpreempt_disable();
++	cc_calibrate_cpu(curcpu());
++	cc_global =3D cc_get_timecount_local(&cc_timecounter);
++	kpreempt_enable();
++
+ 	tc_init(&cc_timecounter);
+=20
+ 	return &cc_timecounter;
+@@ -132,8 +144,8 @@ cc_init(timecounter_get_t getcc, uint64_
+ /*
+  * pick up tick count scaled to reference tick count
+  */
+-u_int
+-cc_get_timecount(struct timecounter *tc)
++static u_int
++cc_get_timecount_local(struct timecounter *tc)
+ {
+ 	struct cpu_info *ci;
+ 	int64_t rcc, cc, ncsw;
+@@ -186,6 +198,37 @@ cc_get_timecount(struct timecounter *tc)
+ }
+=20
+ /*
++ * advance the global view of the clock by our tick count and return it
++ */
++u_int
++cc_get_timecount(struct timecounter *tc)
++{
++	u_int freq =3D tc->tc_frequency;
++	u_int local, global, result;
++
++	do {
++		local =3D cc_get_timecount_local(tc);
++		global =3D cc_global;
++		if ((local - global) < freq) {
++			/* We're ahead, so use our counter.  */
++			result =3D local;
++		} else {
++			/* We're behind or desynced, so use the global.  */
++			result =3D global + 1;
++		}
++	} while (atomic_cas_uint(&cc_global, global, result) !=3D global);
++
++	if (__predict_false((local - global) > freq &&
++		(global - local) > freq)) {
++		/* More than 1sec away from global: bad.  */
++		printf("%s: local cc desynchronized\n", tc->tc_name);
++		tc_gonebad(tc);
++	}
++
++	return result;
++}
++
++/*
+  * called once per clock tick via the pps callback
+  * for the calibration of the TSC counters.
+  * it is called only for the PRIMARY cpu. all
+
+--=_e4vgFBbl+sEDZSC/GR1dQkK4ly3WT9L0--
+
+
+From martin@duskware.de  Fri Nov 3 10:32:49 2017
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Alpha timecounter
+Date: Fri, 3 Nov 2017 10:32:49 +0100
+Lines: 35
+Approved: news@gmane.org
+Message-ID: <20171103093249.GB8662@mail.duskware.de>
+References: <20171102153321.036CE60A4A@jupiter.mumble.net>
+ <20171102155206.1605960A4A@jupiter.mumble.net>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: blaine.gmane.org 1509701583 11246 195.159.176.226 (3 Nov 2017 09:33:03 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Fri, 3 Nov 2017 09:33:03 +0000 (UTC)
+User-Agent: Mutt/1.7.2 (2016-11-26)
+Cc: port-alpha@netbsd.org
+To: Taylor R Campbell <riastradh@NetBSD.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Fri Nov 03 10:32:53 2017
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1eAYLM-000250-Ol
+	for netbsd-port-alpha@m.gmane.org; Fri, 03 Nov 2017 10:32:53 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id C168984DF1; Fri,  3 Nov 2017 09:32:57 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id D155084CE1;
+	Fri,  3 Nov 2017 09:32:55 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id n-lh7yLJNMel; Fri,  3 Nov 2017 09:32:55 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [91.199.88.144])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 3527184CDD;
+	Fri,  3 Nov 2017 09:32:54 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id 9D31AA7FF4; Fri,  3 Nov 2017 10:32:49 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20171102155206.1605960A4A@jupiter.mumble.net>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5033
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5033>
+
+On Thu, Nov 02, 2017 at 03:48:35PM +0000, Taylor R Campbell wrote:
+> > Date: Thu, 2 Nov 2017 15:29:50 +0000
+> > From: Taylor R Campbell <riastradh@NetBSD.org>
+> > 
+> > Maybe, if it happened at boot time, the cross-CPU calibration simply
+> > had not yet run.  So try the attached patch instead?
+> 
+> Maybe I should compile-test things first before posting them to
+> mailing lists.
+
+I get: 
+
+tsciic0 at tsc0
+iic0 at tsciic0: I2C bus
+timecounter: Timecounter "clockinterrupt" frequency 1024 Hz quality 0
+timecounter: Timecounter "PCC" frequency 499877840 Hz quality 1000
+scsibus0 at isp0: 16 targets, 8 luns per target
+scsibus1 at isp1: 16 targets, 8 luns per target
+scsibus0: waiting 2 seconds for devices to settle...
+uhub0 at usb0: vendor 1080 (0x1080) OHCI root hub (0000), class 9/0, rev 1.00/1.00, addr 1
+uhub0: 2 ports with 2 removable, self powered
+scsibus1: waiting 2 seconds for devices to settle...
+PCC: local cc desynchronized
+PCC: local cc desynchronized
+sd0 at scsibus0 target 0 lun 0: <COMPAQ, BB00911CA0, 3B05> disk fixed
+..
+
+and then:
+
+kern.timecounter.choice = PCC(q=-100, f=499882320 Hz) clockinterrupt(q=0, f=1024 Hz) dummy(q=-1000000, f=1000000 Hz)
+kern.timecounter.hardware = clockinterrupt
+kern.timecounter.timestepwarnings = 0
+
+Martin
+
+
+From john@ziaspace.com  Fri Nov 3 21:11:25 2017
+Path: news.gmane.org!.POSTED!not-for-mail
+From: John Klos <john@ziaspace.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: NetBSD usability on DS20L, part three
+Date: Fri, 3 Nov 2017 21:11:25 +0000 (UTC)
+Lines: 52
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.1711022033300.10682@hlin.zia.io>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: blaine.gmane.org 1509743491 11055 195.159.176.226 (3 Nov 2017 21:11:31 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Fri, 3 Nov 2017 21:11:31 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Fri Nov 03 22:11:27 2017
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1eAjFP-0002Xv-Gp
+	for netbsd-port-alpha@m.gmane.org; Fri, 03 Nov 2017 22:11:27 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 14D5284D99; Fri,  3 Nov 2017 21:11:33 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 5BC6184D3E
+	for <port-alpha@netbsd.org>; Fri,  3 Nov 2017 21:11:30 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id prhQ4gtfuBcH for <port-alpha@netbsd.org>;
+	Fri,  3 Nov 2017 21:11:29 +0000 (UTC)
+Original-Received: from hlin.zia.io (hlin.zia.io [82.221.135.73])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 66FD884D25
+	for <port-alpha@netbsd.org>; Fri,  3 Nov 2017 21:11:28 +0000 (UTC)
+Original-Received: from hlin.zia.io (localhost [127.0.0.1])
+	by hlin.zia.io (8.15.2/8.15.2) with ESMTPS id vA3LBPw8024835
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT)
+	for <port-alpha@netbsd.org>; Fri, 3 Nov 2017 21:11:26 GMT
+Original-Received: from localhost (john@localhost)
+	by hlin.zia.io (8.15.2/8.15.2/Submit) with ESMTP id vA3LBPBk017123
+	for <port-alpha@netbsd.org>; Fri, 3 Nov 2017 21:11:25 GMT
+X-Authentication-Warning: hlin.zia.io: john owned process doing -bs
+X-X-Sender: john@hlin.zia.io
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.4.3 (hlin.zia.io [127.0.0.1]); Fri, 03 Nov 2017 21:11:26 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5034
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5034>
+
+So I haven't been able to nail down exactly when disk corruption will 
+occur, but at least we know how to make sure it doesn't occur. Here's what 
+I do know:
+
+Use motherboard fxp and disk on either aceride0 or esiop0 and corruption 
+hapens within hours.
+
+Use PCI wm and disk on on either aceride0 or esiop0 and there'll be 
+eventual corruption, but it takes noticeably longer (days instead of 
+hours). Seems more pronounced with SCSI than with IDE.
+
+I've tried SCSI and motherboard fxp with Tobias' sprinkled memory
+barriers with no problems even after lots of cvs'ing and compiling:
+https://mail-index.netbsd.org/port-alpha/2017/07/29/msg000857.html
+
+
+Any issues with UDMA with IDE might be complicated by the fact that the 
+IDE chip in the DS20L is the same kind as in my SunFire V100:
+
+aceride0 at pci0 dev 16 function 0: Acer Labs M5229 UDMA IDE Controller (rev. 0xc2)
+aceride0: bus-master DMA support present, but unused (forced off by config file)
+aceride0: primary channel configured to compatibility mode
+aceride0: primary channel interrupting at isa irq 14
+
+This IDE chip reportedly doesn't support UDMA with revisions below 0xc4 
+(or is it UDMA with LBA48 commands?), so I tested a kernel with flags 
+0x0002 to force PIO mode, and I've been running a system with a PCI wm 
+card and the primary disk on IDE in PIO for more than a week with heavy 
+disk usage and lots of compiling with no issues at all.
+
+I'll test whether corruption occurs with UDMA and disks larger than 
+128 gigs with this revision 0xc2 controller. I believe that the system 
+can't be booted off of an IDE disk where the first partition is greater 
+than 128 gigs, but that's another issue.
+
+
+Also, it seems that the firmware doesn't like 2 TB SCSI disks. While 
+booting with a 2 TB SCSI disk, I get:
+
+*** Hard Error - Error #8 -
+Diagnostic Name        ID             Device  Pass  Test  Hard/Soft   1-JAN-2000
+exer_kid         00000239       dka0.0.0.3.0     0     0     1    0     12:00:01
+Buffer counts differ - buf1:0, buf2:512, location:2a00
+
+*** End of Error ***
+
+Has anyone else run in to issues with large SCSI disks? I'm planning to 
+test with firmware version 6.6 (this machine has version 6.0), and I'll 
+also try with a 1 TB SCSI disk.
+
+John
+
+

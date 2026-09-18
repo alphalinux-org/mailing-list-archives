@@ -1,0 +1,4643 @@
+From mycroft@mit.edu  Thu Apr 2 08:50:36 1998
+From: Charles M. Hannum <mycroft@mit.edu>
+To: port-i386@NetBSD.ORG, port-alpha@NetBSD.ORG
+Date: Thu, 02 Apr 1998 08:50:36 +0000
+Subject: de driver lossage, machines hanging
+
+Those of you with `de' cards may be interested to know that I've
+tracked down a bug that caused machines to `hang' after receiving a
+certain number of bad ethernet packets.  Attached is a diff, which
+will be in tonight's update.
+
+(This driver is *way* over-engineered.  *sigh*)
+
+
+Index: if_de.c
+===================================================================
+RCS file: /cvsroot/src/sys/dev/pci/if_de.c,v
+retrieving revision 1.65
+retrieving revision 1.66
+diff -c -2 -r1.65 -r1.66
+*** if_de.c	1998/03/29 22:36:43	1.65
+--- if_de.c	1998/04/02 13:49:32	1.66
+***************
+*** 1,3 ****
+! /*	$NetBSD: if_de.c,v 1.65 1998/03/29 22:36:43 mycroft Exp $	*/
+  
+  /*-
+--- 1,3 ----
+! /*	$NetBSD: if_de.c,v 1.66 1998/04/02 13:49:32 mycroft Exp $	*/
+  
+  /*-
+***************
+*** 3509,3512 ****
+--- 3509,3521 ----
+  #endif
+  	    }
++ 
++ #if defined(TULIP_BUS_DMA) && !defined(TULIP_BUS_DMA_NORX)
++ 	    map = M_GETCTX(me, bus_dmamap_t);
++ 	    bus_dmamap_unload(sc->tulip_dmatag, map);
++ 	    sc->tulip_rxmaps[sc->tulip_rxmaps_free++] = map;
++ #if defined(DIAGNOSTIC)
++ 	    M_SETCTX(me, NULL);
++ #endif
++ #endif /* TULIP_BUS_DMA */
+  	}
+        next:
+
+From hwr@pilhuhn.de  Fri Apr 3 14:47:01 1998
+From: Heiko W.Rupp <hwr@pilhuhn.de>
+To: pha@pdq.com
+Date: Fri, 03 Apr 1998 14:47:01 +0000
+Subject: Re: Samsung Boards
+
+On Fri, Mar 27, 1998 at 11:25:44AM -0500, Paul H. Anderson wrote:
+> http://www.samsungsemi.com/home.html has more alpha info under their alpha
+
+Yeah, right.
+
+> Samsung boards is because I don't see any obvious place to get the SRM
+> flash code from. 
+
+Why does NetBSD need the SRM console? Or in other words: when
+many/most boards nowadays come with ARM(?) console, why then not take
+the code from Lin*x AXP to support this. NetBSD alpha was/is far ahead
+LAXP, but ...
+
+> The UX is pretty nice because it has 6 PCI slots (the picture I'm looking
+> at shows 1 64 bit, and 5 32 bit slots, rats), and 6 DIMM slots.  I was
+
+And SCSI/Ethernet on board :)
+
+> hoping for at least 4 64 bit slots, so I could put 4 gigabit ethernet
+> cards in - oh well. 
+
+Oh. Perhaps the next boards that support the 1GHZ CPU ;)
+
+-- 
+          See <a href="http://www.netbsd.org">NetBSD</a> for a multiplatform OS
+Q:  What do you call a subtle, clever hack in the favorite language?
+A:  A gnuanCe.
+
+From grossman@BBN.COM  Fri Apr 3 09:15:39 1998
+From: Martin Grossman <grossman@BBN.COM>
+To: port-i386@NetBSD.ORG, port-alpha@NetBSD.ORG
+Date: Fri, 03 Apr 1998 09:15:39 +0000
+Subject: Floppy drive
+
+We use NetBSD here on both pentium boards, and the DEC alpha board PC164.
+
+Why does the 386 port support the floppy drive on the isa bus, and the
+alpha doesn't?
+
+PS arch/i386/isa/fd.c exists, and arch/alpha/isa/fd.c does not!
+PPS config stuff also exists in arch/i386/conf/{GENERIC,files.i386}
+    but no config stuff in arch/alpha/conf/* for floppy!
+
+PPS Floppy does work, is seen  by SRM, and if an alpha bootable floppy
+    is in drive when system booting (ie to update flash) its used, and
+    works fine.
+
+PPS according to PC164 tech ref manual the floppy drive is on isa bus
+    (like com & lp & mouse) just like the i386!
+
+From thorpej@nas.nasa.gov  Fri Apr 3 10:41:54 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: grossman@bbn.com
+Date: Fri, 03 Apr 1998 10:41:54 +0000
+Subject: Re: Floppy drive
+
+On Fri, 03 Apr 1998 09:15:39 -0500 
+ Martin Grossman <grossman@BBN.COM> wrote:
+
+ > We use NetBSD here on both pentium boards, and the DEC alpha board PC164.
+ > 
+ > Why does the 386 port support the floppy drive on the isa bus, and the
+ > alpha doesn't?
+
+The i386 floppy driver is not sufficiently MI.  It uses a very
+machine-dependent method to determine the density of the floppy drives
+(it reads the BIOS NVRAM).
+
+I have a "partially integrated" floppy driver in my Alpha tree, but it
+doens't quite work on my AlphaStation 500 (DMA underruns... don't know
+if this is a floppy driver bug, an isadma driver bug, or a CIA SGMAP
+DMA bug, and I have had much more important things on my plate to worry
+about a floppy driver).
+
+Before the floppy driver can be shared, it needs to be split into parts:
+
+	(1) floppy controller needs to be split from floppy controller
+	    child (floppy disk, tape, etc.)
+
+	(2) isa specific things need to be split from chip specific things,
+	    and callbacks to the front-end need to be provided for whichever
+	    transfer method is appropriate (DMA, fast-interrupt-that-feeds-
+	    FIFO, etc.)
+
+	(3) machdep callbacks to get the floppy density need to be added.
+
+I just talked to someone in the lobby of the IETF conference hotel last
+night who is planning on doing this work so he can make a pcmcia floppy
+controller work.
+
+FYI.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From ross@teraflop.com  Fri Apr 3 11:48:00 1998
+From: Ross Harvey <ross@teraflop.com>
+To: pha@pdq.com, port-alpha@NetBSD.ORG
+Date: Fri, 03 Apr 1998 11:48:00 +0000
+Subject: Re: Samsung Boards
+
+>From: "Heiko W.Rupp" <hwr@pilhuhn.de> :
+>
+> ...
+>
+>> Samsung boards is because I don't see any obvious place to get the SRM
+>> flash code from. 
+>
+>Why does NetBSD need the SRM console? Or in other words: when
+>many/most boards nowadays come with ARM(?) console, why then not take
+>the code from Lin*x AXP to support this. NetBSD alpha was/is far ahead
+>LAXP, but ...
+
+NetBSD doesn't need the SRM console so much as it needs the OSF/1
+palcode that the SRM console provides and ARC and AlphaBIOS do not.
+It's an entire virtual machine between the hardware and the OS, and
+it is (for an example ev56 platform) 9,605 lines of hand-written assembly.
+
+And, unfortunately, it is completely different between the 21064 and
+the 21164, and somewhat different between various system models using
+the same chip.
+
+Linux by itself doesn't run on ARC, exactly, they use the MILO console
+layer to glue an old free version of the OSF/1 palcode onto ARC.
+
+However, the last time I checked, the publically available MILO sources
+had such old palcode in it that it would not run reliably on chips made
+in the last couple of years, so I presume that the companies shipping
+linux on current systems have made private arrangements with that guy
+at DEC who does milo. It would be nice to hear the real story on this
+from someone who Knows.
+
+Actually, this question is even in the NetBSD/Alpha FAQ:
+
+	http://www.netbsd.org/Ports/alpha/faq.html
+
+There are a couple of points on the bright side:
+
+[1] It isn't too serious because SRM is available on gatekeeper for all
+the important platforms, and buyers of new hardware can just be sure to
+buy something for which SRM is available. I believe this includes the
+two real cheap systems: AXP PCI33 & Multia, and the currently popular,
+nice-and-fast AlphaPC 164 LX.
+
+[2] I have NetBSD running just fine here at Avalon on the A12, without SRM,
+and with recently manufactured CPU chips. (And with a private arrangement
+of our own to get working palcode, sigh.) So, progress is being made towards
+the goal of supporting NetBSD on ARC and AlphaBIOS systems, and it is on our
+list to support this.
+
+Ross Harvey
+
+From John.C.Hayward@wheaton.edu  Fri Apr 3 23:58:22 1998
+From: John C. Hayward <John.C.Hayward@wheaton.edu>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 03 Apr 1998 23:58:22 +0000
+Subject: Is floppy supported for booting on Multia 1.3
+
+Dear NetBSDers,
+   I have a Multia which I have reciently gotten back on line.  It is
+running 1.2B and I am would like to upgrade to 1.3.
+   When I attempt to boot the distribution boot file system it looks
+like it starts then stops at various points in the loading.  Most of
+the time it gets to the place where it is loading netbsd.gz.  Sometimes
+it gets to the first number (text segment size I think) before hanging.
+
+   I suspect that there is an error in reading the floppy.  I got a new
+floppy and had the same results.  I will try to write the floppy on
+another computer.
+
+   Have others had problems using the bootable floppy which came with
+1.3?
+
+   I guess since I have a working system I can upgrade by another method
+(borrow another scsi drive and build it on that) if I cannot get the
+floppy to boot.
+
+johnh...
+
+From ross@teraflop.com  Fri Apr 3 22:36:39 1998
+From: Ross Harvey <ross@teraflop.com>
+To: John.C.Hayward@wheaton.edu, port-alpha@NetBSD.ORG
+Date: Fri, 03 Apr 1998 22:36:39 +0000
+Subject: Re:  Is floppy supported for booting on Multia 1.3
+
+[ errors booting from floppy ]
+
+This has happened before to Multia owners. At that point in the boot,
+it is the firmware console reading the floppy and not NetBSD code, so
+there isn't a lot we can do to fix it if it just doesn't work.
+
+However, the good news is that you don't need to boot the floppy to do
+an upgrade. I would suggest that you don't run 1.3, but wait a week or
+so and upgrade to 1.3.1 or NetBSD-current. There will be a -current
+snapshot posted next week at about the same time as the 1.3.1 sets.
+
+I can post an install kernel that gives you an environment similar to
+the floppy ramdisk kernel, but which you can just boot up from /, since
+you have a running system.
+
+Ross Harvey
+
+From John.C.Hayward@wheaton.edu  Tue Apr 7 07:42:55 1998
+From: John C. Hayward <John.C.Hayward@wheaton.edu>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 07 Apr 1998 07:42:55 +0000
+Subject: Netscape on Alpha
+
+Dear Alpha People,
+   There is effort in getting a native version of Netscape on NetBSD on
+some ports.  Is anybody making a Alpha version?  Are there some 64-32 bit
+problems and is lessit(sp) reasonable to run on Alphas?
+
+    TIA for info.
+johnh...
+
+From grossman@BBN.COM  Tue Apr 7 09:37:05 1998
+From: Martin Grossman <grossman@BBN.COM>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 07 Apr 1998 09:37:05 +0000
+Subject: alpha bootable CDROM
+
+What does it take to make an alpha (DEC pc164 motherboard with a PCI NCR scsi
+cntrl) bootable from a CDROM?
+
+I've found in the distribution  (ie OS/arch/alpha/stand) installboot_cd9660.
+
+It installs the boot sector stuff into a iso (cd9660) image file right before
+you copy the image file to a CDR!
+
+1) Yes, I know how to create the iso file using mkisofs!
+2) What should be in this filesystem?
+  a) I assume it should contain a complete root, etc, usr etc all withing 1
+     filesystem.
+  b) I also assume their should be files /boot and /netbsd.
+
+Questions:
+1) should /boot be the standard /boot file?
+2) what switches should be turned on/off in /netbsd so it knows the cdrom
+   contains the root fs?
+3) Or, should (like the i386 port boot floppy) the kernel contain within it,
+   its root fs?
+4) Once booted (ie from CDROM) what does netbsd use for a swap area? or does
+   it know not to do any swapping? (PS all our systems have 512MB of mem).
+5) What do I do for the /var stuff?  I assume /var/log/* need to be writeable
+   and /var/run/* also need to be writable?  Do I somehow make /var mounted
+   as a in memory fs?
+
+HAS ANYONE TRIED ANY OF THESE THINGS AND GOTTEN ANY PART OF IT WORKING?
+
+From franklin@elfie.bevc.blacksburg.va.us  Tue Apr 7 10:48:57 1998
+From: John Franklin <franklin@elfie.bevc.blacksburg.va.us>
+To: John.C.Hayward@wheaton.edu
+Date: Tue, 07 Apr 1998 10:48:57 +0000
+Subject: Re: Netscape on Alpha
+
+>    There is effort in getting a native version of Netscape on NetBSD on
+> some ports.  Is anybody making a Alpha version?  Are there some 64-32 bit
+> problems and is lessit(sp) reasonable to run on Alphas?
+> 
+
+Are there!  I've just compiled lesstif from the 0.83 archive on ftp.netbsd.org.
+There are dozens of pointer<->integer warnings, dozens of "unused variable"
+warnings (even excusing the rcsid defined, but not used warnings), and
+a couple of other minor warnings.
+
+The first few pointer<->integer warnings involve computing hash table 
+entries based partially on the address of the Widget.  We could make these
+go away if we used a long for the index table hash entry
+
+The 0.82 archive from ftp.lesstif.org didn't compile at all.  It failed on
+../../include/Motif-1.2/Xm/RCUtilsP.h:3: character constant too long.
+
+jf
+-- 
+John Franklin
+jfrankli@bev.net
+ICBM: 37 13'N  080 25'W
+
+From kpneal@pobox.com  Tue Apr 7 11:11:45 1998
+From: Kevin P. Neal <kpneal@pobox.com>
+To: John.C.Hayward@wheaton.edu
+Date: Tue, 07 Apr 1998 11:11:45 +0000
+Subject: Re: Netscape on Alpha
+
+At 07:42 AM 4/7/98 -0500, John C. Hayward wrote:
+>Dear Alpha People,
+>   There is effort in getting a native version of Netscape on NetBSD on
+>some ports.  Is anybody making a Alpha version?  Are there some 64-32 bit
+>problems and is lessit(sp) reasonable to run on Alphas?
+
+Well, I'm working on it. 
+
+I took the patches that were posted to one of these lists a few days ago and
+applied them. Then I tried to do a build, but got a pile of errors (no, I
+don't have them handy, sorry).
+
+I just got lesstif built before I went to bed last night. 
+
+If anybody else has any patches, feel free to swing them my way. I'll do the
+same, obviously. 
+
+I'm not expecting many 32->64 bit problems due to NS working on OSF/1. Could
+be some, but hopefully not many. 
+
+BTW, I'm using GNU make to do builds. I assume that's correct, as our make
+bails totally. 
+--
+XCOMM Kevin P. Neal, Junior, Comp. Sci.     -   House of Retrocomputing
+XCOMM  mailto:kpneal@pobox.com              -   http://www.pobox.com/~kpn/
+XCOMM  kpneal@eos.ncsu.edu              Spoken by Keir Finlow-Bates:
+XCOMM "Good grief, I've just noticed I've typed in a rant. Sorry chaps!"
+
+From thorpej@nas.nasa.gov  Tue Apr 7 10:19:20 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: grossman@bbn.com
+Date: Tue, 07 Apr 1998 10:19:20 +0000
+Subject: Re: alpha bootable CDROM
+
+On Tue, 07 Apr 1998 09:37:05 -0400 
+ Martin Grossman <grossman@BBN.COM> wrote:
+
+ > 1) Yes, I know how to create the iso file using mkisofs!
+ > 2) What should be in this filesystem?
+ >   a) I assume it should contain a complete root, etc, usr etc all withing 1
+ >      filesystem.
+ >   b) I also assume their should be files /boot and /netbsd.
+ > 
+ > Questions:
+ > 1) should /boot be the standard /boot file?
+
+Yes.
+
+ > 2) what switches should be turned on/off in /netbsd so it knows the cdrom
+ >    contains the root fs?
+
+Nothing is required, here.  The SRM tells the kernel the boot device, and
+the kernel just figures it out from there.  Make sure you have the CD9660
+file system compiled into the kernel so it can mount the root file system.
+
+ > 3) Or, should (like the i386 port boot floppy) the kernel contain within it,
+ >    its root fs?
+
+...you could do this if you wanted to.  This might be useful for boot-cdrom-
+then-install-to-disk, etc.
+
+ > 4) Once booted (ie from CDROM) what does netbsd use for a swap area? or does
+ >    it know not to do any swapping? (PS all our systems have 512MB of mem).
+
+The NetBSD kernel must be told explicitly to swap to something; it does no
+swapping automatically.  See swapctl(8).
+
+ > 5) What do I do for the /var stuff?  I assume /var/log/* need to be writeable
+ >    and /var/run/* also need to be writable?  Do I somehow make /var mounted
+ >    as a in memory fs?
+ > 
+ > HAS ANYONE TRIED ANY OF THESE THINGS AND GOTTEN ANY PART OF IT WORKING?
+
+I have not actually burned a CD-ROM yet (for lack of time, and a finicky
+CD-R).  I have, however, taken a CD-ROM image I created, dd'd it to a JAZ
+disk, and booted that JAZ disk on my AlphaStation 600.
+
+I haven't thought of what it would take to run the system from a CD-ROM
+root.  I intend to use it primarily for installation to local disk.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From mjacob@nas.nasa.gov  Tue Apr 7 18:31:14 1998
+From: Matthew P. Jacob <mjacob@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 07 Apr 1998 18:31:14 +0000
+Subject: axp4100 port progress...
+
+getting there....slow.... but getting there:
+
+Loading netbsd...
+3080384+335472 [85+341712+198151]
+
+Entering netbsd at 0xfffffc0000300f50...
+[ preserving 540848 bytes of netbsd symbol table ]
+consinit: using prom console
+Copyright (c) 1996, 1997, 1998
+    The NetBSD Foundation, Inc.  All rights reserved.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+    The Regents of the University of California.  All rights reserved.
+
+NetBSD 1.3E (ALPHA) #10: Tue Apr  7 18:21:04 PDT 1998
+   =
+
+mjacob@jules.nas.nasa.gov:/users/mjacob/RAWHIDE/sys/arch/alpha/compile/AL=
+PHA
+AlphaServer 4X00 5/466 4MB, 467MHz
+8192 byte page size, 1 processor.
+real mem =3D 536870912 (2113536 reserved for PROM, 534757376 used by
+NetBSD)
+avail mem =3D 465207296
+using 6527 buffers containing 53469184 bytes of memory
+mainbus0 (root)
+cpu0 at mainbus0: ID 0 (primary), 21164A (pass 2)
+cpu0: VAX FP support, IEEE FP support, Primary Eligible
+mcbus0 at mainbus0
+mcmem0 at mcbus0 mid 1: Memory
+mcpcia0 at mcbus0 mid 5: PCI Bridge
+pci0 at mcpcia0 bus 0
+pci0: i/o enabled, memory enabled
+ncr0 at pci0 dev 1 function 0: ncr 53c810 fast10 scsi
+ncr0: interrupting at kn300 irq 16 PCI Interrupt Pin A
+ncr0: minsync=3D25, maxsync=3D206, maxoffs=3D8, 16 dwords burst, normal d=
+ma
+fifo
+ncr0: single-ended, open drain IRQ driver
+ncr0: restart (scsi reset).
+scsibus0 at ncr0: 8 targets
+cd0 at scsibus0 targ 5 lun 0: <DEC, RRD46   (C) DEC, 0557> SCSI2 5/cdrom
+removable
+probe(ncr0:5:1): 10.0 MB/s (100 ns, offset 8)
+ppb0 at pci0 dev 2 function 0: Digital Equipment DECchip 21050 PCI-PCI
+Bridge (rev. 0x02)
+pci1 at ppb0 bus 2
+pci1: memory enabled
+de0 at pci0 dev 4 function 0
+de0: interrupting at kn300 irq 8 PCI Interrupt Pin A
+de0: DEC DE500-AA 21140A [10-100Mb/s] pass 2.0
+de0: address 00:00:f8:1e:e2:2f
+Essential Communications RoadRunner HIPPI Interface (ethernet network)
+at pci0 dev 5 function 0 not configured
+mcpcia1 at mcbus0 mid 4: PCI Bridge
+pci2 at mcpcia1 bus 0
+pci2: i/o enabled, memory enabled
+pceb0 at pci2 dev 1 function 0: Intel 82375EB/SB PCI-EISA Bridge (PCEB)
+(rev. 0x15)
+Q Logic ISP1020 (SCSI mass storage, revision 0x05) at pci2 dev 2
+function 0 not configured
+Q Logic ISP1020 (SCSI mass storage, revision 0x05) at pci2 dev 4
+function 0 not configured
+eisa0 at pceb0
+isa0 at pceb0
+=A3=B8=D0 {=B2=AE=B5J88f{=B2=AEUD5=B8=FF=B0D8S=ED=B0=B2I =A2=B2D=FF=ADD5=B8=
+=A6zb%=AD=A2Q*JP!3=A9r!b=EB"+=B0
+=AA=AED=A9=ED=A90=A2=B2=A9/=AF=B2=A9/02D:
+
+From dave@comsite.net  Tue Apr 7 20:42:38 1998
+From: dave <dave@comsite.net>
+To: mjacob@nas.nasa.gov
+Date: Tue, 07 Apr 1998 20:42:38 +0000
+Subject: Re: axp4100 port progress...
+
+On Tue, 7 Apr 1998, Matthew P. Jacob wrote:
+
+> getting there....slow.... but getting there:
+> =A3=B8=D0 {=B2=AE=B5J88f{=B2=AEUD5=B8=FF=B0D8S=ED=B0=B2I =A2=B2D=FF=ADD5=
+=B8=A6zb%=AD=A2Q*JP!3=A9r!b=EB"+=B0
+> =AA=AED=A9=ED=A90=A2=B2=A9/=AF=B2=A9/02D:
+>=20
+Maybe your problem is you don't speak fluent machine language.
+
+--Dave
+
+From mjacob@nas.nasa.gov  Tue Apr 7 19:22:29 1998
+From: Matthew Jacob <mjacob@nas.nasa.gov>
+To: dave@comsite.net, mjacob@nas.nasa.gov
+Date: Tue, 07 Apr 1998 19:22:29 +0000
+Subject: Re: axp4100 port progress...
+
+>Maybe your problem is you don't speak fluent machine language.
+
+"rimshot, please!"
+
+From thorpej@nas.nasa.gov  Tue Apr 7 19:45:05 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mjacob@nas.nasa.gov
+Date: Tue, 07 Apr 1998 19:45:05 +0000
+Subject: Re: axp4100 port progress...
+
+On Tue, 07 Apr 1998 18:31:14 -0700 
+ "Matthew P. Jacob" <mjacob@nas.nasa.gov> wrote:
+
+ > AlphaServer 4X00 5/466 4MB, 467MHz
+
+Round 'em up, RAWHIDE!   YEEE-HAW!
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From mheller@student.uni-kl.de  Wed Apr 8 17:27:14 1998
+From: Martin Heller <mheller@student.uni-kl.de>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 08 Apr 1998 17:27:14 +0000
+Subject: Anyone working on an unencumbered toolchain?
+
+Hi!
+Is someone working on unencumbered toolchain for
+NetBSD/alpha? If I remember old postings long ago
+correctly, the toolchain has patches in it which
+can't be included by FSF because of unsolved 
+licensing questions.
+If nobody is working on it, I could start doing it,
+but I need to know, what exactly needs to be re-
+written and what can be used - some files lack licensing
+information . 
+Do we still need ecoff-format in our toolchain?
+an ELF-only would ?perhaps? simplify the work-to-do. 
+MARTIN
+
+From ross@teraflop.com  Wed Apr 8 09:08:04 1998
+From: Ross Harvey <ross@teraflop.com>
+To: mheller@student.uni-kl.de, port-alpha@NetBSD.ORG
+Date: Wed, 08 Apr 1998 09:08:04 +0000
+Subject: Re:  Anyone working on an unencumbered toolchain?
+
+> Hi!
+> Is someone working on unencumbered toolchain for
+> NetBSD/alpha? If I remember old postings long ago
+> correctly, the toolchain has patches in it which
+> can't be included by FSF because of unsolved 
+> licensing questions.
+> If nobody is working on it, I could start doing it,
+> but I need to know, what exactly needs to be re-
+> written and what can be used - some files lack licensing
+> information . 
+> Do we still need ecoff-format in our toolchain?
+> an ELF-only would ?perhaps? simplify the work-to-do. 
+> MARTIN
+> 
+> 
+
+Thanks for your offer, any help would be appreciated. Here is my
+understanding of the issue.
+
+It's not really encumbered in the sense that there are any problems
+in distributing it, it's just that the FSF requires more rights to
+a single module than a commercial or BSD-license organization would,
+for the obvious FSF-specific reasons. However, there are lots of
+code management problems with using a divergent toolchain; we would
+very much like to resolve this issue. It's only a few hundred lines
+all total, and I believe the equivalent linux files almost DTRT.
+
+The ecoff question is a good one, and the answer is: NO, it is NOT
+needed any more.
+
+As to which files, I've talked with Chris about this.  The files are
+not marked, but they are the config files for netbsd, and possibly in a
+few cases, for alpha. Files that have no FSF banner on them are
+suspicious.
+
+	gcc/config/alpha/netbsd.h
+	gcc/config/alpha/netbsdelf.h
+	configure.in stuff here and there.
+	the internal ld script ("% ld --verbose")
+
+I believe we have submitted the diffs in our toolchain...the problem is
+the files that are completely new.
+
+The right way to solve this problem is to either start over on those files
+with linux files that already have FSF banners on them, or for person A
+to diff those files against corresponding linux ones, and describe the
+diffs to person B, who then reimplements the module by applying the
+changes.
+
+The desired end result is to fill out the assignment paperwork and get
+the modules integrated in the official binutils. That is, there isn't
+much point in doing the work if the end result is just the technical
+side of the integration. We can't do the assignment for you, because
+the author has to sign something that says he did original work.
+
+Ross Harvey
+
+From pha@pdq.com  Wed Apr 8 13:02:01 1998
+From: Paul H. Anderson <pha@pdq.com>
+To: ross@teraflop.com
+Date: Wed, 08 Apr 1998 13:02:01 +0000
+Subject: Re: Anyone working on an unencumbered toolchain?
+
+On Wed, 8 Apr 1998, Ross Harvey wrote:
+
+> > Hi!
+> > Is someone working on unencumbered toolchain for
+> > NetBSD/alpha? If I remember old postings long ago
+> 
+> Thanks for your offer, any help would be appreciated. Here is my
+> understanding of the issue.
+...
+> The desired end result is to fill out the assignment paperwork and get
+> the modules integrated in the official binutils. That is, there isn't
+> much point in doing the work if the end result is just the technical
+> side of the integration. We can't do the assignment for you, because
+> the author has to sign something that says he did original work.
+
+I'm willing to help, also.  I have a background in OS's, compilers,
+parsers and long use of gcc/g++, but little porting background of gcc. 
+
+I posses and have looked at the sources for the linux version, and also for 
+the toolchain version for the files listed in the original message, but 
+don't remember anything of significance from them, other than the fact 
+that the Linux setup files seemed more detailed.
+
+Paul
+
++------------------------------------------------------+
+| Paul Anderson           Public Data Queries, Inc.    |
+| pha@pdq.com             734-213-4964(W) 994-3734(H)  |
++------------------------------------------------------+
+
+From mellon@hoffman.vix.com  Wed Apr 8 10:22:56 1998
+From: Ted Lemon <mellon@hoffman.vix.com>
+To: mheller@student.uni-kl.de
+Date: Wed, 08 Apr 1998 10:22:56 +0000
+Subject: Re: Anyone working on an unencumbered toolchain?
+
+Talk to Gordon Ross about this.
+
+			       _MelloN_
+
+From that1guy@azstarnet.com  Wed Apr 8 17:39:21 1998
+From: Shane B <that1guy@azstarnet.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 08 Apr 1998 17:39:21 +0000
+Subject: Need help with X on 1.3
+
+I have 1.3 running on my Multia and would like to get X running as well.
+Below is a dump of startx.  Issuing startx starts the server to a point
+where the X server begins, gray background with the cursor centered in the
+screen, proceeds to open one xterm with a prompt, then hangs.  Control of
+the system is not regained until the mouse is moved, at which point, the
+error listed below about reading the keyboard is shown.  control-C drops
+me back to the csh prompt.
+
+The kernel has been built with the proper options for this machine and
+should be noted that it acted the same way with the generic kernel. I'll
+be honest, this is my first attempt at installing X (on any machine) but
+I'm not finding any configuration utilites such as xfree86 that's found on
+other architectures.  It looks to me as though I need to configure X for
+this machine, but I'm at a complete loss as to where I should start.
+
+The X server that's installed came from ftp.cdrom.com from the 1.2 alpha
+build.  The files that I initially retrieved from the 1.3 binary/sets
+folder did not contain an X server.  The command which X provided nothing,
+startx would produce an xinit error: file not found (errno 2)  I assume
+this was xinit looking for the X server.
+
+Thanks for any help you can offer.
+Shane
+that1guy@azstarnet.com
+
+System Configuration:
+This system is basically as is came from DEC (other than the OS of course)
+Alpha Multia 166 (UDB)
+NetBSD 1.3 / kernel built with TGA support
+32MB Ram
+325MB internal HDD sd0 mounted on / @ 77% capacity
+Built-in TGA video
+Built-in Ether on de0
+Built-in NCR scsi
+pckbd0 @ pcppi 0
+pms 0 @ pcppi 0
+tga 0 @ pci 0 dev 11 function 0
+
+Dump of startx:
+
+Dump of startx:
+
+OsVendorInit
+alphaKbdPriv.fd = -1 (2)
+alphaPtrPriv.fd = 0 (2)
+Getting interface configuration: Device not configured
+alphaTGAinit
+mapped
+width = 1024, real width is 1024, fb_off is 0x201000
+added mouse = 0x140057c00
+added kbd = 0x140057a00
+going to register
+registered mouse
+registered kbd
+mi-registered mouse
+kbd device init
+alphaMouseProc (0)
+init
+init a
+init b
+alphaMouseProc (1)
+on
+on a
+on b
+on c
+
+*** NOTE: all above is seen right before xterm window shows up***
+*** no further activity until mouse is moved, then the rest shown***
+*** below is seen ***
+
+Reading keyboard: Bad file descriptor
+
+Fatal server error:
+Could not read the keyboard
+xterm: fatal IO error 32 (Broken pipe) or KillClient on X server ":0.0"^M
+xinit: connection to X server lost.^M
+
+***returned to prompt***
+
+From nmanisca@vt.edu  Thu Apr 9 19:03:10 1998
+From: nm <nmanisca@vt.edu>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 09 Apr 1998 19:03:10 +0000
+Subject: Fast ethernet
+
+anyone using a fast ethernet card (the 21140 specifically)
+in an alpha?
+
+i cannot seem to get just the 100baseTX port of my de0 
+enabled on my axppci33 system :(
+
+any suggestions/pointers?
+
+thanks
+nick maniscalco
+nmanisca@vt.edu
+
+From thorpej@nas.nasa.gov  Thu Apr 9 17:19:34 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 09 Apr 1998 17:19:34 +0000
+Subject: AlphaPC164SX testers wanted
+
+Hi folks...
+
+If you're one of the lucky people who has an AlphaPC164SX, I would appreciate
+it if you could test a kernel for me; I have written code that should
+support the CY82C693 chips that are in these machines.
+
+If you can test a GENERIC kernel, please send me private mail.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From nmanisca@vt.edu  Sun Apr 12 15:35:55 1998
+From: nm <nmanisca@vt.edu>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 12 Apr 1998 15:35:55 +0000
+Subject: NAT on alpha
+
+is anyone working on fixing NAT on alpha?
+has anyone else tried to use NAT on alpha?
+any success?
+
+thanks
+nick maniscalco
+
+From ross@teraflop.com  Sun Apr 12 20:14:42 1998
+From: Ross Harvey <ross@teraflop.com>
+To: nmanisca@vt.edu, port-alpha@NetBSD.ORG
+Date: Sun, 12 Apr 1998 20:14:42 +0000
+Subject: Re:  NAT on alpha
+
+I think this one is waiting on a netbsd test case. I have your
+openbsd problem report sent to this list, but ideally I would
+prefer to have the following:
+
+	1. a somewhat simpler test case, preferably a loopback test
+	of some kind
+
+	2. a problem report filed with send-pr in category port-alpha
+	(this also implies a test case on netbsd)
+
+	3. it would also be nice to see the same case work on another
+	port using NAT, although I can do this myself if I have some sort
+	of a loopback test case
+
+From thorpej@nas.nasa.gov  Sun Apr 12 21:58:18 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: ross@teraflop.com
+Date: Sun, 12 Apr 1998 21:58:18 +0000
+Subject: Re: NAT on alpha
+
+On Sun, 12 Apr 1998 20:14:42 -0700 (PDT) 
+ Ross Harvey <ross@teraflop.com> wrote:
+
+ > I think this one is waiting on a netbsd test case. I have your
+ > openbsd problem report sent to this list, but ideally I would
+
+If the user is having problems w/ NAT on an OpenBSD system, the user
+should not be complaining that it's broken on a NetBSD mailing list.
+
+End of story.
+
+ > prefer to have the following:
+ > 
+ > 	1. a somewhat simpler test case, preferably a loopback test
+ > 	of some kind
+ > 
+ > 	2. a problem report filed with send-pr in category port-alpha
+ > 	(this also implies a test case on netbsd)
+ > 
+ > 	3. it would also be nice to see the same case work on another
+ > 	port using NAT, although I can do this myself if I have some sort
+ > 	of a loopback test case
+ > 
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From nmanisca@vt.edu  Mon Apr 13 01:32:02 1998
+From: nm <nmanisca@vt.edu>
+To: thorpej@nas.nasa.gov
+Date: Mon, 13 Apr 1998 01:32:02 +0000
+Subject: Re: NAT on alpha
+
+Jason Thorpe wrote:
+
+> On Sun, 12 Apr 1998 20:14:42 -0700 (PDT)
+>  Ross Harvey <ross@teraflop.com> wrote:
+>
+>  > I think this one is waiting on a netbsd test case. I have your
+>  > openbsd problem report sent to this list, but ideally I would
+>
+> If the user is having problems w/ NAT on an OpenBSD system, the user
+> should not be complaining that it's broken on a NetBSD mailing list.
+>
+> End of story.
+>
+
+sorry if i offended you
+
+but i had the same set of problems on an openbsd system that i had
+on a netbsd system...
+
+after talking to a couple of people, it sounded as if the nat implmentation
+the
+two systems was the same. (Darren Reed's 3.2.3)
+
+anyway, i am just looking to get this resolved so that my alpha can be of use
+
+to me rather than collect dust...
+
+thanks
+nick maniscalco
+
+
+>  > prefer to have the following:
+>  >
+>  >      1. a somewhat simpler test case, preferably a loopback test
+>  >      of some kind
+>  >
+>  >      2. a problem report filed with send-pr in category port-alpha
+>  >      (this also implies a test case on netbsd)
+>  >
+>  >      3. it would also be nice to see the same case work on another
+>  >      port using NAT, although I can do this myself if I have some sort
+>  >      of a loopback test case
+>  >
+>
+> Jason R. Thorpe                                       thorpej@nas.nasa.gov
+> NASA Ames Research Center                            Home: +1 408 866 1912
+> NAS: M/S 258-5                                       Work: +1 650 604 0935
+> Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From lamj@stat.cmu.edu  Tue Apr 14 02:26:47 1998
+From: Johnny C. Lam <lamj@stat.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 14 Apr 1998 02:26:47 +0000
+Subject: Multi-user boot
+
+I'm trying to figure out how to boot multi-user on my Multia.  I
+installed NetBSD 1.3 from ftp.netbsd.org and set rc_configured to YES
+in /etc/rc.conf.  However, init always seems to think it should start
+single-user.  Are there any boot flags I need to provide when I boot
+NetBSD?  All of my boot environment variables are empty, except for
+boot_reset=OFF.  I currently boot NetBSD using the command
+
+	boot dka100
+
+Thanks,
+--
+   Johnny C. Lam
+   Department of Statistics                 lamj@stat.cmu.edu
+   Carnegie Mellon University               http://www.stat.cmu.edu/~lamj/
+
+                                @>---`---,----
+
+From dot@ludd.luth.se  Tue Apr 14 09:05:53 1998
+From: Magnus Enbom <dot@ludd.luth.se>
+To: lamj@stat.cmu.edu
+Date: Tue, 14 Apr 1998 09:05:53 +0000
+Subject: Re: Multi-user boot
+
+On Tue, Apr 14, 1998 at 02:26:47AM -0400, Johnny C. Lam wrote:
+> I'm trying to figure out how to boot multi-user on my Multia.  I
+> installed NetBSD 1.3 from ftp.netbsd.org and set rc_configured to YES
+> in /etc/rc.conf.  However, init always seems to think it should start
+> single-user.  Are there any boot flags I need to provide when I boot
+> NetBSD?  All of my boot environment variables are empty, except for
+> boot_reset=OFF.  I currently boot NetBSD using the command
+> 
+> 	boot dka100
+
+You should do a "set boot_osflags -a" at the >>> prompt.
+
+/.
+
+From that1guy@azstarnet.com  Tue Apr 14 02:06:32 1998
+From: Shane B <that1guy@azstarnet.com>
+To: lamj@stat.cmu.edu
+Date: Tue, 14 Apr 1998 02:06:32 +0000
+Subject: Re: Multi-user boot
+
+boot -flags -a dka0 is what I've been using.
+
+On Tue, 14 Apr 1998, Johnny C. Lam wrote:
+
+> I'm trying to figure out how to boot multi-user on my Multia.  I
+> installed NetBSD 1.3 from ftp.netbsd.org and set rc_configured to YES
+> in /etc/rc.conf.  However, init always seems to think it should start
+> single-user.  Are there any boot flags I need to provide when I boot
+> NetBSD?  All of my boot environment variables are empty, except for
+> boot_reset=OFF.  I currently boot NetBSD using the command
+> 
+> 	boot dka100
+> 
+> Thanks,
+> --
+>    Johnny C. Lam
+>    Department of Statistics                 lamj@stat.cmu.edu
+>    Carnegie Mellon University               http://www.stat.cmu.edu/~lamj/
+> 
+>                                 @>---`---,----
+>
+
+From thorpej@nas.nasa.gov  Tue Apr 14 10:05:45 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: lamj@stat.cmu.edu
+Date: Tue, 14 Apr 1998 10:05:45 +0000
+Subject: Re: Multi-user boot
+
+On Tue, 14 Apr 1998 02:26:47 -0400 
+ "Johnny C. Lam" <lamj@stat.cmu.edu> wrote:
+
+ > I'm trying to figure out how to boot multi-user on my Multia.  I
+ > installed NetBSD 1.3 from ftp.netbsd.org and set rc_configured to YES
+ > in /etc/rc.conf.  However, init always seems to think it should start
+ > single-user.  Are there any boot flags I need to provide when I boot
+ > NetBSD?  All of my boot environment variables are empty, except for
+ > boot_reset=OFF.  I currently boot NetBSD using the command
+ > 
+ > 	boot dka100
+
+	setenv boot_osflags a
+
+...or manually like so:
+
+	boot dka100 -fl "a"
+
+...or to boot single-user:
+
+	boot dka100 -fl ""
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From lamj@stat.cmu.edu  Tue Apr 14 16:18:33 1998
+From: Johnny C. Lam <lamj@stat.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 14 Apr 1998 16:18:33 +0000
+Subject: Unusable console
+
+I have a stock 1.3 installation of NetBSD/alpha on my Multia, and I'm
+finding the console to be pretty unusable.  Is there a xserver that
+goes with the x*.tgz components found on ftp.netbsd.org?  Is there a
+way to make the console more ususable with another TERM setting (it
+defaults to "unknown")?  What do other people use?
+
+Thanks,
+--
+   Johnny C. Lam
+   Department of Statistics             lamj@stat.cmu.edu
+   Carnegie Mellon University           http://www.stat.cmu.edu/~lamj/
+
+                            @>---`---,----
+
+From ross@teraflop.com  Tue Apr 14 13:38:22 1998
+From: Ross Harvey <ross@teraflop.com>
+To: lamj@stat.cmu.edu, port-alpha@NetBSD.ORG
+Date: Tue, 14 Apr 1998 13:38:22 +0000
+Subject: Re:  Unusable console
+
+> Is there a way to make the console more ususable with another TERM
+> setting (it defaults to "unknown")?
+
+The correct TERM is "sun".  Sorry, most of the /etc stuff is MI, so out
+of the box it doesn't exactly fit every NetBSD platform.
+
+From cgd@pa.dec.com  Tue Apr 14 13:46:15 1998
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: ross@teraflop.com
+Date: Tue, 14 Apr 1998 13:46:15 +0000
+Subject: Re: Unusable console
+
+> > Is there a way to make the console more ususable with another TERM
+> > setting (it defaults to "unknown")?
+> 
+> The correct TERM is "sun".  Sorry, most of the /etc stuff is MI, so out
+> of the box it doesn't exactly fit every NetBSD platform.
+
+But, in particular, /etc/ttys is not, so can fit NetBSD/alpha exactly.
+However, it's still correct that the default for 'console' is unknown.
+
+/dev/console may be the graphics display, but it also may be a serial
+port.  In the former case, you want 'sun', but in the latter case you
+probably don't (unless you happen to be tipped over from a real sun
+console 8-).
+
+
+Really, the 'stock' ttys file on the alpha should look like:
+
+# console pseudo-device
+console "/usr/libexec/getty std.9600"   unknown on secure
+
+# Workstation console (framebuffer) ttys
+ttyE0   "/usr/libexec/getty std.9600"   sun off secure
+ttyE1   "/usr/libexec/getty std.9600"   sun off secure
+
+# DEC 3000 Z8530 ("scc") serial ports
+ttyB0   "/usr/libexec/getty std.9600"   unknown off secure
+ttyB1   "/usr/libexec/getty std.9600"   unknown off secure
+
+# AlphaStation NS16550 ("com") serial ports
+ttyC0   "/usr/libexec/getty std.9600"   unknown off secure
+ttyC1   "/usr/libexec/getty std.9600"   unknown off secure
+
+
+When a system is set up, part of the setup process is editing
+/etc/ttys, turning off getty on console, and enabling gettys on the
+terminal lines that should have them started.  That is (sparsely)
+documented in the ttys file itself.
+
+
+Note that the use of 'sun' may change above, when the new wscons is
+used, if an emulation other than 'sun' is ever made the default.  But
+right now, that'd be correct.
+
+
+
+cgd
+
+From thorpej@nas.nasa.gov  Tue Apr 14 15:27:01 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 14 Apr 1998 15:27:01 +0000
+Subject: Support for AlphaPC 164SX
+
+Hi folks.
+
+With some testing help from Magnus Enbom <dot@ludd.luth.se>, I've gotten
+the PCI-ISA bridge on the AlphaPC 164SX working.  The code will appear in
+tomorrow's SUP update.
+
+Send-pr any problems you might have.
+
+Have fun!
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+Entering netbsd at 0xfffffc0000300f50...
+Unrecognized boot flag '-'.
+consinit: not using prom console
+Copyright (c) 1996, 1997, 1998
+    The NetBSD Foundation, Inc.  All rights reserved.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+    The Regents of the University of California.  All rights reserved.
+
+NetBSD 1.3E (GENERIC) #105: Tue Apr 14 11:16:55 PDT 1998
+    thorpej@bishop:/tmp_mnt/dracul/u5/netbsd/src/sys/arch/alpha/compile/GENERIC
+Digital AlphaPC 164SX 533 MHz, 531MHz
+8192 byte page size, 1 processor.
+real mem = 134217728 (1957888 reserved for PROM, 132259840 used by NetBSD)
+avail mem = 113688576
+using 1614 buffers containing 13221888 bytes of memory
+mainbus0 (root)
+cpu0 at mainbus0: ID 0 (primary), 21164PC (unknown minor type 0x2)
+cia0 at mainbus0: DECchip 21171/21172 Core Logic chipset, revision 257
+cia0: extended capabilities: 1<BWEN>
+pci0 at cia0 bus 0
+pci0: i/o enabled, memory enabled
+de0 at pci0 dev 5 function 0
+de0: interrupting at eb164 irq 2
+de0: 21041 [10Mb/s] pass 1.1
+de0: address 00:40:05:31:f6:b4
+de0: enabling 10baseT port
+ncr0 at pci0 dev 7 function 0: ncr 53c875 fast20 wide scsi
+ncr0: interrupting at eb164 irq 1
+ncr0: minsync=25, maxsync=254, maxoffs=16, 128 dwords burst, large dma fifo
+ncr0: single-ended, open drain IRQ driver, using on-chip SRAM
+ncr0: restart (scsi reset).
+scsibus0 at ncr0: 16 targets
+sd0 at scsibus0 targ 1 lun 0: <QUANTUM, XP39100S, LXY4> SCSI2 0/direct fixed
+sd0(ncr0:1:0): 10.0 MB/s (100 ns, offset 16)
+sd0: 8682MB, 5899 cyl, 20 head, 150 sec, 512 bytes/sect x 17781520 sectors
+sio0 at pci0 dev 8 function 0: Contaq Microsystems 82C693 PCI-ISA Bridge (rev. 0x00)
+Contaq Microsystems 82C693 PCI-ISA Bridge (IDE mass storage, interface 0x80) at pci0 dev 8 function 1 not configured
+Contaq Microsystems 82C693 PCI-ISA Bridge (IDE mass storage) at pci0 dev 8 function 2 not configured
+Contaq Microsystems 82C693 PCI-ISA Bridge (USB serial bus, interface 0x10) at pci0 dev 8 function 3 not configured
+isa0 at sio0
+com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, working fifo
+com0: console
+com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, working fifo
+lpt0 at isa0 port 0x3bc-0x3bf irq 7
+pcppi0 at isa0 port 0x60-0x64
+pckbd0 at pcppi0
+pms0 at pcppi0
+mcclock0 at isa0 port 0x70-0x71: mc146818 or compatible
+root on sd0a dumps on sd0b
+root file system type: ffs
+
+From stuebi@stuebi.de  Wed Apr 15 10:24:04 1998
+From: Wieland =?iso-8859-1?Q?St=FCbinger?= <stuebi@stuebi.de>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 15 Apr 1998 10:24:04 +0000
+Subject: Aplha 164LX, hang during install
+
+Hei together,
+
+I have an Alpha 164LX Motherboard whith the following Components
+installed:
+Prozessor: 533MHz
+PCI: DE500-AA, ZLxp2-E, NCR53C875 (div. HDS)
+IDE: ST34342A
+
+After booting from floppy everything is OK for a undefined
+time. But if I wait a couple of minutes without typing
+the systems hangs.
+
+
+Anyone withn the same problem ??
+
+This only occurs during the installation and if the DE500 is configured.
+If I boot from IDE HD everything is OK.
+
+
+Greetings
+	W.Stuebinger
+
+---
+*Stuebinger System & Datentechnik       Tel.:Office 49-631-31650-0   *
+*Wieland Stuebinger                     Fax.:Office 49-631-31650-55  *
+*Kurt Schumacher Str. 26a                                            *
+*67663 Kaiserslautern                   e-mail:  stuebi@stuebi.de    *
+*Germany                                nic-hdl: WS6-RIPE            *
+*               Real programmers don`t comment.                      *
+*        Something hard to write should be hard to read.             *
+
+From koch@gauss.mpip-mainz.mpg.de  Wed Apr 15 15:26:51 1998
+From: Matthias Koch <koch@gauss.mpip-mainz.mpg.de>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 15 Apr 1998 15:26:51 +0000
+Subject: Re: Unusable console
+
+Setting TERM=SUN helps when using vi, but the 8-line jump-scrolling remains.
+
+Bye,
+Matthias
+
+From mjacob@feral.com  Wed Apr 15 07:32:38 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 15 Apr 1998 07:32:38 +0000
+Subject: Re: NetBSD on an AS4100?
+
+The Alpha 4100 changes were checked in last night. They should
+be in sup by tomorrow if they aren't there today. It seems to
+work pretty well- there are only two bugs that I know of:
+
+	A) PCI cards that present a bridge to the PCI bus and have
+	multiple devices then on the new PCI bus created that
+	end up having different device drivers or device driver
+	instances can't attach interrupts. I think the only card
+	that does this that I know of is the Znyx 4 port 100BaseT
+	card.
+
+	B) For some reason, a config file with *only* KN300 support
+	in it hangs on boot.
+
+I'll be working on both over the next month, but on a lower priority.
+
+I can build you a GENERIC kernel if you'd like- beyond that, I
+probably can't be too much help to get you going on the 4100- but
+I would love to hear some feedback.
+
+From mjacob@feral.com  Wed Apr 15 07:40:00 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 15 Apr 1998 07:40:00 +0000
+Subject: some 8200 stuff....
+
+A long while back I'd had problems with the BusLogic
+SCSI controller on the 8200 (it had a mangled config
+space read).
+
+Recently I discovered that I was setting the wrong
+byte enables for config space reads. This has now
+been corrected. The BusLogic still isn't working yet on
+the 8200, but at least it's being recognized!
+
+From thorpej@nas.nasa.gov  Wed Apr 15 09:51:41 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mjacob@feral.com
+Date: Wed, 15 Apr 1998 09:51:41 +0000
+Subject: Re: NetBSD on an AS4100?
+
+On Wed, 15 Apr 1998 07:32:38 -0700 
+ Matthew Jacob <mjacob@feral.com> wrote:
+
+ > 	B) For some reason, a config file with *only* KN300 support
+ > 	in it hangs on boot.
+
+Looks like you forgot the _PMAP_MAY_USE_PROM_CONSOLE stuff in pmap.h
+for the 4100.  (Although, you did get it in pmap.c)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From mjacob@feral.com  Wed Apr 15 10:01:15 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: thorpej@nas.nasa.gov
+Date: Wed, 15 Apr 1998 10:01:15 +0000
+Subject: Re: NetBSD on an AS4100?
+
+Yes, I noticed the pmap.h stuff- but even with that something
+hangs (I was working on it yesterday....)- thanks for pointing
+it out tho
+
+From that1guy@azstarnet.com  Wed Apr 15 12:52:20 1998
+From: Shane B <that1guy@azstarnet.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 15 Apr 1998 12:52:20 +0000
+Subject: RE: Unusable console
+
+Using "sun" does nothing much for me either, scrolling does not work
+properly.
+
+I'm also interested in how I change the character size and screen
+dimensions.  I've played with stty a bit, but my characters are still
+huge.  Any suggestions?
+
+Shane
+
+From mjacob@nas.nasa.gov  Wed Apr 15 12:55:49 1998
+From: Matthew P. Jacob <mjacob@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 15 Apr 1998 12:55:49 +0000
+Subject: ALPHA4100-silly me...oops..
+
+I forgot to mention that I haven't got display console
+stuff for the Alpha 4100 set up yet- oops! Serial
+consoles only.
+
+From thorpej@nas.nasa.gov  Wed Apr 15 13:03:42 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: that1guy@azstarnet.com
+Date: Wed, 15 Apr 1998 13:03:42 +0000
+Subject: Re: Unusable console
+
+On Wed, 15 Apr 1998 12:52:20 -0700 (MST) 
+ Shane B <that1guy@azstarnet.com> wrote:
+
+ > Using "sun" does nothing much for me either, scrolling does not work
+ > properly.
+
+Defined "does not work properly".  If it skips 10 lines when it reaches
+the bottom of the screen, it's doing what is intended by the code.
+
+FWIW, it looks like we'll be switching to new console code fairly soon
+on the Alpha port, which will mark a dramatic improvement in NetBSD/alpha's
+display console handling.
+
+ > I'm also interested in how I change the character size and screen
+ > dimensions.  I've played with stty a bit, but my characters are still
+ > huge.  Any suggestions?
+
+The characters are "huge" because it's using the Gallant 19 font.  Currently,
+there is no way to change the font without compiling in a new one.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From seifert@sequent.com  Wed Apr 15 13:41:32 1998
+From: David Seifert <seifert@sequent.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 15 Apr 1998 13:41:32 +0000
+Subject: Re: Unusable console
+
+> If it skips 10 lines when it reaches
+> the bottom of the screen, it's doing what is intended by the code.
+
+As I recall, this is for performance reasons.  It can be a significant pain
+during many tasks.
+
+If the new console code still needs to jump-scroll for performance,
+perhaps there could be a scroll-increment stty?
+
+-Dave
+
+From yba@polytronics.com  Wed Apr 15 16:49:06 1998
+From: Mark H. Levine <yba@polytronics.com>
+To: thorpej@nas.nasa.gov
+Date: Wed, 15 Apr 1998 16:49:06 +0000
+Subject: Re: Unusable console
+
+On Wed, 15 Apr 1998 12:52:20 -0700 (MST) 
+    Shane B <that1guy@azstarnet.com> wrote:
+   
+    > Using "sun" does nothing much for me either, scrolling does not work
+    > properly.
+   
+   Defined "does not work properly".  If it skips 10 lines when it reaches
+   the bottom of the screen, it's doing what is intended by the code.
+
+I think in the context of using vi, the complaint is that inappropriate
+scrolling occurs, and you cannot turn it off.  Also, the cursor motions
+and things like clear to end of line don't work, one constantly ends up
+repainting the screen to see what is really there,  Running the version
+of top we have (I forgot what it is called) which uses the curses interface
+to paint ascii graphs of usage on the screen is a great demo of this problem.
+Large sections of screen go black when they should stay visible, as if the
+termcap entry thinks ops are non-destructive when they overwrite text instead.
+
+From cgd@pa.dec.com  Wed Apr 15 13:55:15 1998
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: seifert@sequent.com
+Date: Wed, 15 Apr 1998 13:55:15 +0000
+Subject: Re: Unusable console
+
+> As I recall, this is for performance reasons.  It can be a significant pain
+> during many tasks.
+
+Right.
+
+
+> If the new console code still needs to jump-scroll for performance,
+> perhaps there could be a scroll-increment stty?
+
+Actually, the correct solution (which is implemented in the new code)
+is to default to one-line-at-a-time, but then use the documented 'sun'
+console escape sequence to allow that to be set.
+
+Unfortunately, as far as I know, that escape sequence is only
+documented in Sun manual pages.  8-)
+
+
+
+cgd
+
+From mjacob@feral.com  Wed Apr 15 14:42:40 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: mjacob@nas.nasa.gov, port-alpha@NetBSD.ORG
+Date: Wed, 15 Apr 1998 14:42:40 +0000
+Subject: Re: ALPHA4100-silly me...oops..
+
+VGA console support now back in....only partially tested (comes up attaches,
+but I didn't have it spawn a getty)
+
+From lamj@stat.cmu.edu  Thu Apr 16 02:58:17 1998
+From: Johnny C. Lam <lamj@stat.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 16 Apr 1998 02:58:17 +0000
+Subject: 1.3 -> current
+
+It seems that the Alpha port is like the mac68k port from a
+year ago -- it's better to track current than to stay with the
+release.  On my Mac, I would grab binary snapshots and compile my own
+kernels, and I was hoping to do the same with my Multia.
+	What's the best way to move from 1.3 to current on the Alpha
+port?  I looked for a recent snapshot at ftp.netbsd.org in
+/pub/NetBSD/arch/alpha, but found only the compile toolchain.  If I
+grab the current-source tarballs, how do I go about compiling and
+installing a current kernel + userland?
+
+Thanks,
+--
+   Johnny C. Lam
+   Department of Statistics             lamj@stat.cmu.edu
+   Carnegie Mellon University           http://www.stat.cmu.edu/~lamj/
+
+                            @>---`---,----
+
+From mjacob@feral.com  Thu Apr 16 08:36:51 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: lamj@stat.cmu.edu
+Date: Thu, 16 Apr 1998 08:36:51 +0000
+Subject: Re: 1.3 -> current
+
+Johnny C. Lam wrote:
+> 
+>         It seems that the Alpha port is like the mac68k port from a
+> year ago -- it's better to track current than to stay with the
+> release.  On my Mac, I would grab binary snapshots and compile my own
+> kernels, and I was hoping to do the same with my Multia.
+>         What's the best way to move from 1.3 to current on the Alpha
+> port?  I looked for a recent snapshot at ftp.netbsd.org in
+> /pub/NetBSD/arch/alpha, but found only the compile toolchain.  If I
+> grab the current-source tarballs, how do I go about compiling and
+> installing a current kernel + userland?
+> 
+
+Install 1.3, grab the current-source tarballs, use sup to
+keep them up to date...
+
+What's the problems with 1.3 that is causing you to want to
+track -current? There've been a lot of improvements but I
+run pretty much nothing but 1.3 binaries and I even have
+an alpha or two that have been running GENERIC from 1.3
+for months w/o problems.
+
+From kpneal@pobox.com  Thu Apr 16 14:10:14 1998
+From: Kevin P. Neal <kpneal@pobox.com>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 16 Apr 1998 14:10:14 +0000
+Subject: Mozilla compile problem.
+
+NetBSD 1.3 system, toolchain released right around 1.3 release date. 
+
+Lesstif 0.83.
+
+Here's the error I get:
+
+gmake[3]: Entering directory `/local/pkgobj/www/mozilla/ns/cmd/xfe/XfeWidgets'
+cd Xfe; gmake libs
+gmake[4]: Entering directory `/local/pkgobj/www/mozilla/ns/cmd/xfe/XfeWidgets/Xf
+e'
+gcc -o NetBSD1.3_OPT.OBJ/Arrow.o -c -DXP_UNIX -O -DNETBSD -fpic -DSW_THREADS -DN
+EED_UINT -DHAVE_LCHOWN -DNTOHL_ENDIAN_H -DHAVE_FILIO_H -DNEED_SYS_TIME_H -DNEED_
+UINT_T -DHAVE_BSD_FLOCK -D_PR_LOCAL_THREADS_ONLY -DHAVE_STRERROR  -UDEBUG -DNDEB
+UG -DTRIMMED -DNSPR20 -DNETSCAPE -DOSTYPE=\"NetBSD1\" -DMOZILLA_CLIENT -DNO_SECU
+RITY -DEDITOR -DMOZ_COMMUNICATOR_IIDS -DEDITOR -DEDITOR_UI -DLAYERS -DUNIX_EMBED
+ -DX_PLUGINS -DUNIX_LDAP -DNSPR -DMOCHA -DUNIX_ASYNC_DNS -DDEVELOPER_DEBUG   -I.
+./../../../dist/public/XfeWidgets -I../../../../include  -I/usr/X11R6/include -I
+../../../../dist/NetBSD1.3_OPT.OBJ/include   Arrow.c
+Arrow.c:254: initializer element for `xfeArrowClassRec.xfe_primitive_class.bit_g
+ravity' is not computable at load time
+gmake[4]: *** [NetBSD1.3_OPT.OBJ/Arrow.o] Error 1
+gmake[4]: Leaving directory `/local/pkgobj/www/mozilla/ns/cmd/xfe/XfeWidgets/Xfe
+'
+gmake[3]: *** [libs] Error 2
+gmake[3]: Leaving directory `/local/pkgobj/www/mozilla/ns/cmd/xfe/XfeWidgets'
+gmake[2]: *** [libs] Error 2
+gmake[2]: Leaving directory `/local/pkgobj/www/mozilla/ns/cmd/xfe'
+gmake[1]: *** [libs] Error 2
+gmake[1]: Leaving directory `/local/pkgobj/www/mozilla/ns/cmd'
+gmake: *** [libs] Error 2
+*** Error code 2
+
+Stop.
+*** Error code 1
+
+Stop.
+*** Error code 1
+
+Stop.
+tome#
+
+If I knew how to fix it I would. What causes this?
+xfeArrowClassRec...bit_gravity
+boils down to an int. Where's the problem?
+--
+XCOMM Kevin P. Neal, Junior, Comp. Sci.     -   House of Retrocomputing
+XCOMM  mailto:kpneal@pobox.com              -   http://www.pobox.com/~kpn/
+XCOMM  kpneal@eos.ncsu.edu              Spoken by Keir Finlow-Bates:
+XCOMM "Good grief, I've just noticed I've typed in a rant. Sorry chaps!"
+
+From ross@teraflop.com  Thu Apr 16 13:36:31 1998
+From: Ross Harvey <ross@teraflop.com>
+To: lamj@stat.cmu.edu, port-alpha@NetBSD.ORG
+Date: Thu, 16 Apr 1998 13:36:31 +0000
+Subject: Re:  1.3 -> current
+
+> 
+> 	It seems that the Alpha port is like the mac68k port from a
+> year ago -- it's better to track current than to stay with the
+> release.  On my Mac, I would grab binary snapshots and compile my own
+> kernels, and I was hoping to do the same with my Multia.
+> 	What's the best way to move from 1.3 to current on the Alpha
+> port?  I looked for a recent snapshot at ftp.netbsd.org in
+> /pub/NetBSD/arch/alpha, but found only the compile toolchain.  If I
+> grab the current-source tarballs, how do I go about compiling and
+> installing a current kernel + userland?
+> 
+> Thanks,
+> --
+>    Johnny C. Lam
+>    Department of Statistics             lamj@stat.cmu.edu
+>    Carnegie Mellon University           http://www.stat.cmu.edu/~lamj/
+
+
+The best way to upgrade the entire system is to install a binary
+snapshot. Recompiling everything from source will be quite difficult
+for a number of reasons.
+
+You could recompile a -current kernel with less work, but you would
+find yourself recompiling things like config(8) in a piecemeal
+fashion.
+
+I will have a new binary snapshot ready in a few days. Probably, you
+should just install binary snapshots as they appear. Most of the
+cautions against running -current don't entirely apply to tracking
+-current via installation of binary snapshots...reloading -current
+binaries is a fairly safe way of keeping up.
+
+From jlbg+@andrew.cmu.edu  Thu Apr 16 20:56:42 1998
+From: Johnny Chi-Lung Lam <jlbg+@andrew.cmu.edu>
+To: mjacob@feral.com
+Date: Thu, 16 Apr 1998 20:56:42 +0000
+Subject: Re: 1.3 -> current
+
+> What's the problems with 1.3 that is causing you to want to
+> track -current? There've been a lot of improvements but I
+> run pretty much nothing but 1.3 binaries and I even have
+> an alpha or two that have been running GENERIC from 1.3
+> for months w/o problems.
+
+I mostly interested in tracking the egcs port since I'm looking for a
+fairly compliant, C++ compiler.  gcc-2.7.2.2 in 1.3 isn't quite enough
+for my purposes.
+
+--
+   Johnny C. Lam
+   Department of Statistics                 lamj@stat.cmu.edu
+   Carnegie Mellon University               http://www.stat.cmu.edu/~lamj/
+
+                                @>---`---,----
+
+From mjacob@feral.com  Thu Apr 16 18:30:53 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: jlbg+@andrew.cmu.edu
+Date: Thu, 16 Apr 1998 18:30:53 +0000
+Subject: Re: 1.3 -> current
+
+Johnny Chi-Lung Lam wrote:
+> 
+> > What's the problems with 1.3 that is causing you to want to
+> > track -current? There've been a lot of improvements but I
+> > run pretty much nothing but 1.3 binaries and I even have
+> > an alpha or two that have been running GENERIC from 1.3
+> > for months w/o problems.
+> 
+> I mostly interested in tracking the egcs port since I'm looking for a
+> fairly compliant, C++ compiler.  gcc-2.7.2.2 in 1.3 isn't quite enough
+> for my purposes.
+> 
+>  
+
+Uh, yeah. No kidding. Interesting. I took your mail to be
+a an 'indictment' of 1.3 (on the alpha).
+
+From wada@faraday.ee.ibaraki.ac.jp  Fri Apr 17 16:07:18 1998
+From: Wada Tatsuaki <wada@faraday.ee.ibaraki.ac.jp>
+To: jlbg+@andrew.cmu.edu
+Date: Fri, 17 Apr 1998 16:07:18 +0000
+Subject: egcs on NetBSD alpha (Re: 1.3 -> current)
+
+>I mostly interested in tracking the egcs port since I'm looking for a
+>fairly compliant, C++ compiler.  gcc-2.7.2.2 in 1.3 isn't quite enough
+>for my purposes.
+
+Hello, I'm also interested egcs C++ compiler and want to use one
+on my NetBSD alpha.
+
+I'd like to know whether we need to move current or not to build egcs?
+Simply trying to configure egcs-1.0.2 on my NetBSD 1.3 has failed.
+
+---
+	Wada Tatsuaki
+	Ibaraki University
+
+From mheller@student.uni-kl.de  Fri Apr 17 11:21:44 1998
+From: Martin Heller <mheller@student.uni-kl.de>
+To: wada@faraday.ee.ibaraki.ac.jp
+Date: Fri, 17 Apr 1998 11:21:44 +0000
+Subject: Re: egcs on NetBSD alpha (Re: 1.3 -> current)
+
+On Fri, 17 Apr 1998, Wada Tatsuaki wrote:
+
+> >I mostly interested in tracking the egcs port since I'm looking for a
+> >fairly compliant, C++ compiler.  gcc-2.7.2.2 in 1.3 isn't quite enough
+> >for my purposes.
+> 
+> Hello, I'm also interested egcs C++ compiler and want to use one
+> on my NetBSD alpha.
+> 
+> I'd like to know whether we need to move current or not to build egcs?
+> Simply trying to configure egcs-1.0.2 on my NetBSD 1.3 has failed.
+egcs-1.0.2 for NetBSD/alpha is in the works. Mostly Paul Anderson is 
+working on it. Most of the things work others not always AFAIK.
+Paul will release a patch-set for egcs-1.0.2 before he's off for some
+time AFAIK.
+MARTIN
+ 	Wada Tatsuaki
+> 	Ibaraki University
+> 
+> 
+>
+
+From mike@ducky.net  Fri Apr 17 11:25:55 1998
+From: Mike Haertel <mike@ducky.net>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 17 Apr 1998 11:25:55 +0000
+Subject: problem installing 1.3 on noname
+
+i am attempting to install NetBSD 1.3 on an AxpPCI33
+board.  it successfully loads the install kernel off the
+boot floppy, and then dies with a fatal kernel trap
+(apparently) while attempting to probe the on-board ncr0
+scsi controller.  specifically what happens is it prints
+the message saying it's probing the scsi bus, and about
+1 second later (probably about the time something is
+repyling) it panics.
+
+has anybody else seen this?  thanks,
+
+	Mike
+
+(p.s. i tried looking for 1.3.1 but it looks like the
+alpha version isn't built yet...)
+
+From pha@pdq.com  Fri Apr 17 17:19:21 1998
+From: Paul H. Anderson <pha@pdq.com>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 17 Apr 1998 17:19:21 +0000
+Subject: egcs 1.0.2 patches available for alpha netbsd 1.3
+
+I got egcs 1.0.2 working on my 164LX running NetBSD 1.3.  It has a few
+problems, which I list below. 
+
+To get it working for yourself, obtain the file
+ftp://egcs.cygnus.com:/pub/egcs/releases/egcs-1.0.2/egcs-1.0.2.tar.gz
+
+Also obtain my patch file ftp://ftp.pdq.com/pub/alpha/diff.alpha
+
+Untar it, then cd to that directory, and use:
+
+patch -p1 <diff.alpha
+
+Then, do ./configure and make.
+
+I repeatedly built it, installed it, rebuilt it, and reinstalled it (3
+times today), and to the best of my knowledge, it should build on a
+alpha/netbsd 1.3 system.  I only tested it with building and rebuilding
+itself, and compiled 35,000 lines of c++ code, which it did correctly
+(unlike gcc 2.7.x).  I never built a kernel, so I'd make sure I had the 
+original toolchain tarball around before installing egcs.
+
+problems:
+
+exceptions not tested at all
+
+c++ static initializer seems to have problems (w/String object in libg++)
+
+ELF .notes section not filled out properly.  (see
+http://www.netbsd.org./Documentation/netbsd/index.html for more information
+about this).
+
+possible ECOFF remnants from Linux port?
+
+there are egcs build time warnings about builtin string
+function type mismatches (strcpy, etc).
+
+g77 has warnings about subscript of type 'char'.
+
+/usr/local/lib/gcc-lib/alpha-unknown-netbsd1.3/egcs-2.90.27/include/limits.h:31:
+SCHAR_{MAX,MIN}, UCHAR_{}, CHAR_{}, etc, are redefined - I don't know why
+egcs put these limits back in... must be a config problem here.
+
+gdb has problems single stepping in c++ programs.  toolchain compiler
+did this also, though, so I'm not sure that I made this any worse.
+
+license status:
+
+The diffs are changes made directly to egcs-1.0.2.  My changes are freely
+available, though I need to sign a piece of paper that says so, I guess
+(I'm happy to do this, but I need to see it first...).  No code outside of
+egcs-1.0.2 was used.  The files are derived from alpha linux and
+i386/netbsd configurations. 
+
+I'll be out of town for the next week, but this should at least get some 
+people ahead of where they were before.  
+
+Paul
+
++------------------------------------------------------+
+| Paul Anderson           Public Data Queries, Inc.    |
+| pha@pdq.com             734-213-4964(W) 994-3734(H)  |
++------------------------------------------------------+
+
+From cgd@pa.dec.com  Fri Apr 17 14:29:20 1998
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: pha@pdq.com
+Date: Fri, 17 Apr 1998 14:29:20 +0000
+Subject: Re: egcs 1.0.2 patches available for alpha netbsd 1.3
+
+> ELF .notes section not filled out properly.  (see
+> http://www.netbsd.org./Documentation/netbsd/index.html for more information
+> about this).
+
+Uh, those are/were supposed to be set 'only' for actual executables,
+i.e. not necessarily set in .o's and shared libs (though doing them it
+shared libs could make sense).
+
+For executables, they're taken care of by crt0, and for shared libs
+they could be taken care of via the shared lib 'start file'.
+
+
+I don't think you should need to make any changes to gcc or the
+binutils to deal with the ELF .notes sections.
+
+
+cgd
+
+From wilko@yedi.iaf.nl  Fri Apr 17 22:11:45 1998
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: mike@ducky.net
+Date: Fri, 17 Apr 1998 22:11:45 +0000
+Subject: Re: problem installing 1.3 on noname
+
+As Mike Haertel wrote...
+> i am attempting to install NetBSD 1.3 on an AxpPCI33
+> board.  it successfully loads the install kernel off the
+> boot floppy, and then dies with a fatal kernel trap
+> (apparently) while attempting to probe the on-board ncr0
+> scsi controller.  specifically what happens is it prints
+> the message saying it's probing the scsi bus, and about
+> 1 second later (probably about the time something is
+> repyling) it panics.
+> 
+> has anybody else seen this?  thanks,
+
+Not a direct answer but:
+
+Switch to OSF PAL code succeeded.
+
+Boot flags: a
+
+Loading netbsd...
+1916136+398104 [85+87120+45911]
+
+Entering netbsd at 0xfffffc0000230f30...
+Copyright (c) 1996, 1997 The NetBSD Foundation, Inc.  All rights reserved.
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+    The Regents of the University of California.  All rights reserved.
+
+NetBSD 1.3 (AXP33) #5: Mon Jan 19 13:27:02 PST 1998
+    root@axp33.iaf.nl:/usr/src/sys/arch/alpha/compile/AXP33
+Alpha PC AXPpci33 ("NoName"), 200MHz
+8192 byte page size, 1 processor.
+real mem = 33554432 (2072576 reserved for PROM, 31481856 used by NetBSD)
+avail mem = 22716416
+using 384 buffers containing 3145728 bytes of memory
+mainbus0 (root)
+
+etc.
+
+In other words 1.3 works fine on my NoName. I think cjs used a pair of NoNames
+to build the 1.3 binary dist.
+
+Wilko
+_     ______________________________________________________________________
+ |   / o / /  _  Bulte 				  email: wilko @ yedi.iaf.nl 
+ |/|/ / / /( (_) Arnhem, The Netherlands          WWW:   http://www.tcja.nl
+______________________________________________ Powered by FreeBSD __________
+
+From ross@teraflop.com  Fri Apr 17 14:43:46 1998
+From: Ross Harvey <ross@teraflop.com>
+To: mike@ducky.net, wilko@yedi.iaf.nl
+Date: Fri, 17 Apr 1998 14:43:46 +0000
+Subject: Re: problem installing 1.3 on noname
+
+The AXPpci33 ("NoName") is one of the most popular platforms. I would
+think "hardware problem", but without more information on the error
+it's hard to say.
+
+From bobs@tbcnet.com  Sat Apr 18 10:58:42 1998
+From: Bob Stiles <bobs@tbcnet.com>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 18 Apr 1998 10:58:42 +0000
+Subject: Mutia install help
+
+Hi all I'm having some difficulties installing NetBSD on my Multia machine
+and could sure use some guidance, here's my set up so far,
+Multia 166, 32 MB parity RAM, 4x Tosh SCSI CD, 1GB IBM hdd, 676MB Seagate
+hdd, Linux 3.0 on the IBM hdd. 
+So far I have got the latest copy of the SRM console working fine and have
+tried booting from a floppy image netbsd.gz obtained from gatekeeper.dec
+site. When I try to get the system to boot using the command "boot dva0
+-file netbsd.gz -flag s" as recommended in the doc "$NetBSD: README,v
+1.8.4.1 1996/06/13 20:49:01 cgd Exp $" on the Info Magic cd I get the error
+message "(boot dva0.0.0.0.0.1 -file netbsd.gz -flags s)
+no such file
+file open failed for netbsd.gz/dva0.0.0.0.0.1
+bootstrap failure"
+I have tried variations on the theme i.e. copy to a dos formatted flop and
+use the fat flag, rawrite the gz to the flop under dos, dd the gz using
+Linux, assorted flags from the SRM console, all with no success, am I just
+missing something simple? Did I miss a Doc somewhere? Any and all help
+would be appreciated. TIA
+
+Bob Stiles
+Network Administrator
+Richards-Wilcox, Inc.
+http://www.richards-wilcox.com
+bobs@tbcnet.com (home)
+bobs@ntsource.com (work)
+ebunny58@aol.com (AOL)
+
+From mynhier@cs.utk.edu  Sat Apr 18 12:15:28 1998
+From: Chad Mynhier <mynhier@cs.utk.edu>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 18 Apr 1998 12:15:28 +0000
+Subject: ZLXp-E2 frame buffer
+
+About a year ago, I sent mail to this list about the ZLXp-E2 frame 
+buffer.  I have an AS200 and one of these, and I would love to see 
+it working, at least for text if not X.  Can anyone comment on the
+feasibility of getting this to work under NetBSD?  Would it be a 
+reasonable project to attempt for someone who's never even written
+a device driver, or would a better route be to loan the card to 
+someone who can get it done?  And if that's the case, is there even
+anyone with the time/motivation to do it?
+
+Thanks,
+Chad Mynhier
+
+From lamj@stat.cmu.edu  Mon Apr 20 16:20:24 1998
+From: Johnny C. Lam <lamj@stat.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 20 Apr 1998 16:20:24 +0000
+Subject: Trouble booting on Multia
+
+I'm having trouble booting NetBSD on a recently purchased DEC Multia
+/w 64MB RAM and 4GB external HD.  Booting NetBSD 1.3 worked just fine
+for about a week, but then refused to work quite suddenly.  At the SRM
+console, when I type:
+
+	boot dka100
+
+to boot off of the bootable partition of the extranal HD, or
+
+	boot dva0
+
+to boot off of the floppy disk, I get the following error:
+
+	Processor correctable error through vector 00000063.
+	ESP: E7B4DAE900000213		FAR: E7B4DAE900088E00
+	STAT0: 0000000200000002		STAT1: 0000006400000064
+	BCTAG: 0000000000000000
+
+	Processor correctable error through vector 00000063.
+	ESP: 6FF4FAF900000213		FAR: 6FF4FAF9000691A8
+	STAT0: 0000000200000002		STAT1: 0000006400000064
+	BCTAG: 0000000000000000
+
+which repeats endlessly.  I tried swapping the two positions of the
+two 32MB SIMMs to see if one of the SIMMs was bad, but the problem
+persists.  There was no new hardware added to the machine between the
+time that the machine was working fine and the time that it suddenly
+stopped booting.
+	Does anyone have a guess at what the problem might be?
+
+Thanks,
+--
+   Johnny C. Lam
+   Department of Statistics             lamj@stat.cmu.edu
+   Carnegie Mellon University           http://www.stat.cmu.edu/~lamj/
+
+                            @>---`---,----
+
+From thorpej@nas.nasa.gov  Mon Apr 20 14:05:29 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: lamj@stat.cmu.edu
+Date: Mon, 20 Apr 1998 14:05:29 +0000
+Subject: Re: Trouble booting on Multia
+
+On Mon, 20 Apr 1998 16:20:24 -0400 
+ "Johnny C. Lam" <lamj@stat.cmu.edu> wrote:
+
+ > 	Does anyone have a guess at what the problem might be?
+
+Sounds like your Multia ate itself.  Every one I've seen has died
+eventually.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From ross@teraflop.com  Mon Apr 20 14:51:35 1998
+From: Ross Harvey <ross@teraflop.com>
+To: lamj@stat.cmu.edu, port-alpha@NetBSD.ORG
+Date: Mon, 20 Apr 1998 14:51:35 +0000
+Subject: Re:  Trouble booting on Multia
+
+> I'm having trouble booting NetBSD on a recently purchased DEC Multia
+> /w 64MB RAM and 4GB external HD.  Booting NetBSD 1.3 worked just fine
+> for about a week, but then refused to work quite suddenly.  At the SRM
+> ...
+
+Sadly. this story has been repeated over and over. Something inside the
+Multia just fizzles and dies, and it seems to happen to everyone. You
+are probably quite lucky that it only lasted a week, you can probably
+return it. (There might be something like  an "implied warranty of
+merchantibility" in every US sale, so don't worry too much about the
+exact disclaimers by the seller.) To repeat: you need to send that
+thing back to wherever you got it ASAP.
+
+And instead of buying Multias, my recommendation for a minimum price
+systems is that you get an AXPPCI33. Same price, same speed, same
+processor, but much greater reliability and a standard form factor.
+Nothing on the planet is as likely to fail as a Multia, it appears.
+
+From kpneal@pobox.com  Mon Apr 20 20:32:12 1998
+From: Kevin P. Neal <kpneal@pobox.com>
+To: ross@teraflop.com
+Date: Mon, 20 Apr 1998 20:32:12 +0000
+Subject: Re:  Trouble booting on Multia
+
+At 02:51 PM 4/20/98 -0700, Ross Harvey wrote:
+>And instead of buying Multias, my recommendation for a minimum price
+>systems is that you get an AXPPCI33. Same price, same speed, same
+>processor, but much greater reliability and a standard form factor.
+
+Curious: How does an AXPpci33 compare in speed with, say, an Amiga 3000 (25
+MHz)?
+
+I mean, obviously it's much faster. Is it fast enough to be "perky"? Is it
+"ok"? How would it's speed be described?
+
+Hmmm, gotta love subjective questions.
+--
+XCOMM Kevin P. Neal, Junior, Comp. Sci.     -   House of Retrocomputing
+XCOMM  mailto:kpneal@pobox.com              -   http://www.pobox.com/~kpn/
+XCOMM  kpneal@eos.ncsu.edu              Spoken by Keir Finlow-Bates:
+XCOMM "Good grief, I've just noticed I've typed in a rant. Sorry chaps!"
+
+From ross@teraflop.com  Mon Apr 20 18:18:04 1998
+From: Ross Harvey <ross@teraflop.com>
+To: kpneal@pobox.com, ross@teraflop.com
+Date: Mon, 20 Apr 1998 18:18:04 +0000
+Subject: Re:  Trouble booting on Multia
+
+> Curious: How does an AXPpci33 compare in speed with, say, an Amiga 3000 (25
+> MHz)?
+> 
+> I mean, obviously it's much faster. Is it fast enough to be "perky"? Is it
+> "ok"? How would it's speed be described?
+> 
+> Hmmm, gotta love subjective questions.
+
+It's not so hard to answer, actually. Multia's and AXPpci33's are _slow_, but
+not nearly as slow as a 25 MHz 68K. That would be more like "glacial".
+
+	Very roughly:	AXPpci33	 4 * 68k on integer
+					10 * 68k on FP
+
+If you spend another $150 or so, you can get a mainboard based on the 21064,
+instead of 21066, and this has twice the memory speed or something...it should
+get you around 8x the 68k. However, the AXPpci33 needs only 5v, whereas most
+of the 21064 boards for which srm is available will require a somewhat 
+unusual AT power supply with 3.3 and 5 volts.
+
+For $1035 you can get an AlphaPC 164 LX mainboard...now _that_ will be fast.
+
+From nmanisca@vt.edu  Mon Apr 20 23:33:35 1998
+From: nm <nmanisca@vt.edu>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 20 Apr 1998 23:33:35 +0000
+Subject: Re:  Trouble booting on Multia
+
+At 02:51 PM 4/20/98 -0700, you wrote:
+>> I'm having trouble booting NetBSD on a recently purchased DEC Multia
+>> /w 64MB RAM and 4GB external HD.  Booting NetBSD 1.3 worked just fine
+>> for about a week, but then refused to work quite suddenly.  At the SRM
+>> ...
+>
+>Sadly. this story has been repeated over and over. Something inside the
+>Multia just fizzles and dies, and it seems to happen to everyone. You
+>are probably quite lucky that it only lasted a week, you can probably
+>return it. (There might be something like  an "implied warranty of
+>merchantibility" in every US sale, so don't worry too much about the
+>exact disclaimers by the seller.) To repeat: you need to send that
+>thing back to wherever you got it ASAP.
+>
+>And instead of buying Multias, my recommendation for a minimum price
+>systems is that you get an AXPPCI33. Same price, same speed, same
+>processor, but much greater reliability and a standard form factor.
+>Nothing on the planet is as likely to fail as a Multia, it appears.
+
+woowoo, i love my axppci33 (166) here... as a boon it
+runs great at 200mhz as well... not that this is really much added
+speed...
+
+btw, dont overclock unless you are willing to accept the 
+consequences!
+
+--
+nick
+
+From that1guy@azstarnet.com  Mon Apr 20 22:48:15 1998
+From: Shane <that1guy@azstarnet.com>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 20 Apr 1998 22:48:15 +0000
+Subject: Speaking of the Multia...  X anyone?
+
+Has anyone gotten X to run on a TGA multia system?  The X binaries I
+downloaded with the rest of the installation of 1.3 seemed to be missing
+an X server.  I tried installing the version of X from the 1.2
+installation only to get an xinit shutdown due to an error reading the
+keyboard.
+
+If this sounds familiar...  yes, I did post asking about this along with
+some details.
+
+Ideas?
+
+Shane
+
+From ross@teraflop.com  Tue Apr 21 00:49:16 1998
+From: Ross Harvey <ross@teraflop.com>
+To: port-alpha@NetBSD.ORG, that1guy@azstarnet.com
+Date: Tue, 21 Apr 1998 00:49:16 +0000
+Subject: Re:  Speaking of the Multia...  X anyone?
+
+> Has anyone gotten X to run on a TGA multia system?  The X binaries I
+> downloaded with the rest of the installation of 1.3 seemed to be missing
+> an X server.  I tried installing the version of X from the 1.2
+> installation only to get an xinit shutdown due to an error reading the
+> keyboard.
+> 
+> If this sounds familiar...  yes, I did post asking about this along with
+> some details.
+
+I haven't looked at X support at all yet, but IIRC this is the story:
+(I know this isn't exactly the answer you requested, but other people
+have asked more general questions recently.)
+
+	1. The only X server that NetBSD/alpha ever had was a TGA
+	   (not TGA2) that was tested primarily on the Multia.
+
+	2. The diffs were to an older version of Xfree86 and they
+	   don't directly apply to the current versions
+
+	3. No one has hacked on this for a while, so it doesn't
+	   work any more. (I presume it could be resurrected without
+	   much trouble, though.)
+
+	4. We just switched the low-level console code so if it
+	   wasn't broken before it probably is right now in
+	   -current.
+
+Part of the problem was the unfortunate way that Xfree86 configured the
+frame buffers: it assumed there was just one PCI bus, just one ISA bus,
+that it could magically just do inb() and outb(), and in general it
+worked on linux because linux didn't care about the lack of a proper
+interface as long as they could sort of make the alphas they ran on
+look like PC's.  (And linux never ran on the TC and TL systems like
+NetBSD does, so it was easier for them to just forget about machine-
+independent interfaces. These days, the assumption of PCI isn't as
+serious, though many other problems due to lack of interface remain.)
+
+The many poor abstractions in this non-interface and the fact that this
+prevents sharing low-level event and framebuffer code kind of made
+NetBSD developers (think "Chris") want to work on other things. Also,
+the two places that fund NetBSD alpha right now (NASA and Avalon) don't
+really care in an official way about X (the big alphas don't even have
+displays), so we aren't working on it.
+
+At this point, some volunteers willing to run -current and hack on X
+might be helpful...
+
+Ross
+
+From haszlaki@UAccess.NET  Tue Apr 21 04:14:50 1998
+From: Eric Haszlakiewicz <haszlaki@UAccess.NET>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 21 Apr 1998 04:14:50 +0000
+Subject: linux compatibility
+
+Anyone working on getting Linux emulation working on the alpha?
+	(If not, then I am.)
+eric
+
+From cgd@pa.dec.com  Tue Apr 21 08:24:43 1998
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: ross@teraflop.com
+Date: Tue, 21 Apr 1998 08:24:43 +0000
+Subject: Re: Speaking of the Multia... X anyone?
+
+> I haven't looked at X support at all yet, but IIRC this is the story:
+> (I know this isn't exactly the answer you requested, but other people
+> have asked more general questions recently.)
+> 
+> 	1. The only X server that NetBSD/alpha ever had was a TGA
+> 	   (not TGA2) that was tested primarily on the Multia.
+> 
+> 	2. The diffs were to an older version of Xfree86 and they
+> 	   don't directly apply to the current versions
+
+But, the whole sources for the old version were provided.  There is
+(or should be) nothing preventing people from building a server
+binary.
+
+
+> 	3. No one has hacked on this for a while, so it doesn't
+> 	   work any more. (I presume it could be resurrected without
+> 	   much trouble, though.)
+> 
+> 	4. We just switched the low-level console code so if it
+> 	   wasn't broken before it probably is right now in
+> 	   -current.
+
+The revision control files that jason has/had for the MD TGA X server
+bits that I did included support for the new wscons code (though i
+don't know if they'd be affected by the other changes made to the
+wscons code).
+
+
+> Part of the problem was the unfortunate way that Xfree86 configured the
+> frame buffers: it assumed there was just one PCI bus, just one ISA bus,
+
+"and, before anybody asks, no these assumptions are not necessarily
+valid."  8-)
+
+
+cgd
+
+From wilko@yedi.iaf.nl  Tue Apr 21 19:03:50 1998
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: thorpej@nas.nasa.gov
+Date: Tue, 21 Apr 1998 19:03:50 +0000
+Subject: Re: Trouble booting on Multia
+
+As Jason Thorpe wrote...
+> On Mon, 20 Apr 1998 16:20:24 -0400 
+>  "Johnny C. Lam" <lamj@stat.cmu.edu> wrote:
+> 
+>  > 	Does anyone have a guess at what the problem might be?
+> 
+> Sounds like your Multia ate itself.  Every one I've seen has died
+> eventually.
+
+>From my experience the Multia gets too hot, especially when flat on the
+table. It seems putting it in another case with better cooling might help.
+OK, you loose the neat little box..
+
+W/
+_     ______________________________________________________________________
+ |   / o / /  _  Bulte 				  email: wilko @ yedi.iaf.nl 
+ |/|/ / / /( (_) Arnhem, The Netherlands          WWW:   http://www.tcja.nl
+______________________________________________ Powered by FreeBSD __________
+
+From wilko@yedi.iaf.nl  Tue Apr 21 20:07:10 1998
+From: Wilko Bulte <wilko@yedi.iaf.nl>
+To: nmanisca@vt.edu
+Date: Tue, 21 Apr 1998 20:07:10 +0000
+Subject: Re: Trouble booting on Multia
+
+As nm wrote...
+> At 02:51 PM 4/20/98 -0700, you wrote:
+> >> I'm having trouble booting NetBSD on a recently purchased DEC Multia
+> >> /w 64MB RAM and 4GB external HD.  Booting NetBSD 1.3 worked just fine
+> >> for about a week, but then refused to work quite suddenly.  At the SRM
+> >> ...
+> >
+> >Sadly. this story has been repeated over and over. Something inside the
+> >Multia just fizzles and dies, and it seems to happen to everyone. You
+> >are probably quite lucky that it only lasted a week, you can probably
+> >return it. (There might be something like  an "implied warranty of
+> >merchantibility" in every US sale, so don't worry too much about the
+> >exact disclaimers by the seller.) To repeat: you need to send that
+> >thing back to wherever you got it ASAP.
+> >
+> >And instead of buying Multias, my recommendation for a minimum price
+> >systems is that you get an AXPPCI33. Same price, same speed, same
+> >processor, but much greater reliability and a standard form factor.
+> >Nothing on the planet is as likely to fail as a Multia, it appears.
+> 
+> woowoo, i love my axppci33 (166) here... as a boon it
+> runs great at 200mhz as well... not that this is really much added
+> speed...
+
+Indeed, works great at 200Mc here. Did not want to do 233 though ;-)
+
+> btw, dont overclock unless you are willing to accept the 
+> consequences!
+
+Hm, who cares.
+_     ______________________________________________________________________
+ |   / o / /  _  Bulte 				  email: wilko @ yedi.iaf.nl 
+ |/|/ / / /( (_) Arnhem, The Netherlands          WWW:   http://www.tcja.nl
+______________________________________________ Powered by FreeBSD __________
+
+From jack@jupiter.com  Tue Apr 21 11:56:45 1998
+From: None <jack@jupiter.com>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 21 Apr 1998 11:56:45 +0000
+Subject: Re: Trouble booting on Multia
+
+Here at Jupiter we use Multias with proprietary software as X terminals.
+We have had a large number fail with a number of different symptoms.  We 
+finally tracked all of the problems down to one of 6 Resistor Packs on the 
+bottom of the PCB.  The RPs develope shorts between adjacent pins.  By 
+replacing these RPs we cleaned up our entire bone pile.
+
+Jack
+
+From ross@teraflop.com  Tue Apr 21 13:18:37 1998
+From: Ross Harvey <ross@teraflop.com>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 21 Apr 1998 13:18:37 +0000
+Subject: Re: Trouble booting on Multia
+
+> Here at Jupiter we use Multias with proprietary software as X terminals.
+> We have had a large number fail with a number of different symptoms.  We 
+> finally tracked all of the problems down to one of 6 Resistor Packs on the 
+> bottom of the PCB.  The RPs develope shorts between adjacent pins.  By 
+> replacing these RPs we cleaned up our entire bone pile.
+> 
+> Jack
+
+Wow. If this is indeed the usual problem you have really helped a lot of
+people. This report does fit with an earlier successful multia repair that
+was done by cleaning the boards.
+
+I suppose I should amend my earlier axppci33 advice by pointing out that
+the multia has the only frame buffer netbsd alpha has ever supported.
+Although there do seem to be temporary problems with the code, we can
+fix that up for a multia revival... :-)
+
+Ross
+
+From soren@t.dk  Tue Apr 21 23:48:36 1998
+From: Soren S. Jorvang <soren@t.dk>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 21 Apr 1998 23:48:36 +0000
+Subject: Re: Trouble booting on Multia
+
+On Tue, 21 Apr 1998, Wilko Bulte wrote:
+
+> As Jason Thorpe wrote...
+> > On Mon, 20 Apr 1998 16:20:24 -0400 
+> >  "Johnny C. Lam" <lamj@stat.cmu.edu> wrote:
+> > 
+> >  > 	Does anyone have a guess at what the problem might be?
+> > 
+> > Sounds like your Multia ate itself.  Every one I've seen has died
+> > eventually.
+> 
+> >From my experience the Multia gets too hot, especially when flat on the
+> table. It seems putting it in another case with better cooling might help.
+> OK, you loose the neat little box..
+
+Indeed, the two major killers of Multias seem to be heat and (now
+explained plausably ('resistor packs')) 'conductive dust causing
+shorts'.
+
+For people who want their Multia to live, I strongly recommend
+(speaking from experience :-) using it with the accompanying vertical
+stand, which improves cooling to the necessary level.
+
+
+-- 
+Soren
+
+From jack@jupiter.com  Tue Apr 21 15:19:12 1998
+From: None <jack@jupiter.com>
+To: ross@teraflop.com
+Date: Tue, 21 Apr 1998 15:19:12 +0000
+Subject: Re: Trouble booting on Multia
+
+> > Here at Jupiter we use Multias with proprietary software as X terminals.
+> > We have had a large number fail with a number of different symptoms.  We 
+> > finally tracked all of the problems down to one of 6 Resistor Packs on the 
+> > bottom of the PCB.  The RPs develop shorts between adjacent pins.  By 
+> > replacing these RPs we cleaned up our entire bone pile.
+> > 
+> > Jack
+> 
+> Wow. If this is indeed the usual problem you have really helped a lot of
+> people. This report does fit with an earlier successful multia repair that
+> was done by cleaning the boards.
+> 
+> I suppose I should amend my earlier axppci33 advice by pointing out that
+> the multia has the only frame buffer netbsd alpha has ever supported.
+> Although there do seem to be temporary problems with the code, we can
+> fix that up for a multia revival... :-)
+> 
+> Ross
+
+Based on what I've heard already, I guess I'd better get specific.
+The RPs in question are all 4.7K pullups.  The numbers on the silkscreen are:
+
+E221, E222, E226, E227, E228, and E233
+
+The parts that we have seen that are bad, and it is bad parts, are all marked
+
+   ---------------
+  | 4820P-002     |
+  | -472          |
+  | xB 9435 B     |
+   ---------------
+
+Remember that there are several different models of Mulitas.  Ours are 166MHz 
+ones, with a PCB number of 5022554-01 D1.
+
+Based on what we've seen, DEC got a bad batch of the 4.7K pullup RPs that 
+develop shorts between adjacent pins over time.  We now routinely replace all 
+these RPs.  BTW, we also replace E215 with a 74ABT623.  This part buffers the 
+ECC bits from DRAM and the ABT part seems to work much better at temperature.
+Once this is done, the Multias seem to be as reliable as anything else.
+
+Jack
+
+From root@garbled.net  Tue Apr 21 18:14:46 1998
+From: Tim Rightnour <root@garbled.net>
+To: jack@jupiter.com
+Date: Tue, 21 Apr 1998 18:14:46 +0000
+Subject: Re: Trouble booting on Multia
+
+On 21-Apr-98 jack@jupiter.com spoke unto us all:
+# 
+# Based on what I've heard already, I guess I'd better get specific.
+# The RPs in question are all 4.7K pullups.  The numbers on the silkscreen are:
+# 
+# E221, E222, E226, E227, E228, and E233
+# 
+# The parts that we have seen that are bad, and it is bad parts, are all marked
+# 
+#    ---------------
+#   | 4820P-002     |
+#   | -472          |
+#   | xB 9435 B     |
+#    ---------------
+
+*DING* My dead multia (which behaves *exactly* like the post that started this
+thread) has these exact parts on it.. just like you say.  
+
+# 
+# Remember that there are several different models of Mulitas.  Ours are 166MHz
+# ones, with a PCB number of 5022554-01 D1.
+
+Yep.  mine too.
+
+# 
+# Based on what we've seen, DEC got a bad batch of the 4.7K pullup RPs that 
+# develop shorts between adjacent pins over time.  We now routinely replace all
+# these RPs.  BTW, we also replace E215 with a 74ABT623.  This part buffers the
+# ECC bits from DRAM and the ABT part seems to work much better at temperature.
+# Once this is done, the Multias seem to be as reliable as anything else.
+
+*WOW*  Where can I get these parts??? (now I need to start practicing my
+soldering)  If this cures my multia woes (and those of many others I'm sure)
+than I owe you a debt of gratitude..  Now I'm off to find my digikey catalog.
+
+---
+Tim Rightnour    -  root@garbled.net
+http://www.zynetwc.com/~garbled/garbled.html
+
+From nmanisca@vt.edu  Wed Apr 22 21:47:21 1998
+From: nm <nmanisca@vt.edu>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 22 Apr 1998 21:47:21 +0000
+Subject: SRM woes
+
+Ok, I have an axppci33 based system and it is currently
+flashed with SRM 4.7
+
+the problem is that most commands do not work...
+for example the following do not work:
+man
+ls
+echo
+
+my friend with a multia running SRM 3.7 has these
+commands and more...
+
+any ideas?
+
+Thanks
+Nick
+nmanisca@vt.edu
+
+From msanders@aros.net  Wed Apr 22 23:33:35 1998
+From: Michael K. Sanders <msanders@aros.net>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 22 Apr 1998 23:33:35 +0000
+Subject: Source for AlphaPC 164SX?
+
+Slightly off-topic, but does anyone have a good source for the AlphaPC
+164SX boards?  I tried calling the local DEC distributor and they said
+they'd have someone else call me for a quote, but it never happened.  
+
+Thanks,
+
+:: Mike ::
+
+From thorpej@nas.nasa.gov  Wed Apr 22 22:36:23 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: msanders@aros.net
+Date: Wed, 22 Apr 1998 22:36:23 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+On Wed, 22 Apr 1998 23:33:35 -0600 
+ "Michael K. Sanders" <msanders@aros.net> wrote:
+
+ > Slightly off-topic, but does anyone have a good source for the AlphaPC
+ > 164SX boards?  I tried calling the local DEC distributor and they said
+ > they'd have someone else call me for a quote, but it never happened.  
+
+If you find out, please summarize to the list... I've been considering
+getting a new Alpha for myself...
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From ross@teraflop.com  Wed Apr 22 23:22:31 1998
+From: Ross Harvey <ross@teraflop.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 22 Apr 1998 23:22:31 +0000
+Subject: Re: Trouble booting on Multia
+
+> From: woods@most.weird.com (Greg A. Woods)
+> ...
+> Unfortunately I can't find replacement restistor packs, nor the
+> 74ABT623, in my Canadian. Digi-Key, Electrosonic, or Future-Active
+> catalogues, nor in the on-line digi-key catalogue.  Electrosonic's
+> on-line catalogue is still useless for searching.
+> 
+> The only resister packs listed in the 4800 series are 4814- and 4816-.
+> 
+> Unfortunately there's no 74ABT version of the 74F623 on the NS/Farchild
+> WWW page either.
+> 
+> I'll check around at one of my client's (an electronics R&D firm)
+> tomorrow for more sources.... but any other hints would be appreciated!
+
+TI makes it, the exact part number (assumming its the soic) is:
+
+	SN74ABT623DW
+
+I'm not sure how one would buy small qty's of TI stuff, though.
+
+623 functions in other families will work, of course, but I agree that
+74ABT will have a very nice combination of slow slew rate (that's good,
+actually), reasonable propagation delay, high drive, and reasonable
+power (heat) dissipation.
+
+I've volunteered to put this fix into a particular dead multia, so as
+soon as I get it I'll post some part numbers for the resistor
+network...  those are very easy to buy, as it happens. For some reason,
+Digi-Key carries every kind of modern resistor, but only the most
+popular logic IC's.  Without even seeing that network, I would bet
+money that www.digi-key.com has a compatible part.  Certainly 4.7K is
+about the most popular value, and there aren't _that_ many different
+package types.
+
+-Ross
+
+From stanp@storm.ca  Thu Apr 23 01:06:00 1998
+From: Stan Pietkiewicz <stanp@storm.ca>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 23 Apr 1998 01:06:00 +0000
+Subject: AXPci33 at 200Mhz [WAS:Re: Trouble booting on Multia]
+
+Wilko Bulte wrote:
+> <<snip>>
+> > woowoo, i love my axppci33 (166) here... as a boon it
+> > runs great at 200mhz as well... not that this is really much added
+> > speed...
+> 
+> Indeed, works great at 200Mc here. Did not want to do 233 though ;-)
+> 
+
+Now I'm curious: what jumper combination did you use to get 200Mhz? The 
+manual shows 166Mhz and 233Mhz, but 200 is conspicous by its absence....
+
+> > btw, dont overclock unless you are willing to accept the
+> > consequences!
+> 
+> Hm, who cares.
+
+I gather a fan on the alpha heat sink would help????
+
+Stan
+
+From woods@most.weird.com  Thu Apr 23 01:15:16 1998
+From: Greg A. Woods <woods@most.weird.com>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 23 Apr 1998 01:15:16 +0000
+Subject: Re: Trouble booting on Multia
+
+[ On Tue, April 21, 1998 at 18:14:46 (-0700), Tim Rightnour wrote: ]
+> Subject: Re: Trouble booting on Multia
+>
+> On 21-Apr-98 jack@jupiter.com spoke unto us all:
+> # 
+> # Based on what I've heard already, I guess I'd better get specific.
+> # The RPs in question are all 4.7K pullups.  The numbers on the silkscreen are:
+> # 
+> # E221, E222, E226, E227, E228, and E233
+> # 
+> # The parts that we have seen that are bad, and it is bad parts, are all marked
+> # 
+> #    ---------------
+> #   | 4820P-002     |
+> #   | -472          |
+> #   | xB 9435 B     |
+> #    ---------------
+
+The resistor packs in one of my dead multias have date codes of "9442 B".
+
+> # Remember that there are several different models of Mulitas.  Ours are 166MHz
+> # ones, with a PCB number of 5022554-01 D1.
+> 
+> Yep.  mine too.
+
+ditto....
+
+
+Unfortunately I can't find replacement restistor packs, nor the
+74ABT623, in my Canadian. Digi-Key, Electrosonic, or Future-Active
+catalogues, nor in the on-line digi-key catalogue.  Electrosonic's
+on-line catalogue is still useless for searching.
+
+The only resister packs listed in the 4800 series are 4814- and 4816-.
+
+Unfortunately there's no 74ABT version of the 74F623 on the NS/Farchild
+WWW page either.
+
+I'll check around at one of my client's (an electronics R&D firm)
+tomorrow for more sources.... but any other hints would be appreciated!
+
+-- 
+							Greg A. Woods
+
++1 416 443-1734      VE3TCP      <gwoods@acm.org>      <robohack!woods>
+Planix, Inc. <woods@planix.com>; Secrets of the Weird <woods@weird.com>
+
+From nmanisca@vt.edu  Thu Apr 23 01:22:22 1998
+From: nm <nmanisca@vt.edu>
+To: stanp@storm.ca
+Date: Thu, 23 Apr 1998 01:22:22 +0000
+Subject: Re: AXPci33 at 200Mhz [WAS:Re: Trouble booting on Multia]
+
+At 01:06 AM 4/23/98 -0400, you wrote:
+>Wilko Bulte wrote:
+>> <<snip>>
+>> > woowoo, i love my axppci33 (166) here... as a boon it
+>> > runs great at 200mhz as well... not that this is really much added
+>> > speed...
+>> 
+>> Indeed, works great at 200Mc here. Did not want to do 233 though ;-)
+>> 
+>
+>Now I'm curious: what jumper combination did you use to get 200Mhz? The 
+>manual shows 166Mhz and 233Mhz, but 200 is conspicous by its absence....
+
+jumper for the axppci33 or the multia/udb?
+they are different main boards...
+
+for the axppci33 here are the jumper settings for cpu speed:
+
+Frequency	Pin 1-2	Pin 3-4	Pin 5-6
+---------	-------	-------	-------
+66		out		out		out
+100		out		out		in
+133		out		in		out
+166		out		in		in
+200		in		out		out
+233		in		out		in
+266		in		in		out
+300		in		in		in
+
+be ware what you call Pin 1-2, your motherboard
+orientation may be misleading
+
+>> > btw, dont overclock unless you are willing to accept the
+>> > consequences!
+>> 
+>> Hm, who cares.
+>
+>I gather a fan on the alpha heat sink would help????
+>
+>Stan
+
+in my opinion it would, but even if you could keep the
+cpu optimally cool it doesnt mean that a 166mhz cpu would
+run at 300mhz
+
+have fun
+nick maniscalco
+nmanisca@vt.edu
+
+From ragge@ludd.luth.se  Thu Apr 23 10:47:25 1998
+From: Anders Magnusson <ragge@ludd.luth.se>
+To: thorpej@nas.nasa.gov
+Date: Thu, 23 Apr 1998 10:47:25 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+> On Wed, 22 Apr 1998 23:33:35 -0600 
+>  "Michael K. Sanders" <msanders@aros.net> wrote:
+> 
+>  > Slightly off-topic, but does anyone have a good source for the AlphaPC
+>  > 164SX boards?  I tried calling the local DEC distributor and they said
+>  > they'd have someone else call me for a quote, but it never happened.  
+> 
+> If you find out, please summarize to the list... I've been considering
+> getting a new Alpha for myself...
+> 
+I bought my SX motherboard at DCG Computers (www.dcginc.com). They have
+rather good prices and will send their machines all over the world :-)
+
+-- Ragge
+
+From wulf@ping.net.au  Thu Apr 23 19:22:28 1998
+From: Berndt Josef Wulf <wulf@ping.net.au>
+To: nmanisca@vt.edu
+Date: Thu, 23 Apr 1998 19:22:28 +0000
+Subject: Re: AXPci33 at 200Mhz [WAS:Re: Trouble booting on Multia]
+
+To add a little spice find below my findings running a AXPpci33
+(233Mhz) in various CPU and Cache speed settings.
+
+Note: The cache consists of 256kb-20ns chips which I have taken out of
+old Intel based motherboards and to my supprise still work flawlessy
+at 15ns.
+
+cheerio Berndt
+
+---------------------------- cut ---------------------------------
+
+
+
+ID: DEC Alpha AXPpci (233 MHz, 64MB RAM, Cache 256KB-20ns), NetBSD-1.2D, gcc (hotdog.ping.net.au, -static -O2)
+----------------------------------------------------------
+./dry_su_reg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 31
+This machine benchmarks at 161290 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 23
+This machine benchmarks at 217391 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 23
+This machine benchmarks at 217391 dhrystones/second
+
+----------------------------------------------------------
+./dry_su_noreg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 22
+This machine benchmarks at 227272 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 22
+This machine benchmarks at 227272 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 23
+This machine benchmarks at 217391 dhrystones/second
+
+----------------------------------------------------------
+./dry_mu_reg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 29
+This machine benchmarks at 170998 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 29
+This machine benchmarks at 171057 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 29
+This machine benchmarks at 171350 dhrystones/second
+
+----------------------------------------------------------
+./dry_mu_noreg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 29
+This machine benchmarks at 172354 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 29
+This machine benchmarks at 172176 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 29
+This machine benchmarks at 171644 dhrystones/second
+
+
+ID: DEC Alpha AXPpci (233 MHz, 64MB RAM, Cache 256KB-15ns), NetBSD-1.2D, gcc (hotdog.ping.net.au, -static -O2)
+----------------------------------------------------------
+./dry_su_reg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 22
+This machine benchmarks at 227272 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 22
+This machine benchmarks at 227272 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 22
+This machine benchmarks at 227272 dhrystones/second
+
+----------------------------------------------------------
+./dry_su_noreg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 22
+This machine benchmarks at 227272 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 23
+This machine benchmarks at 217391 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 22
+This machine benchmarks at 227272 dhrystones/second
+
+----------------------------------------------------------
+./dry_mu_reg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 21
+This machine benchmarks at 236630 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 21
+This machine benchmarks at 236630 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 21
+This machine benchmarks at 236742 dhrystones/second
+
+----------------------------------------------------------
+./dry_mu_noreg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 21
+This machine benchmarks at 236294 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 21
+This machine benchmarks at 237079 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 21
+This machine benchmarks at 236406 dhrystones/second
+
+
+ID: DEC Alpha AXPpci (266 MHz, 64MB RAM, Cache 256KB-15ns), NetBSD-1.2D, gcc (hotdog.ping.net.au, -static -O2)
+----------------------------------------------------------
+./dry_su_reg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 21
+This machine benchmarks at 238095 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 20
+This machine benchmarks at 250000 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 20
+This machine benchmarks at 250000 dhrystones/second
+
+----------------------------------------------------------
+./dry_su_noreg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 21
+This machine benchmarks at 238095 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 21
+This machine benchmarks at 238095 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 21
+This machine benchmarks at 238095 dhrystones/second
+
+----------------------------------------------------------
+./dry_mu_reg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 19
+This machine benchmarks at 253292 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 19
+This machine benchmarks at 253164 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 19
+This machine benchmarks at 252652 dhrystones/second
+
+----------------------------------------------------------
+./dry_mu_noreg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 19
+This machine benchmarks at 253164 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 19
+This machine benchmarks at 252780 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 19
+This machine benchmarks at 253036 dhrystones/second
+
+
+ID: DEC Alpha AXPpci (300 MHz, 64MB RAM, Cache 256KB-20ns), NetBSD-1.2D, gcc (hotdog.ping.net.au, -static -O2)
+----------------------------------------------------------
+./dry_su_reg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 18
+This machine benchmarks at 277777 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 19
+This machine benchmarks at 263157 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 18
+This machine benchmarks at 277777 dhrystones/second
+
+----------------------------------------------------------
+./dry_su_noreg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 19
+This machine benchmarks at 263157 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 18
+This machine benchmarks at 277777 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 19
+This machine benchmarks at 263157 dhrystones/second
+
+----------------------------------------------------------
+./dry_mu_reg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 17
+This machine benchmarks at 285714 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 17
+This machine benchmarks at 285388 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 17
+This machine benchmarks at 285225 dhrystones/second
+
+----------------------------------------------------------
+./dry_mu_noreg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 17
+This machine benchmarks at 283929 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 17
+This machine benchmarks at 284414 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 17
+This machine benchmarks at 285551 dhrystones/second
+
+
+ID: DEC Alpha AXPpci (300 MHz, 64MB RAM, Cache 256KB-15ns), NetBSD-1.2D, gcc (hotdog.ping.net.au, -static -O2)
+----------------------------------------------------------
+./dry_su_reg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 17
+This machine benchmarks at 294117 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 17
+This machine benchmarks at 294117 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 17
+This machine benchmarks at 294117 dhrystones/second
+
+----------------------------------------------------------
+./dry_su_noreg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 16
+This machine benchmarks at 312500 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 16
+This machine benchmarks at 312500 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 17
+This machine benchmarks at 294117 dhrystones/second
+
+----------------------------------------------------------
+./dry_mu_reg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 16
+This machine benchmarks at 311526 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 16
+This machine benchmarks at 310945 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 16
+This machine benchmarks at 311332 dhrystones/second
+
+----------------------------------------------------------
+./dry_mu_noreg
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 16
+This machine benchmarks at 310945 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 16
+This machine benchmarks at 310173 dhrystones/second
+Start timer!
+Stop timer!
+Dhrystone time for 5000000 passes = 16
+This machine benchmarks at 310945 dhrystones/second
+
+
+---------------------------- cut ---------------------------------
+
+
+nm wrote
+> 
+> At 01:06 AM 4/23/98 -0400, you wrote:
+> >Wilko Bulte wrote:
+> >> <<snip>>
+> >> > woowoo, i love my axppci33 (166) here... as a boon it
+> >> > runs great at 200mhz as well... not that this is really much added
+> >> > speed...
+> >> 
+> >> Indeed, works great at 200Mc here. Did not want to do 233 though ;-)
+> >> 
+> >
+> >Now I'm curious: what jumper combination did you use to get 200Mhz? The 
+> >manual shows 166Mhz and 233Mhz, but 200 is conspicous by its absence....
+> 
+> jumper for the axppci33 or the multia/udb?
+> they are different main boards...
+> 
+> for the axppci33 here are the jumper settings for cpu speed:
+> 
+> Frequency	Pin 1-2	Pin 3-4	Pin 5-6
+> ---------	-------	-------	-------
+> 66		out		out		out
+> 100		out		out		in
+> 133		out		in		out
+> 166		out		in		in
+> 200		in		out		out
+> 233		in		out		in
+> 266		in		in		out
+> 300		in		in		in
+> 
+> be ware what you call Pin 1-2, your motherboard
+> orientation may be misleading
+> 
+> >> > btw, dont overclock unless you are willing to accept the
+> >> > consequences!
+> >> 
+> >> Hm, who cares.
+> >
+> >I gather a fan on the alpha heat sink would help????
+> >
+> >Stan
+> 
+> in my opinion it would, but even if you could keep the
+> cpu optimally cool it doesnt mean that a 166mhz cpu would
+> run at 300mhz
+> 
+> have fun
+> nick maniscalco
+> nmanisca@vt.edu
+> 
+> 
+
+
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@ping.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.3
+
+From kpneal@pobox.com  Thu Apr 23 11:51:32 1998
+From: Kevin P. Neal <kpneal@pobox.com>
+To: ragge@ludd.luth.se
+Date: Thu, 23 Apr 1998 11:51:32 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+At 10:47 AM 4/23/98 +0200, Anders Magnusson wrote:
+>I bought my SX motherboard at DCG Computers (www.dcginc.com). They have
+>rather good prices and will send their machines all over the world :-)
+
+So, who hasn't bought equipment from DCG?
+
+BTW, is $250 for a 270 MHz AlphaPC64 (the board named after the convertable
+VW?) decent? That's what DCG is selling them for w/ processor.
+--
+XCOMM Kevin P. Neal, Junior, Comp. Sci.     -   House of Retrocomputing
+XCOMM  mailto:kpneal@pobox.com              -   http://www.pobox.com/~kpn/
+XCOMM  kpneal@eos.ncsu.edu              Spoken by Keir Finlow-Bates:
+XCOMM "Good grief, I've just noticed I've typed in a rant. Sorry chaps!"
+
+From seifert@sequent.com  Thu Apr 23 09:36:34 1998
+From: David Seifert <seifert@sequent.com>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 23 Apr 1998 09:36:34 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+> So, who hasn't bought equipment from DCG?
+
+dcg_satisified_customers++;
+
+> BTW, is $250 for a 270 MHz AlphaPC64 (the board named after the convertable
+> VW?) decent? 
+
+I've never heard of a VW called the AlphaPC64.  :-)
+If you mean the Miata, that is a Mazda, not a VW.
+
+-Dave
+
+From thorpej@nas.nasa.gov  Thu Apr 23 10:18:26 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: kpneal@pobox.com
+Date: Thu, 23 Apr 1998 10:18:26 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+On Thu, 23 Apr 1998 11:51:32 -0400 
+ "Kevin P. Neal" <kpneal@pobox.com> wrote:
+
+ > BTW, is $250 for a 270 MHz AlphaPC64 (the board named after the convertable
+ > VW?) decent? That's what DCG is selling them for w/ processor.
+
+The AlphaPC 64 is a 21064 system; it's significantly slower than an
+AlphaPC 164.  But, for $250, you can't go wrong... that's very cheap
+for an Alpha!  (And, it won't melt down like the Multia!)
+
+Can you send me more info on this?  I'm looking on DCG's www pages, and
+can't seem to find this item...
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From thorpej@nas.nasa.gov  Thu Apr 23 10:36:52 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: seifert@sequent.com
+Date: Thu, 23 Apr 1998 10:36:52 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+On Thu, 23 Apr 98 09:36:34 PDT 
+ David Seifert <seifert@sequent.com> wrote:
+
+ > I've never heard of a VW called the AlphaPC64.  :-)
+ > If you mean the Miata, that is a Mazda, not a VW.
+
+...which is definitely not a PC64, and certainly wouldn't be selling
+for $250.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From kpneal@pobox.com  Thu Apr 23 15:58:38 1998
+From: Kevin P. Neal <kpneal@pobox.com>
+To: thorpej@nas.nasa.gov
+Date: Thu, 23 Apr 1998 15:58:38 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+At 10:18 AM 4/23/98 -0700, Jason Thorpe wrote:
+>On Thu, 23 Apr 1998 11:51:32 -0400 
+> "Kevin P. Neal" <kpneal@pobox.com> wrote:
+>
+> > BTW, is $250 for a 270 MHz AlphaPC64 (the board named after the convertable
+> > VW?) decent? That's what DCG is selling them for w/ processor.
+>
+>The AlphaPC 64 is a 21064 system; it's significantly slower than an
+>AlphaPC 164.  But, for $250, you can't go wrong... that's very cheap
+>for an Alpha!  (And, it won't melt down like the Multia!)
+>
+>Can you send me more info on this?  I'm looking on DCG's www pages, and
+>can't seem to find this item...
+
+Right, they don't seem to put all of their stuff on their web pages -- just
+the flashy stuff. Annoying. 
+
+I called and got the sales guy "Steve". I told him I was looking for an EB64
+or EB64+ board. He said that that was an old board and that he did have
+these AlphaPC64 boards. 
+
+I asked if it ran NetBSD and he said it did (add grain of salt here).
+Anybody beg to differ?
+
+Steve called the board a "Cabriolet", which my roommates tell me was a VM
+convertable also. Perhaps I mispronounced it. 
+
+The board comes with the processor and cache (but I don't remember how
+much). It doesn't come with the rest of the stuff needed to build a running
+system: memory, case, pw supply, etc. You get to add that. So it's cheap,
+but not as cheap as a first glance might let you think. 
+
+Now, is $250 for a Cabriolet motherboard+cpu+cache a decent price? 
+
+Is there a much better board available for not much more money? My feeling
+is "no". 
+--
+XCOMM Kevin P. Neal, Junior, Comp. Sci.     -   House of Retrocomputing
+XCOMM  mailto:kpneal@pobox.com              -   http://www.pobox.com/~kpn/
+XCOMM  kpneal@eos.ncsu.edu              Spoken by Keir Finlow-Bates:
+XCOMM "Good grief, I've just noticed I've typed in a rant. Sorry chaps!"
+
+From thorpej@nas.nasa.gov  Thu Apr 23 13:13:53 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: kpneal@pobox.com
+Date: Thu, 23 Apr 1998 13:13:53 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+On Thu, 23 Apr 1998 15:58:38 -0400 
+ "Kevin P. Neal" <kpneal@pobox.com> wrote:
+
+I just talked to "Steve".  He was somewhat hesitant to sell me a board.
+Basically, he said - "I have one, and I have a customer who thinks his
+is busted, so I might not have that one."
+
+Annoying.
+
+ > I called and got the sales guy "Steve". I told him I was looking for an EB64
+ > or EB64+ board. He said that that was an old board and that he did have
+ > these AlphaPC64 boards. 
+ > 
+ > I asked if it ran NetBSD and he said it did (add grain of salt here).
+ > Anybody beg to differ?
+
+There is some support for the EB64+ in NetBSD.  The EB64+-specific PCI
+stuff was ripped out during the license scandal that some of you might
+remember.
+
+I have very thorough documentation on the EB64+, so rewriting these
+bits should be about a day or two's worth of work.
+
+ > Steve called the board a "Cabriolet", which my roommates tell me was a VM
+ > convertable also. Perhaps I mispronounced it. 
+
+Nope, you've got it right.  Although, lots of other automobile manufacturers
+have had "Cabriolet" models, too :-)
+
+ > The board comes with the processor and cache (but I don't remember how
+ > much). It doesn't come with the rest of the stuff needed to build a running
+ > system: memory, case, pw supply, etc. You get to add that. So it's cheap,
+ > but not as cheap as a first glance might let you think. 
+ > 
+ > Now, is $250 for a Cabriolet motherboard+cpu+cache a decent price? 
+
+Probably, if it's a reasonably fast 21064 processor.  It's certainly going
+to be faster than an AXPpci33 or a Multia (and a lot more reliable than
+the latter!).
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From seifert@sequent.com  Thu Apr 23 13:38:54 1998
+From: David Seifert <seifert@sequent.com>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 23 Apr 1998 13:38:54 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+> Steve called the board a "Cabriolet", which my roommates tell me was a VM
+> convertable also. Perhaps I mispronounced it. 
+
+Ah...yes VW did make a model known as the Cabriolet.  (The current version
+is known as the Cabrio.)  Porsche also makes 911 Cabriolets.  Cabriolet
+means a convertible with a padded top.  (The Miata's top is not padded,
+thus it is not a cabriolet.)
+
+Apoligies for injecting automotive stuff into a computer list.
+Maybe we should replace the engine management computers with Alphas
+running NetBSD?  :-)
+
+-Dave
+
+From woods@most.weird.com  Thu Apr 23 17:46:11 1998
+From: Greg A. Woods <woods@most.weird.com>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 23 Apr 1998 17:46:11 +0000
+Subject: Re: Trouble booting on Multia
+
+[ On Wed, April 22, 1998 at 23:22:31 (-0700), Ross Harvey wrote: ]
+> Subject: Re: Trouble booting on Multia
+>
+> TI makes it, the exact part number (assumming its the soic) is:
+> 
+> 	SN74ABT623DW
+> 
+> I'm not sure how one would buy small qty's of TI stuff, though.
+
+That part seems to be available from Marshall Industries (www.marshall.com).
+
+> 623 functions in other families will work, of course, but I agree that
+> I've volunteered to put this fix into a particular dead multia, so as
+> soon as I get it I'll post some part numbers for the resistor
+> network...  those are very easy to buy, as it happens. For some reason,
+> Digi-Key carries every kind of modern resistor, but only the most
+> popular logic IC's.  Without even seeing that network, I would bet
+> money that www.digi-key.com has a compatible part.  Certainly 4.7K is
+> about the most popular value, and there aren't _that_ many different
+> package types.
+
+Marshall have only a very few members of the 4820P- series networks by
+Bourns, and not the particular 4820P-002-472 we need, and they're
+listing a lead time of 56 days to ship on the ones they do have!
+
+Avnet have them, but in minimum qty 2000, and stock status is "call".:
+
+    http://www.hh.avnet.com/parts_master/query.html
+
+The www.Bourns.com website lists a few more distributors in this area
+so I'll keep looking....
+
+In theory one could order a bag of samples direct from Bourns.  I have
+three (one still lives, for now, knock on wood) machines to try to fix
+though, so that's sort of beyond the "sample" status....
+
+-- 
+							Greg A. Woods
+
++1 416 443-1734      VE3TCP      <gwoods@acm.org>      <robohack!woods>
+Planix, Inc. <woods@planix.com>; Secrets of the Weird <woods@weird.com>
+
+From ross@teraflop.com  Thu Apr 23 16:44:03 1998
+From: Ross Harvey <ross@teraflop.com>
+To: kpneal@pobox.com, thorpej@nas.nasa.gov
+Date: Thu, 23 Apr 1998 16:44:03 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+>  > I called and got the sales guy "Steve". I told him I was looking for an EB64
+>  > or EB64+ board. He said that that was an old board and that he did have
+>  > these AlphaPC64 boards. 
+>  > 
+>  > I asked if it ran NetBSD and he said it did (add grain of salt here).
+>  > Anybody beg to differ?
+> 
+> There is some support for the EB64+ in NetBSD.  The EB64+-specific PCI
+> stuff was ripped out during the license scandal that some of you might
+> remember.
+
+> I have very thorough documentation on the EB64+, so rewriting these
+> bits should be about a day or two's worth of work.
+
+>  > Steve called the board a "Cabriolet", which my roommates tell me was a VM
+>  > convertable also. Perhaps I mispronounced it. 
+> 
+> Nope, you've got it right.  Although, lots of other automobile manufacturers
+> have had "Cabriolet" models, too :-)
+> 
+>  > The board comes with the processor and cache (but I don't remember how
+>  > much). It doesn't come with the rest of the stuff needed to build a running
+>  > system: memory, case, pw supply, etc. You get to add that. So it's cheap,
+>  > but not as cheap as a first glance might let you think. 
+>  > 
+>  > Now, is $250 for a Cabriolet motherboard+cpu+cache a decent price? 
+> 
+> Probably, if it's a reasonably fast 21064 processor.  It's certainly going
+> to be faster than an AXPpci33 or a Multia (and a lot more reliable than
+> the latter!).
+
+And to this I would add:
+
+IIRC, EB64/EB64+ systems had firmware in a hard ROM.  To confuse the
+issue, lots of times follow-on boards like the AlphaPC64 are called an
+EB64, just like NetBSD used to call every AlphaPC164 an EB164. Either
+way, I don't believe there is a gatekeeper SRM for this, but the
+resellers seem to usually have a way to get it for you.  "Make it a
+condition of your order."
+
+I also think these boards use a somewhat unusual power supply that has
+both 5v and 3.3v outputs but uses AT connectors. You should (1) buy it
+assembled, or (2) with a PS, or (3) know where to get such a PS, or
+(4) use an ATX power supply if you know how to crimp on new connectors.
+
+I managed to snag one of these supplies for $6 on the necx "outlet
+center" page two weeks ago, but they seem to be gone now. (I should
+have ordered more!)
+
+Ross
+
+From tls@panix.com  Thu Apr 23 19:56:40 1998
+From: Thor Lancelot Simon <tls@panix.com>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 23 Apr 1998 19:56:40 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+Be *very careful* to ensure that any AlphaPC64 machines you buy either already have SRM on
+them or can be returned.  There seems to be some kind of bug in the flash writer utility
+that occasionally *completely erases* the flash part, leaving no way to return the machine
+to a useful state without converting the entire SRM image to S-records and uploading it
+via the SROM debugger, using a special serial cable (which I don't have.)
+
+I have two (well, I have one and a friend has one) AlphaPC64 machines which are in this
+state, as well as one expensive strange-AT case with DEC-recommended 3.3V power supply.  I
+would love to have a running Alpha system at home again but just haven't had the time to
+build the MMJ cable or convert the SRM image to S-records or... you get the idea.
+
+The firmware is available as part of the "EBSDK", the Evaluation Board Software Development Kit
+which cost $100 when I ordered mine from DEC.
+
+Also be aware that these machines have a 128-bit memory bus, requiring quads of 60ns parity
+FPM SIMMS.
+
+Thor
+
+From cgd@pa.dec.com  Thu Apr 23 17:06:40 1998
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: tls@panix.com
+Date: Thu, 23 Apr 1998 17:06:40 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+> [ ... ] build the MMJ cable [ ... ]
+
+I hate to ask this but... why do you need an MMJ cable?
+
+I don't think i've ever seen a PCI alpha system or motherboard that
+had an MMJ connector on it...
+
+
+cgd
+(not speaking for Digital, and all that fun stuff.)
+
+From mjacob@feral.com  Thu Apr 23 17:14:31 1998
+From: Matthew Jacob <mjacob@feral.com>
+To: cgd@pa.dec.com, tls@panix.com
+Date: Thu, 23 Apr 1998 17:14:31 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+Body of article empty.
+
+From cgd@pa.dec.com  Thu Apr 23 17:19:44 1998
+From: Chris G. Demetriou <cgd@pa.dec.com>
+To: mjacob@feral.com
+Date: Thu, 23 Apr 1998 17:19:44 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+> 8200's have MMJ connectors for the console.
+
+*chuckle*  I guess TurboLasers count as PCI Alphas.  8-)
+
+I'll amend my statement to "PCI (or ISA/EISA) workstation-class
+Alphas..."  8-)
+
+(the TC-bus alpha workstations also had MMJ connectors on the back of
+them, for those that don't know.)
+
+
+
+cgd
+(not speaking for Digital, etc.)
+
+From samsara@panix.com  Thu Apr 23 20:45:53 1998
+From: Carl Shapiro <samsara@panix.com>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 23 Apr 1998 20:45:53 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+From: "Chris G. Demetriou" <cgd@pa.dec.com>
+   Date: Thu, 23 Apr 98 17:06:40 -0700
+
+[...]
+
+   > [ ... ] build the MMJ cable [ ... ]
+
+   I hate to ask this but... why do you need an MMJ cable?
+
+   I don't think i've ever seen a PCI alpha system or motherboard that
+   had an MMJ connector on it...
+
+
+Both the dead AlphaPC64 motherboard I own, and an AlphaPC164 motherboard
+I used to have in my possession had an MMJ connector.  I once plugged 
+a VT220 into it, and got a funny prompt after the machine booted.  Didn't
+know what to do after that.
+
+
+Carl
+
+From woods@most.weird.com  Thu Apr 23 21:29:51 1998
+From: Greg A. Woods <woods@most.weird.com>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 23 Apr 1998 21:29:51 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+[ On Thu, April 23, 1998 at 19:56:40 (-0400), Thor Lancelot Simon wrote: ]
+> Subject: Re: Source for AlphaPC 164SX?
+>
+> Be *very careful* to ensure that any AlphaPC64 machines you buy either
+> already have SRM on them or can be returned.  There seems to be some
+> kind of bug in the flash writer utility that occasionally *completely
+> erases* the flash part, leaving no way to return the machine to a
+> useful state without converting the entire SRM image to S-records and
+> uploading it via the SROM debugger, using a special serial cable
+> (which I don't have.)
+
+I don't know how similar the 64's are to the UDB, but with the latter
+there's a "fail safe load" jumper (presumably it uses SROM code) that'll
+boot a floppy even if the Flash-ROM is completely erased.
+
+Indeed the process of installing a new SRM on the UDB starts out by
+completely erasing the Flash-ROM, so if you interrupt it, or it dies for
+some reason, in the middle of the upgrade you must open the machine up,
+remove the floppy and hard drive, and move the FLS jumper, boot with the
+special Fail-safe boot floppy (and if I remember right it then asks you
+for the update floppy), then put it all back together and start over,
+then undo the change once you've successfully re-"burned" the flash.
+
+One of my mostly dead Multias will still get thorugh the FSL boot, and
+sometimes even part way through the re-burn, but inevitably it dies.
+I'm hoping that replacing the parts jack@jupiter.com mentioned will
+resurrect at least that one, if not also the one that won't even FSL any
+more.
+
+BTW, those "special" serial cables are available through almost all of
+those mail-order places like Black Box, Innmac, Misco, etc.
+
+> The firmware is available as part of the "EBSDK", the Evaluation Board
+> Software Development Kit which cost $100 when I ordered mine from DEC.
+
+I saw a note somewhere on digital's site that the motherboard SDK would
+be available for the 164LX in the fall (but maybe they meant fall of
+1997!).  It would be nice if that was still the price, and was a legit
+way to acquire the SRM firmware.  There's probably other nifty stuff in
+the kit too!
+
+Of course AlphaBIOS support in NetBSD would be the ultimate answer to
+this red-tape nightmare.
+
+-- 
+							Greg A. Woods
+
++1 416 443-1734      VE3TCP      <gwoods@acm.org>      <robohack!woods>
+Planix, Inc. <woods@planix.com>; Secrets of the Weird <woods@weird.com>
+
+From nmanisca@vt.edu  Thu Apr 23 22:55:32 1998
+From: nm <nmanisca@vt.edu>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 23 Apr 1998 22:55:32 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+At 09:29 PM 4/23/98 -0400, you wrote:
+>[ On Thu, April 23, 1998 at 19:56:40 (-0400), Thor Lancelot Simon wrote: ]
+>> Subject: Re: Source for AlphaPC 164SX?
+>>
+>> Be *very careful* to ensure that any AlphaPC64 machines you buy either
+>> already have SRM on them or can be returned.  There seems to be some
+>> kind of bug in the flash writer utility that occasionally *completely
+>> erases* the flash part, leaving no way to return the machine to a
+>> useful state without converting the entire SRM image to S-records and
+>> uploading it via the SROM debugger, using a special serial cable
+>> (which I don't have.)
+>
+>I don't know how similar the 64's are to the UDB, but with the latter
+>there's a "fail safe load" jumper (presumably it uses SROM code) that'll
+>boot a floppy even if the Flash-ROM is completely erased.
+
+i have a semi broken srm install on my axppci33 i fear :(
+do you have the aforementioned fail safe floppy and the
+related update floppy?
+
+thanks
+nick
+
+
+>Indeed the process of installing a new SRM on the UDB starts out by
+>completely erasing the Flash-ROM, so if you interrupt it, or it dies for
+>some reason, in the middle of the upgrade you must open the machine up,
+>remove the floppy and hard drive, and move the FLS jumper, boot with the
+>special Fail-safe boot floppy (and if I remember right it then asks you
+>for the update floppy), then put it all back together and start over,
+>then undo the change once you've successfully re-"burned" the flash.
+>
+>One of my mostly dead Multias will still get thorugh the FSL boot, and
+>sometimes even part way through the re-burn, but inevitably it dies.
+>I'm hoping that replacing the parts jack@jupiter.com mentioned will
+>resurrect at least that one, if not also the one that won't even FSL any
+>more.
+>
+>BTW, those "special" serial cables are available through almost all of
+>those mail-order places like Black Box, Innmac, Misco, etc.
+>
+>> The firmware is available as part of the "EBSDK", the Evaluation Board
+>> Software Development Kit which cost $100 when I ordered mine from DEC.
+>
+>I saw a note somewhere on digital's site that the motherboard SDK would
+>be available for the 164LX in the fall (but maybe they meant fall of
+>1997!).  It would be nice if that was still the price, and was a legit
+>way to acquire the SRM firmware.  There's probably other nifty stuff in
+>the kit too!
+>
+>Of course AlphaBIOS support in NetBSD would be the ultimate answer to
+>this red-tape nightmare.
+>
+>-- 
+>							Greg A. Woods
+>
+>+1 416 443-1734      VE3TCP      <gwoods@acm.org>      <robohack!woods>
+>Planix, Inc. <woods@planix.com>; Secrets of the Weird <woods@weird.com>
+>
+
+From woods@most.weird.com  Thu Apr 23 23:43:04 1998
+From: Greg A. Woods <woods@most.weird.com>
+To: nmanisca@vt.edu
+Date: Thu, 23 Apr 1998 23:43:04 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+[ On Thu, April 23, 1998 at 22:55:32 (-0400), nm wrote: ]
+> Subject: Re: Source for AlphaPC 164SX?
+>
+> i have a semi broken srm install on my axppci33 i fear :(
+> do you have the aforementioned fail safe floppy and the
+> related update floppy?
+
+Both (for SRM V3.8) are available from digital:
+
+    ftp://ftp.digital.com/pub/Digital/Alpha/firmware/interim/multia/
+
+-- 
+							Greg A. Woods
+
++1 416 443-1734      VE3TCP      <gwoods@acm.org>      <robohack!woods>
+Planix, Inc. <woods@planix.com>; Secrets of the Weird <woods@weird.com>
+
+From nmanisca@vt.edu  Thu Apr 23 23:51:39 1998
+From: nm <nmanisca@vt.edu>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 23 Apr 1998 23:51:39 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+At 11:43 PM 4/23/98 -0400, you wrote:
+>[ On Thu, April 23, 1998 at 22:55:32 (-0400), nm wrote: ]
+>> Subject: Re: Source for AlphaPC 164SX?
+>>
+>> i have a semi broken srm install on my axppci33 i fear :(
+>> do you have the aforementioned fail safe floppy and the
+>> related update floppy?
+>
+>Both (for SRM V3.8) are available from digital:
+>
+>    ftp://ftp.digital.com/pub/Digital/Alpha/firmware/interim/multia/
+
+great, thanks.
+have you ever heard of the situation where many/most srm
+commands are 'not found'?
+
+like man, ls, echo, all these are not part of my srm :(
+version 4.7 on an axppci33
+
+any ideas?
+
+thanks
+nick maniscalco
+
+>-- 
+>							Greg A. Woods
+>
+>+1 416 443-1734      VE3TCP      <gwoods@acm.org>      <robohack!woods>
+>Planix, Inc. <woods@planix.com>; Secrets of the Weird <woods@weird.com>
+>
+
+From thorpej@nas.nasa.gov  Thu Apr 23 22:43:38 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 23 Apr 1998 22:43:38 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+On Thu, 23 Apr 1998 23:43:04 -0400 (EDT) 
+ woods@most.weird.com (Greg A. Woods) wrote:
+
+ > [ On Thu, April 23, 1998 at 22:55:32 (-0400), nm wrote: ]
+ > > Subject: Re: Source for AlphaPC 164SX?
+ > >
+ > > i have a semi broken srm install on my axppci33 i fear :(
+ > > do you have the aforementioned fail safe floppy and the
+ > > related update floppy?
+ > 
+ > Both (for SRM V3.8) are available from digital:
+ > 
+ >     ftp://ftp.digital.com/pub/Digital/Alpha/firmware/interim/multia/
+
+Um, this is NOT AXPpci33 firmware!  Try this:
+
+     ftp://gatekeeper.dec.com/pub/DEC/Alpha/firmware/v5.1/decaxppci33/
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From thorpej@nas.nasa.gov  Thu Apr 23 22:49:32 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: pkern@utcs.utoronto.ca
+Date: Thu, 23 Apr 1998 22:49:32 +0000
+Subject: Re: ISA ethernet interfaces?
+
+On Fri, 24 Apr 1998 01:36:26 -0400 
+ P Kern <pkern@utcs.utoronto.ca> wrote:
+
+Under NetBSD 1.3.1 and NetBSD-current, a good number of ISA Ethernet
+interface should Just Work.  Certainly, the SMC and 3Com cards you
+mention should (as "we" and "ec", respectively).  NE2000s will also
+work.
+
+Would you be willing to boot test kernels if I were to write the
+EB64+ PCI interrupt mapping code (which, as I said, was removed during
+the License Scandal we had before 1.3)?  I've been wanting to do this
+for a while, but haven't had access to a test system!
+
+ > Hello.  We have an EB64+ and all 3 of its PCI slots are busy.
+ > But it would be handy if it could have another ethernet interface.
+ > We have 3 unused ISA ethernet cards but none of them are the 3c509
+ > mentioned in the GENERIC config (it's still running under 1.2G).
+ > Is there support for the SMC 8216 card (?aka the "Elite16 Ultra"?)
+ > lurking somewhere?  Or should I just keep scrounging around until
+ > a proper 3c509 card pops up?  (the 2 other idle ISA interfaces we
+ > have handy are an SMC 8013 (Elite16?) and a 3Com Etherlink II).
+ > Thanks much in advance.  P Kern.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From jb@cimlogic.com.au  Fri Apr 24 10:24:56 1998
+From: John Birrell <jb@cimlogic.com.au>
+To: cgd@pa.dec.com
+Date: Fri, 24 Apr 1998 10:24:56 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+Chris G. Demetriou wrote:
+> (the TC-bus alpha workstations also had MMJ connectors on the back of
+> them, for those that don't know.)
+
+... the VMEbus alphas also have MMJ connectors.
+
+-- 
+John Birrell - jb@cimlogic.com.au; jb@freebsd.org http://www.cimlogic.com.au/
+CIMlogic Pty Ltd, GPO Box 117A, Melbourne Vic 3001, Australia +61 418 353 137
+
+From pkern@utcs.utoronto.ca  Fri Apr 24 01:36:26 1998
+From: P Kern <pkern@utcs.utoronto.ca>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 24 Apr 1998 01:36:26 +0000
+Subject: ISA ethernet interfaces?
+
+Hello.  We have an EB64+ and all 3 of its PCI slots are busy.
+But it would be handy if it could have another ethernet interface.
+We have 3 unused ISA ethernet cards but none of them are the 3c509
+mentioned in the GENERIC config (it's still running under 1.2G).
+Is there support for the SMC 8216 card (?aka the "Elite16 Ultra"?)
+lurking somewhere?  Or should I just keep scrounging around until
+a proper 3c509 card pops up?  (the 2 other idle ISA interfaces we
+have handy are an SMC 8013 (Elite16?) and a 3Com Etherlink II).
+Thanks much in advance.  P Kern.
+
+From woods@most.weird.com  Fri Apr 24 02:06:42 1998
+From: Greg A. Woods <woods@most.weird.com>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 24 Apr 1998 02:06:42 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+[ On Thu, April 23, 1998 at 22:43:38 (-0700), Jason Thorpe wrote: ]
+> Subject: Re: Source for AlphaPC 164SX? 
+>
+> On Thu, 23 Apr 1998 23:43:04 -0400 (EDT) 
+>  woods@most.weird.com (Greg A. Woods) wrote:
+>  >
+>  > [ On Thu, April 23, 1998 at 22:55:32 (-0400), nm wrote: ]
+>  > > Subject: Re: Source for AlphaPC 164SX?
+>  > >
+>  > > i have a semi broken srm install on my axppci33 i fear :(
+>  > > do you have the aforementioned fail safe floppy and the
+>  > > related update floppy?
+>  > 
+>  > Both (for SRM V3.8) are available from digital:
+>  > 
+>  >     ftp://ftp.digital.com/pub/Digital/Alpha/firmware/interim/multia/
+> 
+> Um, this is NOT AXPpci33 firmware!  Try this:
+> 
+>      ftp://gatekeeper.dec.com/pub/DEC/Alpha/firmware/v5.1/decaxppci33/
+
+Oops!  I'd gotten so wrapped up in discussing my woes with the Multia
+that I forgot nm was talking about a different kind of machine!
+
+Unfortunately there doesn't seem to be anything resembling the Multia's
+FSL boot floppy image available for the axppci33 in any of the
+subdirectories there.  Perhaps there's no such thing as a FSL mode on
+that machine.  However since I know nothing about the axppci33 I'd
+better stop now before I dig in any deeper!  ;-)
+
+-- 
+							Greg A. Woods
+
++1 416 443-1734      VE3TCP      <gwoods@acm.org>      <robohack!woods>
+Planix, Inc. <woods@planix.com>; Secrets of the Weird <woods@weird.com>
+
+From stanp@storm.ca  Fri Apr 24 01:44:04 1998
+From: Stan Pietkiewicz <stanp@storm.ca>
+To: wulf@ping.net.au
+Date: Fri, 24 Apr 1998 01:44:04 +0000
+Subject: Re: AXPci33 at 200Mhz [WAS:Re: Trouble booting on Multia]
+
+Berndt Josef Wulf wrote:
+> 
+> To add a little spice find below my findings running a AXPpci33
+> (233Mhz) in various CPU and Cache speed settings.
+> 
+
+Interesting......
+
+<<snip>>
+> >
+> > for the axppci33 here are the jumper settings for cpu speed:
+> >
+> > Frequency     Pin 1-2 Pin 3-4 Pin 5-6
+> > ---------     ------- ------- -------
+> > 66            out             out             out
+> > 100           out             out             in
+> > 133           out             in              out
+> > 166           out             in              in
+> > 200           in              out             out
+> > 233           in              out             in
+> > 266           in              in              out
+> > 300           in              in              in
+> >
+> > be ware what you call Pin 1-2, your motherboard
+> > orientation may be misleading
+> >
+
+Thanks!! I'll have to try this (200 or 233Mhz); probably with a 
+thermocouple on the CPU to see how warm things get....
+
+<<snip>>
+
+Stan
+
+From nmanisca@vt.edu  Fri Apr 24 08:26:08 1998
+From: nm <nmanisca@vt.edu>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 24 Apr 1998 08:26:08 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+At 02:06 AM 4/24/98 -0400, you wrote:
+>[ On Thu, April 23, 1998 at 22:43:38 (-0700), Jason Thorpe wrote: ]
+>> Subject: Re: Source for AlphaPC 164SX? 
+>>
+>> On Thu, 23 Apr 1998 23:43:04 -0400 (EDT) 
+>>  woods@most.weird.com (Greg A. Woods) wrote:
+>>  >
+>>  > [ On Thu, April 23, 1998 at 22:55:32 (-0400), nm wrote: ]
+>>  > > Subject: Re: Source for AlphaPC 164SX?
+>>  > >
+>>  > > i have a semi broken srm install on my axppci33 i fear :(
+>>  > > do you have the aforementioned fail safe floppy and the
+>>  > > related update floppy?
+>>  > 
+>>  > Both (for SRM V3.8) are available from digital:
+>>  > 
+>>  >     ftp://ftp.digital.com/pub/Digital/Alpha/firmware/interim/multia/
+>> 
+>> Um, this is NOT AXPpci33 firmware!  Try this:
+>> 
+>>      ftp://gatekeeper.dec.com/pub/DEC/Alpha/firmware/v5.1/decaxppci33/
+>
+>Oops!  I'd gotten so wrapped up in discussing my woes with the Multia
+>that I forgot nm was talking about a different kind of machine!
+>
+>Unfortunately there doesn't seem to be anything resembling the Multia's
+>FSL boot floppy image available for the axppci33 in any of the
+>subdirectories there.  Perhaps there's no such thing as a FSL mode on
+>that machine.  However since I know nothing about the axppci33 I'd
+>better stop now before I dig in any deeper!  ;-)
+
+well according to my little axppci33 manual there is one...
+also the multia's partially boots, it just shows a little version
+string ;)
+
+>-- 
+>							Greg A. Woods
+>
+>+1 416 443-1734      VE3TCP      <gwoods@acm.org>      <robohack!woods>
+>Planix, Inc. <woods@planix.com>; Secrets of the Weird <woods@weird.com>
+>
+
+From pkern@utcs.utoronto.ca  Fri Apr 24 10:33:46 1998
+From: P Kern <pkern@utcs.utoronto.ca>
+To: thorpej@nas.nasa.gov
+Date: Fri, 24 Apr 1998 10:33:46 +0000
+Subject: Re: ISA ethernet interfaces?
+
+> From:	Jason Thorpe <thorpej@nas.nasa.gov>
+> Date:	Fri, 24 Apr 1998 01:49:32 -0400
+> 
+> Under NetBSD 1.3.1 and NetBSD-current, a good number of ISA Ethernet
+> interface should Just Work.  Certainly, the SMC and 3Com cards you
+> mention should (as "we" and "ec", respectively).  NE2000s will also
+> work.
+> 
+> Would you be willing to boot test kernels if I were to write the
+> EB64+ PCI interrupt mapping code (which, as I said, was removed during
+> the License Scandal we had before 1.3)?  I've been wanting to do this
+> for a while, but haven't had access to a test system!
+
+Yup, I'd be willing to try that.  Our EB64+ is a "production" box so it
+needs to be up and stable during the day but it's possible to do testing
+at night and on weekends.
+pk.
+
+From 121255t@msn.com  Fri Apr 24 18:34:28 1998
+From: 121255t <121255t@msn.com>
+To: poon@suicide.org
+Date: Fri, 24 Apr 1998 18:34:28 +0000
+Subject: 1
+
+EMAIL MARKETING WORKS!!
+
+Bull's Eye Gold is the PREMIER email address collection tool.
+This program allows you to develop TARGETED lists of email
+addresses.  Doctors, florists, MLM, biz opp,...you can collect
+anything...you are only limited by your imagination!  You can
+even collect email addresses for specific states, cities, and
+even countries!  All you need is your web browser and this program.
+Our software utilizes the latest in search technology called
+"spidering". By simply feeding the spider program a starting
+website it will collect for hours. The spider will go from website
+to targeted website providing you with thousands upon thousands of
+fresh TARGETED email addresses. When you are done collecting,  the
+spider removes duplicates and saves the email list in a ready to
+send format. No longer is it necessary to send millions of ads to
+get a handful of responses...SEND LESS...EARN MORE!!!
+
+A terrific aspect of the Bull's Eye software is that there is
+no difficult set up involved and no special technical mumbo-jumbo
+to learn. All you need to know is how to search for your targeted
+market in one of the many search engines and let the spider do the
+rest! Not familiar with the search engines? No problem, we provide
+you with a list of all the top search engines. Just surf to the
+location of a search engine on your browser then search for the
+market you wish to reach...it's that easy!
+
+For instance if you were looking for email addresses of Doctors
+in New York all you would do is:
+
+1) Do a search using your favorite search engine by typing in
+the words doctor(s) and New York
+2) Copy the URL (one or more)...that's the stuff after the
+http://...  for instance it might look like
+http://www.yahoo.com/?doctor(s)/?New+York
+3) Press the START button
+
+THAT's IT!!!  The Bull's Eye spider will go to all the websites
+that are linked, automatically extracting the email addresses
+you want.
+
+The spider is passive too! That means you can let it run all
+day or all night while you are working on important things or
+just having fun on your computer. There is no need to keep a
+constant watch on it, just feed it your target market and give
+it praise when it delivers thousands of email addresses at
+the end of the day!
+
+Features of the Bull's Eye Software:
+
+* Does TARGETED searches of websites collecting the email
+  addresses you want!
+* Collects Email addresses by City, State, even specific
+  Countries
+* Runs Automatically...simply enter the Starting information,
+  press The Start Button, and it does the rest
+* Filters out duplicates
+* Keeps track of URLs already visited
+* Can run 24 hours per day, 7 days per week
+* Fast and Easy List Management
+* Also has built in filtering options...you can put in words
+  that it "Must" have while searching,...you can even put in
+  criteria that it  "Must NOT Have"...giving you added flexibility
+* Also imports email addresses from any kind of files (text
+  files, binary files, database files)
+* List editor handles Multiple files to work on many lists
+  simultaneously
+* Has a Black-Book feature... avoid sending emails to people
+  who do not want to receive it
+* Built-in Mail program...send email directly on the internet
+  with just a click of your mouse
+* Personalized Emails...if the email address has the user's
+  name when it is collected,..you can send Personalized emails!!!
+* Sort by Location, Server, User Name, Contact Name
+* Advanced Operations:
+� Email address lists export in many different formats
+  (HTML, Comma delimited, text file)
+� Advanced editing...Transfer, Copy,  Addition, Delete, Crop,
+  Move to Top/Bottom
+� Operations between lists...Union, Subtraction, Comparison
+* Program is Passive,...meaning you can run other programs at
+  the same time
+
+CALL FOR MORE INFORMATION   213-980-7850
+CALL FOR MORE INFORMATION   213-980-7850
+
+ORDERING INFORMATION
+
+Customer Name
+Company Name
+Address
+City
+State                       Zip
+Phone                                       Fax
+Email Address
+
+______ BULL'S EYE SOFTWARE   $259.00
+Includes Software, Instructions, Technical Support
+
+______ Shipping & Handling  (2-3 Day Fedex)  $10.00
+                           (Fedex Overnite) $20.00
+
+______  TOTAL
+                 (CA Residents add applicable sales tax)
+
+*All orders are for Win 95 and Win NT
+
+                *****CREDIT CARDS ACCEPTED*****
+                   MASTERCARD   VISA   AMEX
+
+   PLEASE CALL 213-980-7850 to process your order
+                        9am-5pm Pacific Time
+                Checks or Money Orders send to:
+                      WorldTouch Network Inc.
+5670 Wilshire Blvd.  Suite 2170 Los Angeles, CA 90036
+Please note:  Allow 5 business days for all checks to
+clear before order is shipped.
+
+From tls@panix.com  Fri Apr 24 23:31:39 1998
+From: Thor Lancelot Simon <tls@panix.com>
+To: cgd@pa.dec.com
+Date: Fri, 24 Apr 1998 23:31:39 +0000
+Subject: Re: Source for AlphaPC 164SX?
+
+> I hate to ask this but... why do you need an MMJ cable?
+
+Because in addition to the two 16550 serial ports on the motherboard, which
+*are* in fact used by the SRM console in serial mode, the AlphaPC64 sports
+an MMJ (it might be RJ45, but I'm pretty sure it's MMJ) jack which is for
+the use of the SROM debugger.  I've been reliably informed that this is
+the *only* serial port the SROM will talk to because it doesn't know how
+to initialize the PCI->ISA bridge, etc -- and the flash memory of the board
+is *completely* erased.  With the machine in this state, it can't even
+talk to the floppy drive to failsafe boot.
+
+I know the SROM debugger is able to start because pulling its jumper causes
+the machine to emit a soft beep instead of just hanging completely catatonic.
+
+I know two other people who've had their AlphaPC64 boards rendered useless
+by the firmware update utility.  Caveat Emptor.
+
+Thor
+
+From 221255t@msn.com  Sat Apr 25 05:17:00 1998
+From: 221255t <221255t@msn.com>
+To: poon@suicide.org
+Date: Sat, 25 Apr 1998 05:17:00 +0000
+Subject: 1
+
+Authenticated sender is <221255t@msn.com>
+Subject:  1
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+
+EMAIL MARKETING WORKS!!
+
+Bull's Eye Gold is the PREMIER email address collection tool.
+This program allows you to develop TARGETED lists of email
+addresses.  Doctors, florists, MLM, biz opp,...you can collect
+anything...you are only limited by your imagination!  You can
+even collect email addresses for specific states, cities, and
+even countries!  All you need is your web browser and this program.
+Our software utilizes the latest in search technology called
+"spidering". By simply feeding the spider program a starting
+website it will collect for hours. The spider will go from website
+to targeted website providing you with thousands upon thousands of
+fresh TARGETED email addresses. When you are done collecting,  the
+spider removes duplicates and saves the email list in a ready to
+send format. No longer is it necessary to send millions of ads to
+get a handful of responses...SEND LESS...EARN MORE!!!
+
+A terrific aspect of the Bull's Eye software is that there is
+no difficult set up involved and no special technical mumbo-jumbo
+to learn. All you need to know is how to search for your targeted
+market in one of the many search engines and let the spider do the
+rest! Not familiar with the search engines? No problem, we provide
+you with a list of all the top search engines. Just surf to the
+location of a search engine on your browser then search for the
+market you wish to reach...it's that easy!
+
+For instance if you were looking for email addresses of Doctors
+in New York all you would do is:
+
+1) Do a search using your favorite search engine by typing in
+the words doctor(s) and New York
+2) Copy the URL (one or more)...that's the stuff after the
+http://...  for instance it might look like
+http://www.yahoo.com/?doctor(s)/?New+York
+3) Press the START button
+
+THAT's IT!!!  The Bull's Eye spider will go to all the websites
+that are linked, automatically extracting the email addresses
+you want.
+
+The spider is passive too! That means you can let it run all
+day or all night while you are working on important things or
+just having fun on your computer. There is no need to keep a
+constant watch on it, just feed it your target market and give
+it praise when it delivers thousands of email addresses at
+the end of the day!
+
+Features of the Bull's Eye Software:
+
+* Does TARGETED searches of websites collecting the email
+  addresses you want!
+* Collects Email addresses by City, State, even specific
+  Countries
+* Runs Automatically...simply enter the Starting information,
+  press The Start Button, and it does the rest
+* Filters out duplicates
+* Keeps track of URLs already visited
+* Can run 24 hours per day, 7 days per week
+* Fast and Easy List Management
+* Also has built in filtering options...you can put in words
+  that it "Must" have while searching,...you can even put in
+  criteria that it  "Must NOT Have"...giving you added flexibility
+* Also imports email addresses from any kind of files (text
+  files, binary files, database files)
+* List editor handles Multiple files to work on many lists
+  simultaneously
+* Has a Black-Book feature... avoid sending emails to people
+  who do not want to receive it
+* Built-in Mail program...send email directly on the internet
+  with just a click of your mouse
+* Personalized Emails...if the email address has the user's
+  name when it is collected,..you can send Personalized emails!!!
+* Sort by Location, Server, User Name, Contact Name
+* Advanced Operations:
+� Email address lists export in many different formats
+  (HTML, Comma delimited, text file)
+� Advanced editing...Transfer, Copy,  Addition, Delete, Crop,
+  Move to Top/Bottom
+� Operations between lists...Union, Subtraction, Comparison
+* Program is Passive,...meaning you can run other programs at
+  the same time
+
+CALL FOR MORE INFORMATION   213-980-7850
+CALL FOR MORE INFORMATION   213-980-7850
+
+ORDERING INFORMATION
+
+Customer Name
+Company Name
+Address
+City
+State                       Zip
+Phone                                       Fax
+Email Address
+
+______ BULL'S EYE SOFTWARE   $259.00
+Includes Software, Instructions, Technical Support
+
+______ Shipping & Handling  (2-3 Day Fedex)  $10.00
+                           (Fedex Overnite) $20.00
+
+______  TOTAL
+                 (CA Residents add applicable sales tax)
+
+*All orders are for Win 95 and Win NT
+
+                *****CREDIT CARDS ACCEPTED*****
+                   MASTERCARD   VISA   AMEX
+
+   PLEASE CALL 213-980-7850 to process your order
+                        9am-5pm Pacific Time
+                Checks or Money Orders send to:
+                      WorldTouch Network Inc.
+5670 Wilshire Blvd.  Suite 2170 Los Angeles, CA 90036
+Please note:  Allow 5 business days for all checks to
+clear before order is shipped.
+
+From haszlaki@UAccess.NET  Sun Apr 26 00:31:21 1998
+From: Eric Haszlakiewicz <haszlaki@UAccess.NET>
+To: tech-kern@NetBSD.ORG
+Date: Sun, 26 Apr 1998 00:31:21 +0000
+Subject: in kernel signalling
+
+I was looking through alpha/machdep.c and noticed the sendsig(...)
+function seems to go through a lot of trouble when killing a process.  It
+ends up re-signalling the process instead of just calling sigexit(...)
+like the i386 machdep does. (haven't looked at any others)
+    I was wondering why it does this.
+It would appear to be clearer to simply call sigexit, not mention it ends up
+being a much shorter code path.  Also the ensuing core dump wouldn't have
+any changed value for the SIGILL handler which could cause confusion if,
+while debugging the dump, you happened to look at that.
+    The only reason I found for using this method is that you'd get a
+final ktrace output for the signal, but wouldn't the core dump contain
+what signal the program crashed with anyway?
+
+    Is there some other reason for doing this that I'm missing?
+
+thanks,
+eric
+haszlaki@uaccess.net
+
+From thorpej@nas.nasa.gov  Sun Apr 26 13:22:12 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: haszlaki@uaccess.net
+Date: Sun, 26 Apr 1998 13:22:12 +0000
+Subject: Re: in kernel signalling
+
+On Sun, 26 Apr 1998 00:31:21 -0500 (CDT) 
+ Eric Haszlakiewicz <haszlaki@UAccess.NET> wrote:
+
+ > 	I was looking through alpha/machdep.c and noticed the sendsig(...)
+ > function seems to go through a lot of trouble when killing a process.  It
+ > ends up re-signalling the process instead of just calling sigexit(...)
+ > like the i386 machdep does. (haven't looked at any others)
+
+Most ports do it like the Alpha port does, actually...
+
+ >     I was wondering why it does this.
+ > It would appear to be clearer to simply call sigexit, not mention it ends up
+ > being a much shorter code path.  Also the ensuing core dump wouldn't have
+ > any changed value for the SIGILL handler which could cause confusion if,
+ > while debugging the dump, you happened to look at that.
+ >     The only reason I found for using this method is that you'd get a
+ > final ktrace output for the signal, but wouldn't the core dump contain
+ > what signal the program crashed with anyway?
+
+...yes, but for whatever reason, the program may not dump core... (limits,
+etc.)
+
+ >     Is there some other reason for doing this that I'm missing?
+
+I dunno... certainly, I think changing it to a sigexit() will _work_...
+
+...hm, there are some other subtle things here... for example, if a
+process is being traced (e.g. via ptrace(2)), using psignal() will
+give the debugger a chance to look at things... sigexit() won't.
+
+However, sigexit() will cause the process to exit _immediately_, as
+opposed to psignal(), which may not...maybe it'll linger forever?
+(Although, the process is already running given that we're in sendsig(),
+so I might be wrong, here...)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From haszlaki@UAccess.NET  Mon Apr 27 11:21:15 1998
+From: Eric Haszlakiewicz <haszlaki@UAccess.NET>
+To: thorpej@nas.nasa.gov
+Date: Mon, 27 Apr 1998 11:21:15 +0000
+Subject: Re: in kernel signalling
+
+>  > final ktrace output for the signal, but wouldn't the core dump contain
+>  > what signal the program crashed with anyway?
+> ...yes, but for whatever reason, the program may not dump core... (limits,
+> etc.)
+	oh yeah...
+
+> ...hm, there are some other subtle things here... for example, if a
+> process is being traced (e.g. via ptrace(2)), using psignal() will
+> give the debugger a chance to look at things... sigexit() won't.
+	hmm... that makes sense.  Probably more useful to allow
+debuggers to see that last signal.
+
+> However, sigexit() will cause the process to exit _immediately_, as
+> opposed to psignal(), which may not...maybe it'll linger forever?
+> (Although, the process is already running given that we're in sendsig(),
+> so I might be wrong, here...)
+	well, looking through the code a bit more:  using psignal is still
+essentially immediate.  The process won't get past the CURSIG/postsig
+loop because default actions are checked and done before handlers.
+
+	writing a test case to actually get to the sigexit/psignal point
+is a bit trickier than I thought.  oh well, guess it probably doesn't
+happen all that often anyway.
+
+eric
+haszlaki@uaccess.net
+
+From seifert@sequent.com  Mon Apr 27 10:37:47 1998
+From: David Seifert <seifert@sequent.com>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 27 Apr 1998 10:37:47 +0000
+Subject: bad resistor packs on Multia/UDB
+
+I checked out my two dead Multias yesterday, and the 4.7k resistor
+packs seem okay, except one pack has one pin at 3.19k instead of 4.7.
+My date codes are 9442 and 9442C.
+
+There are 6 other resistor packs (E203, E204, E205) labeled:
+
+29366-01
+H58-000
+B 9448  (or 9449)
+
+I get a variety of readings: shorts, opens, 5-6 MOhm, 10-12 MOhm.
+>From the markings I'm guessing they are supposed to be 5.8 MOhm?
+Mine are so flaky I can't even figure out what configuration they
+are supposed to be.  (The 4.7k packs appear to have 19 resistors with
+pin 20 common.)
+
+Anyone know what configuration these packs are supposed to be
+and where to get replacements?
+
+-Dave (not looking forward to replacing surface mount devices...)
+
+From ross@teraflop.com  Tue Apr 28 02:35:15 1998
+From: Ross Harvey <ross@teraflop.com>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 28 Apr 1998 02:35:15 +0000
+Subject: more Multia repair part numbers and comments
+
+OK, so I borrowed a supposedly dead Multia. Murphy's law is in fine form,
+though...when you _want_ a dead one, _specify_ a dead one, really can only
+_use_ a dead one (for the purpose of doing a friend a favor and testing the
+big multia fix) ...then...of course...it arrives and works just fine.
+
+Now that I've seen the parts, the bad news is that they aren't likely
+to be in any catalog...good thing for me no one took up my offer on that
+bet. AFAICT it is going to be necessary to order them through one of the
+manufacturer's franchised distributors, and they can be difficult when you
+don't already have an account. Sometimes you can order samples through
+a web page, and certainly you can locate the distributer that way.
+
+The generic thing you want is: (qty 6) a 20-lead .220 (i.e., medium
+body) soic 4.7K bussed (pullup) resistor network, with lead 20 as the
+common.  I think the Bournes parts are probably safe, I guess it was a
+bad batch, or possibly that thick-film part didn't like actually being
+_in_ the solderwave, which is what would have happened given that these
+components are on the bottom of the board.
+
+And, I can now see why the Jupiter guys replaced the logic IC: on Tim's
+Multia the printing on the chip is starting to bake into a brownish
+off-white right in the center, i.e., over the die. I think it needs to
+go too, although using thermally conductive epoxy you could conceivably
+heatsink it...not much room to work with though. The 5% is perfectly
+fine as a tolerance, but if it is out of stock and the 2% or 1% is in
+stock...
+
+        WhichOne        Mfr             Part Number
+
+        R-network       Bournes         4820P-002-472
+        R-network       Dale		SOMC2001472J (5%)
+        R-network       Dale		SOMC2001472G (2%)
+        R-network       Dale		SOMC2001472F (1%)
+	...there are probably more...
+
+	Logic-IC	TI		SN74ABT623DW
+	Logic-IC	Philips		74ABT623D
+	Logic-IC	Pericom		PI74FCT623TS
+	Logic-IC	Pericom		PI74FCT623ATS
+	Logic-IC	Pericom		PI74FCT623CTS
+	Logic-IC	Pericom		PI74FCT623DTS
+	Logic-IC	IDT		IDT74FCT623TSO
+	Logic-IC	IDT		IDT74FCT623ATSO
+	Logic-IC	IDT		IDT74FCT623CTSO
+	...there probably are not any more...
+
+This is almost trivial with the right lab, but it definitely isn't the
+easiest home project. Besides the difficulty of obtaining the components,
+you have 140 leads to remove and resolder...and you don't want to lift
+or destroy a single pad while doing it. At least it is a lot easier
+than if they were those ugly old dips.
+
+Ross Harvey
+
+From mts@rare.net  Tue Apr 28 11:08:19 1998
+From: Michael T. Stolarchuk <mts@rare.net>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 28 Apr 1998 11:08:19 +0000
+Subject: srm/cogent tulip cards.
+
+i'm trying to get a 10/100 cogent eth card to
+do boot/bootp.  the card works find when the
+system is booted, but i'd like to get the kernel
+loaded from a dhcp server....
+
+But it seems like when i 'boot -proto bootp ewa0',
+the card *may* be transmitting in 100mb mode (the
+only clue here is the transmit lights on the card
+itself)
+
+is there an srm option to use 10mb?
+
+mts.
+
+From ross@teraflop.com  Tue Apr 28 13:12:53 1998
+From: Ross Harvey <ross@teraflop.com>
+To: mts@rare.net, port-alpha@NetBSD.ORG
+Date: Tue, 28 Apr 1998 13:12:53 +0000
+Subject: Re:  srm/cogent tulip cards.
+
+> i'm trying to get a 10/100 cogent eth card to
+> do boot/bootp.  the card works find when the
+> system is booted, but i'd like to get the kernel
+> loaded from a dhcp server....
+
+> But it seems like when i 'boot -proto bootp ewa0',
+> the card *may* be transmitting in 100mb mode (the
+> only clue here is the transmit lights on the card
+> itself)
+
+> is there an srm option to use 10mb?
+
+Depending on your version of SRM you may have two more variables:
+
+	set EWA0_PROTOCOLS bootp
+	set EWA0_MODE ?
+
+IIRC this will give you the supported ewa0 media types.
+
+But first, you need to run a tcpdump in that collision domain and see
+if your problem is speed or configuration. For example, the "kernel"
+isn't loaded from the dhcp server...necessarily...the dhcpd config
+info, the tftp image of netboot, and the NFS-loaded kernel can actually
+come from one, two, or three different boxes. See the netboot faq for more
+information.
+
+Ross
+
+From colins@softimage.com  Tue Apr 28 17:53:37 1998
+From: colins <colins@softimage.com>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 28 Apr 1998 17:53:37 +0000
+Subject: ftp.netbsd.org/.../NetBSD-1.3.1/alpha not accessible
+
+Hi,
+
+Sorry for disturbing everyone with this but...  
+the ftp.netbsd.org/pub/NetBSD/NetBSD-1.3.1/alpha directory has 
+permissions 700...
+
+colins
+
+From matt@3am-software.com  Tue Apr 28 20:00:00 1998
+From: Matt Thomas <matt@3am-software.com>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 28 Apr 1998 20:00:00 +0000
+Subject: Re: srm/cogent tulip cards.
+
+At 11:08 AM 4/28/98 , Michael T. Stolarchuk wrote:
+>
+>i'm trying to get a 10/100 cogent eth card to
+>do boot/bootp.  the card works find when the
+>system is booted, but i'd like to get the kernel
+>loaded from a dhcp server....
+>
+>But it seems like when i 'boot -proto bootp ewa0',
+>the card *may* be transmitting in 100mb mode (the
+>only clue here is the transmit lights on the card
+>itself)
+>
+>is there an srm option to use 10mb?
+
+The SRM only "knows" the Digital DExxx cards.  Since
+the 21040/21041 all worked alike for the most part
+it didn't who'se card you used.  The 2114x cards only
+the DE500-xx will work.
+-- 
+Matt Thomas               Internet:   matt@3am-software.com
+3am Software Foundry      WWW URL:    http://www.3am-software.com/bio/matt/
+Nashua, NH                Disclaimer: I disavow all knowledge of this message
+
+From mjacob@nas.nasa.gov  Tue Apr 28 17:34:35 1998
+From: Matthew P. Jacob <mjacob@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 28 Apr 1998 17:34:35 +0000
+Subject: fyi: buslogic BT-958, Alpha 8200
+
+Body of article empty.
+
+From thorpej@nas.nasa.gov  Tue Apr 28 22:59:36 1998
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mts@rare.net
+Date: Tue, 28 Apr 1998 22:59:36 +0000
+Subject: Re: srm/cogent tulip cards.
+
+On Tue, 28 Apr 1998 11:08:19 -0400 
+ "Michael T. Stolarchuk" <mts@rare.net> wrote:
+
+ > i'm trying to get a 10/100 cogent eth card to
+ > do boot/bootp.  the card works find when the
+ > system is booted, but i'd like to get the kernel
+ > loaded from a dhcp server....
+ > 
+ > But it seems like when i 'boot -proto bootp ewa0',
+ > the card *may* be transmitting in 100mb mode (the
+ > only clue here is the transmit lights on the card
+ > itself)
+ > 
+ > is there an srm option to use 10mb?
+
+There is, but the SRM only knows how to set media on the DEC labeled
+Tulip interfaces.  The PHY interface might be different on other types
+of cards.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                            Home: +1 408 866 1912
+NAS: M/S 258-5                                       Work: +1 650 604 0935
+Moffett Field, CA 94035                             Pager: +1 415 428 6939
+
+From kkb@ddw.net  Wed Apr 29 15:05:20 1998
+From: Kevin Ogden <kkb@ddw.net>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 29 Apr 1998 15:05:20 +0000
+Subject: X-Server and Multia
+
+Is there a TGA X-Server available for the Multia?  If not is there an
+S3-Virge PCI X-Server that will run?
+-- 
+     --Kevin Ogden
+
+-------------------------------------------
+Vulgarity is a crutch for the inarticulate.
+-------------------------------------------
+
+From cjs@portal.ca  Wed Apr 29 16:46:33 1998
+From: Curt Sampson <cjs@portal.ca>
+To: wilko@yedi.iaf.nl
+Date: Wed, 29 Apr 1998 16:46:33 +0000
+Subject: Re: problem installing 1.3 on noname
+
+On Fri, 17 Apr 1998, Wilko Bulte wrote:
+
+> In other words 1.3 works fine on my NoName. I think cjs used a pair of NoNames
+> to build the 1.3 binary dist.
+
+Yes indeed; I have two of them. One was my main file sever at the
+time, the other was a netbooted machine (with a small SCSI drive
+too, though) that I used for testing.
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite mist, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From cjs@portal.ca  Wed Apr 29 17:01:33 1998
+From: Curt Sampson <cjs@portal.ca>
+To: nmanisca@vt.edu
+Date: Wed, 29 Apr 1998 17:01:33 +0000
+Subject: Re: SRM woes
+
+On Wed, 22 Apr 1998, nm wrote:
+
+> Ok, I have an axppci33 based system and it is currently
+> flashed with SRM 4.7
+> 
+> the problem is that most commands do not work...
+> ...
+> my friend with a multia running SRM 3.7 has these
+> commands and more...
+
+Multias and AXPpci33 boxen have different SRM consoles, and the
+version for the AXPpci33 simply doesn't support all the commands
+that the Multia does.
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite mist, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From cjs@portal.ca  Wed Apr 29 17:07:03 1998
+From: Curt Sampson <cjs@portal.ca>
+To: kpneal@pobox.com
+Date: Wed, 29 Apr 1998 17:07:03 +0000
+Subject: Re:  Trouble booting on Multia
+
+On Mon, 20 Apr 1998, Kevin P. Neal wrote:
+
+> I mean, obviously it's much faster. Is it fast enough to be "perky"? Is it
+> "ok"? How would it's speed be described?
+
+I'd describe the AXPpci33 as `slow.' It takes more than 24 hours
+to do a full system build, and even a kernel compile is over an
+hour. For those of us used to Pentiums, this hurts pretty badly.
+
+cjs
+
+Curt Sampson    cjs@portal.ca	   Info at http://www.portal.ca/
+Internet Portal Services, Inc.	   Through infinite mist, software reverberates
+Vancouver, BC  (604) 257-9400	   In code possess'd of invisible folly.
+
+From mcguire@neurotica.com  Wed Apr 29 20:16:33 1998
+From: Dave McGuire <mcguire@neurotica.com>
+To: cjs@portal.ca
+Date: Wed, 29 Apr 1998 20:16:33 +0000
+Subject: Re:  Trouble booting on Multia
+
+On April 29, Curt Sampson wrote:
+> > I mean, obviously it's much faster. Is it fast enough to be "perky"? Is it
+> > "ok"? How would it's speed be described?
+> 
+> I'd describe the AXPpci33 as `slow.' It takes more than 24 hours
+> to do a full system build, and even a kernel compile is over an
+> hour. For those of us used to Pentiums, this hurts pretty badly.
+
+  And for those of us used to big SPARCs, this hurts even worse.
+Pretty much every 21066-based Alpha I've seen has sucked pretty
+badly.  That's probably why they're so cheap.  I've got a couple of
+older 21064-based Alphas that kick ass.  I'd advise people here to
+seek them out and cherish them. :)
+
+
+                         -Dave McGuire
+                          mcguire@neurotica.com
+
+From mike@ducky.net  Wed Apr 29 17:23:16 1998
+From: Mike Haertel <mike@ducky.net>
+To: cjs@portal.ca, wilko@yedi.iaf.nl
+Date: Wed, 29 Apr 1998 17:23:16 +0000
+Subject: Re: problem installing 1.3 on noname
+
+It turns out my problems were caused by the L2 cache
+being flaky at 15ns timing, so I adjusted it up to 20ns
+and it seems to work fine now.
+
+Thanks to everyone who told me it works on *their*
+computers--it inspired me to dig further into the
+hardware docs and find the necessary jumper..
+
+	Mike
+

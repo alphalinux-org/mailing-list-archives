@@ -1,0 +1,904 @@
+From hjalmar@hjalmar.to  Mon Jan 7 00:40:44 2008
+Path: news.gmane.org!not-for-mail
+From: Anders Hjalmarsson <hjalmar@hjalmar.to>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.current
+Subject: Some alpha problems in current
+Date: Mon, 07 Jan 2008 00:40:44 +0100
+Lines: 87
+Approved: news@gmane.org
+Message-ID: <20080106234045.06373A1696@bigbox.hjalmar.to>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1199662908 28653 80.91.229.12 (6 Jan 2008 23:41:48 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sun, 6 Jan 2008 23:41:48 +0000 (UTC)
+To: current-users@netbsd.org, port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Jan 07 00:42:09 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1JBf84-0006KM-N9
+	for netbsd-port-alpha@m.gmane.org; Mon, 07 Jan 2008 00:42:09 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id DB4AE63B103; Sun,  6 Jan 2008 23:41:37 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from proxy2.bredband.net (proxy2.bredband.net [195.54.101.72])
+	by mail.netbsd.org (Postfix) with ESMTP id B8C6C63B11F;
+	Sun,  6 Jan 2008 23:41:32 +0000 (UTC)
+Original-Received: from ironport.bredband.com (195.54.101.120) by proxy2.bredband.net (7.3.127)
+        id 47285ABF016F1BDB; Mon, 7 Jan 2008 00:41:31 +0100
+X-IronPort-Anti-Spam-Filtered: true
+X-IronPort-Anti-Spam-Result: Ah5FAGL1gEdT459RRmdsb2JhbACBV446AQEBN5YL
+Original-Received: from ua-83-227-159-81.cust.bredbandsbolaget.se (HELO mail.hjalmar.to) ([83.227.159.81])
+  by ironport1.bredband.com with ESMTP; 07 Jan 2008 00:41:31 +0100
+Original-Received: from bigbox.hjalmar.to (bigbox.hjalmar.to [192.168.1.3])
+	by mail.hjalmar.to (Postfix) with ESMTP id 7F43491928;
+	Mon,  7 Jan 2008 00:40:45 +0100 (CET)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bigbox.hjalmar.to (Postfix) with ESMTP id 06373A1696;
+	Mon,  7 Jan 2008 00:40:44 +0100 (CET)
+X-Mailer: exmh version 2.5 07/13/2001 with version: MH 8.6.3 [UCI]
+X-face: n9N?<_kD:bd-GpNcpSART\pyF}tJoz(}x_!KyMVdo8Ucg|CF.z5f0]6YU-;>nXADvJ.{bx@
+ l\V|q>@vE,Fwz7?G3-VX`^6Z}p|E"|-n,G3%<%Q64#A[bn%AP.1XxiHQ{ofb/0hL\gV?zix8(}.J4"
+ PXP]7zx3.abBJ/}qzq&=|Z"g~
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4149 gmane.os.netbsd.current:39165
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4149>
+
+I tried current (from todays sources) on alpha, but there were some
+problems building a kernel.
+I do not think they are worth a pr since they should be trivial to fix.
+
+Builing a MP kernel:
+make depend fails for several files with messages similar to this:
+
+In file included from /usr/src/sys/sys/simplelock.h:87,
+                 from ./machine/pcb.h:37,
+                 from /usr/src/sys/sys/user.h:37,
+                 from /usr/src/sys/net/bpf.c:56:
+./machine/lock.h:168:1: error: "SPINLOCK_SPIN_HOOK" redefined
+In file included from /usr/src/sys/uvm/uvm_param.h:75,
+                 from /usr/src/sys/sys/mbuf.h:91,
+                 from /usr/src/sys/net/bpf.c:52:
+/usr/src/sys/sys/lock.h:222:1: error: this is the location of the previous defin
+ition
+In file included from /usr/src/sys/sys/simplelock.h:87,
+                 from ./machine/pcb.h:37,
+                 from /usr/src/sys/sys/user.h:37,
+                 from /usr/src/sys/net/bpf.c:56:
+./machine/lock.h:181:1: error: "SPINLOCK_BACKOFF_HOOK" redefined
+In file included from /usr/src/sys/uvm/uvm_param.h:75,
+                 from /usr/src/sys/sys/mbuf.h:91,
+                 from /usr/src/sys/net/bpf.c:52:
+/usr/src/sys/sys/lock.h:225:1: error: this is the location of the previous defin
+ition
+mkdep: compile failed.
+*** Error code 1
+
+
+Including  <machine/lock.h> in <sys/lock.h> fixes the compilation.
+
+Compilation of a UP kernel instead fails in sys/arch/alpha/alpha/patch.c
+
+/usr/src/sys/arch/alpha/alpha/patch.c: In function 'alpha_patch':
+/usr/src/sys/arch/alpha/alpha/patch.c:94: error: 'struct cpu_info' has no member named 'ci_flags'
+/usr/src/sys/arch/alpha/alpha/patch.c:95: error: 'cpus_running' undeclared (first use in this function)
+/usr/src/sys/arch/alpha/alpha/patch.c:95: error: (Each undeclared identifier is reported only once
+/usr/src/sys/arch/alpha/alpha/patch.c:95: error: for each function it appears in.)
+*** Error code 1
+
+The problem is in the KASSERT statements which reference variables not defined
+for a UP kernel. Moving them inside the MULTIPROCESSOR part fixes the
+UP kernel.
+
+A MP kernel still fails to boot, probably because those same variables
+have not been initialized when alpha_patch is called the first time
+from sys/arch/alpha/alpha/machdep.c
+
+Entering netbsd.mp at 0xfffffc00003012b0...
+panic: kernel diagnostic assertion "curcpu()->ci_flags & CPUF_PRIMARY" failed: f
+ile "/usr/src/sys/arch/alpha/alpha/patch.c", line 95
+Stopped in pid 0.1 (system) at  0xfffffc000062c734:     ret     zero,(ra)
+db{0}> bt
+db{0}>
+
+The following patch got me far enough that it hanged late in the boot while
+starting local daemons.
+
+Index: patch.c
+===================================================================
+RCS file: /cvsroot/src/sys/arch/alpha/alpha/patch.c,v
+retrieving revision 1.2
+diff -u -r1.2 patch.c
+--- patch.c	28 Nov 2007 17:40:03 -0000	1.2
++++ patch.c	6 Jan 2008 23:38:09 -0000
+@@ -91,11 +91,12 @@
+ 	 * kernel code.
+ 	 */
+ 
+-	KASSERT(curcpu()->ci_flags & CPUF_PRIMARY);
+-	KASSERT((cpus_running & ~(1UL << cpu_number())) == 0);
+ 
+ #if defined(MULTIPROCESSOR)
+ 	if (is_mp) {
++		KASSERT(curcpu()->ci_flags & CPUF_PRIMARY);
++		KASSERT((cpus_running & ~(1UL << cpu_number())) == 0);
++
+ 		patchfunc(_membar_producer_mp, _membar_producer_mp_end,
+ 			  _membar_producer, _membar_producer_end);
+ 		patchfunc(_membar_sync_mp, _membar_sync_mp_end,
+
+
+
+
+
+
+From ad@netbsd.org  Mon Jan 7 00:44:39 2008
+Path: news.gmane.org!not-for-mail
+From: Andrew Doran <ad@netbsd.org>
+Newsgroups: gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha
+Subject: Re: Some alpha problems in current
+Date: Mon, 7 Jan 2008 00:44:39 +0000
+Lines: 19
+Approved: news@gmane.org
+Message-ID: <20080107004439.GL18314@hairylemon.org>
+References: <20080106234045.06373A1696@bigbox.hjalmar.to>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1199666701 5038 80.91.229.12 (7 Jan 2008 00:45:01 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Mon, 7 Jan 2008 00:45:01 +0000 (UTC)
+Cc: current-users@netbsd.org, port-alpha@NetBSD.org
+To: Anders Hjalmarsson <hjalmar@hjalmar.to>
+Original-X-From: bounces-current-users-owner-netbsd-current-users=m.gmane.org@NetBSD.org Mon Jan 07 01:45:22 2008
+Return-path: <bounces-current-users-owner-netbsd-current-users=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-current-users@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1JBg7F-0003SO-GA
+	for netbsd-current-users@m.gmane.org; Mon, 07 Jan 2008 01:45:21 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id B4BB163B13A; Mon,  7 Jan 2008 00:44:43 +0000 (UTC)
+X-Original-To: current-users@netbsd.org
+Delivered-To: current-users@netbsd.org
+Original-Received: from ns0.hairylemon.org (ns0.hairylemon.org [82.138.249.57])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by mail.netbsd.org (Postfix) with ESMTP id 56E5763B11C;
+	Mon,  7 Jan 2008 00:44:41 +0000 (UTC)
+Original-Received: from ad by ns0.hairylemon.org with local (Exim 4.54)
+	id 1JBg6Z-00030k-D0; Mon, 07 Jan 2008 00:44:39 +0000
+Content-Disposition: inline
+In-Reply-To: <20080106234045.06373A1696@bigbox.hjalmar.to>
+User-Agent: Mutt/1.4.2.2i
+Original-Sender: current-users-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.current:39173 gmane.os.netbsd.ports.alpha:4150
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4150>
+
+Hi Anders,
+
+On Mon, Jan 07, 2008 at 12:40:44AM +0100, Anders Hjalmarsson wrote:
+
+> I tried current (from todays sources) on alpha, but there were some
+> problems building a kernel.
+> I do not think they are worth a pr since they should be trivial to fix.
+
+Thanks, I have applied the fixes.
+
+> The following patch got me far enough that it hanged late in the boot while
+> starting local daemons.
+
+Can you get into the debugger? Can you get a backtrace, and what does ps/l
+show?
+
+Thanks,
+Andrew
+
+
+From hjalmar@hjalmar.to  Mon Jan 7 02:27:25 2008
+Path: news.gmane.org!not-for-mail
+From: Anders Hjalmarsson <hjalmar@hjalmar.to>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.current
+Subject: Re: Some alpha problems in current
+Date: Mon, 07 Jan 2008 02:27:25 +0100
+Lines: 47
+Approved: news@gmane.org
+Message-ID: <20080107012725.5FCFCA1696@bigbox.hjalmar.to>
+References: <20080107004439.GL18314@hairylemon.org>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1199669299 11955 80.91.229.12 (7 Jan 2008 01:28:19 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Mon, 7 Jan 2008 01:28:19 +0000 (UTC)
+Cc: current-users@netbsd.org, port-alpha@NetBSD.org
+To: Andrew Doran <ad@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Jan 07 02:28:37 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1JBgn2-0006CD-Ue
+	for netbsd-port-alpha@m.gmane.org; Mon, 07 Jan 2008 02:28:33 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 292FD63B11F; Mon,  7 Jan 2008 01:28:01 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from proxy3.bredband.net (proxy3.bredband.net [195.54.101.73])
+	by mail.netbsd.org (Postfix) with ESMTP id 36D9063B112;
+	Mon,  7 Jan 2008 01:27:56 +0000 (UTC)
+Original-Received: from ironport2.bredband.com (195.54.101.122) by proxy3.bredband.net (7.3.127)
+        id 473103E7014CF372; Mon, 7 Jan 2008 02:27:55 +0100
+X-IronPort-Anti-Spam-Filtered: true
+X-IronPort-Anti-Spam-Result: AmZmAO4OgUdT459RRmdsb2JhbACBV4YQiCsBAQE3lgI
+Original-Received: from ua-83-227-159-81.cust.bredbandsbolaget.se (HELO mail.hjalmar.to) ([83.227.159.81])
+  by ironport2.bredband.com with ESMTP; 07 Jan 2008 02:27:55 +0100
+Original-Received: from bigbox.hjalmar.to (bigbox.hjalmar.to [192.168.1.3])
+	by mail.hjalmar.to (Postfix) with ESMTP id 93925918FB;
+	Mon,  7 Jan 2008 02:27:25 +0100 (CET)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bigbox.hjalmar.to (Postfix) with ESMTP id 5FCFCA1696;
+	Mon,  7 Jan 2008 02:27:25 +0100 (CET)
+X-Mailer: exmh version 2.5 07/13/2001 with version: MH 8.6.3 [UCI]
+X-face: n9N?<_kD:bd-GpNcpSART\pyF}tJoz(}x_!KyMVdo8Ucg|CF.z5f0]6YU-;>nXADvJ.{bx@
+ l\V|q>@vE,Fwz7?G3-VX`^6Z}p|E"|-n,G3%<%Q64#A[bn%AP.1XxiHQ{ofb/0hL\gV?zix8(}.J4"
+ PXP]7zx3.abBJ/}qzq&=|Z"g~
+In-reply-to: Your message of "Mon, 07 Jan 2008 00:44:39 GMT."
+             <20080107004439.GL18314@hairylemon.org> 
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4151 gmane.os.netbsd.current:39175
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4151>
+
+On Mon, 07 Jan 2008 00:44:39 GMT, Andrew Doran wrote:
+
+> > The following patch got me far enough that it hanged late in the boot while
+> > starting local daemons.
+> 
+> Can you get into the debugger? Can you get a backtrace, and what does ps/l
+> show?
+> 
+Unfortunately I have not found out how to get into ddb voluntarily. It seems
+sending a break does not put me in ddb (or my terminal server is misconfigured)
+The machine did not repond to pings, nor to keypresses like ^T
+
+The last part of the boot messages:
+Starting ntpd.
+Starting rwhod.
+FATAL: Could not determine fully qualified hostname.  Please set 'visible_hostna
+
+
+Then I gave up and rebooted it.
+
+It seems it was trying to start squid, which unfortunately could not
+determine its hostname and probably called abort().
+
+[the name lookup problem was unrelated to this problem,
+I have had that problem before during startup, starting it manually after boot
+works]
+
+With a uni-processor kernel i get the following:
+
+FATAL: Could not determine fully qualified hostname.  Please set 'visible_hostname'
+
+Squid Cache (Version 2.5.STABLE9): Terminated abnormally.
+CPU Usage: 0.013 seconds = 0.008 user + 0.006 sys
+Maximum Resident Size: 0 KB
+Page faults with physical i/o: 22
+[1]   Abort trap (core dumped) /usr/local/sbin/...
+
+I suspect the multi-processor kernel hanged before the whole message was
+printed and that squid called abort
+
+
+I do not have time for more tests tonight, but hopefully tomorrow.
+
+
+-hjalmar
+
+
+
+From hjalmar@hjalmar.to  Tue Jan 8 00:50:35 2008
+Path: news.gmane.org!not-for-mail
+From: Anders Hjalmarsson <hjalmar@hjalmar.to>
+Newsgroups: gmane.os.netbsd.current,gmane.os.netbsd.ports.alpha
+Subject: Re: Some alpha problems in current
+Date: Tue, 08 Jan 2008 00:50:35 +0100
+Lines: 205
+Approved: news@gmane.org
+Message-ID: <20080107235036.43566A1696@bigbox.hjalmar.to>
+References: <20080107012725.5FCFCA1696@bigbox.hjalmar.to>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1199749876 5428 80.91.229.12 (7 Jan 2008 23:51:16 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Mon, 7 Jan 2008 23:51:16 +0000 (UTC)
+Cc: current-users@netbsd.org, port-alpha@NetBSD.org
+To: Andrew Doran <ad@netbsd.org>
+Original-X-From: bounces-current-users-owner-netbsd-current-users=m.gmane.org@NetBSD.org Tue Jan 08 00:51:37 2008
+Return-path: <bounces-current-users-owner-netbsd-current-users=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-current-users@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1JC1kg-0002G0-Ft
+	for netbsd-current-users@m.gmane.org; Tue, 08 Jan 2008 00:51:31 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 5A77F63B140; Mon,  7 Jan 2008 23:50:46 +0000 (UTC)
+X-Original-To: current-users@netbsd.org
+Delivered-To: current-users@netbsd.org
+Original-Received: from proxy1.bredband.net (proxy1.bredband.net [195.54.101.71])
+	by mail.netbsd.org (Postfix) with ESMTP id EC4D863B11F;
+	Mon,  7 Jan 2008 23:50:39 +0000 (UTC)
+Original-Received: from ironport.bredband.com (195.54.101.120) by proxy1.bredband.net (7.3.127)
+        id 4730FF890147D2F5; Tue, 8 Jan 2008 00:50:38 +0100
+X-IronPort-Anti-Spam-Filtered: true
+X-IronPort-Anti-Spam-Result: ArdeADtJgkdT459RRmdsb2JhbACBV4YFiDABAQE3mAs
+Original-Received: from ua-83-227-159-81.cust.bredbandsbolaget.se (HELO mail.hjalmar.to) ([83.227.159.81])
+  by ironport1.bredband.com with ESMTP; 08 Jan 2008 00:50:37 +0100
+Original-Received: from bigbox.hjalmar.to (unknown [192.168.2.19])
+	by mail.hjalmar.to (Postfix) with ESMTP id AFCBD918FB;
+	Tue,  8 Jan 2008 00:50:36 +0100 (CET)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bigbox.hjalmar.to (Postfix) with ESMTP id 43566A1696;
+	Tue,  8 Jan 2008 00:50:36 +0100 (CET)
+X-Mailer: exmh version 2.5 07/13/2001 with version: MH 8.6.3 [UCI]
+X-face: n9N?<_kD:bd-GpNcpSART\pyF}tJoz(}x_!KyMVdo8Ucg|CF.z5f0]6YU-;>nXADvJ.{bx@
+ l\V|q>@vE,Fwz7?G3-VX`^6Z}p|E"|-n,G3%<%Q64#A[bn%AP.1XxiHQ{ofb/0hL\gV?zix8(}.J4"
+ PXP]7zx3.abBJ/}qzq&=|Z"g~
+In-reply-to: Your message of "Mon, 07 Jan 2008 02:27:25 +0100."
+             <20080107012725.5FCFCA1696@bigbox.hjalmar.to> 
+Original-Sender: current-users-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.current:39186 gmane.os.netbsd.ports.alpha:4152
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4152>
+
+On Mon, 07 Jan 2008 02:27:25 +0100, Anders Hjalmarsson wrote:
+
+> On Mon, 07 Jan 2008 00:44:39 GMT, Andrew Doran wrote:
+> 
+> > > The following patch got me far enough that it hanged late in the boot whi
+le
+> > > starting local daemons.
+> > 
+> > Can you get into the debugger? Can you get a backtrace, and what does ps/l
+> > show?
+> > 
+> Unfortunately I have not found out how to get into ddb voluntarily. It seems
+> sending a break does not put me in ddb (or my terminal server is misconfigure
+d)
+
+I made a new attempt with a slightly newer kernel (sources from this evening)
+and disabled start of squid.
+It hanged at approximately the same point, after starting rwhod.
+I made a "halt in" which paniced the kernel and I got the following:
+
+Updating motd.
+Starting ntpd.
+Starting rwhod.
+RMC>halt in    
+
+Returning to COM port    
+              
+halted CPU 0  
+CPU 1 is not halted      
+CPU 2 is not halted      
+CPU 3 is not halted      
+              
+halt code = 1 
+operator initiated halt  
+PC = fffffc0000506050    
+P00>>>cont    
+              
+continuing CPU 0 
+CP - RESTORE_TERM routine to be called
+
+panic: user requested console halt
+Stopped in pid 0.2 (system) at  netbsd:cpu_Debugger+0x4:        ret     zero,(ra
+)
+db{0}> bt
+cpu_Debugger() at netbsd:cpu_Debugger+0x4
+panic() at netbsd:panic+0x1c8
+console_restart() at netbsd:console_restart+0x78
+XentRestart() at netbsd:XentRestart+0x90
+--- console restart (from ipl 5) ---
+nullop() at netbsd:nullop
+mutex_vector_enter() at netbsd:mutex_vector_enter+0x320
+pool_put() at netbsd:pool_put+0x40
+pmap_tlb_shootdown_job_put() at netbsd:pmap_tlb_shootdown_job_put+0x30
+pmap_do_tlb_shootdown() at netbsd:pmap_do_tlb_shootdown+0x16c
+alpha_ipi_process() at netbsd:alpha_ipi_process+0xb8
+interrupt() at netbsd:interrupt+0x80
+XentInt() at netbsd:XentInt+0x1c
+--- interrupt (from ipl 0) ---
+idle_loop() at netbsd:idle_loop+0x164
+exception_return() at netbsd:exception_return
+--- root of call graph ---
+
+
+db{0}> ps/l
+ PID         LID S     FLAGS       STRUCT LWP *               NAME WAIT
+ 284           1 7  20000004   fffffc003ddc2b80              rwhod
+ 293           1 3        84   fffffc003ddc2e60                 sh wait
+ 285           1 3         4   fffffc003b0b1140               ntpd uvn_fp2
+ 262           1 3        84   fffffc003b0b1420               mopd select
+ 255           1 3        84   fffffc003b0b1700              httpd select
+ 239           1 3        84   fffffc003b0b1cc0              httpd select
+ 215           5 3        84   fffffc003ddc3700               nfsd nfsd
+               4 3        84   fffffc003dd8cb80               nfsd nfsd
+               3 3        84   fffffc003dd8d420               nfsd nfsd
+               2 3        84   fffffc003ddc25c0               nfsd nfsd
+               1 3        84   fffffc003ddc2000               nfsd select
+ 210           1 3        84   fffffc003dd8d140             mountd select
+ 152           1 3        84   fffffc003dd8dcc0            rpcbind select
+ 122           1 3        84   fffffc003dd8c5c0            syslogd kqread
+ 46            1 3        84   fffffc003ddc3cc0          mount_mfs mfsidl
+ 2             1 3        84   fffffc003ea26000                 sh wait
+ 1             1 3        84   fffffc003f4ffcc0               init wait
+>0            68 3       204   fffffc003ddc3420            physiod physiod
+              67 3       204   fffffc003ea262e0        vmem_rehash vmem_rehash
+              66 7  20000204   fffffc003ea265c0           aiodoned
+              65 3       204   fffffc003ea268a0            ioflush syncer
+              64 3       204   fffffc003ea26b80           pgdaemon pgdaemon
+              63 3       204   fffffc003ea26e60            raidio7 raidiow
+              62 3       204   fffffc003ea27140              raid7 rfwcond
+              61 3       204   fffffc003ea27420            raidio6 raidiow
+              60 3       204   fffffc003ea27700              raid6 rfwcond
+              59 3       204   fffffc003ea279e0            raidio5 raidiow
+              58 3       204   fffffc003f9a62e0              raid5 rfwcond
+              57 3       204   fffffc003ea27cc0            raidio4 raidiow
+              56 3       204   fffffc003f4fe000              raid4 rfwcond
+              55 3       204   fffffc003f4fe2e0            raidio3 raidiow
+              54 3       204   fffffc003f4fe5c0              raid3 rfwcond
+              53 3       204   fffffc003f4fe8a0            raidio2 raidiow
+              52 3       204   fffffc003f4feb80              raid2 rfwcond
+              51 3       204   fffffc003f4fee60            raidio1 raidiow
+              50 3       204   fffffc003f4ff140              raid1 rfwcond
+              49 3       204   fffffc003f4ff420            raidio0 raidiow
+              48 3       204   fffffc003f4ff700              raid0 rfwcond
+              47 3       204   fffffc003f4ff9e0          atapibus0 sccomp
+              46 3       204   fffffc003f9a6000          cryptoret crypto_wait
+              43 3       204   fffffc003f9a65c0           scsibus5 sccomp
+              42 3       204   fffffc003f9a68a0           scsibus4 sccomp
+              41 3       204   fffffc003f9a6b80           scsibus3 sccomp
+              40 3       204   fffffc003f9a6e60           scsibus2 sccomp
+              39 3       284   fffffc003f9a7140          fw1_probe -
+              38 3       284   fffffc003f9a7420          fw0_probe -
+              37 3       204   fffffc003f9a7700               usb3 usbevt
+              36 3       204   fffffc003f9a79e0            atabus1 atath
+              35 3       204   fffffc003f9a7cc0            atabus0 atath
+              34 3       204   fffffc003fa12000               usb2 usbevt
+              33 3       204   fffffc003fa122e0               usb1 usbevt
+              32 3       204   fffffc003fa125c0         usbtask-dr usbtsk
+              31 3       204   fffffc003fa128a0         usbtask-hc usbtsk
+              30 3       204   fffffc003fa12b80               usb0 usbevt
+              29 3       204   fffffc003fa12e60           scsibus1 sccomp
+              28 3       204   fffffc003fa13140           scsibus0 sccomp
+              27 3  80000204   fffffc003fa13420            xcall/3 xcall
+              26 1  80000204   fffffc003fa13700          softser/3
+              25 1  80000204   fffffc003fa139e0          softclk/3
+              24 1  80000204   fffffc003fa13cc0          softbio/3
+              23 1  80000204   fffffc003fa4a000          softnet/3
+              22 1  80000205   fffffc003fa4a2e0             idle/3
+              21 3  80000204   fffffc003fa4a5c0            xcall/2 xcall
+              20 1  80000204   fffffc003fa4a8a0          softser/2
+              19 1  80000204   fffffc003fa4ab80          softclk/2
+              18 1  80000204   fffffc003fa4ae60          softbio/2
+              17 1  80000204   fffffc003fa4b140          softnet/2
+              16 7  a0000205   fffffc003fa4b420             idle/2
+              15 3  80000204   fffffc003fa4b700            xcall/1 xcall
+              14 1  80000204   fffffc003fa4b9e0          softser/1
+              13 1  80000204   fffffc003fa4bcc0          softclk/1
+              12 1  80000204   fffffc003fc58000          softbio/1
+              11 1  80000204   fffffc003fc582e0          softnet/1
+              10 1  80000205   fffffc003fc585c0             idle/1
+               9 3       204   fffffc003fc588a0           pmfevent pmfevent
+               8 3       204   fffffc003fc58b80              vrele vrele
+               7 3  80000204   fffffc003fc58e60            xcall/0 xcall
+               6 1  80000204   fffffc003fc59140          softser/0
+               5 1  80000204   fffffc003fc59420          softclk/0
+               4 1  80000204   fffffc003fc59700          softbio/0
+               3 1  80000204   fffffc003fc599e0          softnet/0
+           >   2 7  a0000205   fffffc003fc59cc0             idle/0
+               1 3       204   fffffc000077a8e0            swapper schedule
+
+db{0}> show all callout
+hardclock_ticks now: 319328
+    ticks  wheel               arg  func
+       83  0/179                 0  pffasttimo
+       83  0/179  fffffe00002b4000  firewire_watchdog
+       83  0/179  fffffe00002ee000  firewire_watchdog
+       95  0/191                 0  if_slowtimo
+       95  0/191                 0  rt_timer_timer
+       96  0/192                 0  sched_pstats
+    26675  1/327  fffffc003bcd7e00  filt_timerexpire
+    29224  1/337  fffffc003dd8d140  sleepq_timeout
+    29288  1/337  fffffc003dd8dcc0  sleepq_timeout
+    49940  1/418  fffffc003fa122e0  sleepq_timeout
+    49940  1/418  fffffc003fa12b80  sleepq_timeout
+    49940  1/418  fffffc003fa12000  sleepq_timeout
+    49944  1/418  fffffc003f9a7700  sleepq_timeout
+    61434  1/463  fffffe000027ba40  ahc_timeout
+      187  1/480                 0  pfslowtimo
+      696  1/482  fffffe000032c000  wm_tick
+      699  1/482  fffffe00003bc000  tlp_mii_tick
+      699  1/482  fffffc003fc58b80  sleepq_timeout
+      699  1/482  fffffc003ea268a0  sleepq_timeout
+     3332  1/492                 0  vmem_rehash_all_kick
+   241208  2/520                 0  arptimer
+db{0}> show sched_qs
+PID     LID     PRI     IPRI    EPRI    LWP              NAME
+CPUIDX  RESCHED CURPRI  FLAGS
+0       0       0       0000
+3       0       125     0000
+2       0       0       0000
+1       1       42      0003
+NEXTLWP      
+0000000000000000
+db{0}> ps/n  
+ PID           PPID     PGRP        UID S   FLAGS LWPS          COMMAND    WAIT
+ 284            293        2          0 2  0x4000    1            rwhod
+ 293              2        2          0 2       0    1               sh    wait
+ 285              1      285          0 2       0    1             ntpd uvn_fp2
+ 262              1      262          0 2       0    1             mopd  select
+ 255              1      255         51 2   0x100    1            httpd  select
+ 239              1      239         51 2   0x100    1            httpd  select
+ 215              1      215          0 2       0    5             nfsd       *
+ 210              1      210          0 2       0    1           mountd  select
+ 152              1      152          0 2       0    1          rpcbind  select
+ 122              1      122          0 2       0    1          syslogd  kqread
+ 46               1       46          0 2       0    1        mount_mfs  mfsidl
+ 2                1        2          0 2  0x4000    1               sh    wait
+ 1                0        1          0 2  0x4000    1             init    wait
+>0               -1        0          0 2 0x20002   66           system       *
+
+
+
+
+
+
+
+
+From ad@netbsd.org  Sat Jan 12 17:03:34 2008
+Path: news.gmane.org!not-for-mail
+From: Andrew Doran <ad@netbsd.org>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.current
+Subject: Re: Some alpha problems in current
+Date: Sat, 12 Jan 2008 17:03:34 +0000
+Lines: 35
+Approved: news@gmane.org
+Message-ID: <20080112170334.GN18314@hairylemon.org>
+References: <20080107012725.5FCFCA1696@bigbox.hjalmar.to> <20080107235036.43566A1696@bigbox.hjalmar.to>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1200157431 6328 80.91.229.12 (12 Jan 2008 17:03:51 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sat, 12 Jan 2008 17:03:51 +0000 (UTC)
+Cc: current-users@netbsd.org, port-alpha@NetBSD.org
+To: Anders Hjalmarsson <hjalmar@hjalmar.to>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sat Jan 12 18:04:14 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1JDjmH-0008NS-9h
+	for netbsd-port-alpha@m.gmane.org; Sat, 12 Jan 2008 18:04:13 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 0C9FB63B1D8; Sat, 12 Jan 2008 17:03:39 +0000 (UTC)
+X-Original-To: port-alpha@NetBSD.org
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from ns0.hairylemon.org (ns0.hairylemon.org [82.138.249.57])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by mail.netbsd.org (Postfix) with ESMTP id 5AF5063B112;
+	Sat, 12 Jan 2008 17:03:36 +0000 (UTC)
+Original-Received: from ad by ns0.hairylemon.org with local (Exim 4.54)
+	id 1JDjle-0002df-G0; Sat, 12 Jan 2008 17:03:34 +0000
+Content-Disposition: inline
+In-Reply-To: <20080107235036.43566A1696@bigbox.hjalmar.to>
+User-Agent: Mutt/1.4.2.2i
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4153 gmane.os.netbsd.current:39284
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4153>
+
+On Tue, Jan 08, 2008 at 12:50:35AM +0100, Anders Hjalmarsson wrote:
+
+> cpu_Debugger() at netbsd:cpu_Debugger+0x4
+> panic() at netbsd:panic+0x1c8
+> console_restart() at netbsd:console_restart+0x78
+> XentRestart() at netbsd:XentRestart+0x90
+> --- console restart (from ipl 5) ---
+> nullop() at netbsd:nullop
+> mutex_vector_enter() at netbsd:mutex_vector_enter+0x320
+> pool_put() at netbsd:pool_put+0x40
+> pmap_tlb_shootdown_job_put() at netbsd:pmap_tlb_shootdown_job_put+0x30
+> pmap_do_tlb_shootdown() at netbsd:pmap_do_tlb_shootdown+0x16c
+> alpha_ipi_process() at netbsd:alpha_ipi_process+0xb8
+> interrupt() at netbsd:interrupt+0x80
+> XentInt() at netbsd:XentInt+0x1c
+> --- interrupt (from ipl 0) ---
+> idle_loop() at netbsd:idle_loop+0x164
+> exception_return() at netbsd:exception_return
+
+I made some changes to the pmap that could help the situation (rev 1.230 of
+arch/alpha/alpha/pmap.c). Can you try updating and see if the problem still
+persists? If it happens again, it would be really useful if you could get
+a backtrace from all the CPUs. For example:
+
+mach cpu 0
+bt
+mach cpu 1
+bt 
+mach cpu 2
+bt
+....
+
+Thanks,
+Andrew
+
+
+From hjalmar@hjalmar.to  Sun Jan 13 00:33:16 2008
+Path: news.gmane.org!not-for-mail
+From: Anders Hjalmarsson <hjalmar@hjalmar.to>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.current
+Subject: Re: Some alpha problems in current
+Date: Sun, 13 Jan 2008 00:33:16 +0100
+Lines: 84
+Approved: news@gmane.org
+Message-ID: <20080112233317.0DC40A1697@bigbox.hjalmar.to>
+References: <20080112170334.GN18314@hairylemon.org>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: ger.gmane.org 1200180815 7878 80.91.229.12 (12 Jan 2008 23:33:35 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Sat, 12 Jan 2008 23:33:35 +0000 (UTC)
+Cc: current-users@netbsd.org, port-alpha@NetBSD.org
+To: Andrew Doran <ad@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Sun Jan 13 00:33:57 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1JDprQ-0004ZS-KH
+	for netbsd-port-alpha@m.gmane.org; Sun, 13 Jan 2008 00:33:57 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 1131063B212; Sat, 12 Jan 2008 23:33:26 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from proxy2.bredband.net (proxy2.bredband.net [195.54.101.72])
+	by mail.netbsd.org (Postfix) with ESMTP id 0FF7A63B1BA;
+	Sat, 12 Jan 2008 23:33:20 +0000 (UTC)
+Original-Received: from ironport.bredband.com (195.54.101.120) by proxy2.bredband.net (7.3.127)
+        id 47285ABF018B6D1F; Sun, 13 Jan 2008 00:33:18 +0100
+X-IronPort-Anti-Spam-Filtered: true
+X-IronPort-Anti-Spam-Result: AqNwADfdiEdT459RRmdsb2JhbACBVo4pAQEBN5Za
+Original-Received: from ua-83-227-159-81.cust.bredbandsbolaget.se (HELO mail.hjalmar.to) ([83.227.159.81])
+  by ironport1.bredband.com with ESMTP; 13 Jan 2008 00:33:18 +0100
+Original-Received: from bigbox.hjalmar.to (bigbox-2.hjalmar.to [192.168.2.3])
+	by mail.hjalmar.to (Postfix) with ESMTP id 7340B918F4;
+	Sun, 13 Jan 2008 00:33:17 +0100 (CET)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by bigbox.hjalmar.to (Postfix) with ESMTP id 0DC40A1697;
+	Sun, 13 Jan 2008 00:33:17 +0100 (CET)
+X-Mailer: exmh version 2.5 07/13/2001 with version: MH 8.6.3 [UCI]
+X-face: n9N?<_kD:bd-GpNcpSART\pyF}tJoz(}x_!KyMVdo8Ucg|CF.z5f0]6YU-;>nXADvJ.{bx@
+ l\V|q>@vE,Fwz7?G3-VX`^6Z}p|E"|-n,G3%<%Q64#A[bn%AP.1XxiHQ{ofb/0hL\gV?zix8(}.J4"
+ PXP]7zx3.abBJ/}qzq&=|Z"g~
+In-reply-to: Your message of "Sat, 12 Jan 2008 17:03:34 GMT."
+             <20080112170334.GN18314@hairylemon.org> 
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4154 gmane.os.netbsd.current:39290
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4154>
+
+On Sat, 12 Jan 2008 17:03:34 GMT, Andrew Doran wrote:
+
+> I made some changes to the pmap that could help the situation (rev 1.230 of
+> arch/alpha/alpha/pmap.c). Can you try updating and see if the problem still
+> persists? If it happens again, it would be really useful if you could get
+> a backtrace from all the CPUs. For example:
+> 
+> mach cpu 0
+> bt
+> mach cpu 1
+> bt 
+> mach cpu 2
+> bt
+> ....
+> 
+
+Somewhat better, it stayed up for more than 10 minutes (multiuser, with
+quite a few daemons started, some xterms, top, xosview etc).
+Unfortunately I did not get a good backtrace on the other cpus,
+but it looks like there is still some kind of pmap-related deadlock.
+
+This is an ES40 with 4 cpus, in case that matters.
+
+Here is what I managed to extract from ddb:
+
+RMC>halt in
+
+Returning to COM port
+
+halted CPU 0
+CPU 1 is not halted
+CPU 2 is not halted
+CPU 3 is not halted
+
+halt code = 1
+operator initiated halt
+PC = fffffc0000622698
+P00>>>c
+continuing CPU 0
+CP - RESTORE_TERM routine to be called
+panic: user requested console halt
+Stopped in pid 0.2 (system) at  netbsd:cpu_Debugger+0x4:        ret     zero,(ra)
+db{0}> bt
+cpu_Debugger() at netbsd:cpu_Debugger+0x4
+panic() at netbsd:panic+0x1c8
+console_restart() at netbsd:console_restart+0x78
+XentRestart() at netbsd:XentRestart+0x90
+--- console restart (from ipl 5) ---
+pmap_do_tlb_shootdown() at netbsd:pmap_do_tlb_shootdown+0x1f8
+alpha_ipi_process() at netbsd:alpha_ipi_process+0xb8
+interrupt() at netbsd:interrupt+0x80
+XentInt() at netbsd:XentInt+0x1c
+--- interrupt (from ipl 0) ---
+sched_curcpu_runnable_p() at netbsd:sched_curcpu_runnable_p+0x10
+idle_loop() at netbsd:idle_loop+0x18c
+exception_return() at netbsd:exception_return
+--- root of call graph ---
+
+db{0}> mach cpu 1
+Using CPU 1
+db{0}> bt
+
+CPU 0: fatal kernel trap:
+
+CPU 0    trap entry = 0x2 (memory management fault)
+CPU 0    a0         = 0xffffffffffffffd8
+CPU 0    a1         = 0x1
+CPU 0    a2         = 0x0
+CPU 0    pc         = 0xfffffc000062ebfc
+CPU 0    ra         = 0xfffffc000036c62c
+CPU 0    pv         = 0xfffffc000062eb60
+CPU 0    curlwp     = 0xfffffc003fc59cc0
+CPU 0        pid = 0, comm = system
+
+Caught exception in ddb.
+db{0}> mach cpu 2
+Using CPU 2
+db{0}> bt
+db{0}> mach cpu 3
+Using CPU 3
+db{0}> bt
+db{0}>
+
+
+
+From melk@switchpwr.com  Wed Jan 16 11:10:53 2008
+Path: news.gmane.org!not-for-mail
+From: mel kravitz <melk@switchpwr.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: netbsd-4.0 boots on alpha ES45 ?
+Date: Wed, 16 Jan 2008 11:10:53 -0500
+Lines: 5
+Approved: news@gmane.org
+Message-ID: <478E2C8D.5060902@switchpwr.com>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+X-Trace: ger.gmane.org 1200499726 24977 80.91.229.12 (16 Jan 2008 16:08:46 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Wed, 16 Jan 2008 16:08:46 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Jan 16 17:09:08 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1JFAp3-0000LN-FU
+	for netbsd-port-alpha@m.gmane.org; Wed, 16 Jan 2008 17:09:01 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id C029763B209; Wed, 16 Jan 2008 16:08:28 +0000 (UTC)
+X-Original-To: port-alpha@netbsd.org
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from switch6.switchpwr.com (switch1.switchpwr.com [12.14.48.19])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by mail.netbsd.org (Postfix) with ESMTP id 3ADB563B11D
+	for <port-alpha@netbsd.org>; Wed, 16 Jan 2008 16:08:13 +0000 (UTC)
+Original-Received: from [97.72.2.223] (switch1.switchpwr.com [12.14.48.19])
+	by switch6.switchpwr.com (8.13.8/8.13.8/Debian-2) with ESMTP id m0GFuX0o001379
+	for <port-alpha@netbsd.org>; Wed, 16 Jan 2008 10:56:33 -0500
+User-Agent: Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.1.11) Gecko/20071119 Iceape/1.1.7 (Debian-1.1.7-1)
+X-Spam-Status: No, score=1.7 required=5.0 tests=ALL_TRUSTED,BAYES_99 
+	autolearn=no version=3.1.7
+X-Spam-Level: *
+X-Spam-Checker-Version: SpamAssassin 3.1.7 (2006-10-05) on 
+	switch6.switchpwr.com
+X-Scanned-By: 'MIMEDefang on 12.14.48.24
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4155
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4155>
+
+Fresh boot cdrom and tried floppies, (Version-4.0) both fail booting on 
+alpha ES45, both work on LX164.
+Any one have any better luck perhaps with 2.0 or 1.6?
+Mel
+
+
+From he@NetBSD.org  Tue Jan 29 22:33:31 2008
+Path: news.gmane.org!not-for-mail
+From: Havard Eidnes <he@NetBSD.org>
+Newsgroups: gmane.os.netbsd.ports.alpha,gmane.os.netbsd.devel.pkgsrc.user
+Subject: Package binaries for NetBSD/alpha 2.1 / pkgsrc-2007Q3
+Date: Tue, 29 Jan 2008 22:33:31 +0100 (CET)
+Lines: 22
+Approved: news@gmane.org
+Message-ID: <20080129.223331.102568399.he@uninett.no>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+X-Trace: ger.gmane.org 1201642438 29466 80.91.229.12 (29 Jan 2008 21:33:58 GMT)
+X-Complaints-To: usenet@ger.gmane.org
+NNTP-Posting-Date: Tue, 29 Jan 2008 21:33:58 +0000 (UTC)
+Cc: pkgsrc-users@NetBSD.org
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Jan 29 22:34:18 2008
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.50)
+	id 1JJy5v-0001Ll-2M
+	for netbsd-port-alpha@m.gmane.org; Tue, 29 Jan 2008 22:34:15 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 0)
+	id 5D70D63B120; Tue, 29 Jan 2008 21:33:37 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from smistad.uninett.no (smistad.uninett.no [IPv6:2001:700:1:0:211:9ff:fe8c:7386])
+	by mail.netbsd.org (Postfix) with ESMTP id E44F763B30D;
+	Tue, 29 Jan 2008 21:33:33 +0000 (UTC)
+Original-Received: from localhost (smistad.uninett.no [158.38.62.77])
+	by smistad.uninett.no (Postfix) with ESMTP id 8582E21DC4E;
+	Tue, 29 Jan 2008 22:33:31 +0100 (CET)
+X-Mailer: Mew version 5.2 on Emacs 21.4 / Mule 5.0 (SAKAKI)
+Original-Sender: port-alpha-owner@NetBSD.org
+Precedence: list
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4156 gmane.os.netbsd.devel.pkgsrc.user:6533
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4156>
+
+Hi,
+
+I've uploaded the results of a bulk rebuild for NetBSD/alpha
+2.1 to
+
+   ftp://ftp.NetBSD.org/pub/pkgsrc/packages/NetBSD/alpha/2.1_2007Q3/
+
+A total of 5.3GB of packages were uploaded.
+
+Following our relatively recent policy, the 2007Q1 packages for
+this platform will be removed; we keep only at most two sets of
+binaries for each os-version / architecture.
+
+The source tree this was built from was updated Dec 12 2007.
+
+The next update for NetBSD/alpha 2.1 will be based on the 2007Q4
+pkgsrc branch.
+
+Regards,
+
+- H=E5vard
+
+

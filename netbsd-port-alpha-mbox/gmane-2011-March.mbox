@@ -1,0 +1,596 @@
+From joerg@britannica.bec.de  Thu Mar 17 23:31:21 2011
+Path: news.gmane.org!not-for-mail
+From: Joerg Sonnenberger <joerg@britannica.bec.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: LWP private support / TLS support
+Date: Thu, 17 Mar 2011 23:31:21 +0100
+Lines: 100
+Approved: news@gmane.org
+Message-ID: <20110317223121.GA4415@britannica.bec.de>
+References: <20110224043538.GA14534@britannica.bec.de>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="wRRV7LY7NUeQGEoC"
+X-Trace: dough.gmane.org 1300401108 12244 80.91.229.12 (17 Mar 2011 22:31:48 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Thu, 17 Mar 2011 22:31:48 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Mar 17 23:31:44 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1Q0LjL-0000Lm-Jb
+	for netbsd-port-alpha@m.gmane.org; Thu, 17 Mar 2011 23:31:44 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 650E319D105; Thu, 17 Mar 2011 22:31:33 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 0F24F19D100
+	for <port-alpha@NetBSD.org>; Thu, 17 Mar 2011 22:31:29 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id YFlozlclP5Y9 for <port-alpha@NetBSD.org>;
+	Thu, 17 Mar 2011 22:31:28 +0000 (UTC)
+Original-Received: from mo-p00-ob.rzone.de (mo-p00-ob.rzone.de [81.169.146.160])
+	(using TLSv1 with cipher EDH-RSA-DES-CBC3-SHA (168/168 bits))
+	(Client did not present a certificate)
+	by mail.netbsd.org (Postfix) with ESMTPS id C52D819D0B7
+	for <port-alpha@NetBSD.org>; Thu, 17 Mar 2011 22:31:26 +0000 (UTC)
+X-RZG-AUTH: :JiIXek6mfvEEUpFQdo7Fj1/zg48CFjWjQv0cW+St/nW/afgnrylsiW+zazV7yw==
+X-RZG-CLASS-ID: mo00
+Original-Received: from britannica.bec.de
+	(ip-109-45-154-7.web.vodafone.de [109.45.154.7])
+	by post.strato.de (mrclete mo14) (RZmta 25.8)
+	with (DHE-RSA-AES128-SHA encrypted) ESMTPA id d069d4n2HJQ6GZ
+	for <port-alpha@NetBSD.org>; Thu, 17 Mar 2011 23:31:22 +0100 (MET)
+Original-Received: by britannica.bec.de (sSMTP sendmail emulation); Thu, 17 Mar 2011 23:31:21 +0100
+Content-Disposition: inline
+In-Reply-To: <20110224043538.GA14534@britannica.bec.de>
+User-Agent: Mutt/1.5.20 (2009-06-14)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4583
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4583>
+
+
+--wRRV7LY7NUeQGEoC
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi all,
+this is a follow up to the earlier mail. Once the issues with the uniq
+register are sorted out, the attached patch should provide the actual
+relocations. Adding __HAVE_TLS_VARIANT_I to alpha/include/types.h should
+be enough for the rest to work.
+
+Joerg
+
+--wRRV7LY7NUeQGEoC
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="alpha_reloc.c.diff"
+
+Index: alpha_reloc.c
+===================================================================
+RCS file: /home/joerg/repo/netbsd/src/libexec/ld.elf_so/arch/alpha/alpha_reloc.c,v
+retrieving revision 1.38
+diff -u -p -r1.38 alpha_reloc.c
+--- alpha_reloc.c	30 Sep 2010 09:11:18 -0000	1.38
++++ alpha_reloc.c	10 Mar 2011 17:36:39 -0000
+@@ -66,6 +66,7 @@ __RCSID("$NetBSD: alpha_reloc.c,v 1.38 2
+ #endif /* not lint */
+ 
+ #include <sys/types.h>
++#include <sys/tls.h>
+ #include <string.h>
+ 
+ #include "rtld.h"
+@@ -261,6 +262,64 @@ _rtld_relocate_nonplt_objects(Obj_Entry 
+ 			rdbg(("COPY (avoid in main)"));
+ 			break;
+ 
++		case R_TYPE(TPREL64):
++			def = _rtld_find_symdef(symnum, obj, &defobj, false);
++			if (def == NULL)
++				return -1;
++
++			if (!defobj->tls_done &&
++			    _rtld_tls_offset_allocate(obj))
++				return -1;
++
++			tmp = (Elf64_Addr)(def->st_value +
++			    sizeof(struct tls_tcb) + defobj->tlsoffset +
++			    rela->r_addend);
++
++			if (__predict_true(RELOC_ALIGNED_P(where)))
++				*where = tmp;
++			else
++				store_ptr(where, tmp);
++
++			rdbg(("TPREL64 %s in %s --> %p",
++			    obj->strtab + obj->symtab[symnum].st_name,
++			    obj->path, (void *)*where));
++
++			break;
++
++		case R_TYPE(DTPMOD64):
++			def = _rtld_find_symdef(symnum, obj, &defobj, false);
++			if (def == NULL)
++				return -1;
++
++			tmp = (Elf64_Addr)defobj->tlsindex;
++			if (__predict_true(RELOC_ALIGNED_P(where)))
++				*where = tmp;
++			else
++				store_ptr(where, tmp);
++
++			rdbg(("DTPMOD64 %s in %s --> %p",
++			    obj->strtab + obj->symtab[symnum].st_name,
++			    obj->path, (void *)*where));
++
++			break;
++
++		case R_TYPE(DTPREL64):
++			def = _rtld_find_symdef(symnum, obj, &defobj, false);
++			if (def == NULL)
++				return -1;
++
++			tmp = (Elf64_Addr)(def->st_value + rela->r_addend);
++			if (__predict_true(RELOC_ALIGNED_P(where)))
++				*where = tmp;
++			else
++				store_ptr(where, tmp);
++
++			rdbg(("DTPREL64 %s in %s --> %p",
++			    obj->strtab + obj->symtab[symnum].st_name,
++			    obj->path, (void *)*where));
++
++			break;
++
+ 		default:
+ 			rdbg(("sym = %lu, type = %lu, offset = %p, "
+ 			    "addend = %p, contents = %p, symbol = %s",
+
+--wRRV7LY7NUeQGEoC--
+
+
+From jcrittenden@lubbockisd.org  Thu Mar 24 15:40:32 2011
+Path: news.gmane.org!not-for-mail
+From: "Julie Crittenden" <jcrittenden@lubbockisd.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: YOUR MAILBOX HAS EXCEEDED IT QUOTA/LIMIT
+Date: Thu, 24 Mar 2011 15:40:32 -0500
+Lines: 7
+Approved: news@gmane.org
+Message-ID: <69827D2BD5E288498491A6DD1D02106505A5D3@exchgbe1.lubbock.isd>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+X-Trace: dough.gmane.org 1301002974 5422 80.91.229.12 (24 Mar 2011 21:42:54 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Thu, 24 Mar 2011 21:42:54 +0000 (UTC)
+To: undisclosed-recipients:;
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Thu Mar 24 22:42:49 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1Q2sIq-0002FK-Op
+	for netbsd-port-alpha@m.gmane.org; Thu, 24 Mar 2011 22:42:48 +0100
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 8A34319CE4D; Thu, 24 Mar 2011 21:42:41 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 92C0719CE45
+	for <port-alpha@netbsd.org>; Thu, 24 Mar 2011 21:42:40 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+X-Spam-Flag: NO
+X-Spam-Score: 4.391
+X-Spam-Level: ****
+X-Spam-Status: No, score=4.391 tagged_above=2 required=8 tests=[BAYES_50=2,
+	MISSING_HEADERS=1.204, SUBJ_ALL_CAPS=1.197, T_RP_MATCHES_RCVD=-0.01]
+	autolearn=no
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id E0aelTvHxHcE for <port-alpha@netbsd.org>;
+	Thu, 24 Mar 2011 21:42:40 +0000 (UTC)
+Original-Received: from mailserver.lubbockisd.org (mailserver.lubbockisd.org [64.216.41.140])
+	by mail.netbsd.org (Postfix) with ESMTP id 17A4219CE44
+	for <port-alpha@netbsd.org>; Thu, 24 Mar 2011 21:42:39 +0000 (UTC)
+X-MimeOLE: Produced By Microsoft Exchange V6.5
+Content-class: urn:content-classes:message
+X-MS-Has-Attach: 
+X-MS-TNEF-Correlator: 
+Thread-Topic: YOUR MAILBOX HAS EXCEEDED IT QUOTA/LIMIT
+Thread-Index: AcvqY7Y5xXQtshKpQYOmNQzU6T/x7Q==
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4584
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4584>
+
+=20
+=20
+Your MailBox Has Exceeded It Quota/Limit As Set By Your Administrator =
+And You May Not Be Able To Receive Or Send New Mails Until You =
+Re-Validate .To Re-Validate, CLICK HERE =
+<http://aiye.cz.cc/secure/use/pppsec/form1.html>=20
+
+
+From he@NetBSD.org  Mon Mar 28 20:58:08 2011
+Path: news.gmane.org!not-for-mail
+From: Havard Eidnes <he@NetBSD.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Alpha and thread-local storage
+Date: Mon, 28 Mar 2011 20:58:08 +0200 (CEST)
+Lines: 61
+Approved: news@gmane.org
+Message-ID: <20110328.205808.493433783.he@uninett.no>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0
+Content-Type: Multipart/Mixed;
+ boundary="--Next_Part(Mon_Mar_28_20_58_08_2011_216)--"
+Content-Transfer-Encoding: 7bit
+X-Trace: dough.gmane.org 1301338703 25719 80.91.229.12 (28 Mar 2011 18:58:23 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Mon, 28 Mar 2011 18:58:23 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Mon Mar 28 20:58:19 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1Q4Hdp-0002DM-C2
+	for netbsd-port-alpha@m.gmane.org; Mon, 28 Mar 2011 20:58:17 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 0684119CED8; Mon, 28 Mar 2011 18:58:14 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 70E4119CED2
+	for <port-alpha@NetBSD.org>; Mon, 28 Mar 2011 18:58:11 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id 3KT+WSFXUMQI for <port-alpha@NetBSD.org>;
+	Mon, 28 Mar 2011 18:58:10 +0000 (UTC)
+Original-Received: from smistad.uninett.no (smistad.uninett.no [IPv6:2001:700:1:0:21e:4fff:feed:ced])
+	by mail.netbsd.org (Postfix) with ESMTP id 48B3419CED0
+	for <port-alpha@NetBSD.org>; Mon, 28 Mar 2011 18:58:10 +0000 (UTC)
+Original-Received: from smistad.uninett.no (smistad.uninett.no [158.38.62.77])
+	by smistad.uninett.no (Postfix) with ESMTP id 832843D0AE
+	for <port-alpha@NetBSD.org>; Mon, 28 Mar 2011 20:58:08 +0200 (CEST)
+X-Mailer: Mew version 6.3 on Emacs 23.2 / Mule 6.0 (HANACHIRUSATO)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4585
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4585>
+
+----Next_Part(Mon_Mar_28_20_58_08_2011_216)--
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+Hi,
+
+Joerg has worked on TLS.  He claims that the only thing missing
+for alpha is that inside cpu_switchto, the process unique
+register needs to be written.
+
+Attached is my attempt at cargo-culting this code, but someone
+who knows how PAL_wrunique should be called should take a closer
+look, and preferably test the change.
+
+Best regards,
+
+- H=E5vard
+
+----Next_Part(Mon_Mar_28_20_58_08_2011_216)--
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline; filename=diff
+
+Index: alpha/genassym.cf
+===================================================================
+RCS file: /cvsroot/src/sys/arch/alpha/alpha/genassym.cf,v
+retrieving revision 1.19
+diff -u -r1.19 genassym.cf
+--- alpha/genassym.cf	15 Dec 2010 01:33:37 -0000	1.19
++++ alpha/genassym.cf	28 Mar 2011 09:10:05 -0000
+@@ -162,6 +162,7 @@
+ define	PCB_CONTEXT		offsetof(struct pcb, pcb_context[0])
+ define	PCB_ONFAULT		offsetof(struct pcb, pcb_onfault)
+ define	PCB_ACCESSADDR		offsetof(struct pcb, pcb_accessaddr)
++define	PCB_APCB_UNIQUE		offsetof(struct pcb, pcb_hw.apcb_unique)
+ 
+ # Offsets into struct fpstate, for save, restore
+ define	FPREG_FPR_REGS		offsetof(struct fpreg, fpr_regs[0])
+Index: alpha/locore.s
+===================================================================
+RCS file: /cvsroot/src/sys/arch/alpha/alpha/locore.s,v
+retrieving revision 1.120
+diff -u -r1.120 locore.s
+--- alpha/locore.s	7 Jul 2010 01:17:49 -0000	1.120
++++ alpha/locore.s	28 Mar 2011 09:10:05 -0000
+@@ -697,6 +697,12 @@
+ 	ldq	s0, L_PCB(s2)
+ 
+ 	/*
++	 * Save process unique register.
++	 */
++	ldq	a0, PCB_APCB_UNIQUE(s0)
++	call_pal PAL_wrunique
++
++	/*
+ 	 * Check for restartable atomic sequences (RAS).
+ 	 */
+ 	ldq	a0, L_PROC(s2)			/* first ras_lookup() arg */
+
+----Next_Part(Mon_Mar_28_20_58_08_2011_216)----
+
+
+From thorpej@shagadelic.org  Mon Mar 28 12:35:13 2011
+Path: news.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@shagadelic.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Alpha and thread-local storage
+Date: Mon, 28 Mar 2011 12:35:13 -0700
+Lines: 18
+Approved: news@gmane.org
+Message-ID: <2F71B3ED-683F-4D1A-BE15-339823736DA6@shagadelic.org>
+References: <20110328.205808.493433783.he@uninett.no>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+X-Trace: dough.gmane.org 1301370749 26768 80.91.229.12 (29 Mar 2011 03:52:29 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Tue, 29 Mar 2011 03:52:29 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: Havard Eidnes <he@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Mar 29 05:52:24 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1Q4Pyh-0006WX-VX
+	for netbsd-port-alpha@m.gmane.org; Tue, 29 Mar 2011 05:52:24 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 8507B19CE9D; Tue, 29 Mar 2011 03:52:18 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id D4F7F19CE8E;
+	Tue, 29 Mar 2011 03:52:15 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id Z7gDeEoWZsMy; Tue, 29 Mar 2011 03:52:15 +0000 (UTC)
+Original-Received: from mail.shagadelic.org (isc-temp1.netbsd.org [204.152.190.30])
+	by mail.netbsd.org (Postfix) with ESMTP id 3C69C19CE51;
+	Tue, 29 Mar 2011 03:52:14 +0000 (UTC)
+Original-Received: from [192.168.1.107] (c-69-181-2-172.hsd1.ca.comcast.net [69.181.2.172])
+	by mail.shagadelic.org (Postfix) with ESMTP id AA3E63CA134;
+	Mon, 28 Mar 2011 20:52:14 -0700 (PDT)
+In-Reply-To: <20110328.205808.493433783.he@uninett.no>
+X-Mailer: Apple Mail (2.1084)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4586
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4586>
+
+
+On Mar 28, 2011, at 11:58 AM, Havard Eidnes wrote:
+
+> Hi,
+>=20
+> Joerg has worked on TLS.  He claims that the only thing missing
+> for alpha is that inside cpu_switchto, the process unique
+> register needs to be written.
+
+If it's in the hwpcb, doesn't the PAL call that does the context switch =
+already save/restore it for you?
+
+I have an Alpha ARM here in my office for nostalgia's sake, so I'll try =
+to take a look while I gobble my lunch.
+
+-- thorpej
+
+
+
+From thorpej@shagadelic.org  Mon Mar 28 12:58:20 2011
+Path: news.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@shagadelic.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Alpha and thread-local storage
+Date: Mon, 28 Mar 2011 12:58:20 -0700
+Lines: 73
+Approved: news@gmane.org
+Message-ID: <796333BA-BC81-4A61-BCC3-D07C80570B4A@shagadelic.org>
+References: <20110328.205808.493433783.he@uninett.no>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+X-Trace: dough.gmane.org 1301370760 26795 80.91.229.12 (29 Mar 2011 03:52:40 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Tue, 29 Mar 2011 03:52:40 +0000 (UTC)
+Cc: port-alpha@NetBSD.org
+To: Havard Eidnes <he@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Mar 29 05:52:35 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1Q4Pyr-0006YV-HW
+	for netbsd-port-alpha@m.gmane.org; Tue, 29 Mar 2011 05:52:33 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id E2DD219CE8E; Tue, 29 Mar 2011 03:52:23 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 31CC819CE51;
+	Tue, 29 Mar 2011 03:52:16 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id G3SjzWs8UiaN; Tue, 29 Mar 2011 03:52:15 +0000 (UTC)
+Original-Received: from mail.shagadelic.org (isc-temp1.netbsd.org [204.152.190.30])
+	by mail.netbsd.org (Postfix) with ESMTP id 4DFD819CE62;
+	Tue, 29 Mar 2011 03:52:15 +0000 (UTC)
+Original-Received: from [192.168.1.107] (c-69-181-2-172.hsd1.ca.comcast.net [69.181.2.172])
+	by mail.shagadelic.org (Postfix) with ESMTP id 198BE3CA143;
+	Mon, 28 Mar 2011 20:52:15 -0700 (PDT)
+In-Reply-To: <20110328.205808.493433783.he@uninett.no>
+X-Mailer: Apple Mail (2.1084)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4587
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4587>
+
+
+On Mar 28, 2011, at 11:58 AM, Havard Eidnes wrote:
+
+> Hi,
+>=20
+> Joerg has worked on TLS.  He claims that the only thing missing
+> for alpha is that inside cpu_switchto, the process unique
+> register needs to be written.
+>=20
+> Attached is my attempt at cargo-culting this code, but someone
+> who knows how PAL_wrunique should be called should take a closer
+> look, and preferably test the change.
+
+Confirmed by reading Alpha ARM 2nd Edition, OSF/1 PALcode section 2.2.9 =
+(Swap Process Context), if the process unique requester is implemented, =
+swpctx does the unique value swap for you.  rdunique and wrunique on =
+systems that lack the internal register access it from the current =
+HWPCB.  So, there is no need to actually do this separately in the =
+context switch routine.
+
+>=20
+> Best regards,
+>=20
+> - H=E5vard
+> Index: alpha/genassym.cf
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> RCS file: /cvsroot/src/sys/arch/alpha/alpha/genassym.cf,v
+> retrieving revision 1.19
+> diff -u -r1.19 genassym.cf
+> --- alpha/genassym.cf	15 Dec 2010 01:33:37 -0000	1.19
+> +++ alpha/genassym.cf	28 Mar 2011 09:10:05 -0000
+> @@ -162,6 +162,7 @@
+> define	PCB_CONTEXT		offsetof(struct pcb, =
+pcb_context[0])
+> define	PCB_ONFAULT		offsetof(struct pcb, =
+pcb_onfault)
+> define	PCB_ACCESSADDR		offsetof(struct pcb, =
+pcb_accessaddr)
+> +define	PCB_APCB_UNIQUE		offsetof(struct pcb, =
+pcb_hw.apcb_unique)
+>=20
+> # Offsets into struct fpstate, for save, restore
+> define	FPREG_FPR_REGS		offsetof(struct fpreg, =
+fpr_regs[0])
+> Index: alpha/locore.s
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> RCS file: /cvsroot/src/sys/arch/alpha/alpha/locore.s,v
+> retrieving revision 1.120
+> diff -u -r1.120 locore.s
+> --- alpha/locore.s	7 Jul 2010 01:17:49 -0000	1.120
+> +++ alpha/locore.s	28 Mar 2011 09:10:05 -0000
+> @@ -697,6 +697,12 @@
+> 	ldq	s0, L_PCB(s2)
+>=20
+> 	/*
+> +	 * Save process unique register.
+> +	 */
+> +	ldq	a0, PCB_APCB_UNIQUE(s0)
+> +	call_pal PAL_wrunique
+> +
+> +	/*
+> 	 * Check for restartable atomic sequences (RAS).
+> 	 */
+> 	ldq	a0, L_PROC(s2)			/* first ras_lookup() =
+arg */
+
+-- thorpej
+
+
+
+From thorpej@shagadelic.org  Mon Mar 28 21:13:37 2011
+Path: news.gmane.org!not-for-mail
+From: Jason Thorpe <thorpej@shagadelic.org>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: Alpha and thread-local storage
+Date: Mon, 28 Mar 2011 21:13:37 -0700
+Lines: 12
+Approved: news@gmane.org
+Message-ID: <D8018C09-FF09-4A33-A2A5-A6BAB4CC0478@shagadelic.org>
+References: <20110328.205808.493433783.he@uninett.no> <796333BA-BC81-4A61-BCC3-D07C80570B4A@shagadelic.org>
+NNTP-Posting-Host: lo.gmane.org
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+X-Trace: dough.gmane.org 1301372029 31855 80.91.229.12 (29 Mar 2011 04:13:49 GMT)
+X-Complaints-To: usenet@dough.gmane.org
+NNTP-Posting-Date: Tue, 29 Mar 2011 04:13:49 +0000 (UTC)
+Cc: NetBSD/Alpha Discussion List <port-alpha@NetBSD.org>
+To: Havard Eidnes <he@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Mar 29 06:13:45 2011
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([204.152.190.11])
+	by lo.gmane.org with esmtp (Exim 4.69)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1Q4QJM-0003ss-Li
+	for netbsd-port-alpha@m.gmane.org; Tue, 29 Mar 2011 06:13:44 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 43FA619CEA2; Tue, 29 Mar 2011 04:13:40 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 5F42419CE95;
+	Tue, 29 Mar 2011 04:13:39 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at NetBSD.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.NetBSD.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id ckETkMwskFpW; Tue, 29 Mar 2011 04:13:38 +0000 (UTC)
+Original-Received: from mail.shagadelic.org (isc-temp1.netbsd.org [204.152.190.30])
+	by mail.netbsd.org (Postfix) with ESMTP id DA5F119CE75;
+	Tue, 29 Mar 2011 04:13:38 +0000 (UTC)
+Original-Received: from [192.168.1.107] (c-69-181-2-172.hsd1.ca.comcast.net [69.181.2.172])
+	by mail.shagadelic.org (Postfix) with ESMTP id 90F0C3CA117;
+	Mon, 28 Mar 2011 21:13:38 -0700 (PDT)
+In-Reply-To: <796333BA-BC81-4A61-BCC3-D07C80570B4A@shagadelic.org>
+X-Mailer: Apple Mail (2.1084)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:4588
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/4588>
+
+
+On Mar 28, 2011, at 12:58 PM, Jason Thorpe wrote:
+
+> process unique requester
+
+Wow, can't even blame auto-complete for that one ...
+
+"register"
+
+-- thorpej
+
+
+

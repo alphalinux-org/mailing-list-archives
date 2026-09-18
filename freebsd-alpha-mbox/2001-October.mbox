@@ -1,0 +1,4867 @@
+From freebsd-alpha  Wed Oct 31 21:49:10 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Wed, 31 Oct 2001 21:49:10 +0000
+To: freebsd-alpha
+Subject: Re: Makefile.inc1 clobbers CFLAGS (was: Re: cvs commit: src Makefile.inc1)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409545
+
+
+Ruslan Ermilov writes:
+ > On Thu, Oct 25, 2001 at 10:36:58AM -0400, Andrew Gallatin wrote:
+ > > 
+ > > Andrew Gallatin writes:
+ > >  > 
+ > >  > Building now.  One more question I have CPUTYPE=ev56
+ > >  > in /etc/make.conf -- will the crossbuild see this, potentially
+ > >  > confusing the x86 gcc?
+ > > 
+ > > Yes, it will.. :
+ > > 
+ > > cc1: bad value (ev56) for -mcpu= switch
+ > > 
+ > > Removing ev56 & restarting...
+ > > 
+ > This is because Makefile.inc1 sets CFLAGS="-nostdinc ${CFLAGS}" in
+ > CROSSENV, and that imports currently effective (for host architecture)
+ > CFLAGS.  This is bogus.  The attached patch should fix it.  Please
+ > test.
+
+Sorry for the delay... the email got burried.
+It seems to work.
+
+A new crossbuild problem has been introduced -- awk builds something for the target platform & tries to run it on the hosting platform:
+
+cc -O -pipe -nostdinc  -funsigned-char -I. -I/home/gallatin/current/src/usr.bin/awk/../../contrib/one-true-awk   -I/usr/obj/i386/home/gallatin/current/src/alpha/usr/include  /home/gallatin/current/src/usr.bin/awk/../../contrib/one-true-awk/maketab.c -o maketab
+./maketab > proctab.c
+./maketab: 1: Syntax error: "(" unexpected
+*** Error code 2
+
+<4:45pm>thunder/gallatin:src>find /usr/obj -name maketab
+/usr/obj/i386/home/gallatin/current/src/usr.bin/awk/maketab
+<4:45pm>thunder/gallatin:src>file /usr/obj/i386/home/gallatin/current/src/usr.bin/awk/maketab
+/usr/obj/i386/home/gallatin/current/src/usr.bin/awk/maketab: ELF 32-bit LSB executable, Intel 80386, version 1 (FreeBSD), dynamically linked (uses shared libs), not stripped
+
+
+Drew
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 31 06:52:26 2001
+From: Wilko Bulte <wkb () freebie ! xs4all ! nl>
+Date: Wed, 31 Oct 2001 06:52:26 +0000
+To: freebsd-alpha
+Subject: Re: Installing 4.4 on an AlphaStation 200 (4/166)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409544
+
+On Tue, Oct 30, 2001 at 04:50:32PM -0800, Patrick Mahan wrote:
+> Thanks,
+> 
+> That was it.  Perhaps this should be detailed out in the
+> Alpha Hardware notes (or even the release notes).  I also
+
+It is. TGA not supported is listed in the hardware notes.
+
+> had to initial reset to factory defaults to get SRM to
+> boot the floppy.
+> 
+> Thanks,
+> 
+> Patrick
+> 
+> At 01:00 PM 10/30/01 -0500, Andrew Gallatin spoke:
+> 
+> 
+> >Patrick Mahan writes:
+> >  > I am currently attempting to install FreeBSD on an AlphaStation
+> >  > 200.  SRM is v7.0.  I have both the LK411 and PCXAL keyboards for
+> >  > the alpha.  My problem is after successfully booting the kernel
+> >  > floppy (and mfsroot) and the install shell has initialized, the
+> >  > installer presents a menu of predefined terminal types.  My problem
+> >  > is that once this menu has appeared, the keyboard no longer works.
+> >  > the startup messages show the following:
+> >  >
+> >  > atkbdc0: <Keyboard controller (i8042)> at port 0x60,0x64 on isa0
+> >  > atkbdc0: <AT Keyboard> irq 1 on atkbdc0
+> >  > atkbdc0: interrupting at ISA irq 1
+> >  >
+> >  > I have tried both keyboards and a standard AT keyboard off my
+> >  > PC.  All fail to work once the selection menu appears.
+> >  >
+> >  > Any suggestions?
+> >
+> >Remove your TGA video card & install a standard VGA video card.
+> >Or use a serial console.
+> >
+> >Drew
+> >
+> >To Unsubscribe: send mail to majordomo@FreeBSD.org
+> >with "unsubscribe freebsd-alpha" in the body of the message
+> 
+> 
+> To Unsubscribe: send mail to majordomo@FreeBSD.org
+> with "unsubscribe freebsd-alpha" in the body of the message
+---end of quoted text---
+
+-- 
+|   / o / /_  _   		email: 	wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, The Netherlands	
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 30 15:31:51 2001
+From: John Baldwin <jhb () FreeBSD ! org>
+Date: Tue, 30 Oct 2001 15:31:51 +0000
+To: freebsd-alpha
+Subject: Re: Linuxulator MFC candidate for testing
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409539
+
+
+On 30-Oct-01 Andrew Gallatin wrote:
+> 
+> Marcel Moolenaar writes:
+>  > 
+>  > The one thing that comes to mind is linux_clone. If the cloning
+>  > doesn't work right, there's no process to deliver a signal.
+>  > 
+>  > Can you test with the changes to linux_clone reverted?
+> 
+> We have a winner.  If I revert all of the meaningful changes to
+> linux_clone, things still work.   Reverting just the
+> 'Make this runnable after we are finished with it' changes:
+> 
+>         /*
+>          * Make this runnable after we are finished with it.
+>          */
+>         p2->p_stat = SRUN;
+>         setrunqueue(p2);
+> 
+>         p->p_retval[0] = p2->p_pid;
+>         p->p_retval[1] = 0;
+> 
+> lead to the jvm seg-faulting.  Going back to rfork/pfind from fork1
+> leads to a runnable jvm.
+
+That should probably only be done on -current as it is only a race condition on
+-current.  In -stable the kernel isn't preemptive, so it's safe to not do that.
+
+> Hmm.. something appears to be hosed about whoami:
+> 
+> <9:32am>monet/gallatin:/tmp>whoami 
+> gallatin
+> <9:32am>monet/gallatin:/tmp>/compat/linux/usr/bin/whoami
+> root
+> 
+> 
+> This worked fine pre-patch & ktrace's look identical.
+> I'm about out of time for now...
+> 
+> 
+> Drew
+
+-- 
+
+John Baldwin <jhb@FreeBSD.org> -- http://www.FreeBSD.org/~jhb/
+PGP Key: http://www.baldwin.cx/~john/pgpkey.asc
+"Power Users Use the Power to Serve!"  -  http://www.FreeBSD.org/
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 29 09:32:52 2001
+From: =?koi8-r?B?88HK3snLIPDB18XM?= <hostmaster () octopus ! odessa ! ua>
+Date: Mon, 29 Oct 2001 09:32:52 +0000
+To: freebsd-alpha
+Subject: Please add me to your maillist
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409535
+
+Please add me to your mail list about Alpha architecture...
+
+I worked at alpha about 1 year.
+About 1 week ago I download a new ISO image FreeBSD-4.4 Alpha and install it
+on server, but i can't compile kernel at all.
+
+1st mistake - after "config -rpg Alpha" compiler does not know command  in
+Makefile "CFLAGS+=   -malign-functions=4"
+2nd mistake - in option in config file "options ed" driver for this network
+card compiler show me an error....he can't see functions
+
+3rd mistake - in moment "linking kernel.debug" module mcount.o give an
+error....
+what doing...????
+Pleas tell me
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 29 03:38:59 2001
+From: <supply () themail ! com>
+Date: Mon, 29 Oct 2001 03:38:59 +0000
+To: freebsd-alpha
+Subject: laser cartridges
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409534
+
+
+
+
+**** VORTEX SUPPLIES ****
+
+YOUR LASER PRINTER TONER CARTRIDGE,
+COPIER AND FAX CARTRIDGE CONNECTION
+
+SAVE UP TO 30% FROM RETAIL
+
+ORDER BY PHONE:1-888-288-9043
+ORDER BY FAX: 1-888-977-1577
+E-MAIL REMOVAL LINE: 1-888-248-4930
+
+
+UNIVERSITY AND/OR SCHOOL PURCHASE ORDERS WELCOME. (NO CREDIT APPROVAL REQUIRED)
+ALL OTHER PURCHASE ORDER REQUESTS REQUIRE CREDIT APPROVAL.
+PAY BY CHECK (C.O.D), CREDIT CARD OR PURCHASE ORDER (NET 30 DAYS).
+
+IF YOUR ORDER IS BY CREDIT CARD PLEASE LEAVE YOUR CREDIT CARD # PLUS EXPIRATION DATE. 
+IF YOUR ORDER IS BY PURCHASE ORDER LEAVE YOUR SHIPPING/BILLING ADDRESSES AND YOUR P.O. NUMBER
+
+
+NOTE: WE DO NOT CARRY 
+
+1) XEROX, BROTHER, PANASONIC, FUJITSU PRODUCTS
+2) HP DESKJETJET/INK JET OR BUBBLE JET CARTRIDGES 
+3) CANON BUBBLE JET CARTRIDGES 
+4) ANY OFFBRANDS BESIDES THE ONES LISTED BELOW.    
+
+OUR NEW , LASER PRINTER TONER CARTRIDGE, PRICES ARE  AS FOLLOWS: 
+(PLEASE ORDER BY PAGE NUMBER AND/OR ITEM NUMBER)
+
+HEWLETT PACKARD: (ON PAGE 2)
+
+ITEM #1  LASERJET SERIES  4L,4P (74A)------------------------$44
+ITEM #2  LASERJET SERIES  1100 (92A)-------------------------$44
+ITEM #3  LASERJET SERIES  2 (95A)----------------------------$39
+ITEM #4  LASERJET SERIES  2P (75A)---------------------------$54 
+ITEM #5  LASERJET SERIES  5P,6P,5MP, 6MP (3903A)----------  -$44
+ITEM #6  LASERJET SERIES  5SI, 8000 (09A)--------------------$95
+ITEM #7  LASERJET SERIES  2100, 2200 (96A)-------------------$74
+ITEM #8  LASERJET SERIES  8100 (82X)-------------------------$115
+ITEM #9  LASERJET SERIES  5L/6L (3906A)----------------------$39
+ITEM #10 LASERJET SERIES  4V---------------------------------$95
+ITEM #11 LASERJET SERIES 4000 (27X)--------------------------$79
+ITEM #12 LASERJET SERIES 3SI/4SI (91A)-----------------------$54
+ITEM #13 LASERJET SERIES 4, 4M, 5,5M-------------------------$49
+ITEM #13A LASERJET SERIES 5000 (29X)-------------------------$125
+ITEM #13B LASERJET SERIES 1200-------------------------------$59
+ITEM #13C LASERJET SERIES 4100-------------------------------$99
+ITEM #18   LASERJET SERIES 3100------------------------------$39
+ITEM #19 LASERJET SERIES 4500 BLACK--------------------------$79
+ITEM #20 LASERJET SERIES 4500 COLORS ------------------------$125
+
+HEWLETT PACKARD FAX (ON PAGE 2)
+
+ITEM #14 LASERFAX 500, 700 (FX1)----------$49
+ITEM #15  LASERFAX 5000,7000 (FX2)--------$64
+ITEM #16  LASERFAX (FX3)------------------$59
+ITEM #17  LASERFAX (FX4)------------------$54
+
+
+LEXMARK/IBM (ON PAGE 3)
+
+OPTRA 4019, 4029 HIGH YIELD---------------$89
+OPTRA R, 4039, 4049 HIGH YIELD-----------$105
+OPTRA E310.312 HIGH YIELD----------------$79
+
+OPTRA E-----------------------------------$59
+OPTRA N----------------------------------$115
+OPTRA S----------------------------------$165
+OPTRA T----------------------------------$195
+OPTRA E310/312---------------------------$79
+
+
+EPSON (ON PAGE 4)
+
+ACTION LASER 7000,7500,8000,9000----------$105
+ACTION LASER 1000,1500--------------------$105
+
+
+CANON PRINTERS (ON PAGE 5)
+
+PLEASE CALL FOR MODELS AND UPDATED PRICES
+FOR CANON PRINTER CARTRIDGES
+
+PANASONIC (0N PAGE 7)
+
+NEC SERIES 2 MODELS 90 AND 95----------$105
+
+APPLE (0N PAGE 8)
+
+LASER WRITER PRO 600 or 16/600------------------$49 
+LASER WRITER SELECT 300,320,360-----------------$74
+LASER WRITER 300 AND 320------------------------$54
+LASER WRITER NT, 2NT----------------------------$54
+LASER WRITER 12/640-----------------------------$79
+
+CANON FAX (ON PAGE 9)
+
+LASERCLASS 4000 (FX3)---------------------------$59
+LASERCLASS 5000,6000,7000 (FX2)-----------------$54
+LASERFAX 5000,7000 (FX2)------------------------$54
+LASERFAX 8500,9000 (FX4)------------------------$54
+
+CANON COPIERS (PAGE 10)
+
+PC 3, 6RE, 7 AND 11 (A30)---------------------$69
+PC 300,320,700,720,760,900,910,920(E-40)------$89
+
+
+90 DAY UNLIMITED WARRANTY INCLUDED ON ALL PRODUCTS.
+
+ALL TRADEMARKS AND BRAND NAMES LISTED ABOVE ARE PROPERTY OF THE 
+RESPECTIVE HOLDERS AND USED FOR DESCRIPTIVE PURPOSES ONLY.
+
+
+
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Oct 28 01:58:06 2001
+From: "Shashi Dookhee" <dookhee.s () trafficproximity ! com>
+Date: Sun, 28 Oct 2001 01:58:06 +0000
+To: freebsd-alpha
+Subject: RE: Kernel Panic on DEC Alpha 1000A 5/400
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409531
+
+ 
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+Hi!
+
+I just found the problem...  when you mentioned PCI devices, I
+decided to remove a non-standard PCI VGA card that was in there... 
+and it solved the problem!
+
+I'll let you know if I have any problems with the actual install...
+
+I will upgrade that firmware tho..
+
+Thanks for the help!
+
+Shashi Dookhee
+Head of IT Infrastructure
+
+e-mail:  dookhee.s@trafficproximity.com
+Telephone (Direct Line):        +44 (0)20 7298 8222
+
+
+- -----Original Message-----
+From: Andrew Gallatin [mailto:gallatin@cs.duke.edu]
+Sent: 28 October 2001 01:48
+To: Shashi Dookhee
+Cc: freebsd-alpha@FreeBSD.ORG
+Subject: RE: Kernel Panic on DEC Alpha 1000A 5/400
+
+
+
+Andrew Gallatin writes:
+ > 
+ > Shashi Dookhee writes:
+ > 
+ >  > V4.9-164, built on Aug  5 1997 at 09:48:15
+ > 
+ > Your firmware looks ancient.  A firmware upgrade may help, and
+ > probably won't make things work.
+
+Oops.  Freudian slip.  "probably won't make things worse" is what I
+meant to say..
+
+Drew
+
+-----BEGIN PGP SIGNATURE-----
+Version: PGP 7.1
+
+iQA/AwUBO9tmKR81+wdHSEUlEQLqmgCgm5AskJaSBZ9H2n0utimi0F4BxUYAmQFC
+KtT6r3UIFObm6Kb2Ctmj+CFG
+=0IJs
+-----END PGP SIGNATURE-----
+
+===============================================================================
+
+Traffic Proximity Limited
+191 Old Marylebone Road
+London
+NW1 5DW
+United Kingdom
+Registered number: 3164767
+Registered in England
+
+Tel:	+44 (0) 20 7298 8200
+Fax:	+44 (0) 20 7298 8201
+
+
+This email its contents and any files or images with it are intended solely
+for the addressee(s) and are confidential. If you have received this email
+in error you may not copy or use the contents, attachments or information in
+any way. Please destroy it and contact the sender on the number printed
+above, via the Traffic Proximity switchboard or via email return.
+
+DISCLAIMER
+Material contained in this email may be copyright material of 
+Traffic Proximity or protected by other intellectual property rights. It
+may only be reproduced with the express permission of Traffic Proximity. 
+Traffic Proxmity does not accept responsibility for any changes made to
+this email by unauthorised parties after it was sent. Whilst Traffic
+Proximity runs antivirus software on all Internet emails it is not
+liable for any loss or damage caused by an infected email. The recipient
+is advised to run their own antivirus software. All information contained
+in this email has been prepared using information believed by the author
+to be reliable and accurate, but Traffic Proximity makes no warranty as
+to accuracy and completeness. Any opinions expressed in this email are
+those of the author and do not necessarily reflect the opinions of Traffic
+Proximity or its affiliates.
+
+===============================================================================
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Oct 28 00:46:52 2001
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Sun, 28 Oct 2001 00:46:52 +0000
+To: freebsd-alpha
+Subject: installing from boot.flp for 4.4
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409527
+
+FYI (no action or reply needed)
+
+Seems to work okay for me, but I did get several messages about
+"unzip failed - / out of room", and it kept on dropping ftp
+connections with ftp.freebsd.org, and I had to give up on the
+Xset distribution.
+
+
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Oct 28 00:28:17 2001
+From: "fparker" <tparker () triad ! rr ! com>
+Date: Sun, 28 Oct 2001 00:28:17 +0000
+To: freebsd-alpha
+Subject: keep me updated
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409526
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------=_NextPart_000_001C_01C15F25.E91A7B20"
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_001C_01C15F25.E91A7B20
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+
+
+------=_NextPart_000_001C_01C15F25.E91A7B20
+Content-Type: text/html;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META http-equiv=3DContent-Type content=3D"text/html; =
+charset=3Diso-8859-1">
+<META content=3D"MSHTML 6.00.2600.0" name=3DGENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=3D#ffffff>
+<DIV>&nbsp;</DIV></BODY></HTML>
+
+------=_NextPart_000_001C_01C15F25.E91A7B20--
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 23:43:55 2001
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Sat, 27 Oct 2001 23:43:55 +0000
+To: freebsd-alpha
+Subject: hmm...
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409525
+
+
+Something from your changes  or mine :-)?
+
+On a reboot:
+
+login:
+fatal kernel trap:
+
+    trap entry     = 0x2 (memory management fault)
+    cpuid          = 0
+    faulting va    = 0xb8
+    type           = access violation
+    cause          = load instructon
+    pc             = 0xfffffc00003fd1d4
+    ra             = 0xfffffc0000456720
+    sp             = 0xfffffe000b4377f0
+    usp            = 0x11ffe680
+    curproc        = 0xfffffe000b1afe00
+        pid = 216, comm = syslogd
+
+Stopped at      devsw+0x14:     ldq     t0,0xb8(a0) <0xb8>
+<t0=0xfffffe000b17ec40,a0=0x0>
+db> t
+devsw() at devsw+0x14
+cn_devopen() at cn_devopen+0x40
+cnopen() at cnopen+0x60
+spec_open() at spec_open+0x1b4
+spec_vnoperate() at spec_vnoperate+0x2c
+vn_open() at vn_open+0x410
+open() at open+0xf0
+syscall() at syscall+0x308
+XentSys() at XentSys+0x64
+--- syscall (5, FreeBSD ELF, open) ---
+--- user mode ---
+
+
+
+-matt
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 23:15:09 2001
+From: mel kravitz <melk () switchpwr ! com>
+Date: Sat, 27 Oct 2001 23:15:09 +0000
+To: freebsd-alpha
+Subject: support for wireless ISA-pcmcia  or PCI-pcmcia in 4.3/4.4
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409524
+
+Any one using wireless networking in freebsd on alpha's?
+-Mel
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 23:12:03 2001
+From: mel kravitz <melk () switchpwr ! com>
+Date: Sat, 27 Oct 2001 23:12:03 +0000
+To: freebsd-alpha
+Subject: multiport serial boards
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409523
+
+I have succesfully configured  the Moxa Smartio C168HS isa board on an
+as1000a.
+-Mel
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 16:39:15 2001
+From: Wilko Bulte <wkb () freebie ! xs4all ! nl>
+Date: Sat, 27 Oct 2001 16:39:15 +0000
+To: freebsd-alpha
+Subject: Re: CPU types in kernel configs
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409521
+
+On Sat, Oct 27, 2001 at 11:53:08AM -0400, Garrett Wollman wrote:
+> In article <XFMail.011027023922.jhb@FreeBSD.org> you write:
+> 
+> >Any chance we can get the 'cpu' keyword in config to be optionable?  The cpu's
+> >on the alpha arch are pretty much useless and unused at this point.
+> 
+> Particularly since the EV8 won't happen.  (Just saw a fascinating
+> seminar on the design of the EV8 as it was planned before
+> |c|o|m|p|a|q| killed it by sending the designers to Intel.  8-way
+
+:-( :-(
+
+> multiple issue, four-way simultaneous multi-threading, 8 MB L2 cache
+> and memory controller on-die...)
+
+Plans are to have EV79 max IIRC.
+
+-- 
+|   / o / /_  _   		email: 	wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, The Netherlands	
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Oct 26 20:17:47 2001
+From: Ruslan Ermilov <ru () FreeBSD ! ORG>
+Date: Fri, 26 Oct 2001 20:17:47 +0000
+To: freebsd-alpha
+Subject: Re: cvs commit: src Makefile.inc1
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409508
+
+On Fri, Oct 26, 2001 at 09:25:53AM -0700, Terry Lambert wrote:
+> Ruslan Ermilov wrote:
+> > 
+> > On Thu, Oct 25, 2001 at 11:44:38PM -0700, Terry Lambert wrote:
+> > > Peter Wemm wrote:
+> > > > One thing that would be nice, and I have not had the patience to sit down
+> > > > and figure it out yet, is find some way to specify and use an *external*
+> > > > cross compiler and/or toolchain to do the cross build and exclude the
+> > > > in-tree compiler and/or toolchain.
+> > >
+> > > Setting DESTDIR causes include and library path overrides
+> > > that cause the system default paths to be used, instead of
+> > > the correct paths for the cross compiler.  See /usr/share/mk
+> > > for DESTDIR defined variant behaviour, for details...
+> > >
+> > Setting DESTDIR is OK since revision 1.219.
+> 
+> Please see the current version of bsd.lib.mk (1.99), which has:
+> 
+> 	.if defined(DESTDIR) && !defined(BOOTSTRAPPING)
+> 	CFLAGS+= -I${DESTDIR}/usr/include
+> 	CXXINCLUDES+= -I${DESTDIR}/usr/include/g++
+> 	.endif
+> 
+> This precludes use of other than the system toolchain; in
+> particular, you will get the wrong version of typeinfo and
+> other headers when compiling C++ code, which are compiler
+> specific (and even GCC version specific).
+> 
+> I think there are issues with the standard headers for C,
+> as well, should the toolchain derived version be different
+> than the one for the tools you are using (e.g. quad vs.
+> long long, etc.).
+> 
+> The problem is that this jams the system include paths in
+> front of the paths intended to override them.
+> 
+> As an exercise, try compiling what you can of FreeBSD
+> using the TenDRA or the DEC (Compaq) Alpha compilers.
+> 
+Excuse me, but I thought Peter was talking about pre-compiled
+toolchain in EXTERNAL_CROSS_TOOLS=/usr/local/ia64/bin.
+
+
+Cheers,
+-- 
+Ruslan Ermilov		Oracle Developer/DBA,
+ru@sunbay.com		Sunbay Software AG,
+ru@FreeBSD.org		FreeBSD committer,
++380.652.512.251	Simferopol, Ukraine
+
+http://www.FreeBSD.org	The Power To Serve
+http://www.oracle.com	Enabling The Information Age
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Oct 26 18:52:56 2001
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Fri, 26 Oct 2001 18:52:56 +0000
+To: freebsd-alpha
+Subject: Re: Hammer (fwd)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409507
+
+Interesting discussion on Linux list... I've heard that Hammer has legs...
+
+
+---------- Forwarded message ----------
+Date: Fri, 26 Oct 2001 12:51:53 -0600
+From: Maurice Hilarius <maurice@harddata.com>
+Reply-To: axp-list@redhat.com
+To: axp-list@redhat.com
+Subject: Re: Hammer
+
+With regards to your message at 12:30 PM 10/26/01, Peter Watkinson. Where
+you stated:
+
+>OK we've seen about Itanium and how much that costs how about the AMD Hammer
+>what I've heard is that it should debut in 1H 02 and be clocked at about
+>2ghz. Will it run x86 linux out of the box or will it need it's own
+>distribution? Has anyone any idea what it will cost? Does anyone know what
+>the projected Spec or other Benchmark figures are?
+>
+>Now that Alpha seems to be swimming with the fishes we'll have to consider
+>the alternatives and Hammer seems to me like it has the most similarity to
+>the Alpha  - or maybe it just appeals because it's not made by Intel!
+
+http://www2.amd.com:80/us-en/Processors/DevelopWithAMD/0,,30_2252_875,00.html
+
+http://www.x86-64.org/%22%20target=%22new%22
+
+And, most importantly:
+http://www.x86-64.org/downloads
+
+Where you will find the following good info, and lots of downloads:
+
+" AMD SimNow! Simulator
+Here's what all you kernel hackers have dreamed of: an x86 system
+simulator running under GNU/Linux!  The simulated system contains
+an x86-64 technology-enabled chip, RAM, disks, and VGA.  You can
+single-step the
+CPU, peek at registers and memory, and lots of other fun stuff.
+For now, you can only run 32-bit GNU/Linux because SimNow x86-64 does not
+support the swapgs instruction that is used by the 64-bit Linux kernel
+port.  But, you can play with 64-bit mode, and you can debug those pesky
+32-bit kernel bugs without having to
+hard-boot your hardware all the time.
+The simulator is only available as a binary RPM because it contains some
+proprietary code. RPMs are available for SuSE 6.4 and Red Hat 6.2
+systems.  The simulator was written by AMD
+and ported to GNU/Linux by CodeSourcery.
+Note: We expect an update of SimNow that supports the complete x86-64
+instruction
+set so that you can use the x86-64 Linux kernel on it."
+
+Have fun!
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Oct 26 16:58:53 2001
+From: John Baldwin <jhb () FreeBSD ! org>
+Date: Fri, 26 Oct 2001 16:58:53 +0000
+To: freebsd-alpha
+Subject: RE: multi-port serial?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409506
+
+
+On 26-Oct-01 John Baldwin wrote:
+> 
+> On 26-Oct-01 Andrew Gallatin wrote:
+>> 
+>> Has anybody used any multi-port serial board on FreeBSD/alpha?
+>> Which one?
+>> 
+>> My collection of machines in my home office continues to grow, and
+>> dragging 2 serial console cables between an ever growing number of
+>> machines is starting to really suck.
+>> 
+>> Thanks,
+>> 
+>> Drew
+> 
+> Hmm, the rp(4) driver claims to be MI.  It's bus_space'd at least.  You can
+> get
+> the cards on EBay for not too much, just don't outbid me, please. :)   Search
+> for 'Rocketport'.  (They retail for like $400 I think.)
+
+Oops, disclaimer, I have not, in fact, used one of these cards on an Alpha,
+however David likes them a lot and they are somewhat cheap on EBay.  YMMV. 
+
+-- 
+
+John Baldwin <jhb@FreeBSD.org> -- http://www.FreeBSD.org/~jhb/
+PGP Key: http://www.baldwin.cx/~john/pgpkey.asc
+"Power Users Use the Power to Serve!"  -  http://www.FreeBSD.org/
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Oct 25 06:28:51 2001
+From: <jlemon () FreeBSD ! org>
+Date: Thu, 25 Oct 2001 06:28:51 +0000
+To: freebsd-alpha
+Subject: Re: alpha/30982: "ip_dooptions()" might dereference unaligned pointer
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409486
+
+Synopsis: "ip_dooptions()" might dereference unaligned pointer
+
+Responsible-Changed-From-To: freebsd-alpha->jlemon
+Responsible-Changed-By: jlemon
+Responsible-Changed-When: Wed Oct 24 23:28:05 PDT 2001
+Responsible-Changed-Why: 
+fixed in -current, PR left open until fix MFC'd to -stable.
+
+http://www.FreeBSD.org/cgi/query-pr.cgi?pr=30982
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Oct 25 02:48:22 2001
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Thu, 25 Oct 2001 02:48:22 +0000
+To: freebsd-alpha
+Subject: Re: patch for multiple promcons && real cons goop
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409485
+
+The only thing that it doesn't work 'fine' on is the Rawhide- but Rawhide is
+the only platform that actually does the 'right' thing about consoles- it
+waits until the actual h/w for at least the bus for the console is configured
+(the mcpcia that has the EISA bus on it) before calling the console init
+routine.
+
+Unfortunately and inexplicably this leads to the double character stuff
+getting *started* there *snort*...
+
+but I suggest that once some folks actually do some more testing for this it
+gets checked in anyhow because it makes *most* alphas have readable kernel
+printfs again. In my limited time I'll be looking at the rawhide issues.
+
+
+-matt
+
+
+On Wed, 24 Oct 2001, Jonathan Lemon wrote:
+
+> It looks good - and works fine on my DS20 here.
+> -- 
+> Jonathan
+> 
+> 
+> On Wed, Oct 24, 2001 at 03:00:30PM -0700, Matthew Jacob wrote:
+> > 
+> > Can folks try this? It seems to work for me on at least 2 platforms- including
+> > the odd on (turbolaser). I haven't tried it yet on a rawhide, nor have I tried
+> > it with a graphics console.
+> > 
+> > Index: alpha/alpha/machdep.c
+> > ===================================================================
+> > RCS file: /home/ncvs/src/sys/alpha/alpha/machdep.c,v
+> > retrieving revision 1.150
+> > diff -u -r1.150 machdep.c
+> > --- alpha/alpha/machdep.c	2001/10/21 22:16:44	1.150
+> > +++ alpha/alpha/machdep.c	2001/10/24 21:52:25
+> > @@ -621,9 +622,10 @@
+> >  	 * Initalize the real console, so the the bootstrap console is
+> >  	 * no longer necessary.
+> >  	 */
+> > -	if (platform.cons_init)
+> > +	if (platform.cons_init) {
+> >  		platform.cons_init();
+> > -
+> > +		promcndetach();
+> > +	}
+> >  	/* NO MORE FIRMWARE ACCESS ALLOWED */
+> >  #ifdef _PMAP_MAY_USE_PROM_CONSOLE
+> >  	/*
+> > Index: alpha/alpha/promcons.c
+> > ===================================================================
+> > RCS file: /home/ncvs/src/sys/alpha/alpha/promcons.c,v
+> > retrieving revision 1.21
+> > diff -u -r1.21 promcons.c
+> > --- alpha/alpha/promcons.c	2001/10/24 18:30:03	1.21
+> > +++ alpha/alpha/promcons.c	2001/10/24 21:52:25
+> > @@ -263,6 +263,7 @@
+> >  
+> >  CONS_DRIVER(prom, NULL, NULL, NULL, promcngetc, promcncheckc, promcnputc, NULL);
+> >  
+> > +static int promcn_attached = 0;
+> >  void
+> >  promcnattach(int alpha_console)
+> >  {
+> > @@ -270,8 +271,17 @@
+> >  	prom_consdev.cn_dev = makedev(CDEV_MAJOR, 0);
+> >  	make_dev(&prom_cdevsw, 0, UID_ROOT, GID_WHEEL, 0600, "promcons");
+> >  	cnadd(&prom_consdev);
+> > +	promcn_attached = 1;
+> >  }
+> >  
+> > +void
+> > +promcndetach(void)
+> > +{
+> > +	if (promcn_attached) {
+> > +		cnremove(&prom_consdev);
+> > +		promcn_attached = 0;
+> > +	}
+> > +}
+> >  /*
+> >   * promcnputc, promcngetc and promchcheckc in prom.c for layering reasons
+> >   */
+> > Index: alpha/include/prom.h
+> > ===================================================================
+> > RCS file: /home/ncvs/src/sys/alpha/include/prom.h,v
+> > retrieving revision 1.6
+> > diff -u -r1.6 prom.h
+> > --- alpha/include/prom.h	2000/03/18 08:00:51	1.6
+> > +++ alpha/include/prom.h	2001/10/24 21:52:25
+> > @@ -96,6 +96,7 @@
+> >  #ifndef ASSEMBLER
+> >  #ifdef _KERNEL
+> >  void	promcnattach __P((int));
+> > +void	promcndetach __P((void));
+> >  void	promcnputc __P((dev_t, int));
+> >  int	promcngetc __P((dev_t));
+> >  int	promcncheckc __P((dev_t));
+> > 
+> > 
+> 
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 24 23:48:19 2001
+From: Darren Reed <darrenr () reed ! wattle ! id ! au>
+Date: Wed, 24 Oct 2001 23:48:19 +0000
+To: freebsd-alpha
+Subject: Re: ipfilter bug (was: Re: compiler bugs? )
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409513
+
+Thanks Peter!
+
+Darren
+
+In some email I received from Peter Wemm, sie wrote:
+> Adam Stouffer wrote:
+> > I'm trying to get ipfilter compiled so this box can be made into a 
+> > firewall. After getting the latest ipfilter sources (3.4.21) I follow the 
+> > instructions and type 'make freebsd4' after a minute or so it stops with 
+> > this error:
+> > 
+> > cc1: warnings being treated as errors
+> > ../../ip_auth.c: In function `fr_auth_ioctl':
+> > ../../ip_auth.c:344: warning: comparison is always false due to limited 
+> > range of data type
+> > *** Error code 1
+> > 
+> > Line 344 shows:
+> > 
+> > 	if (cmd == SIOCRMAFR) {
+> > 
+> > After emailing Darren Reed he says its because of a compiler bug. Is this 
+> > true? 4.4 release also ships with the same 2.95.3 version of gcc. Also why 
+> > is ipfilter not included in the ports tree? Thanks.
+> 
+> Nope. It is a code bug in ipfilter:
+> 
+> int fr_auth_ioctl(data, mode, cmd, fr, frptr)
+> caddr_t data;
+> int mode;
+> #if defined(__NetBSD__) || defined(__OpenBSD__) || (FreeBSD_version >= 300003)
+>                                                   ^^^^^^^^^^^^^^^^^^^
+> u_long cmd;
+> #else
+> int cmd;
+> #endif
+> 
+> It is __FreeBSD_version, not FreeBSD_version.  This means that it is using
+> the 'int cmd' form, which is not large enough to represent the SIOCRMAFR
+> ioctl value.
+> 
+> > Adam
+> 
+> Cheers,
+> -Peter
+> --
+> Peter Wemm - peter@FreeBSD.org; peter@yahoo-inc.com; peter@netplex.com.au
+> "All of this is for nothing if we don't go to the stars" - JMS/B5
+> 
+> 
+> 
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 24 17:51:05 2001
+From: bmah () freebsd ! org (Bruce A !  Mah)
+Date: Wed, 24 Oct 2001 17:51:05 +0000
+To: freebsd-alpha
+Subject: Alpha hardware notes
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409482
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="--==_Exmh_2058411746P"
+
+--==_Exmh_2058411746P
+Content-Type: text/plain; charset=us-ascii
+
+Hi alpha folks--
+
+With the recent ia64 progress, I'm trying to figure out how to best 
+support more than two architectures in the release documentation.  The 
+biggest headache is going to be the hardware notes...specifically the 
+lists of all the NICs, disk controllers, and other devices.
+
+One thing I'd like to do is to figure out what to do with all of the 
+devices for which no explicitly-supported architecture(s) are listed.  
+In other words, does:
+
+	<para>foobar device (&man.foo.4; driver)</para>
+
+really mean:
+
+	<para arch="i386,alpha">foobar device (&man.foo.4; driver)</para>
+
+("it works on both the i386 and alpha") or does it really mean:
+
+	<para arch="i386">foobar device (&man.foo.4; driver)</para>
+	
+("it works on the i386, no one's tried it on the alpha")?
+
+I'm not sure how to go about doing this, given that the only alpha 
+machine I can even login to is beast.  One thing I thought of was to
+make a pass through the GENERIC kernel configuration on a FreeBSD/alpha
+machine and mark all drivers mentioned there as being explicitly
+supported, then taking everything that's left and marking it as
+i386-only.
+
+Clearly this isn't perfect.  Any ideas on how I can do this better?
+
+Thanks!
+
+Bruce.
+
+PS.  Right now I'm mostly concerned with -CURRENT...4-STABLE will 
+never have more than 2 architectures, so it's less of a problem 
+although anything that's MFC-able, should be.
+
+
+
+--==_Exmh_2058411746P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.6 (FreeBSD)
+Comment: Exmh version 2.3.1+ 05/14/2001
+
+iD8DBQE71v+J2MoxcVugUsMRAjAiAKCixPcrJyNXWrcJmvxuVc4gflLKhwCg0xzX
+d/XSSQ+fx3c/r+SfVmfzTAs=
+=hO8E
+-----END PGP SIGNATURE-----
+
+--==_Exmh_2058411746P--
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 24 08:14:18 2001
+From: Marblejar_Recruiter () vsnl ! net
+Date: Wed, 24 Oct 2001 08:14:18 +0000
+To: freebsd-alpha
+Subject: ADV: Introduction to Marblejar
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409480
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------=_NextPart_000_01B7_01C157D4.6513E350"
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_01B7_01C157D4.6513E350
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+
+Take charge of your career by utilizing www.marblejar.com.  We offer IT =
+professionals like you all of the services you require to find the most =
+challenging  positions in the IT industry.=20
+
+* $500 Signing bonus when you get job through us
+* Dedicated recruiters to help you identify the best job openings in =
+your skill
+* Targeted searches that meet your needs
+* We provide totally privacy on all of your contact information. No one =
+can view your resume without your approval.
+* Immediate notification anytime a client selects your resume for =
+review.
+* One short step approval process- upload your resume in less than 5 =
+minutes.
+
+Marblejar is full service web based IT recruiting firm. Let us start =
+helping you, login today at www.marblejar.com.
+
+
+Sincerely,
+
+John Ross
+Program Manager
+
+We respect your time. If you would like to be removed from our mailing =
+list, click on mailto:Marblejar_Recruiter@vsnl.net?subject=3DREMOVE and =
+add the email address(es) to remove in your subject line.  This message =
+is designed to comply with all U.S. state laws and pending federal =
+legislation regarding electronic mail marketing. You can avoid seeing =
+compliant messages by setting your mail reader to filter messages with =
+"ADV:" at the beginning of the Subject line. Submit questions or =
+comments regarding these matters by clicking on =
+mailto:Marblejar_Recruiter@vsnl.net?subject=3DCOMPLIANCE.
+
+
+
+Marblejar LLC
+Manor Oak Two, Suite 252
+1910 Cochran Road
+Pittsburgh, PA 15220
+
+------=_NextPart_000_01B7_01C157D4.6513E350
+Content-Type: text/html;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META content=3D"text/html; charset=3Diso-8859-1" =
+http-equiv=3DContent-Type>
+<META content=3D"MSHTML 5.00.2014.210" name=3DGENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=3D#ffffff>
+<DIV><FONT face=3DArial size=3D2><BR>Take charge of your career by =
+utilizing <A=20
+href=3D"http://www.marblejar.com">www.marblejar.com</A>.&nbsp; We offer =
+IT=20
+professionals like you all of the services you require to find the most=20
+challenging&nbsp; positions in the IT industry. <BR><BR>* $500 Signing =
+bonus=20
+when you get job through us<BR>* Dedicated recruiters to help you =
+identify the=20
+best job openings in your skill<BR>* Targeted searches that meet your =
+needs<BR>*=20
+We provide totally privacy on all of your contact information. No one =
+can view=20
+your resume without your approval.<BR>* Immediate notification anytime a =
+client=20
+selects your resume for review.<BR>* One short step approval process- =
+upload=20
+your resume in less than 5 minutes.<BR><BR>Marblejar is full service web =
+based=20
+IT recruiting firm. Let us start helping you, login today at <A=20
+href=3D"http://www.marblejar.com">www.marblejar.com</A>.<BR><BR><BR>Since=
+rely,<BR><BR>John=20
+Ross<BR>Program Manager<BR><BR>We respect your time. If you would like =
+to be=20
+removed from our mailing list, click on <A=20
+href=3D"mailto:Marblejar_Recruiter@vsnl.net?subject=3DREMOVE">mailto:Marb=
+lejar_Recruiter@vsnl.net?subject=3DREMOVE</A>=20
+and add the email address(es) to remove in your subject line.&nbsp; This =
+message=20
+is designed to comply with all U.S. state laws and pending federal =
+legislation=20
+regarding electronic mail marketing. You can avoid seeing compliant =
+messages by=20
+setting your mail reader to filter messages with "ADV:" at the beginning =
+of the=20
+Subject line. Submit questions or comments regarding these matters by =
+clicking=20
+on <A=20
+href=3D"mailto:Marblejar_Recruiter@vsnl.net?subject=3DCOMPLIANCE">mailto:=
+Marblejar_Recruiter@vsnl.net?subject=3DCOMPLIANCE</A>.<BR></FONT></DIV>
+<DIV><FONT face=3DArial size=3D2></FONT>&nbsp;</DIV>
+<DIV><FONT face=3DArial size=3D2></FONT>&nbsp;</DIV>
+<DIV><FONT face=3DArial size=3D2>Marblejar LLC<BR>Manor Oak Two, Suite =
+252<BR>1910=20
+Cochran Road<BR>Pittsburgh, PA 15220</DIV></FONT></BODY></HTML>
+
+------=_NextPart_000_01B7_01C157D4.6513E350--
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 24 04:47:28 2001
+From: Adam Stouffer <astouffer () adelphia ! net>
+Date: Wed, 24 Oct 2001 04:47:28 +0000
+To: freebsd-alpha
+Subject: compiler bugs?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409479
+
+I'm trying to get ipfilter compiled so this box can be made into a 
+firewall. After getting the latest ipfilter sources (3.4.21) I follow the 
+instructions and type 'make freebsd4' after a minute or so it stops with 
+this error:
+
+cc1: warnings being treated as errors
+../../ip_auth.c: In function `fr_auth_ioctl':
+../../ip_auth.c:344: warning: comparison is always false due to limited 
+range of data type
+*** Error code 1
+
+Line 344 shows:
+
+	if (cmd == SIOCRMAFR) {
+
+After emailing Darren Reed he says its because of a compiler bug. Is this 
+true? 4.4 release also ships with the same 2.95.3 version of gcc. Also why 
+is ipfilter not included in the ports tree? Thanks.
+
+
+Adam
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 23 17:51:50 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Tue, 23 Oct 2001 17:51:50 +0000
+To: freebsd-alpha
+Subject: RE: AlphaServer 2100 5/300 Now Functional!
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409478
+
+
+Two.. 
+
+First: What does 'show cpu_enabled' say at the SRM console prompt?
+
+Do things change if you do:
+
+P0>>> set cpu_enabled f
+PO>>> init
+
+Second:  Are any of the CPUs listed as failed?  Eg:
+
+ > Component       Status          Module ID
+ > CPU 0              P            B2040-AB DECchip (tm) 21164-5
+ > CPU 1              P            B2040-AB DECchip (tm) 21164-5
+ > CPU 2              F            B2040-AB DECchip (tm) ?????-?
+
+(CPU 2 is marked as failed)
+
+This might have happenend because you moved things around.
+
+You can reset this by doing:
+
+P0>>> clear_errors all
+P0>>> init
+
+Lastly, make sure you have the various components in their proper
+slots?  Go get the docs & make sure you do.  There are rules about
+where the various boards need to go in relation to others.  Make sure
+you're following them.
+
+Let me know what happens..  And let's keep this on the list, so the
+next poor sucker to resurrect one of these beasts will be able to get
+help from the archives..
+
+
+Drew
+
+
+
+
+Thornton, Neill R, HM2 writes:
+ > Right.  I complied with SMP in the config file, and did a "clear_error all"
+ > on the SRM console.  The SRM sees the CPUs, so I don't know what is going
+ > on.  There are 4 processors total in the system.
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 22 23:26:05 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Mon, 22 Oct 2001 23:26:05 +0000
+To: freebsd-alpha
+Subject: Re: PC164 and 3c50x driver
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409476
+
+
+Adam Stouffer writes:
+ > I have 4.3 release running on a 400mhz PC164 and something is wrong with 
+ > the ep driver. I'm trying to get a 3c509 nic working and added 
+ > 'device   ep' to the kernel config. The compile dies with this error:
+ > 
+ > linking kernel
+ > if_ep_isa.o: In function 'ep_isa_identify':
+ > if_ep_isa.c(.text+0x1d0): undefined reference to 'elink_idseq'
+ > if_ep_isa.c(.text+0x1d4): undefined reference to 'elink_idseq'
+ > if_ep_isa.c(.text+0x1e0): undefined reference to 'elink_reset'
+ > if_ep_isa.c(.text+0x1e4): undefined reference to 'elink_reset'
+ > if_ep_isa.c(.text+0x244): undefined reference to 'elink_idseq'
+ > if_ep_isa.c(.text+0x248): undefined reference to 'elink_idseq'
+ > *** Error code 1
+ > 
+ > I tried getting an updated version of if_ep_isa.c but there only seems to 
+ > be two versions out there and neither work. I'm not a programmer so any 
+ > help would be appreciated :)
+
+The ep driver isn't quite MI.  It depends on a .c file in i386 land --
+i386/isa/elink.c  You MIGHT be able to get it to work by
+adding this line to sys/conf/files.alpha & re-config'ing & rebuilding
+
+i386/isa/elink.c                optional        ep
+
+Drew
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 22 18:17:34 2001
+From: "Matthew N. Dodd" <winter () jurai ! net>
+Date: Mon, 22 Oct 2001 18:17:34 +0000
+To: freebsd-alpha
+Subject: Re: FreeBSD is running now on AlphaServer 2100 5/250RM (GAMMA SABLE)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409474
+
+On Mon, 22 Oct 2001, Ardelean Gheorghe wrote:
+> Is the EISA Mylex DAC960 RAID (KZESC-XB) controller supported?
+> I remeber that Mike Smith told us it's not very difficult to support it
+> but I don't now the current status.
+
+I've got a bus front end written but not committed.
+
+The card I was going to use for testing got toasted or something.
+
+Email me off list if you'd like to try to get it working.
+
+-- 
+| Matthew N. Dodd  | '78 Datsun 280Z | '75 Volvo 164E | FreeBSD/NetBSD  |
+| winter@jurai.net |       2 x '84 Volvo 245DL        | ix86,sparc,pmax |
+| http://www.jurai.net/~winter |  For Great Justice!  | ISO8802.5 4ever |
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 22 15:06:21 2001
+From: "Bruce A. Mah" <bmah () FreeBSD ! org>
+Date: Mon, 22 Oct 2001 15:06:21 +0000
+To: freebsd-alpha
+Subject: Re: cvs commit: src/usr.sbin/sysinstall kget.c
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409472
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="--==_Exmh_-476738932P"
+
+--==_Exmh_-476738932P
+Content-Type: text/plain; charset=us-ascii
+
+If memory serves me right, Peter Wemm wrote:
+> peter       2001/10/22 05:22:08 PDT
+> 
+>   Modified files:
+>     usr.sbin/sysinstall  kget.c 
+>   Log:
+>   This is __i386__-only, not !__alpha__.  We never had userconfig on
+>   anything but i386/pc98.
+
+Revealing my i386-shaped head here:  Huh?!?
+
+Does this mean I should rip section 4.2 (Using UserConfig) out of the
+hardware notes for non-i386 platforms?
+
+What about section 4.1 (Default Configuration)...I'm about --><-- close
+to getting rid of it anyways since it's almost certainly out of sync
+with the GENERIC kernel for *any* platform, and I bet it was always
+pretty i386-centric.
+
+Advice appreciated...
+
+Bruce.
+
+PS.  Come to think of it, Section 4.2 could go away for the i386 too,
+since the Handbook's new installation guide goes into a lot more detail.
+
+
+
+
+
+
+--==_Exmh_-476738932P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.6 (FreeBSD)
+Comment: Exmh version 2.3.1+ 05/14/2001
+
+iD8DBQE71DXs2MoxcVugUsMRAnV4AKD8rGVuSfw83YUeKFWbnOaRWMrIBQCg5hyH
+QBihBRuxgnyqt5eFScitU6k=
+=tT75
+-----END PGP SIGNATURE-----
+
+--==_Exmh_-476738932P--
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 22 14:31:59 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Mon, 22 Oct 2001 14:31:59 +0000
+To: freebsd-alpha
+Subject: Re: AlphaServer 2100 5/300... not supported?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409471
+
+
+I'm the person who did, and continues to regret doing, the 2100
+support in FreeBSD.
+
+I (think) I fixed a bug this weekend in the 2100 support code where
+EV5 2100s were being identified wrong and their t2 CSRs were being
+accessed in the wrong location.
+
+Try http://people.freebsd.org/~gallatin/kernel.2100.gz
+Slap it onto the 4.4 boot floppy in place of the kernel that was
+there.
+
+If it works, you'll need to make sure to copy that kernel into / after
+the install is done & to upgrade to -stable past this weekend.
+
+Also, note that FreeBSD doesn't support SMP on alphas in -stable, only
+in -current.  If you decide to go for -current, make sure you use a
+-current past this weekend (as I squashed some 2100 bugs in current
+too). 
+
+Drew
+
+
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 20 22:56:06 2001
+From: Yoriaki FUJIMORI <fujimori () grafin ! fujimori ! cache ! waseda ! ac ! jp>
+Date: Sat, 20 Oct 2001 22:56:06 +0000
+To: freebsd-alpha
+Subject: 4.4R on up1100 software reboot hangs
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409469
+
+Dear folks,
+Sometime ago, I posted the above topic here.
+I picked up one error line in the middle of software reboot:
+it says
+
+ata-0master: ata_command timeout waiting for intr
+identify failed
+ata-1slave:  ata_command time out waiting for intr
+identify failed
+
+Up1100's ata interface is UDMA66.  I connect one Seagate BarracudaIV 40GB
+disk to ata0-master, and 32x ide cdrom to ata1-slave.
+
+When I do the hardware reboot, this never happenes; the system
+can boot normally.
+I guess this might be a sort of timing problem.
+
+Yoriaki
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 20 08:09:34 2001
+From: Doug Rabson <dfr () nlsystems ! com>
+Date: Sat, 20 Oct 2001 08:09:34 +0000
+To: freebsd-alpha
+Subject: Re: machdep.c patches
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409468
+
+On 20 Oct 2001, Dag-Erling Smorgrav wrote:
+
+> The attached patch adds dummy {set,fill}_dbregs() to machdep.c on
+> every architecture (except i386, which already has real ones).  This
+> will allow retiring procfs_machdep.c as there will no longer be any MD
+> code in it (the only difference between procfs_machdep.c on the
+> different architectures is whether it calls {set,fill}_dbregs() or
+> just returns ENOSYS right away).
+>
+> Unless there are objections, I will commit this sometime next week.
+
+Looks reasonable to me. Actually, the ia64 does have debug registers, so
+this gives me a useful reminder to actually support them.
+
+-- 
+Doug Rabson				Mail:  dfr@nlsystems.com
+					Phone: +44 20 8348 6160
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Oct 18 20:51:20 2001
+From: "Normand Leclerc" <leclercn () videotron ! ca>
+Date: Thu, 18 Oct 2001 20:51:20 +0000
+To: freebsd-alpha
+Subject: RE: linux_base-7: ldconfig core dumps
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409466
+
+  Okay, so this means that port linux_base-7 won't work on stable...
+Version detection should be added in makefile tough.
+
+  Well, thanks for the info.  I'm not going to switch to current just to
+run this port...
+
+
+Normand Leclerc
+leclercn@videotron.ca
+
+-----Original Message-----
+From: owner-freebsd-alpha@FreeBSD.ORG
+[mailto:owner-freebsd-alpha@FreeBSD.ORG] On Behalf Of Marcel Moolenaar
+Sent: Thursday, October 18, 2001 3:37 PM
+To: Normand Leclerc
+Cc: freebsd-alpha@FreeBSD.ORG
+Subject: Re: linux_base-7: ldconfig core dumps
+
+On Thu, Oct 18, 2001 at 08:56:41AM -0400, Normand Leclerc wrote:
+> 
+>   Hummmm, yes it's stable....  Is current stable enough?
+
+If you need to ask the question, my answer is invariably going
+to be no :-)
+
+-- 
+ Marcel Moolenaar	  USPA: A-39004		 marcel@xcllnt.net
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 17 18:19:19 2001
+From: sales () L5Software ! com (L5 Software Development)
+Date: Wed, 17 Oct 2001 18:19:19 +0000
+To: freebsd-alpha
+Subject: Can we help you find more customers?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409463
+
+<x-html><html><body><pre>
+
+Do you have too many customers, too much traffic on your Web site, or what?
+No?!?
+Then you need MCspider(tm) !! 
+
+MCspider(tm) is a business tool for collecting email addresses from Web pages that meet a user-defined set of criteria.  Using this program, an email address list can be constructed to reach a particular audience.  With MCspider(tm), you can build a list of potential customers that is specific to your business by controlling where and how it searches for addresses.  When connected to the Internet through a cable modem or other reasonably high-speed connection, MCspider(tm) will visit thousands of pages per hour in search of customers for your business.  Since it collects email addresses from publicly available Web sites, you know potential recipients have published their address for the world to know.  You should therefore be able to contact them with little fear of SPAM complaints.
+
+MCspider(tm) is a multi-threaded, fully user configurable Windows application with a complete Help system.  It records the Web pages it visits, in addition to the email addresses it found.  You can therefore rest assured the list it produces is "clean" of duplicates, and that it won't waste time repeatedly looking at the same page for new addresses when it's already found them. 
+
+MCspider(tm) is guaranteed to perform substantially as is described in its documentation, and on its Web page.  Note that this is different from what seems to have become an "industry standard" - the practice of selling software "as-is," without any warranty.  (Have you really read any of the license agreements for software you purchased recently?)  Only by purchasing software from vendors who offer to stand behind their products with a viable warranty can you, the consumer, do anything to combat the proliferation of the "crapware" so common in today's marketplace.
+
+MCspider(tm) was officially released on October 5, 2001 for US$ 249.00 per copy.  However, because of some technical problems with our ordering system, we have decided to extend our pre-release offer until October 20:  Any paid orders received before that date will be granted a 60% discount - only US$ 99.00 per copy.  Please be advised this offer is definitely going to expire at the end of the day Oct. 19.
+
+Act now!  Don't miss out on this special offer!  Go to <A HREF="http://L5Software.com/go?MCspider"> http://L5Software.com/go?MCspider </A> to order your pre-release priced copy today!
+
+In case you're wondering how we got your email address, MCspider(tm) found it in one of the searches we had it do.  The program does work, and quite well!
+
+
+
+
+If you want to be excluded from future mailings by L5Software.com, please go to <A HREF="http://L5Software.com/cgibin/MailRemove.cgi?freebsd-alpha@FreeBSD.org"> http://L5Software.com/cgibin/MailRemove.cgi?freebsd-alpha@FreeBSD.org </A> to add your address to our list of blocked email addresses.
+
+________________________________________________________________
+L5 Software Development - "out of this world" sites and software
+
+MCspider(tm), crawling the World Wide Web for customers
+	<A HREF="http://www.L5Software.com/go?MCspider"> http://www.L5Software.com/go?MCspider </A>
+ThmIndxr(tm), the *only* HTML thumbnail/indexer you need!
+	<A HREF="http://www.L5Software.com/go?ThmIndxr"> http://www.L5Software.com/go?ThmIndxr </A>
+wCapLock(tm), makes CapsLock work like it does on a typewriter
+	<A HREF="http://www.L5Software.com/go?wCapLock"> http://www.L5Software.com/go?wCapLock </A>
+BannerAds(tm), join multiple affiliate programs with one banner
+	<A HREF="http://www.L5Software.com/go?BannerAds"> http://www.L5Software.com/go?BannerAds </A>
+KeywordGo(tm), provides keyword access to your popular pages
+	<A HREF="http://www.L5Software.com/go?KeywordGo"> http://www.L5Software.com/go?KeywordGo </A>
+
+
+</pre></body></html></x-html>
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 17 13:59:23 2001
+From: "M. L. Dodson" <bdodson () scms ! utmb ! EDU>
+Date: Wed, 17 Oct 2001 13:59:23 +0000
+To: freebsd-alpha
+Subject: Re: DEC Alpha 2100a
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409462
+
+Trevor Johnson writes:
+ > > My lynx installed and ran a 4.4RC fine, but failed miserably with
+ > > a -current snapshot
+ > 
+ > Which snapshot did you try?  If you gave some description of whatever
+ > problem you had, there's a chance someone might fix it, or know how to
+ > avoid it.
+ > 
+
+Snapshot was from July/August time frame, IIRC.  I described the
+problem in detail on the list.  The boot transcript is available
+on my web site, and an abbreviated version in the posting
+describing the problem.  See the archives.
+
+ > > and  an  attempt to  upgrade to  -current via
+ > > make {build,install}world.  The {build,install}world effort  used
+ > > a kernel without SMP enabled.  Since the lynx was worthless to me
+ > > with only a single CPU, mine is headed for the surplus warehouse,
+ > > too.
+ > 
+ > The SMP code was only added in April of this year.
+
+This all transpired in the August, early Sept. time frame.  And
+that is why I wanted to run -current.  -stable does me no good
+because of lack of SMP.  Note that I never got to try SMP because
+I could never get a -current to boot.
+
+I've already invested too much time in this.  The machine is
+headed for the surplus warehouse.
+
+Bud Dodson
+
+ > -- 
+ > Trevor Johnson
+ > 
+ > 
+-- 
+M. L. Dodson                                bdodson@scms.utmb.edu
+409-772-2178                                FAX: 409-772-1790
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 16 23:35:32 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Tue, 16 Oct 2001 23:35:32 +0000
+To: freebsd-alpha
+Subject: Re: Alphaserver 2000 5/300
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409458
+
+
+Tyler Willingham writes:
+ > Greetings,
+ > 
+ > I have recently received an alphaserver 2000 5/300, and was wondering if
+ > this architecture was supported by FreeBSD. I tried to install version
+
+I'm the poor SOB who decided to write the support code for this
+platform.  A decision which I continue to regret.  The architecture of
+the 2x00 family is ... interesting.  Most of them work now, but there
+are a handful remaining which do not.
+
+I'd be willing to take a crack at getting this box working if
+you can provide me with serial console access to it & a machine to
+netboot kernels from.   
+
+Cheers,
+
+Drew
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 15 17:50:02 2001
+From: Paul Halliday <dp () penix ! org>
+Date: Mon, 15 Oct 2001 17:50:02 +0000
+To: freebsd-alpha
+Subject: AS200 suicide
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409452
+
+
+hi
+
+ It appears my as200 has opted for an easy way out. I awoke this morning
+to find the nice blue console with a very strange dump on the screen. Not
+thinking much of it and being the fucken idiot that I just rebooted it
+without writing any of the info down.
+
+Needless to say, I am getting nothing now. no console, no beeps, and no
+static diagnostic led action. 5 on, four flashing.. no mention of
+"flashing" in the book.
+
+Ok, I just found a page that I missed in the manual. The box is back up.
+I shorted J1(1,2) - to go into mini console booted the box, nothing
+happened really cept diag lights stopped flashing. So switched the jumper
+back J1(2,3) - main console and now the box is back up.
+
+
+hmm.. anyone know what may have happened?
+
+
+Paul H.
+"Don't underestimate the power of stupid people in large groups"
+___________________
+http://dp.penix.org
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Oct 14 21:56:30 2001
+From: friendz () openxxx ! net
+Date: Sun, 14 Oct 2001 21:56:30 +0000
+To: freebsd-alpha
+Subject: Hello, your friend recommended openxxx.net to you
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409451
+
+
+
+	You have been invited to check out this adult site
+	     by one of your friends who visited us.
+
+click here , our URL is: http://www.openxxx.net/
+	enjoy,
+						OpenXXX TEAM 2001
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 09 22:46:31 2001
+From: Yoriaki FUJIMORI <fujimori () grafin ! fujimori ! cache ! waseda ! ac ! jp>
+Date: Tue, 09 Oct 2001 22:46:31 +0000
+To: freebsd-alpha
+Subject: Re: ipnat
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409449
+
+
+As for ipnat problem:
+The erroe messages I got are something like
+`there are no members  hogehoge in structure blahblah.'
+But, they are actually defined in headers, and somehow, those
+headers were not seen from the compiler.
+
+What I did was to repeat `make -k buildworld' once or twice, and,
+funny enough, everything went perfect.
+
+So, I guess when I upgraded from 4.3R to 4.4R on AlphaPC boxes,
+source tree was not properly built up on the file system, or
+some of shell scripts, such as mkdep are not working properly.
+But, I have got no more time to check it this month.
+
+Yoriaki Fujimori
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 08 22:14:09 2001
+From: Joseph Scott <joseph.scott () owp ! csus ! edu>
+Date: Mon, 08 Oct 2001 22:14:09 +0000
+To: freebsd-alpha
+Subject: Re: booting off of freebsd 4.3 install CD stops
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409447
+
+
+On Mon, 8 Oct 2001, Wilko Bulte wrote:
+
+# On Mon, Oct 08, 2001 at 02:36:33PM -0400, Andrew Gallatin wrote:
+# > 
+# > Can you provide a full transript of the boot log?
+# > 
+# > Is the scsi card built-in, or is it a PCI card?
+# 
+# Did 4.3 boot correctly on AS1200 in the first place?
+
+	The first FreeBSD release to properly boot off of the AS1200 that
+my office is 4.4.
+
+-Joseph
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 03 19:58:33 2001
+From: Wilko Bulte <wkb () freebie ! xs4all ! nl>
+Date: Wed, 03 Oct 2001 19:58:33 +0000
+To: freebsd-alpha
+Subject: Re: Alphastation 255 de0 IRQ mappings
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409441
+
+On Wed, Oct 03, 2001 at 04:35:58AM -0400, Jeff Duffy wrote:
+
+>   At boot, whatever card happens to be in the third PCI slot snatches 
+> IRQ 5, which causes the init of de0 to fail. It seems that the firmware 
+> will always map the onboard ethernet to IRQ 5, assuming that other 
+> devices can be shared.
+> 
+>   I can't find any utility like iconfig or ewrk_config to remap the 
+> onboard ethernet IRQ, and I can't seem to get de0 to come up unless I 
+> leave that slot empty. I'm hoping that rebuilding the kernel and 
+> assigning de0 an IRQ explicitly will help, but I'm still hunting down 
+> weird 'link already exists' errors.
+> 
+>   Is there some nifty way to remap the IRQ of de0 I've missed without 
+> recompiling?
+
+I don't think you can remap the IRQ but I could very well be wrong.
+
+-- 
+|   / o / /_  _   		email: 	wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, The Netherlands	
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 01 20:52:01 2001
+From: Adam Stouffer <astouffer () adelphia ! net>
+Date: Mon, 01 Oct 2001 20:52:01 +0000
+To: freebsd-alpha
+Subject: alpha/30970: Ensoniq 1371 (Creative chipset) does not work on AlphaPC164
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409437
+
+
+>Number:         30970
+>Category:       alpha
+>Synopsis:       Ensoniq 1371 (Creative chipset) does not work on AlphaPC164
+>Confidential:   no
+>Severity:       non-critical
+>Priority:       low
+>Responsible:    freebsd-alpha
+>State:          open
+>Quarter:        
+>Keywords:       
+>Date-Required:
+>Class:          sw-bug
+>Submitter-Id:   current-users
+>Arrival-Date:   Mon Oct 01 14:00:03 PDT 2001
+>Closed-Date:
+>Last-Modified:
+>Originator:     Adam Stouffer
+>Release:        4.3-RELEASE
+>Organization:
+>Environment:
+FreeBSD alpha.pit.adelphia.net 4.4-STABLE FreeBSD 4.4-STABLE #2: Sun Sep 30 00:43:39 GMT 2001     root@alpha.pit.adelphia.net:/usr/src/sys/compile/XJ12  alpha
+>Description:
+dmesg sees the card and cat /dev/sndstat works fine. Here is the dmesg output:
+
+pcm0: <AudioPCI ES1371-A> port 0x10100-0x1013f irq 3 at device 9.0 on pci0
+pcm0: interrupting at CIA irq 3
+
+Playback of any type of sound file does not work. Xmms will just sit at 0 seconds and not move and mpg123 seems to think its playing back at 2x or 3x normal speed. Both result in no output and this kernel message:
+
+
+Oct   1 16:28:52 alpha /kernel: pcm0: play interrupt timeout, channel dead
+
+This happens with "option pcm" in the kernel config under the 4.3 release sources and with sources from the stable branch
+
+>How-To-Repeat:
+
+>Fix:
+
+>Release-Note:
+>Audit-Trail:
+>Unformatted:
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Nov 01 19:03:41 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Thu, 01 Nov 2001 19:03:41 +0000
+To: freebsd-alpha
+Subject: Re: Makefile.inc1 clobbers CFLAGS (was: Re: cvs commit: src Makefile.inc1)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409557
+
+
+Ruslan Ermilov writes:
+ > On Thu, Oct 25, 2001 at 10:36:58AM -0400, Andrew Gallatin wrote:
+ > > 
+ > > Andrew Gallatin writes:
+ > >  > 
+ > >  > Building now.  One more question I have CPUTYPE=ev56
+ > >  > in /etc/make.conf -- will the crossbuild see this, potentially
+ > >  > confusing the x86 gcc?
+ > > 
+ > > Yes, it will.. :
+ > > 
+ > > cc1: bad value (ev56) for -mcpu= switch
+ > > 
+ > > Removing ev56 & restarting...
+ > > 
+ > This is because Makefile.inc1 sets CFLAGS="-nostdinc ${CFLAGS}" in
+ > CROSSENV, and that imports currently effective (for host architecture)
+ > CFLAGS.  This is bogus.  The attached patch should fix it.  Please
+ > test.
+ > 
+
+
+Using your patch I'm able to do a cross buildworld with CPUTYPE=ev56
+in /etc/make.conf.  (sysinstall still unhooked from build).
+Again, sorry for the delay.
+
+Drew
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Nov 01 00:49:08 2001
+From: "David O'Brien" <obrien () FreeBSD ! ORG>
+Date: Thu, 01 Nov 2001 00:49:08 +0000
+To: freebsd-alpha
+Subject: Re: Makefile.inc1 clobbers CFLAGS (was: Re: cvs commit: src Makefile.inc1)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409546
+
+On Wed, Oct 31, 2001 at 04:49:10PM -0500, Andrew Gallatin wrote:
+> A new crossbuild problem has been introduced -- awk builds something for the target platform & tries to run it on the hosting platform:
+
+Please try this patch:
+
+
+Index: Makefile.inc1
+===================================================================
+RCS file: /home/ncvs/src/Makefile.inc1,v
+retrieving revision 1.220
+diff -u -r1.220 Makefile.inc1
+--- Makefile.inc1	25 Oct 2001 07:28:55 -0000	1.220
++++ Makefile.inc1	1 Nov 2001 00:47:53 -0000
+@@ -598,8 +598,8 @@
+ 
+ build-tools:
+ .for _tool in bin/csh bin/sh ${_games} gnu/usr.bin/cc/cc_tools ${_fortran} \
+-    ${_perl} ${_libroken4} ${_libkrb5} lib/libncurses ${_share} usr.bin/file \
+-    usr.sbin/sysinstall
++    ${_perl} ${_libroken4} ${_libkrb5} lib/libncurses ${_share} usr.bin/awk \
++	usr.bin/file usr.sbin/sysinstall
+ 	cd ${.CURDIR}/${_tool}; ${MAKE} build-tools
+ .endfor
+ 
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Oct 28 18:17:09 2001
+From: Bruce Evans <bde () zeta ! org ! au>
+Date: Sun, 28 Oct 2001 18:17:09 +0000
+To: freebsd-alpha
+Subject: Re: Makefile.inc1 clobbers CFLAGS (was: Re: cvs commit: src
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409532
+
+On Sat, 27 Oct 2001, Ruslan Ermilov wrote:
+
+> On Thu, Oct 25, 2001 at 10:36:58AM -0400, Andrew Gallatin wrote:
+> >
+> > Andrew Gallatin writes:
+> >  >
+> >  > Building now.  One more question I have CPUTYPE=ev56
+> >  > in /etc/make.conf -- will the crossbuild see this, potentially
+> >  > confusing the x86 gcc?
+> >
+> > Yes, it will.. :
+> >
+> > cc1: bad value (ev56) for -mcpu= switch
+> >
+> > Removing ev56 & restarting...
+> >
+> This is because Makefile.inc1 sets CFLAGS="-nostdinc ${CFLAGS}" in
+> CROSSENV, and that imports currently effective (for host architecture)
+> CFLAGS.  This is bogus.  The attached patch should fix it.  Please
+> test.
+
+The problem referred to in rev.105 (that setting CFLAGS in Makefile.inc1
+doesn't always work because it may be clobbered by the setting in
+/etc/make.conf) is still there.
+
+> Bruce, what do you think about bringing COPTFLAGS in userland,
+> and adding CINCLUDES?
+
+I think new names in the "application namespace" shouldn't be used in
+sys.mk.
+
+Bruce
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 17:27:26 2001
+From: Ruslan Ermilov <ru () FreeBSD ! org>
+Date: Sat, 27 Oct 2001 17:27:26 +0000
+To: freebsd-alpha
+Subject: Makefile.inc1 clobbers CFLAGS (was: Re: cvs commit: src Makefile.inc1)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409522
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="--tKW2IUtsqtDRztdT"
+
+
+--tKW2IUtsqtDRztdT
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Thu, Oct 25, 2001 at 10:36:58AM -0400, Andrew Gallatin wrote:
+> 
+> Andrew Gallatin writes:
+>  > 
+>  > Building now.  One more question I have CPUTYPE=ev56
+>  > in /etc/make.conf -- will the crossbuild see this, potentially
+>  > confusing the x86 gcc?
+> 
+> Yes, it will.. :
+> 
+> cc1: bad value (ev56) for -mcpu= switch
+> 
+> Removing ev56 & restarting...
+> 
+This is because Makefile.inc1 sets CFLAGS="-nostdinc ${CFLAGS}" in
+CROSSENV, and that imports currently effective (for host architecture)
+CFLAGS.  This is bogus.  The attached patch should fix it.  Please
+test.
+
+Bruce, what do you think about bringing COPTFLAGS in userland,
+and adding CINCLUDES?
+
+
+Cheers,
+-- 
+Ruslan Ermilov		Oracle Developer/DBA,
+ru@sunbay.com		Sunbay Software AG,
+ru@FreeBSD.org		FreeBSD committer,
++380.652.512.251	Simferopol, Ukraine
+
+http://www.FreeBSD.org	The Power To Serve
+http://www.oracle.com	Enabling The Information Age
+
+--tKW2IUtsqtDRztdT
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+Index: Makefile.inc1
+===================================================================
+RCS file: /home/ncvs/src/Makefile.inc1,v
+retrieving revision 1.220
+diff -u -p -r1.220 Makefile.inc1
+--- Makefile.inc1	2001/10/25 07:28:55	1.220
++++ Makefile.inc1	2001/10/27 17:22:48
+@@ -171,8 +171,8 @@ CROSSENV=	MAKEOBJDIRPREFIX=${OBJTREE} \
+ 		COMPILER_PATH=${WORLDTMP}/usr/libexec:${WORLDTMP}/usr/bin \
+ 		LIBRARY_PATH=${WORLDTMP}${SHLIBDIR}:${WORLDTMP}/usr/lib \
+ 		OBJFORMAT_PATH=${WORLDTMP}/usr/libexec \
+-		CFLAGS="-nostdinc ${CFLAGS}" \
+-		CXXINCLUDES="-nostdinc++ ${CXXINCLUDES}" \
++		CINCLUDES="-nostdinc" \
++		CXXINCLUDES="-nostdinc++" \
+ 		PERL5LIB=${WORLDTMP}/usr/libdata/perl/5.6.0 \
+ 		GROFF_BIN_PATH=${WORLDTMP}/usr/bin \
+ 		GROFF_FONT_PATH=${WORLDTMP}/usr/share/groff_font \
+Index: share/mk/sys.mk
+===================================================================
+RCS file: /home/ncvs/src/share/mk/sys.mk,v
+retrieving revision 1.56
+diff -u -p -r1.56 sys.mk
+--- share/mk/sys.mk	2001/08/31 12:20:43	1.56
++++ share/mk/sys.mk	2001/10/27 17:22:48
+@@ -39,7 +39,9 @@ CC		?=	c89
+ .else
+ CC		?=	cc
+ .endif
+-CFLAGS		?=	-O -pipe
++
++COPTFLAGS	?=	-O -pipe
++CFLAGS		?=	${COPTFLAGS} ${CINCLUDES}
+ 
+ CXX		?=	c++
+ CXXFLAGS	?=	${CXXINCLUDES} ${CFLAGS}
+
+--tKW2IUtsqtDRztdT--
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 31 00:50:32 2001
+From: Patrick Mahan <mahan () cisco ! com>
+Date: Wed, 31 Oct 2001 00:50:32 +0000
+To: freebsd-alpha
+Subject: Re: Installing 4.4 on an AlphaStation 200 (4/166)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409543
+
+Thanks,
+
+That was it.  Perhaps this should be detailed out in the
+Alpha Hardware notes (or even the release notes).  I also
+had to initial reset to factory defaults to get SRM to
+boot the floppy.
+
+Thanks,
+
+Patrick
+
+At 01:00 PM 10/30/01 -0500, Andrew Gallatin spoke:
+
+
+>Patrick Mahan writes:
+>  > I am currently attempting to install FreeBSD on an AlphaStation
+>  > 200.  SRM is v7.0.  I have both the LK411 and PCXAL keyboards for
+>  > the alpha.  My problem is after successfully booting the kernel
+>  > floppy (and mfsroot) and the install shell has initialized, the
+>  > installer presents a menu of predefined terminal types.  My problem
+>  > is that once this menu has appeared, the keyboard no longer works.
+>  > the startup messages show the following:
+>  >
+>  > atkbdc0: <Keyboard controller (i8042)> at port 0x60,0x64 on isa0
+>  > atkbdc0: <AT Keyboard> irq 1 on atkbdc0
+>  > atkbdc0: interrupting at ISA irq 1
+>  >
+>  > I have tried both keyboards and a standard AT keyboard off my
+>  > PC.  All fail to work once the selection menu appears.
+>  >
+>  > Any suggestions?
+>
+>Remove your TGA video card & install a standard VGA video card.
+>Or use a serial console.
+>
+>Drew
+>
+>To Unsubscribe: send mail to majordomo@FreeBSD.org
+>with "unsubscribe freebsd-alpha" in the body of the message
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 30 18:51:02 2001
+From: Wilko Bulte <wkb () freebie ! xs4all ! nl>
+Date: Tue, 30 Oct 2001 18:51:02 +0000
+To: freebsd-alpha
+Subject: Re: Installing 4.4 on an AlphaStation 200 (4/166)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409542
+
+On Tue, Oct 30, 2001 at 01:00:33PM -0500, Andrew Gallatin wrote:
+> 
+> 
+> Patrick Mahan writes:
+>  > I am currently attempting to install FreeBSD on an AlphaStation
+>  > 200.  SRM is v7.0.  I have both the LK411 and PCXAL keyboards for
+>  > the alpha.  My problem is after successfully booting the kernel
+>  > floppy (and mfsroot) and the install shell has initialized, the
+>  > installer presents a menu of predefined terminal types.  My problem
+>  > is that once this menu has appeared, the keyboard no longer works.
+>  > the startup messages show the following:
+>  > 
+>  > atkbdc0: <Keyboard controller (i8042)> at port 0x60,0x64 on isa0
+>  > atkbdc0: <AT Keyboard> irq 1 on atkbdc0
+>  > atkbdc0: interrupting at ISA irq 1
+>  > 
+>  > I have tried both keyboards and a standard AT keyboard off my
+>  > PC.  All fail to work once the selection menu appears.
+>  > 
+>  > Any suggestions?
+> 
+> Remove your TGA video card & install a standard VGA video card.
+
+Which reminds me: were did the prototype TGA driver end? Is it now
+in -current?
+
+Wilko
+
+-- 
+|   / o / /_  _   		email: 	wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, The Netherlands	
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 30 18:00:33 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Tue, 30 Oct 2001 18:00:33 +0000
+To: freebsd-alpha
+Subject: Re: Installing 4.4 on an AlphaStation 200 (4/166)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409541
+
+
+
+Patrick Mahan writes:
+ > I am currently attempting to install FreeBSD on an AlphaStation
+ > 200.  SRM is v7.0.  I have both the LK411 and PCXAL keyboards for
+ > the alpha.  My problem is after successfully booting the kernel
+ > floppy (and mfsroot) and the install shell has initialized, the
+ > installer presents a menu of predefined terminal types.  My problem
+ > is that once this menu has appeared, the keyboard no longer works.
+ > the startup messages show the following:
+ > 
+ > atkbdc0: <Keyboard controller (i8042)> at port 0x60,0x64 on isa0
+ > atkbdc0: <AT Keyboard> irq 1 on atkbdc0
+ > atkbdc0: interrupting at ISA irq 1
+ > 
+ > I have tried both keyboards and a standard AT keyboard off my
+ > PC.  All fail to work once the selection menu appears.
+ > 
+ > Any suggestions?
+
+Remove your TGA video card & install a standard VGA video card.
+Or use a serial console.
+
+Drew
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 30 17:32:16 2001
+From: Patrick Mahan <mahan () cisco ! com>
+Date: Tue, 30 Oct 2001 17:32:16 +0000
+To: freebsd-alpha
+Subject: Installing 4.4 on an AlphaStation 200 (4/166)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409540
+
+I am currently attempting to install FreeBSD on an AlphaStation
+200.  SRM is v7.0.  I have both the LK411 and PCXAL keyboards for
+the alpha.  My problem is after successfully booting the kernel
+floppy (and mfsroot) and the install shell has initialized, the
+installer presents a menu of predefined terminal types.  My problem
+is that once this menu has appeared, the keyboard no longer works.
+the startup messages show the following:
+
+atkbdc0: <Keyboard controller (i8042)> at port 0x60,0x64 on isa0
+atkbdc0: <AT Keyboard> irq 1 on atkbdc0
+atkbdc0: interrupting at ISA irq 1
+
+I have tried both keyboards and a standard AT keyboard off my
+PC.  All fail to work once the selection menu appears.
+
+Any suggestions?
+
+Thanks,
+
+Patrick Mahan
+new FreeBSD user
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 30 14:47:17 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Tue, 30 Oct 2001 14:47:17 +0000
+To: freebsd-alpha
+Subject: Re: Linuxulator MFC candidate for testing
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409538
+
+
+Marcel Moolenaar writes:
+ > 
+ > The one thing that comes to mind is linux_clone. If the cloning
+ > doesn't work right, there's no process to deliver a signal.
+ > 
+ > Can you test with the changes to linux_clone reverted?
+
+We have a winner.  If I revert all of the meaningful changes to
+linux_clone, things still work.   Reverting just the
+'Make this runnable after we are finished with it' changes:
+
+        /*
+         * Make this runnable after we are finished with it.
+         */
+        p2->p_stat = SRUN;
+        setrunqueue(p2);
+
+        p->p_retval[0] = p2->p_pid;
+        p->p_retval[1] = 0;
+
+lead to the jvm seg-faulting.  Going back to rfork/pfind from fork1
+leads to a runnable jvm.
+
+Hmm.. something appears to be hosed about whoami:
+
+<9:32am>monet/gallatin:/tmp>whoami 
+gallatin
+<9:32am>monet/gallatin:/tmp>/compat/linux/usr/bin/whoami
+root
+
+
+This worked fine pre-patch & ktrace's look identical.
+I'm about out of time for now...
+
+
+Drew
+
+
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 30 04:49:27 2001
+From: Marcel Moolenaar <marcel () xcllnt ! net>
+Date: Tue, 30 Oct 2001 04:49:27 +0000
+To: freebsd-alpha
+Subject: Re: Linuxulator MFC candidate for testing
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409537
+
+On Mon, Oct 29, 2001 at 09:46:22PM -0500, Andrew Gallatin wrote:
+> 
+> DUMMY(mount) needs to be added to sys/alpha/linux/linux_dummy.c
+> to make the module load.
+
+Fixed, thanks.
+
+> The second, much more serious problem, is that when I run the Compaq
+> JRE/JDK for linux the system locks up. It responds to pings,etc.  But
+> all shells are dead, X locks up, etc.  Its like its in a really tight
+> loop in sigsuspend()..  This is reproducible.
+
+Ouch :-(
+
+> The stack trace looks like this:
+> 
+> 
+> db> tr
+> siointr1() at siointr1+0x160
+> siointr() at siointr+0x14
+> isa_handle_intr() at isa_handle_intr+0x2c
+> alpha_dispatch_intr() at alpha_dispatch_intr+0x8c
+> interrupt() at interrupt+0x1d8
+> XentInt() at XentInt+0x28
+> --- interrupt (from ipl 0) ---
+> tsleep() at tsleep+0x394
+> sigsuspend() at sigsuspend+0xd8
+> osf1_sigsuspend() at osf1_sigsuspend+0x84
+> syscall() at syscall+0x224
+> XentSys() at XentSys+0x5c
+> --- syscall (111, Linux ELF, osf1_sigsuspend) ---
+> --- user mode ---
+> db> 
+> 
+> 
+> Yes, I realize that's an osf1_sigsuspend() getting called through the
+> linux sysent.  It works fine in the old, pre-patch code.  I don't
+> understand how you could have broken this with your patch.
+> 
+> Any ideas?
+
+The one thing that comes to mind is linux_clone. If the cloning
+doesn't work right, there's no process to deliver a signal.
+
+Can you test with the changes to linux_clone reverted?
+
+-- 
+ Marcel Moolenaar	  USPA: A-39004		 marcel@xcllnt.net
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 30 02:46:22 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Tue, 30 Oct 2001 02:46:22 +0000
+To: freebsd-alpha
+Subject: Re: Linuxulator MFC candidate for testing
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409536
+
+
+Marcel Moolenaar writes:
+ > Gang,
+ > 
+ > Since I don't have a -stable Alpha, I can only do as much as
+ > prepare an MFC and make it compile as much as possible. If
+ > someone on this list can try out the patch and tell me if it
+ > doesn't cause regressionsi (assuming it builds and loads),
+ > I'd be grateful.
+ > 
+ > The MFC candidate (patch) can be downloaded here:
+ > 
+ > 	http://www.xcllnt.net/~marcel/linux.diff.gz
+ > 
+ > Please remove /sys/alpha/linux/linux_ioctl.h before building.
+
+Two issues so far.
+
+DUMMY(mount) needs to be added to sys/alpha/linux/linux_dummy.c
+to make the module load.
+
+The second, much more serious problem, is that when I run the Compaq
+JRE/JDK for linux the system locks up. It responds to pings,etc.  But
+all shells are dead, X locks up, etc.  Its like its in a really tight
+loop in sigsuspend()..  This is reproducible.
+
+
+The stack trace looks like this:
+
+
+db> tr
+siointr1() at siointr1+0x160
+siointr() at siointr+0x14
+isa_handle_intr() at isa_handle_intr+0x2c
+alpha_dispatch_intr() at alpha_dispatch_intr+0x8c
+interrupt() at interrupt+0x1d8
+XentInt() at XentInt+0x28
+--- interrupt (from ipl 0) ---
+tsleep() at tsleep+0x394
+sigsuspend() at sigsuspend+0xd8
+osf1_sigsuspend() at osf1_sigsuspend+0x84
+syscall() at syscall+0x224
+XentSys() at XentSys+0x5c
+--- syscall (111, Linux ELF, osf1_sigsuspend) ---
+--- user mode ---
+db> 
+
+
+Yes, I realize that's an osf1_sigsuspend() getting called through the
+linux sysent.  It works fine in the old, pre-patch code.  I don't
+understand how you could have broken this with your patch.
+
+Any ideas?
+
+Drew
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Oct 28 01:49:06 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Sun, 28 Oct 2001 01:49:06 +0000
+To: freebsd-alpha
+Subject: Re: Linuxulator MFC candidate for testing
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409530
+
+
+Marcel Moolenaar writes:
+ > Gang,
+ > 
+ > Since I don't have a -stable Alpha, I can only do as much as
+ > prepare an MFC and make it compile as much as possible. If
+ > someone on this list can try out the patch and tell me if it
+ > doesn't cause regressionsi (assuming it builds and loads),
+ > I'd be grateful.
+ > 
+ > The MFC candidate (patch) can be downloaded here:
+ > 
+ > 	http://www.xcllnt.net/~marcel/linux.diff.gz
+ > 
+
+Great!  I'll give it a whirl tomorrow or Monday, if nobody beats me to
+it...
+
+Thanks!
+
+Drew
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 05:02:39 2001
+From: Marcel Moolenaar <marcel () xcllnt ! net>
+Date: Sat, 27 Oct 2001 05:02:39 +0000
+To: freebsd-alpha
+Subject: Linuxulator MFC candidate for testing
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409514
+
+Gang,
+
+Since I don't have a -stable Alpha, I can only do as much as
+prepare an MFC and make it compile as much as possible. If
+someone on this list can try out the patch and tell me if it
+doesn't cause regressionsi (assuming it builds and loads),
+I'd be grateful.
+
+The MFC candidate (patch) can be downloaded here:
+
+	http://www.xcllnt.net/~marcel/linux.diff.gz
+
+Please remove /sys/alpha/linux/linux_ioctl.h before building.
+
+Thanks,
+
+-- 
+ Marcel Moolenaar	  USPA: A-39004		 marcel@xcllnt.net
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Oct 28 23:55:46 2001
+From: <supply () themail ! com>
+Date: Sun, 28 Oct 2001 23:55:46 +0000
+To: freebsd-alpha
+Subject: laser cartridges
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409533
+
+
+
+
+**** VORTEX SUPPLIES ****
+
+YOUR LASER PRINTER TONER CARTRIDGE,
+COPIER AND FAX CARTRIDGE CONNECTION
+
+SAVE UP TO 30% FROM RETAIL
+
+ORDER BY PHONE:1-888-288-9043
+ORDER BY FAX: 1-888-977-1577
+E-MAIL REMOVAL LINE: 1-888-248-4930
+
+
+UNIVERSITY AND/OR SCHOOL PURCHASE ORDERS WELCOME. (NO CREDIT APPROVAL REQUIRED)
+ALL OTHER PURCHASE ORDER REQUESTS REQUIRE CREDIT APPROVAL.
+PAY BY CHECK (C.O.D), CREDIT CARD OR PURCHASE ORDER (NET 30 DAYS).
+
+IF YOUR ORDER IS BY CREDIT CARD PLEASE LEAVE YOUR CREDIT CARD # PLUS EXPIRATION DATE. 
+IF YOUR ORDER IS BY PURCHASE ORDER LEAVE YOUR SHIPPING/BILLING ADDRESSES AND YOUR P.O. NUMBER
+
+
+NOTE: WE DO NOT CARRY 
+
+1) XEROX, BROTHER, PANASONIC, FUJITSU PRODUCTS
+2) HP DESKJETJET/INK JET OR BUBBLE JET CARTRIDGES 
+3) CANON BUBBLE JET CARTRIDGES 
+4) ANY OFFBRANDS BESIDES THE ONES LISTED BELOW.    
+
+OUR NEW , LASER PRINTER TONER CARTRIDGE, PRICES ARE  AS FOLLOWS: 
+(PLEASE ORDER BY PAGE NUMBER AND/OR ITEM NUMBER)
+
+HEWLETT PACKARD: (ON PAGE 2)
+
+ITEM #1  LASERJET SERIES  4L,4P (74A)------------------------$44
+ITEM #2  LASERJET SERIES  1100 (92A)-------------------------$44
+ITEM #3  LASERJET SERIES  2 (95A)----------------------------$39
+ITEM #4  LASERJET SERIES  2P (75A)---------------------------$54 
+ITEM #5  LASERJET SERIES  5P,6P,5MP, 6MP (3903A)----------  -$44
+ITEM #6  LASERJET SERIES  5SI, 8000 (09A)--------------------$95
+ITEM #7  LASERJET SERIES  2100, 2200 (96A)-------------------$74
+ITEM #8  LASERJET SERIES  8100 (82X)-------------------------$115
+ITEM #9  LASERJET SERIES  5L/6L (3906A)----------------------$39
+ITEM #10 LASERJET SERIES  4V---------------------------------$95
+ITEM #11 LASERJET SERIES 4000 (27X)--------------------------$79
+ITEM #12 LASERJET SERIES 3SI/4SI (91A)-----------------------$54
+ITEM #13 LASERJET SERIES 4, 4M, 5,5M-------------------------$49
+ITEM #13A LASERJET SERIES 5000 (29X)-------------------------$125
+ITEM #13B LASERJET SERIES 1200-------------------------------$59
+ITEM #13C LASERJET SERIES 4100-------------------------------$99
+ITEM #18   LASERJET SERIES 3100------------------------------$39
+ITEM #19 LASERJET SERIES 4500 BLACK--------------------------$79
+ITEM #20 LASERJET SERIES 4500 COLORS ------------------------$125
+
+HEWLETT PACKARD FAX (ON PAGE 2)
+
+ITEM #14 LASERFAX 500, 700 (FX1)----------$49
+ITEM #15  LASERFAX 5000,7000 (FX2)--------$64
+ITEM #16  LASERFAX (FX3)------------------$59
+ITEM #17  LASERFAX (FX4)------------------$54
+
+
+LEXMARK/IBM (ON PAGE 3)
+
+OPTRA 4019, 4029 HIGH YIELD---------------$89
+OPTRA R, 4039, 4049 HIGH YIELD-----------$105
+OPTRA E310.312 HIGH YIELD----------------$79
+
+OPTRA E-----------------------------------$59
+OPTRA N----------------------------------$115
+OPTRA S----------------------------------$165
+OPTRA T----------------------------------$195
+OPTRA E310/312---------------------------$79
+
+
+EPSON (ON PAGE 4)
+
+ACTION LASER 7000,7500,8000,9000----------$105
+ACTION LASER 1000,1500--------------------$105
+
+
+CANON PRINTERS (ON PAGE 5)
+
+PLEASE CALL FOR MODELS AND UPDATED PRICES
+FOR CANON PRINTER CARTRIDGES
+
+PANASONIC (0N PAGE 7)
+
+NEC SERIES 2 MODELS 90 AND 95----------$105
+
+APPLE (0N PAGE 8)
+
+LASER WRITER PRO 600 or 16/600------------------$49 
+LASER WRITER SELECT 300,320,360-----------------$74
+LASER WRITER 300 AND 320------------------------$54
+LASER WRITER NT, 2NT----------------------------$54
+LASER WRITER 12/640-----------------------------$79
+
+CANON FAX (ON PAGE 9)
+
+LASERCLASS 4000 (FX3)---------------------------$59
+LASERCLASS 5000,6000,7000 (FX2)-----------------$54
+LASERFAX 5000,7000 (FX2)------------------------$54
+LASERFAX 8500,9000 (FX4)------------------------$54
+
+CANON COPIERS (PAGE 10)
+
+PC 3, 6RE, 7 AND 11 (A30)---------------------$69
+PC 300,320,700,720,760,900,910,920(E-40)------$89
+
+
+90 DAY UNLIMITED WARRANTY INCLUDED ON ALL PRODUCTS.
+
+ALL TRADEMARKS AND BRAND NAMES LISTED ABOVE ARE PROPERTY OF THE 
+RESPECTIVE HOLDERS AND USED FOR DESCRIPTIVE PURPOSES ONLY.
+
+
+
+
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Oct 28 01:47:31 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Sun, 28 Oct 2001 01:47:31 +0000
+To: freebsd-alpha
+Subject: RE: Kernel Panic on DEC Alpha 1000A 5/400
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409529
+
+
+Andrew Gallatin writes:
+ > 
+ > Shashi Dookhee writes:
+ > 
+ >  > V4.9-164, built on Aug  5 1997 at 09:48:15
+ > 
+ > Your firmware looks ancient.  A firmware upgrade may help, and
+ > probably won't make things work.
+
+Oops.  Freudian slip.  "probably won't make things worse" is what I
+meant to say..
+
+Drew
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Oct 28 01:29:59 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Sun, 28 Oct 2001 01:29:59 +0000
+To: freebsd-alpha
+Subject: RE: Kernel Panic on DEC Alpha 1000A 5/400
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409528
+
+
+Shashi Dookhee writes:
+
+ > V4.9-164, built on Aug  5 1997 at 09:48:15
+
+Your firmware looks ancient.  A firmware upgrade may help, and
+probably won't make things work.
+
+<...>
+ > 7f irq 1 at device 11.0 on pci0
+ > de0: interrupting at CIA irq 1
+ > de0: DEC DE500-AA 21140A [10-100Mb/s] pass 2.0
+ > de0: address 00:00:f8:1f:2b:6e
+ > de0: enabling 10baseT port
+ > 
+ > unexpected machine check:
+ > 
+ >     mces    = 0x1
+ >     vector  = 0x660
+ >     param   = 0xfffffc0000006060
+ >     pc      = 0xfffffc0000554584
+ >     ra      = 0xfffffc000052d870
+ >     curproc = 0xfffffc0000909a98
+ >         pid = 0, comm = swapper
+
+I'm mostly mystified.  Assuming that we've found all the PCI hardware
+in the box, it looks like this is happening while we are attempting to
+probe the ISA bus.  But the isa bus itself is probably OK, since we
+are using the serial port to print these messages(!).  The floppy
+drive controller is the next thing that should have shown up in these
+messages.. Is your floppy OK?  
+
+How about sending along a 'show config' too?
+
+Drew
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 14:04:48 2001
+From: "Shashi Dookhee" <dookhee.s () trafficproximity ! com>
+Date: Sat, 27 Oct 2001 14:04:48 +0000
+To: freebsd-alpha
+Subject: RE: Kernel Panic on DEC Alpha 1000A 5/400
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409519
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------=_NextPart_000_0016_01C15EF8.B859D580"
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_0016_01C15EF8.B859D580
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+
+ 
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+Hi,
+
+Here's a show memory...
+
+>>>show memory
+     512 Meg of System Memory
+     Bank 0 = 256 Mbytes(64 MB Per SIMM) Starting at 0x00000000
+     Bank 1 = 256 Mbytes(64 MB Per SIMM) Starting at 0x10000000
+     Bank 2 = No Memory Detected
+     Bank 3 = No Memory Detected
+>>>
+
+Please find the boot sequence attached...
+
+Thanks again for the help!
+
+S.
+
+
+Shashi Dookhee
+Head of IT Infrastructure
+
+e-mail:  dookhee.s@trafficproximity.com
+Telephone (Direct Line):        +44 (0)20 7298 8222
+
+
+- -----Original Message-----
+From: owner-freebsd-alpha@FreeBSD.ORG
+[mailto:owner-freebsd-alpha@FreeBSD.ORG]On Behalf Of Wilko Bulte
+Sent: 27 October 2001 09:21
+To: Andrew Gallatin
+Cc: Shashi Dookhee; freebsd-alpha@FreeBSD.ORG
+Subject: Re: Kernel Panic on DEC Alpha 1000A 5/400
+
+
+On Sat, Oct 27, 2001 at 10:05:21AM +0200, Wilko Bulte wrote:
+> On Fri, Oct 26, 2001 at 09:26:57PM -0400, Andrew Gallatin wrote:
+> 
+> > Shashi Dookhee writes:
+> >  >  
+> >  > -----BEGIN PGP SIGNED MESSAGE-----
+> >  > Hash: SHA1
+> >  > 
+> >  > Hi all,
+> >  > 
+> >  > Wondering if anyone has come across the following error
+> > message 
+> >  > during boot - it happens *every* time, so the system never
+> > boots - 
+> >  > This is happening while booting from CD-ROM to install FreeBSD
+> >  > 4.4-INSTALL/Alpha (system currently has OpenVMS on the hard
+> > disks 
+> >  > which seems to boot okay):
+> >  > 
+> >  > unexpected machine check:
+> >  > 
+> >  >     mces    = 0x1
+> >  >     vector  = 0x660
+> >  >     param   = 0xfffffc0000006060
+> >  >     pc      = 0xfffffc0000554584
+> >  >     ra      = 0xfffffc000052d870
+> >  >     curproc = 0xfffffc0000909a98
+> >  >         pid = 0, comm = swapper
+> >  > 
+> >  > panic: machine check
+> >  > Uptime: 0s
+> >  > Automatic reboot in 15 seconds - press a key on the console to
+> > abort 
+> >  > 
+> >  > This happens after it checks all the devices (last thing it
+> > does 
+> >  > before that panic is "de0: enabling 10baseT port").
+> >  > 
+> >  > I thought it might be a memory issue with perhaps faulty
+> > modules, but 
+> >  > since the OpenVMS system boots to a login prompt, I have
+> > pretty much 
+> >  > discounted that (someone correct me if I am wrong about
+> > dismissing 
+> >  > it!)..
+> >  > 
+> >  > Any help would be appreciated!
+> > 
+> > Can you hook up a serial console & give a complete transcript of 
+> > the boot session, please?
+> 
+> What machine model is this anyway? Can you please also do a 
+
+Never mind, I just noticed the machine type was in the subject.
+
+> >>> show memory ? I've seen something similar on AS2100A with
+> >>> partially 
+> bad memory. VMS does not care, and maps out the bad pages. FreeBSD
+> just crashed.
+
+This question is still relevant. I used a AS2100A with EV4/190 MHz
+CPUs btw
+
+- -- 
+|   / o / /_  _   		email: 	wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, The Netherlands	
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+-----BEGIN PGP SIGNATURE-----
+Version: PGP 7.1
+
+iQA/AwUBO9q++h81+wdHSEUlEQLmXgCgxwYXBc8AUnF/PxZADPgVIPFXwIsAn2Tm
+5YNtnMCtAi7ma7NmVQbTa1VU
+=VwJP
+-----END PGP SIGNATURE-----
+ 
+------=_NextPart_000_0016_01C15EF8.B859D580
+Content-Type: text/plain;
+	name="bootAlpha.txt"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+	filename="bootAlpha.txt"
+
+>>>boot dka400
+ff.fe.fd.fc.fb.fa.f9.f8.f7.f6.f5.f3.f2.f1.f0.ef.df.ee.f4.
+probing hose 0, PCI
+probing PCI-to-EISA bridge, bus 1
+probing PCI-to-PCI bridge, bus 2
+bus 2, slot  0 -- pka -- QLogic ISP1020
+bus 0, slot 11 -- ewa -- DE500-AA Network Controller
+ed.ec.*** keyboard not plugged in...
+
+** keyboard error **
+eb.....ea.e9.e8.e7.e6.e5.e4.e3.e2.e1.e0.
+V4.9-164, built on Aug  5 1997 at 09:48:15
+Memory Testing and Configuration Status
+     512 Meg of System Memory
+     Bank 0 =3D 256 Mbytes(64 MB Per SIMM) Starting at 0x00000000
+     Bank 1 =3D 256 Mbytes(64 MB Per SIMM) Starting at 0x10000000
+     Bank 2 =3D No Memory Detected
+     Bank 3 =3D No Memory Detected
+
+Testing the System
+Testing the Disks (read only)
+Testing the Network
+Change mode to Internal loopback.
+Change to Normal Operating Mode.
+
+CPU 0 booting
+
+(boot dka400.4.0.2000.0 -flags 0,0)
+block 0 of dka400.4.0.2000.0 is a valid boot block
+reading 370 blocks from dka400.4.0.2000.0
+bootstrap code read in
+Building FRU table
+base =3D 1c4000, image_start =3D 0, image_bytes =3D 2e400
+initializing HWRPB at 2000
+initializing page table at 1fff0000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+Console: SRM firmware console
+VMS PAL rev: 0x1000400010113
+OSF PAL rev: 0x1000600020115
+Switch to OSF PAL code succeeded.
+
+FreeBSD/alpha SRM CD9660 boot, Revision 1.0
+(jkh@jkh234.osd.bsdi.com, Wed Sep 19 18:48:38 GMT 2001)
+Memory: 524288 k
+\
+Hit [Enter] to boot immediately, or any other key for command prompt.
+Booting [kernel]...
+/kernel data=3D0x5eb008+0x261b8 |
+Entering kernel at 0xfffffc000032b140...
+Unrecognized boot flag '0'.
+Unrecognized boot flag ','.
+Unrecognized boot flag '0'.
+Copyright (c) 1992-2001 The FreeBSD Project.
+Copyright (c) 1979, 1980, 1983, 1986, 1988, 1989, 1991, 1992, 1993, 1994
+        The Regents of the University of California. All rights =
+reserved.
+FreeBSD 4.4-RELEASE #1: Thu Sep 20 09:30:29 GMT 2001
+    jkh@jkh234.osd.bsdi.com:/usr/src/sys/compile/BOOTMFS
+AlphaServer 1000/1000A
+AlphaServer 1000A 5/400, 400MHz
+8192 byte page size, 1 processor.
+CPU: EV56 (21164A) major=3D7 minor=3D1 extensions=3D0x1<BWX>
+OSF PAL rev: 0x1000600020115
+real memory  =3D 534945792 (522408K bytes)
+avail memory =3D 513220608 (501192K bytes)
+Preloaded elf kernel "kernel" at 0xfffffc0000914000.
+md1: Malloc disk
+cia0: ALCOR/ALCOR2, pass 3
+cia0: extended capabilities: 21<DWEN,BWEN>
+pcib0: <2117x PCI host bus adapter> on cia0
+pci0: <PCI bus> on pcib0
+isab0: <Intel 82375EB PCI-EISA bridge> at device 7.0 on pci0
+isa0: <ISA bus> on isab0
+pcib1: <DEC 21050 PCI-PCI bridge> at device 8.0 on pci0
+pci2: <PCI bus> on pcib1
+isp0: <Qlogic ISP 1020/1040 PCI SCSI Adapter> port 0x9000-0x90ff mem =
+0x83f20000-
+0x83f20fff irq 0 at device 0.0 on pci2
+isp0: interrupting at CIA irq 0
+pci2: <S3 Trio 64V2/DX/GX graphics accelerator> at 2.0 irq 9
+de0: <Digital 21140A Fast Ethernet> port 0x10000-0x1007f mem =
+0x82040000-0x820400
+7f irq 1 at device 11.0 on pci0
+de0: interrupting at CIA irq 1
+de0: DEC DE500-AA 21140A [10-100Mb/s] pass 2.0
+de0: address 00:00:f8:1f:2b:6e
+de0: enabling 10baseT port
+
+unexpected machine check:
+
+    mces    =3D 0x1
+    vector  =3D 0x660
+    param   =3D 0xfffffc0000006060
+    pc      =3D 0xfffffc0000554584
+    ra      =3D 0xfffffc000052d870
+    curproc =3D 0xfffffc0000909a98
+        pid =3D 0, comm =3D swapper
+
+panic: machine check
+Uptime: 0s
+Automatic reboot in 15 seconds - press a key on the console to abort
+Rebooting...
+
+halted CPU 0
+
+halt code =3D 5
+HALT instruction executed
+PC =3D fffffc00005376d0
+------=_NextPart_000_0016_01C15EF8.B859D580--
+
+===============================================================================
+
+Traffic Proximity Limited
+191 Old Marylebone Road
+London
+NW1 5DW
+United Kingdom
+Registered number: 3164767
+Registered in England
+
+Tel:	+44 (0) 20 7298 8200
+Fax:	+44 (0) 20 7298 8201
+
+
+This email its contents and any files or images with it are intended solely
+for the addressee(s) and are confidential. If you have received this email
+in error you may not copy or use the contents, attachments or information in
+any way. Please destroy it and contact the sender on the number printed
+above, via the Traffic Proximity switchboard or via email return.
+
+DISCLAIMER
+Material contained in this email may be copyright material of 
+Traffic Proximity or protected by other intellectual property rights. It
+may only be reproduced with the express permission of Traffic Proximity. 
+Traffic Proxmity does not accept responsibility for any changes made to
+this email by unauthorised parties after it was sent. Whilst Traffic
+Proximity runs antivirus software on all Internet emails it is not
+liable for any loss or damage caused by an infected email. The recipient
+is advised to run their own antivirus software. All information contained
+in this email has been prepared using information believed by the author
+to be reliable and accurate, but Traffic Proximity makes no warranty as
+to accuracy and completeness. Any opinions expressed in this email are
+those of the author and do not necessarily reflect the opinions of Traffic
+Proximity or its affiliates.
+
+===============================================================================
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 08:21:23 2001
+From: Wilko Bulte <wkb () freebie ! xs4all ! nl>
+Date: Sat, 27 Oct 2001 08:21:23 +0000
+To: freebsd-alpha
+Subject: Re: Kernel Panic on DEC Alpha 1000A 5/400
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409517
+
+On Sat, Oct 27, 2001 at 10:05:21AM +0200, Wilko Bulte wrote:
+> On Fri, Oct 26, 2001 at 09:26:57PM -0400, Andrew Gallatin wrote:
+> 
+> > Shashi Dookhee writes:
+> >  >  
+> >  > -----BEGIN PGP SIGNED MESSAGE-----
+> >  > Hash: SHA1
+> >  > 
+> >  > Hi all,
+> >  > 
+> >  > Wondering if anyone has come across the following error message
+> >  > during boot - it happens *every* time, so the system never boots -
+> >  > This is happening while booting from CD-ROM to install FreeBSD
+> >  > 4.4-INSTALL/Alpha (system currently has OpenVMS on the hard disks
+> >  > which seems to boot okay):
+> >  > 
+> >  > unexpected machine check:
+> >  > 
+> >  >     mces    = 0x1
+> >  >     vector  = 0x660
+> >  >     param   = 0xfffffc0000006060
+> >  >     pc      = 0xfffffc0000554584
+> >  >     ra      = 0xfffffc000052d870
+> >  >     curproc = 0xfffffc0000909a98
+> >  >         pid = 0, comm = swapper
+> >  > 
+> >  > panic: machine check
+> >  > Uptime: 0s
+> >  > Automatic reboot in 15 seconds - press a key on the console to abort
+> >  > 
+> >  > This happens after it checks all the devices (last thing it does
+> >  > before that panic is "de0: enabling 10baseT port").
+> >  > 
+> >  > I thought it might be a memory issue with perhaps faulty modules, but
+> >  > since the OpenVMS system boots to a login prompt, I have pretty much
+> >  > discounted that (someone correct me if I am wrong about dismissing
+> >  > it!)..
+> >  > 
+> >  > Any help would be appreciated!
+> > 
+> > Can you hook up a serial console & give a complete transcript of  the
+> > boot session, please?
+> 
+> What machine model is this anyway? Can you please also do a 
+
+Never mind, I just noticed the machine type was in the subject.
+
+> >>> show memory ? I've seen something similar on AS2100A with partially
+> bad memory. VMS does not care, and maps out the bad pages. FreeBSD just
+> crashed.
+
+This question is still relevant. I used a AS2100A with EV4/190 MHz
+CPUs btw
+
+-- 
+|   / o / /_  _   		email: 	wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, The Netherlands	
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 08:05:21 2001
+From: Wilko Bulte <wkb () freebie ! xs4all ! nl>
+Date: Sat, 27 Oct 2001 08:05:21 +0000
+To: freebsd-alpha
+Subject: Re: Kernel Panic on DEC Alpha 1000A 5/400
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409516
+
+On Fri, Oct 26, 2001 at 09:26:57PM -0400, Andrew Gallatin wrote:
+
+> Shashi Dookhee writes:
+>  >  
+>  > -----BEGIN PGP SIGNED MESSAGE-----
+>  > Hash: SHA1
+>  > 
+>  > Hi all,
+>  > 
+>  > Wondering if anyone has come across the following error message
+>  > during boot - it happens *every* time, so the system never boots -
+>  > This is happening while booting from CD-ROM to install FreeBSD
+>  > 4.4-INSTALL/Alpha (system currently has OpenVMS on the hard disks
+>  > which seems to boot okay):
+>  > 
+>  > unexpected machine check:
+>  > 
+>  >     mces    = 0x1
+>  >     vector  = 0x660
+>  >     param   = 0xfffffc0000006060
+>  >     pc      = 0xfffffc0000554584
+>  >     ra      = 0xfffffc000052d870
+>  >     curproc = 0xfffffc0000909a98
+>  >         pid = 0, comm = swapper
+>  > 
+>  > panic: machine check
+>  > Uptime: 0s
+>  > Automatic reboot in 15 seconds - press a key on the console to abort
+>  > 
+>  > This happens after it checks all the devices (last thing it does
+>  > before that panic is "de0: enabling 10baseT port").
+>  > 
+>  > I thought it might be a memory issue with perhaps faulty modules, but
+>  > since the OpenVMS system boots to a login prompt, I have pretty much
+>  > discounted that (someone correct me if I am wrong about dismissing
+>  > it!)..
+>  > 
+>  > Any help would be appreciated!
+> 
+> Can you hook up a serial console & give a complete transcript of  the
+> boot session, please?
+
+What machine model is this anyway? Can you please also do a 
+>>> show memory ? I've seen something similar on AS2100A with partially
+bad memory. VMS does not care, and maps out the bad pages. FreeBSD just
+crashed.
+
+Wilko
+
+-- 
+|   / o / /_  _   		email: 	wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, The Netherlands	
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 01:26:57 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Sat, 27 Oct 2001 01:26:57 +0000
+To: freebsd-alpha
+Subject: Re: Kernel Panic on DEC Alpha 1000A 5/400
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409510
+
+
+Shashi Dookhee writes:
+ >  
+ > -----BEGIN PGP SIGNED MESSAGE-----
+ > Hash: SHA1
+ > 
+ > Hi all,
+ > 
+ > Wondering if anyone has come across the following error message
+ > during boot - it happens *every* time, so the system never boots -
+ > This is happening while booting from CD-ROM to install FreeBSD
+ > 4.4-INSTALL/Alpha (system currently has OpenVMS on the hard disks
+ > which seems to boot okay):
+ > 
+ > unexpected machine check:
+ > 
+ >     mces    = 0x1
+ >     vector  = 0x660
+ >     param   = 0xfffffc0000006060
+ >     pc      = 0xfffffc0000554584
+ >     ra      = 0xfffffc000052d870
+ >     curproc = 0xfffffc0000909a98
+ >         pid = 0, comm = swapper
+ > 
+ > panic: machine check
+ > Uptime: 0s
+ > Automatic reboot in 15 seconds - press a key on the console to abort
+ > 
+ > This happens after it checks all the devices (last thing it does
+ > before that panic is "de0: enabling 10baseT port").
+ > 
+ > I thought it might be a memory issue with perhaps faulty modules, but
+ > since the OpenVMS system boots to a login prompt, I have pretty much
+ > discounted that (someone correct me if I am wrong about dismissing
+ > it!)..
+ > 
+ > Any help would be appreciated!
+
+Can you hook up a serial console & give a complete transcript of  the
+boot session, please?
+
+Cheers,
+
+Drew
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Oct 26 23:11:47 2001
+From: "Shashi Dookhee" <dookhee.s () trafficproximity ! com>
+Date: Fri, 26 Oct 2001 23:11:47 +0000
+To: freebsd-alpha
+Subject: Kernel Panic on DEC Alpha 1000A 5/400
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409509
+
+ 
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+Hi all,
+
+Wondering if anyone has come across the following error message
+during boot - it happens *every* time, so the system never boots -
+This is happening while booting from CD-ROM to install FreeBSD
+4.4-INSTALL/Alpha (system currently has OpenVMS on the hard disks
+which seems to boot okay):
+
+unexpected machine check:
+
+    mces    = 0x1
+    vector  = 0x660
+    param   = 0xfffffc0000006060
+    pc      = 0xfffffc0000554584
+    ra      = 0xfffffc000052d870
+    curproc = 0xfffffc0000909a98
+        pid = 0, comm = swapper
+
+panic: machine check
+Uptime: 0s
+Automatic reboot in 15 seconds - press a key on the console to abort
+
+This happens after it checks all the devices (last thing it does
+before that panic is "de0: enabling 10baseT port").
+
+I thought it might be a memory issue with perhaps faulty modules, but
+since the OpenVMS system boots to a login prompt, I have pretty much
+discounted that (someone correct me if I am wrong about dismissing
+it!)..
+
+Any help would be appreciated!
+
+Thanks
+
+Shashi Dookhee
+Head of IT Infrastructure
+
+e-mail:  dookhee.s@trafficproximity.com
+Telephone (Direct Line):        +44 (0)20 7298 8222
+
+-----BEGIN PGP SIGNATURE-----
+Version: PGP 7.1
+
+iQA/AwUBO9ntrx81+wdHSEUlEQLFmACgpZ24IepkE1+vWUuLFtYj9sZx/LYAoPL0
+peEryalJxqj0XkeMEcwFZ0Y2
+=vtKH
+-----END PGP SIGNATURE-----
+
+===============================================================================
+
+Traffic Proximity Limited
+191 Old Marylebone Road
+London
+NW1 5DW
+United Kingdom
+Registered number: 3164767
+Registered in England
+
+Tel:	+44 (0) 20 7298 8200
+Fax:	+44 (0) 20 7298 8201
+
+
+This email its contents and any files or images with it are intended solely
+for the addressee(s) and are confidential. If you have received this email
+in error you may not copy or use the contents, attachments or information in
+any way. Please destroy it and contact the sender on the number printed
+above, via the Traffic Proximity switchboard or via email return.
+
+DISCLAIMER
+Material contained in this email may be copyright material of 
+Traffic Proximity or protected by other intellectual property rights. It
+may only be reproduced with the express permission of Traffic Proximity. 
+Traffic Proxmity does not accept responsibility for any changes made to
+this email by unauthorised parties after it was sent. Whilst Traffic
+Proximity runs antivirus software on all Internet emails it is not
+liable for any loss or damage caused by an infected email. The recipient
+is advised to run their own antivirus software. All information contained
+in this email has been prepared using information believed by the author
+to be reliable and accurate, but Traffic Proximity makes no warranty as
+to accuracy and completeness. Any opinions expressed in this email are
+those of the author and do not necessarily reflect the opinions of Traffic
+Proximity or its affiliates.
+
+===============================================================================
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 15:53:08 2001
+From: Garrett Wollman <wollman () khavrinen ! lcs ! mit ! edu>
+Date: Sat, 27 Oct 2001 15:53:08 +0000
+To: freebsd-alpha
+Subject: Re: CPU types in kernel configs
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409520
+
+In article <XFMail.011027023922.jhb@FreeBSD.org> you write:
+
+>Any chance we can get the 'cpu' keyword in config to be optionable?  The cpu's
+>on the alpha arch are pretty much useless and unused at this point.
+
+Particularly since the EV8 won't happen.  (Just saw a fascinating
+seminar on the design of the EV8 as it was planned before
+|c|o|m|p|a|q| killed it by sending the designers to Intel.  8-way
+multiple issue, four-way simultaneous multi-threading, 8 MB L2 cache
+and memory controller on-die...)
+
+-GAWollman
+
+-- 
+Garrett A. Wollman   | O Siem / We are all family / O Siem / We're all the same
+wollman@lcs.mit.edu  | O Siem / The fires of freedom 
+Opinions not those of| Dance in the burning flame
+MIT, LCS, CRS, or NSA|                     - Susan Aglukark and Chad Irschick
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 09:39:22 2001
+From: John Baldwin <jhb () FreeBSD ! org>
+Date: Sat, 27 Oct 2001 09:39:22 +0000
+To: freebsd-alpha
+Subject: Re: CPU types in kernel configs
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409518
+
+[ cc'ing Peter now ]
+
+On 27-Oct-01 Andrew Gallatin wrote:
+> 
+> 
+> John Baldwin writes:
+>  > I would say axe the cpu type altogether since it's not used, but config
+>  > complains.  Any comments?
+> 
+> I like doing away with it & fixing config, since its bogus..
+> 
+> Drew
+
+Peter,
+
+Any chance we can get the 'cpu' keyword in config to be optionable?  The cpu's
+on the alpha arch are pretty much useless and unused at this point.
+
+-- 
+
+John Baldwin <jhb@FreeBSD.org> -- http://www.FreeBSD.org/~jhb/
+PGP Key: http://www.baldwin.cx/~john/pgpkey.asc
+"Power Users Use the Power to Serve!"  -  http://www.FreeBSD.org/
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 08:02:52 2001
+From: Wilko Bulte <wkb () freebie ! xs4all ! nl>
+Date: Sat, 27 Oct 2001 08:02:52 +0000
+To: freebsd-alpha
+Subject: Re: CPU types in kernel configs
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409515
+
+On Fri, Oct 26, 2001 at 06:50:51PM -0700, John Baldwin wrote:
+> Hmm, the cpu types in the alpha kernel config files seem to have bitrotted a
+> bit.  I.e., we have no EV6 type, jsut EV4 and EV5.  However, there is no
+> conditional code in the alpha for either the EV4 or EV5.  So, I've got 2
+> suggestions:
+> 
+> - Add yet another unused cpu type for EV6.
+
+Would be nice if the conditional code would ever be implemented.
+
+> - Do away with EV4 and EV5 and just ahve an AXP cpu type or Alpha or whatever
+>   is appropriate.
+
+I'd prefer adding EV6 . 
+
+> I would say axe the cpu type altogether since it's not used, but config
+> complains.  Any comments?
+
+
+
+-- 
+|   / o / /_  _   		email: 	wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, The Netherlands	
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 01:56:10 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Sat, 27 Oct 2001 01:56:10 +0000
+To: freebsd-alpha
+Subject: Re: CPU types in kernel configs
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409512
+
+
+
+John Baldwin writes:
+ > I would say axe the cpu type altogether since it's not used, but config
+ > complains.  Any comments?
+
+I like doing away with it & fixing config, since its bogus..
+
+Drew
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 27 01:50:51 2001
+From: John Baldwin <jhb () FreeBSD ! org>
+Date: Sat, 27 Oct 2001 01:50:51 +0000
+To: freebsd-alpha
+Subject: CPU types in kernel configs
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409511
+
+Hmm, the cpu types in the alpha kernel config files seem to have bitrotted a
+bit.  I.e., we have no EV6 type, jsut EV4 and EV5.  However, there is no
+conditional code in the alpha for either the EV4 or EV5.  So, I've got 2
+suggestions:
+
+- Add yet another unused cpu type for EV6.
+- Do away with EV4 and EV5 and just ahve an AXP cpu type or Alpha or whatever
+  is appropriate.
+
+I would say axe the cpu type altogether since it's not used, but config
+complains.  Any comments?
+
+-- 
+
+John Baldwin <jhb@FreeBSD.org> -- http://www.FreeBSD.org/~jhb/
+PGP Key: http://www.baldwin.cx/~john/pgpkey.asc
+"Power Users Use the Power to Serve!"  -  http://www.FreeBSD.org/
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Oct 26 16:51:36 2001
+From: John Baldwin <jhb () FreeBSD ! org>
+Date: Fri, 26 Oct 2001 16:51:36 +0000
+To: freebsd-alpha
+Subject: RE: multi-port serial?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409505
+
+
+On 26-Oct-01 Andrew Gallatin wrote:
+> 
+> Has anybody used any multi-port serial board on FreeBSD/alpha?
+> Which one?
+> 
+> My collection of machines in my home office continues to grow, and
+> dragging 2 serial console cables between an ever growing number of
+> machines is starting to really suck.
+> 
+> Thanks,
+> 
+> Drew
+
+Hmm, the rp(4) driver claims to be MI.  It's bus_space'd at least.  You can get
+the cards on EBay for not too much, just don't outbid me, please. :)   Search
+for 'Rocketport'.  (They retail for like $400 I think.)
+
+-- 
+
+John Baldwin <jhb@FreeBSD.org> -- http://www.FreeBSD.org/~jhb/
+PGP Key: http://www.baldwin.cx/~john/pgpkey.asc
+"Power Users Use the Power to Serve!"  -  http://www.FreeBSD.org/
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Fri Oct 26 13:34:56 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Fri, 26 Oct 2001 13:34:56 +0000
+To: freebsd-alpha
+Subject: multi-port serial?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409503
+
+
+Has anybody used any multi-port serial board on FreeBSD/alpha?
+Which one?
+
+My collection of machines in my home office continues to grow, and
+dragging 2 serial console cables between an ever growing number of
+machines is starting to really suck.
+
+Thanks,
+
+Drew
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 02 07:50:02 2001
+From: Guy Harris <guy () alum ! mit ! edu>
+Date: Tue, 02 Oct 2001 07:50:02 +0000
+To: freebsd-alpha
+Subject: alpha/30982: "ip_dooptions()" might dereference unaligned pointer
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409439
+
+
+>Number:         30982
+>Category:       alpha
+>Synopsis:       "ip_dooptions()" might dereference unaligned pointer
+>Confidential:   no
+>Severity:       non-critical
+>Priority:       medium
+>Responsible:    freebsd-alpha
+>State:          open
+>Quarter:        
+>Keywords:       
+>Date-Required:
+>Class:          sw-bug
+>Submitter-Id:   current-users
+>Arrival-Date:   Tue Oct 02 01:00:00 PDT 2001
+>Closed-Date:
+>Last-Modified:
+>Originator:     Guy Harris
+>Release:        
+>Organization:
+>Environment:
+>Description:
+At Network Appliance, we have a BSD-derived networking stack; one of
+our Alpha-based machines crashed due to an incoming IP packet that
+had a 15-byte Record Route option followed by a Timestamp option.
+
+The code that processes the Timestamp option casts the pointer to the
+beginning of the option to a pointer to a "struct ip_timestamp" and
+dereferences that pointer.
+
+The only fields it fetches or sets via that pointer are one-byte
+fields; however, at least with the version of GCC we are using
+at NetApp, the code the compiler generates to fetch from and store
+into those one-byte fields assumes that the structure is aligned
+on a 4-byte boundary.  (We don't tell the compiler to generate code
+to use the BWX extensions, so it generates loads and extracts, and
+it generates a load rather than a "load unaligned".)
+
+This meant that the code attempted to dereference an unaligned pointer,
+as the 15-byte Record Route option put the next option on an odd-byte
+boundary.
+>How-To-Repeat:
+If the generated Alpha kernel code does an aligned load, send to
+an Alpha machine a packet with a Record Route option (which should
+contain an odd number of bytes) followed immediately (with no padding)
+by a Timestamp option. 
+>Fix:
+Changing the code that processes time stamp options to
+
+			code = cp - (u_char *)ip;
+			if (cp[IPOPT_OLEN] < 4 || cp[IPOPT_OLEN] > 40) {
+				code = &cp[IPOPT_OLEN] - (u_char *)ip;
+				goto bad;
+			}
+			if (cp[IPOPT_OFFSET] < 5) {
+				code = &cp[IPOPT_OFFSET] - (u_char *)ip;
+				goto bad;
+			}
+			if (cp[IPOPT_OFFSET] >
+			    cp[IPOPT_OLEN] - (int)sizeof(int32_t)) {
+				/* Increment the overflow counter. */
+				cp[3] += 0x10;
+				if ((cp[3] & 0xF0) == 0) {
+					/* The overflow counter overflowed. */
+					code = &cp[IPOPT_OFFSET] -
+					    (u_char *)ip;
+					goto bad;
+				}
+				break;
+			}
+			sin = (struct in_addr *)(cp + cp[IPOPT_OFFSET] - 1);
+			switch (cp[3] & 0x0F) {
+
+			case IPOPT_TS_TSONLY:
+				break;
+
+			case IPOPT_TS_TSANDADDR:
+				if (cp[IPOPT_OFFSET] - 1 + sizeof(n_time) +
+				    sizeof(struct in_addr) > cp[IPOPT_OLEN]) {
+					code = &cp[IPOPT_OFFSET] -
+					    (u_char *)ip;
+					goto bad;
+				}
+				ipaddr.sin_addr = dst;
+				ia = (INA)ifaof_ifpforaddr((SA)&ipaddr,
+							    m->m_pkthdr.rcvif);
+				if (ia == 0)
+					continue;
+				(void)memcpy(sin, &IA_SIN(ia)->sin_addr,
+				    sizeof(struct in_addr));
+				cp[IPOPT_OFFSET] += sizeof(struct in_addr);
+				break;
+
+			case IPOPT_TS_PRESPEC:
+				if (cp[IPOPT_OFFSET] - 1 + sizeof(n_time) +
+				    sizeof(struct in_addr) > cp[IPOPT_OLEN]) {
+					code = &cp[IPOPT_OFFSET] -
+					    (u_char *)ip;
+					goto bad;
+				}
+				memcpy(&ipaddr.sin_addr, sin,
+				    sizeof(struct in_addr));
+				if (ifa_ifwithaddr((SA)&ipaddr) == 0)
+					continue;
+				cp[IPOPT_OFFSET] += sizeof(struct in_addr);
+				break;
+
+			default:
+				code = &cp[3] - (u_char *)ip;
+				goto bad;
+			}
+			ntime = iptime();
+			(void)memcpy((caddr_t)cp + cp[IPOPT_OFFSET] - 1, &ntime,
+			    sizeof(n_time));
+			cp[IPOPT_OFFSET] += sizeof(n_time);
+
+should, I think, do it.
+>Release-Note:
+>Audit-Trail:
+>Unformatted:
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Oct 25 00:10:30 2001
+From: Jonathan Lemon <jlemon () flugsvamp ! com>
+Date: Thu, 25 Oct 2001 00:10:30 +0000
+To: freebsd-alpha
+Subject: Re: patch for multiple promcons && real cons goop
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409484
+
+It looks good - and works fine on my DS20 here.
+-- 
+Jonathan
+
+
+On Wed, Oct 24, 2001 at 03:00:30PM -0700, Matthew Jacob wrote:
+> 
+> Can folks try this? It seems to work for me on at least 2 platforms- including
+> the odd on (turbolaser). I haven't tried it yet on a rawhide, nor have I tried
+> it with a graphics console.
+> 
+> Index: alpha/alpha/machdep.c
+> ===================================================================
+> RCS file: /home/ncvs/src/sys/alpha/alpha/machdep.c,v
+> retrieving revision 1.150
+> diff -u -r1.150 machdep.c
+> --- alpha/alpha/machdep.c	2001/10/21 22:16:44	1.150
+> +++ alpha/alpha/machdep.c	2001/10/24 21:52:25
+> @@ -621,9 +622,10 @@
+>  	 * Initalize the real console, so the the bootstrap console is
+>  	 * no longer necessary.
+>  	 */
+> -	if (platform.cons_init)
+> +	if (platform.cons_init) {
+>  		platform.cons_init();
+> -
+> +		promcndetach();
+> +	}
+>  	/* NO MORE FIRMWARE ACCESS ALLOWED */
+>  #ifdef _PMAP_MAY_USE_PROM_CONSOLE
+>  	/*
+> Index: alpha/alpha/promcons.c
+> ===================================================================
+> RCS file: /home/ncvs/src/sys/alpha/alpha/promcons.c,v
+> retrieving revision 1.21
+> diff -u -r1.21 promcons.c
+> --- alpha/alpha/promcons.c	2001/10/24 18:30:03	1.21
+> +++ alpha/alpha/promcons.c	2001/10/24 21:52:25
+> @@ -263,6 +263,7 @@
+>  
+>  CONS_DRIVER(prom, NULL, NULL, NULL, promcngetc, promcncheckc, promcnputc, NULL);
+>  
+> +static int promcn_attached = 0;
+>  void
+>  promcnattach(int alpha_console)
+>  {
+> @@ -270,8 +271,17 @@
+>  	prom_consdev.cn_dev = makedev(CDEV_MAJOR, 0);
+>  	make_dev(&prom_cdevsw, 0, UID_ROOT, GID_WHEEL, 0600, "promcons");
+>  	cnadd(&prom_consdev);
+> +	promcn_attached = 1;
+>  }
+>  
+> +void
+> +promcndetach(void)
+> +{
+> +	if (promcn_attached) {
+> +		cnremove(&prom_consdev);
+> +		promcn_attached = 0;
+> +	}
+> +}
+>  /*
+>   * promcnputc, promcngetc and promchcheckc in prom.c for layering reasons
+>   */
+> Index: alpha/include/prom.h
+> ===================================================================
+> RCS file: /home/ncvs/src/sys/alpha/include/prom.h,v
+> retrieving revision 1.6
+> diff -u -r1.6 prom.h
+> --- alpha/include/prom.h	2000/03/18 08:00:51	1.6
+> +++ alpha/include/prom.h	2001/10/24 21:52:25
+> @@ -96,6 +96,7 @@
+>  #ifndef ASSEMBLER
+>  #ifdef _KERNEL
+>  void	promcnattach __P((int));
+> +void	promcndetach __P((void));
+>  void	promcnputc __P((dev_t, int));
+>  int	promcngetc __P((dev_t));
+>  int	promcncheckc __P((dev_t));
+> 
+> 
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 24 22:00:30 2001
+From: Matthew Jacob <mjacob () feral ! com>
+Date: Wed, 24 Oct 2001 22:00:30 +0000
+To: freebsd-alpha
+Subject: patch for multiple promcons && real cons goop
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409483
+
+
+Can folks try this? It seems to work for me on at least 2 platforms- including
+the odd on (turbolaser). I haven't tried it yet on a rawhide, nor have I tried
+it with a graphics console.
+
+Index: alpha/alpha/machdep.c
+===================================================================
+RCS file: /home/ncvs/src/sys/alpha/alpha/machdep.c,v
+retrieving revision 1.150
+diff -u -r1.150 machdep.c
+--- alpha/alpha/machdep.c	2001/10/21 22:16:44	1.150
++++ alpha/alpha/machdep.c	2001/10/24 21:52:25
+@@ -621,9 +622,10 @@
+ 	 * Initalize the real console, so the the bootstrap console is
+ 	 * no longer necessary.
+ 	 */
+-	if (platform.cons_init)
++	if (platform.cons_init) {
+ 		platform.cons_init();
+-
++		promcndetach();
++	}
+ 	/* NO MORE FIRMWARE ACCESS ALLOWED */
+ #ifdef _PMAP_MAY_USE_PROM_CONSOLE
+ 	/*
+Index: alpha/alpha/promcons.c
+===================================================================
+RCS file: /home/ncvs/src/sys/alpha/alpha/promcons.c,v
+retrieving revision 1.21
+diff -u -r1.21 promcons.c
+--- alpha/alpha/promcons.c	2001/10/24 18:30:03	1.21
++++ alpha/alpha/promcons.c	2001/10/24 21:52:25
+@@ -263,6 +263,7 @@
+ 
+ CONS_DRIVER(prom, NULL, NULL, NULL, promcngetc, promcncheckc, promcnputc, NULL);
+ 
++static int promcn_attached = 0;
+ void
+ promcnattach(int alpha_console)
+ {
+@@ -270,8 +271,17 @@
+ 	prom_consdev.cn_dev = makedev(CDEV_MAJOR, 0);
+ 	make_dev(&prom_cdevsw, 0, UID_ROOT, GID_WHEEL, 0600, "promcons");
+ 	cnadd(&prom_consdev);
++	promcn_attached = 1;
+ }
+ 
++void
++promcndetach(void)
++{
++	if (promcn_attached) {
++		cnremove(&prom_consdev);
++		promcn_attached = 0;
++	}
++}
+ /*
+  * promcnputc, promcngetc and promchcheckc in prom.c for layering reasons
+  */
+Index: alpha/include/prom.h
+===================================================================
+RCS file: /home/ncvs/src/sys/alpha/include/prom.h,v
+retrieving revision 1.6
+diff -u -r1.6 prom.h
+--- alpha/include/prom.h	2000/03/18 08:00:51	1.6
++++ alpha/include/prom.h	2001/10/24 21:52:25
+@@ -96,6 +96,7 @@
+ #ifndef ASSEMBLER
+ #ifdef _KERNEL
+ void	promcnattach __P((int));
++void	promcndetach __P((void));
+ void	promcnputc __P((dev_t, int));
+ int	promcngetc __P((dev_t));
+ int	promcncheckc __P((dev_t));
+
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 24 16:45:34 2001
+From: Peter Wemm <peter () wemm ! org>
+Date: Wed, 24 Oct 2001 16:45:34 +0000
+To: freebsd-alpha
+Subject: ipfilter bug (was: Re: compiler bugs? )
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409481
+
+Adam Stouffer wrote:
+> I'm trying to get ipfilter compiled so this box can be made into a 
+> firewall. After getting the latest ipfilter sources (3.4.21) I follow the 
+> instructions and type 'make freebsd4' after a minute or so it stops with 
+> this error:
+> 
+> cc1: warnings being treated as errors
+> ../../ip_auth.c: In function `fr_auth_ioctl':
+> ../../ip_auth.c:344: warning: comparison is always false due to limited 
+> range of data type
+> *** Error code 1
+> 
+> Line 344 shows:
+> 
+> 	if (cmd == SIOCRMAFR) {
+> 
+> After emailing Darren Reed he says its because of a compiler bug. Is this 
+> true? 4.4 release also ships with the same 2.95.3 version of gcc. Also why 
+> is ipfilter not included in the ports tree? Thanks.
+
+Nope. It is a code bug in ipfilter:
+
+int fr_auth_ioctl(data, mode, cmd, fr, frptr)
+caddr_t data;
+int mode;
+#if defined(__NetBSD__) || defined(__OpenBSD__) || (FreeBSD_version >= 300003)
+                                                  ^^^^^^^^^^^^^^^^^^^
+u_long cmd;
+#else
+int cmd;
+#endif
+
+It is __FreeBSD_version, not FreeBSD_version.  This means that it is using
+the 'int cmd' form, which is not large enough to represent the SIOCRMAFR
+ioctl value.
+
+> Adam
+
+Cheers,
+-Peter
+--
+Peter Wemm - peter@FreeBSD.org; peter@yahoo-inc.com; peter@netplex.com.au
+"All of this is for nothing if we don't go to the stars" - JMS/B5
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 23 15:21:06 2001
+From: "Thornton, Neill R, HM2" <NRThornton () nmcsd ! med ! navy ! mil>
+Date: Tue, 23 Oct 2001 15:21:06 +0000
+To: freebsd-alpha
+Subject: AlphaServer 2100 5/300 Now Functional!
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409477
+
+I am happy to report that we have succeeded (and due to the massive help
+from Andrew Gallatin) in getting 5.0-CURRENT running on our AlphaServer 2100
+5/300 Machine:
+
+FreeBSD 5.0-CURRENT #0: Tue Oct 23 07:15:01 PDT 2001
+    root@beastie.med.navy.mil:/usr/obj/usr/src/sys/BEASTIE
+DEC AlphaServer 2100
+AlphaServer 2100 5/300, 291MHz
+8192 byte page size, 1 processor.
+CPU: EV5 (21164) major=5 minor=5
+OSF PAL rev: 0x4000100020116
+real memory  = 601808896 (587704K bytes)
+avail memory = 579321856 (565744K bytes)
+Preloaded elf kernel "/boot/kernel/kernel" at 0xfffffc0000702000.
+
+Thanks again to Andrew for the awesome support.  The only problem is getting
+it to recognize all 4 CPUs.  That is the next hurdle.  But basic
+functionality if working flawlessly!
+
+HM2(FMF/SW) Neill Thornton
+Network Management Team
+Information Technology Services Department
+Naval Medical Center San Diego
+(619) 532-5001 / nrthornton@nmcsd.med.navy.mil
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 22 23:08:18 2001
+From: Adam Stouffer <astouffer () adelphia ! net>
+Date: Mon, 22 Oct 2001 23:08:18 +0000
+To: freebsd-alpha
+Subject: PC164 and 3c50x driver
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409475
+
+I have 4.3 release running on a 400mhz PC164 and something is wrong with 
+the ep driver. I'm trying to get a 3c509 nic working and added 
+'device   ep' to the kernel config. The compile dies with this error:
+
+linking kernel
+if_ep_isa.o: In function 'ep_isa_identify':
+if_ep_isa.c(.text+0x1d0): undefined reference to 'elink_idseq'
+if_ep_isa.c(.text+0x1d4): undefined reference to 'elink_idseq'
+if_ep_isa.c(.text+0x1e0): undefined reference to 'elink_reset'
+if_ep_isa.c(.text+0x1e4): undefined reference to 'elink_reset'
+if_ep_isa.c(.text+0x244): undefined reference to 'elink_idseq'
+if_ep_isa.c(.text+0x248): undefined reference to 'elink_idseq'
+*** Error code 1
+
+I tried getting an updated version of if_ep_isa.c but there only seems to 
+be two versions out there and neither work. I'm not a programmer so any 
+help would be appreciated :)
+
+
+Adam
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 22 18:14:37 2001
+From: Ardelean Gheorghe <ardelean () ww ! uni-erlangen ! de>
+Date: Mon, 22 Oct 2001 18:14:37 +0000
+To: freebsd-alpha
+Subject: FreeBSD is running now on AlphaServer 2100 5/250RM (GAMMA SABLE)
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409473
+
+
+Dear Drew,
+
+Thank you very much for the new kernel. 
+I was able to install now FreeBSD on my Alpha Server 2100 5/250 (EV5).
+
+Is the EISA Mylex DAC960 RAID (KZESC-XB) controller supported?
+I remeber that Mike Smith told us it's not very difficult to support it
+but I don't now the current status.
+
+Regards,
+
+
+ Gheorghe ARDELEAN
++---------------------------------------------------+
+| Fraunhofer Institut fuer Integrierte Schaltungen  |
+| Bereich Bauelementetechnologie IIS-B              |
+| Schottky str. 10                                  |
+| D-91058 Erlangen, Germany                         |
+| Tel. +49-(0)9131-761252, Fax. +49-(0)9131-761390  |
+| Email: ardelean@ww.uni-erlangen.de                |
+|     gheorghe.ardelean@ww.uni-erlangen.de          |
++---------------------------------------------------+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Nov 01 17:50:57 2001
+From: "Koster, K.J." <K.J.Koster () kpn ! com>
+Date: Thu, 01 Nov 2001 17:50:57 +0000
+To: freebsd-alpha
+Subject: RE: AlphaServer 2100 5/300... not supported?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409551
+
+Dear Neill,
+
+> 
+> Hello all... this is the third time I am sending this out.. 
+> something about
+> PacBell will not let me send messages to the list... but if 
+> it comes through
+> eventually I am sorry for the duplicates in advance!
+> 
+I've been sending numerous spam reports to pacbell.net in the past,
+regarding spam into some newsgroups that I subscribe to. They seem to
+facilitate spamming, or at least don't care enough to actually hit spammers
+over the head.
+
+OT, I know, but it might explain why you have trouble mailing. My guess
+would be that some mail exchanges blackhole pacbell.net.
+
+    Kees Jan
+
+================================================
+ You are only young once,
+       but you can stay immature all your life.
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 22 14:11:34 2001
+From: "Thornton, Neill R, HM2" <NRThornton () nmcsd ! med ! navy ! mil>
+Date: Mon, 22 Oct 2001 14:11:34 +0000
+To: freebsd-alpha
+Subject: AlphaServer 2100 5/300... not supported?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409470
+
+Hello all... this is the third time I am sending this out.. something about
+PacBell will not let me send messages to the list... but if it comes through
+eventually I am sorry for the duplicates in advance!
+
+Here at work I have just been given 4 AlphaServer machines... 2 2100
+5/300's, and 2 4100 machines.  I only have my hands on one of the 2100's
+right now, I should be getting the 4100 today.  They had former lives as NT
+and OpenVMS Servers. 
+
+The 2100 in question has 4 EV5 CPU boards, and 512 Mb of memory.  It (now)
+has the standard I/O board and a Matrox PCI video card in it.  We have run
+the EISA Config to clear out the old configuration.
+
+When we try to install 4.4-RELEASE on it, the moment it tries to jump to the
+kernel, it gives a machine check.  I never see the banner that would
+indicate the start of the kernel.  It stops there, and only pressing the
+"Halt/Interrupt" button gets me back to the SRM console.  
+
+Here are some things I have tried so far to get it running:
+
+1) As mentioned above, removed all the extra I/O boards in it.
+2) Removed all the CPU cards, except CPU0.
+3) Tried swapping out the video card, as well as positition.
+
+None of these things worked.  If the Sable class machines are supposed to
+work, can someone please enlighten me as to what is wrong?  I can include a
+full serial console log if that would be helpful.  It seems that people have
+gotten this running in the past, so maybe it is something simple.  Any help
+would be appreciated, this is mainly a Windows shop, with a little VMS here
+and there, so some "Powered by FreeBSD" stickers on these massive boxes
+would be very cool!!!!
+
+Thanks for the help in advance...
+
+Neill
+
+HM2(FMF/SW) Neill Thornton
+Network Management Team
+Information Technology Services Department
+Naval Medical Center San Diego
+(619) 532-5001 / nrthornton@nmcsd.med.navy.mil
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sat Oct 20 00:11:03 2001
+From: Dag-Erling Smorgrav <des () ofug ! org>
+Date: Sat, 20 Oct 2001 00:11:03 +0000
+To: freebsd-alpha
+Subject: machdep.c patches
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409467
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="--=-=-="
+
+--=-=-=
+
+The attached patch adds dummy {set,fill}_dbregs() to machdep.c on
+every architecture (except i386, which already has real ones).  This
+will allow retiring procfs_machdep.c as there will no longer be any MD
+code in it (the only difference between procfs_machdep.c on the
+different architectures is whether it calls {set,fill}_dbregs() or
+just returns ENOSYS right away).
+
+Unless there are objections, I will commit this sometime next week.
+
+DES
+-- 
+Dag-Erling Smorgrav - des@ofug.org
+
+
+--=-=-=
+Content-Type: text/x-patch
+Content-Disposition: attachment; filename=machdep.diff
+
+Index: sys/alpha/alpha/machdep.c
+===================================================================
+RCS file: /home/ncvs/src/sys/alpha/alpha/machdep.c,v
+retrieving revision 1.148
+diff -u -r1.148 machdep.c
+--- sys/alpha/alpha/machdep.c	19 Oct 2001 19:22:04 -0000	1.148
++++ sys/alpha/alpha/machdep.c	20 Oct 2001 00:02:19 -0000
+@@ -1877,6 +1877,20 @@
+ }
+ 
+ int
++fill_dbregs(struct proc *p, struct dbreg *dbregs)
++{
++
++	return (ENOSYS);
++}
++
++int
++set_dbregs(struct proc *p, struct dbreg *dbregs)
++{
++
++	return (ENOSYS);
++}
++
++int
+ fill_fpregs(td, fpregs)
+ 	struct thread *td;
+ 	struct fpreg *fpregs;
+Index: sys/ia64/ia64/machdep.c
+===================================================================
+RCS file: /home/ncvs/src/sys/ia64/ia64/machdep.c,v
+retrieving revision 1.57
+diff -u -r1.57 machdep.c
+--- sys/ia64/ia64/machdep.c	18 Oct 2001 16:20:04 -0000	1.57
++++ sys/ia64/ia64/machdep.c	18 Oct 2001 23:04:44 -0000
+@@ -1274,6 +1274,20 @@
+ }
+ 
+ int
++fill_dbregs(struct proc *p, struct dbreg *dbregs)
++{
++
++	return (ENOSYS);
++}
++
++int
++set_dbregs(struct proc *p, struct dbreg *dbregs)
++{
++
++	return (ENOSYS);
++}
++
++int
+ fill_fpregs(td, fpregs)
+ 	struct thread *td;
+ 	struct fpreg *fpregs;
+Index: sys/powerpc/powerpc/machdep.c
+===================================================================
+RCS file: /home/ncvs/src/sys/powerpc/powerpc/machdep.c,v
+retrieving revision 1.11
+diff -u -r1.11 machdep.c
+--- sys/powerpc/powerpc/machdep.c	12 Oct 2001 19:55:04 -0000	1.11
++++ sys/powerpc/powerpc/machdep.c	13 Oct 2001 15:27:36 -0000
+@@ -849,6 +849,13 @@
+ }
+ 
+ int
++fill_dbregs(struct proc *p, struct dbreg *dbregs)
++{
++
++	return (ENOSYS);
++}
++
++int
+ fill_fpregs(struct proc *p, struct fpreg *fpregs)
+ {
+ 
+@@ -857,6 +864,13 @@
+ 
+ int
+ set_regs(struct proc *p, struct reg *regs)
++{
++
++	return (ENOSYS);
++}
++
++int
++set_dbregs(struct proc *p, struct dbreg *dbregs)
+ {
+ 
+ 	return (ENOSYS);
+Index: sys/sparc64/sparc64/machdep.c
+===================================================================
+RCS file: /home/ncvs/src/sys/sparc64/sparc64/machdep.c,v
+retrieving revision 1.17
+diff -u -r1.17 machdep.c
+--- sys/sparc64/sparc64/machdep.c	12 Oct 2001 16:06:36 -0000	1.17
++++ sys/sparc64/sparc64/machdep.c	13 Oct 2001 15:27:39 -0000
+@@ -581,6 +581,20 @@
+ }
+ 
+ int
++fill_dbregs(struct proc *p, struct dbreg *dbregs)
++{
++
++	return (ENOSYS);
++}
++
++int
++set_dbregs(struct proc *p, struct dbreg *dbregs)
++{
++
++	return (ENOSYS);
++}
++
++int
+ fill_fpregs(struct thread *td, struct fpreg *fpregs)
+ {
+ 	struct pcb *pcb;
+
+--=-=-=--
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Oct 18 19:37:23 2001
+From: Marcel Moolenaar <marcel () xcllnt ! net>
+Date: Thu, 18 Oct 2001 19:37:23 +0000
+To: freebsd-alpha
+Subject: Re: linux_base-7: ldconfig core dumps
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409465
+
+On Thu, Oct 18, 2001 at 08:56:41AM -0400, Normand Leclerc wrote:
+> 
+>   Hummmm, yes it's stable....  Is current stable enough?
+
+If you need to ask the question, my answer is invariably going
+to be no :-)
+
+-- 
+ Marcel Moolenaar	  USPA: A-39004		 marcel@xcllnt.net
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Thu Oct 18 05:14:53 2001
+From: Marcel Moolenaar <marcel () xcllnt ! net>
+Date: Thu, 18 Oct 2001 05:14:53 +0000
+To: freebsd-alpha
+Subject: Re: linux_base-7: ldconfig core dumps
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409464
+
+On Tue, Oct 16, 2001 at 05:14:30PM -0400, Normand Leclerc wrote:
+> Hi,
+>  
+>    Has anyone succeeded in installing linux_base-7 on an alpha platform?
+
+Obviously I have :-)
+
+> On my 164SX ldconfig from compat is core dumping and the package is half
+> installed.
+
+Can you provide more details. The big question is -stable or -current?
+
+If it's -stable, then chances are it will not work at all. I haven't
+had the patience yet to prepare a MFC...
+
+-- 
+ Marcel Moolenaar	  USPA: A-39004		 marcel@xcllnt.net
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 16 21:14:30 2001
+From: "Normand Leclerc" <leclercn () videotron ! ca>
+Date: Tue, 16 Oct 2001 21:14:30 +0000
+To: freebsd-alpha
+Subject: linux_base-7: ldconfig core dumps
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409456
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------=_NextPart_000_0011_01C15666.04859200"
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_0011_01C15666.04859200
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+
+Hi,
+ 
+   Has anyone succeeded in installing linux_base-7 on an alpha platform?
+On my 164SX ldconfig from compat is core dumping and the package is half
+installed.
+ 
+Normand Leclerc
+leclercn@videotron.ca
+
+------=_NextPart_000_0011_01C15666.04859200
+Content-Type: text/html;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+<html xmlns:o=3D"urn:schemas-microsoft-com:office:office" =
+xmlns:w=3D"urn:schemas-microsoft-com:office:word" =
+xmlns=3D"http://www.w3.org/TR/REC-html40">
+
+<head>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; =
+charset=3Dus-ascii">
+
+
+<meta name=3DProgId content=3DWord.Document>
+<meta name=3DGenerator content=3D"Microsoft Word 10">
+<meta name=3DOriginator content=3D"Microsoft Word 10">
+<link rel=3DFile-List href=3D"cid:filelist.xml@01C15666.04424770">
+<!--[if gte mso 9]><xml>
+ <o:OfficeDocumentSettings>
+  <o:DoNotRelyOnCSS/>
+ </o:OfficeDocumentSettings>
+</xml><![endif]--><!--[if gte mso 9]><xml>
+ <w:WordDocument>
+  <w:SpellingState>Clean</w:SpellingState>
+  <w:GrammarState>Clean</w:GrammarState>
+  <w:DocumentKind>DocumentEmail</w:DocumentKind>
+  <w:EnvelopeVis/>
+  <w:Compatibility>
+   <w:BreakWrappedTables/>
+   <w:SnapToGridInCell/>
+   <w:WrapTextWithPunct/>
+   <w:UseAsianBreakRules/>
+  </w:Compatibility>
+  <w:BrowserLevel>MicrosoftInternetExplorer4</w:BrowserLevel>
+ </w:WordDocument>
+</xml><![endif]-->
+<style>
+<!--
+ /* Style Definitions */
+ p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{mso-style-parent:"";
+	margin:0in;
+	margin-bottom:.0001pt;
+	mso-pagination:widow-orphan;
+	font-size:12.0pt;
+	font-family:"Times New Roman";
+	mso-fareast-font-family:"Times New Roman";}
+a:link, span.MsoHyperlink
+	{color:blue;
+	text-decoration:underline;
+	text-underline:single;}
+a:visited, span.MsoHyperlinkFollowed
+	{color:purple;
+	text-decoration:underline;
+	text-underline:single;}
+span.EmailStyle17
+	{mso-style-type:personal-compose;
+	mso-style-noshow:yes;
+	mso-ansi-font-size:10.0pt;
+	mso-bidi-font-size:10.0pt;
+	font-family:Arial;
+	mso-ascii-font-family:Arial;
+	mso-hansi-font-family:Arial;
+	mso-bidi-font-family:Arial;
+	color:windowtext;}
+span.SpellE
+	{mso-style-name:"";
+	mso-spl-e:yes;}
+@page Section1
+	{size:8.5in 11.0in;
+	margin:1.0in 1.25in 1.0in 1.25in;
+	mso-header-margin:.5in;
+	mso-footer-margin:.5in;
+	mso-paper-source:0;}
+div.Section1
+	{page:Section1;}
+-->
+</style>
+<!--[if gte mso 10]>
+<style>
+ /* Style Definitions */=20
+ table.MsoNormalTable
+	{mso-style-name:"Table Normal";
+	mso-tstyle-rowband-size:0;
+	mso-tstyle-colband-size:0;
+	mso-style-noshow:yes;
+	mso-style-parent:"";
+	mso-padding-alt:0in 5.4pt 0in 5.4pt;
+	mso-para-margin:0in;
+	mso-para-margin-bottom:.0001pt;
+	mso-pagination:widow-orphan;
+	font-size:10.0pt;
+	font-family:"Times New Roman";}
+</style>
+<![endif]-->
+</head>
+
+<body lang=3DEN-US link=3Dblue vlink=3Dpurple =
+style=3D'tab-interval:.5in'>
+
+<div class=3DSection1>
+
+<p class=3DMsoNormal><font size=3D2 face=3DArial><span =
+style=3D'font-size:10.0pt;
+font-family:Arial'>Hi,<o:p></o:p></span></font></p>
+
+<p class=3DMsoNormal><font size=3D2 face=3DArial><span =
+style=3D'font-size:10.0pt;
+font-family:Arial'><o:p>&nbsp;</o:p></span></font></p>
+
+<p class=3DMsoNormal><font size=3D2 face=3DArial><span =
+style=3D'font-size:10.0pt;
+font-family:Arial'><span style=3D'mso-spacerun:yes'>&nbsp;&nbsp; =
+</span>Has anyone
+succeeded in installing linux_base-7 on an alpha platform?<span
+style=3D'mso-spacerun:yes'>&nbsp; </span>On my 164SX <span =
+class=3DSpellE>ldconfig</span>
+from <span class=3DSpellE>compat</span> is core dumping and the package =
+is half
+installed&#8230;<o:p></o:p></span></font></p>
+
+<p class=3DMsoNormal><font size=3D2 face=3DArial><span =
+style=3D'font-size:10.0pt;
+font-family:Arial'><o:p>&nbsp;</o:p></span></font></p>
+
+<p class=3DMsoNormal><span class=3DSpellE><font size=3D2 =
+face=3DArial><span
+style=3D'font-size:10.0pt;font-family:Arial'>Normand</span></font></span>=
+<font
+size=3D2 face=3DArial><span =
+style=3D'font-size:10.0pt;font-family:Arial'> =
+Leclerc<o:p></o:p></span></font></p>
+
+<p class=3DMsoNormal><font size=3D2 face=3DArial><span =
+style=3D'font-size:10.0pt;
+font-family:Arial'>leclercn@videotron.ca<o:p></o:p></span></font></p>
+
+</div>
+
+</body>
+
+</html>
+
+------=_NextPart_000_0011_01C15666.04859200--
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 17 13:50:12 2001
+From: sales () L5Software ! com (L5 Software Development)
+Date: Wed, 17 Oct 2001 13:50:12 +0000
+To: freebsd-alpha
+Subject: Can we help you find more customers?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409461
+
+<x-html><html><body><pre>
+
+Do you have too many customers, too much traffic on your Web site, or what?
+No?!?
+Then you need MCspider(tm) !! 
+
+MCspider(tm) is a business tool for collecting email addresses from Web pages that meet a user-defined set of criteria.  Using this program, an email address list can be constructed to reach a particular audience.  With MCspider(tm), you can build a list of potential customers that is specific to your business by controlling where and how it searches for addresses.  When connected to the Internet through a cable modem or other reasonably high-speed connection, MCspider(tm) will visit thousands of pages per hour in search of customers for your business.  Since it collects email addresses from publicly available Web sites, you know potential recipients have published their address for the world to know.  You should therefore be able to contact them with little fear of SPAM complaints.
+
+MCspider(tm) is a multi-threaded, fully user configurable Windows application with a complete Help system.  It records the Web pages it visits, in addition to the email addresses it found.  You can therefore rest assured the list it produces is "clean" of duplicates, and that it won't waste time repeatedly looking at the same page for new addresses when it's already found them. 
+
+MCspider(tm) is guaranteed to perform substantially as is described in its documentation, and on its Web page.  Note that this is different from what seems to have become an "industry standard" - the practice of selling software "as-is," without any warranty.  (Have you really read any of the license agreements for software you purchased recently?)  Only by purchasing software from vendors who offer to stand behind their products with a viable warranty can you, the consumer, do anything to combat the proliferation of the "crapware" so common in today's marketplace.
+
+MCspider(tm) was officially released on October 5, 2001 for US$ 249.00 per copy.  However, because of some technical problems with our ordering system, we have decided to extend our pre-release offer until October 20:  Any paid orders received before that date will be granted a 60% discount - only US$ 99.00 per copy.  Please be advised this offer is definitely going to expire at the end of the day Oct. 19.
+
+Act now!  Don't miss out on this special offer!  Go to <A HREF="http://L5Software.com/go?MCspider"> http://L5Software.com/go?MCspider </A> to order your pre-release priced copy today!
+
+In case you're wondering how we got your email address, MCspider(tm) found it in one of the searches we had it do.  The program does work, and quite well!
+
+
+
+
+If you want to be excluded from future mailings by L5Software.com, please go to <A HREF="http://L5Software.com/cgibin/MailRemove.cgi?freebsd-alpha@FreeBSD.org"> http://L5Software.com/cgibin/MailRemove.cgi?freebsd-alpha@FreeBSD.org </A> to add your address to our list of blocked email addresses.
+
+________________________________________________________________
+L5 Software Development - "out of this world" sites and software
+
+MCspider(tm), crawling the World Wide Web for customers
+	<A HREF="http://www.L5Software.com/go?MCspider"> http://www.L5Software.com/go?MCspider </A>
+ThmIndxr(tm), the *only* HTML thumbnail/indexer you need!
+	<A HREF="http://www.L5Software.com/go?ThmIndxr"> http://www.L5Software.com/go?ThmIndxr </A>
+wCapLock(tm), makes CapsLock work like it does on a typewriter
+	<A HREF="http://www.L5Software.com/go?wCapLock"> http://www.L5Software.com/go?wCapLock </A>
+BannerAds(tm), join multiple affiliate programs with one banner
+	<A HREF="http://www.L5Software.com/go?BannerAds"> http://www.L5Software.com/go?BannerAds </A>
+KeywordGo(tm), provides keyword access to your popular pages
+	<A HREF="http://www.L5Software.com/go?KeywordGo"> http://www.L5Software.com/go?KeywordGo </A>
+
+
+</pre></body></html></x-html>
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 17 11:10:14 2001
+From: sales () L5Software ! com (L5 Software Development)
+Date: Wed, 17 Oct 2001 11:10:14 +0000
+To: freebsd-alpha
+Subject: Can we help you find more customers?
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409460
+
+<x-html><html><body><pre>
+
+Do you have too many customers, too much traffic on your Web site, or what?
+No?!?
+Then you need MCspider(tm) !! 
+
+MCspider(tm) is a business tool for collecting email addresses from Web pages that meet a user-defined set of criteria.  Using this program, an email address list can be constructed to reach a particular audience.  With MCspider(tm), you can build a list of potential customers that is specific to your business by controlling where and how it searches for addresses.  When connected to the Internet through a cable modem or other reasonably high-speed connection, MCspider(tm) will visit thousands of pages per hour in search of customers for your business.  Since it collects email addresses from publicly available Web sites, you know potential recipients have published their address for the world to know.  You should therefore be able to contact them with little fear of SPAM complaints.
+
+MCspider(tm) is a multi-threaded, fully user configurable Windows application with a complete Help system.  It records the Web pages it visits, in addition to the email addresses it found.  You can therefore rest assured the list it produces is "clean" of duplicates, and that it won't waste time repeatedly looking at the same page for new addresses when it's already found them. 
+
+MCspider(tm) is guaranteed to perform substantially as is described in its documentation, and on its Web page.  Note that this is different from what seems to have become an "industry standard" - the practice of selling software "as-is," without any warranty.  (Have you really read any of the license agreements for software you purchased recently?)  Only by purchasing software from vendors who offer to stand behind their products with a viable warranty can you, the consumer, do anything to combat the proliferation of the "crapware" so common in today's marketplace.
+
+MCspider(tm) was officially released on October 5, 2001 for US$ 249.00 per copy.  However, because of some technical problems with our ordering system, we have decided to extend our pre-release offer until October 20:  Any paid orders received before that date will be granted a 60% discount - only US$ 99.00 per copy.  Please be advised this offer is definitely going to expire at the end of the day Oct. 19.
+
+Act now!  Don't miss out on this special offer!  Go to <A HREF="http://L5Software.com/go?MCspider"> http://L5Software.com/go?MCspider </A> to order your pre-release priced copy today!
+
+In case you're wondering how we got your email address, MCspider(tm) found it in one of the searches we had it do.  The program does work, and quite well!
+
+
+
+
+If you want to be excluded from future mailings by L5Software.com, please go to <A HREF="http://L5Software.com/cgibin/MailRemove.cgi?freebsd-alpha@FreeBSD.org"> http://L5Software.com/cgibin/MailRemove.cgi?freebsd-alpha@FreeBSD.org </A> to add your address to our list of blocked email addresses.
+
+________________________________________________________________
+L5 Software Development - "out of this world" sites and software
+
+MCspider(tm), crawling the World Wide Web for customers
+	<A HREF="http://www.L5Software.com/go?MCspider"> http://www.L5Software.com/go?MCspider </A>
+ThmIndxr(tm), the *only* HTML thumbnail/indexer you need!
+	<A HREF="http://www.L5Software.com/go?ThmIndxr"> http://www.L5Software.com/go?ThmIndxr </A>
+wCapLock(tm), makes CapsLock work like it does on a typewriter
+	<A HREF="http://www.L5Software.com/go?wCapLock"> http://www.L5Software.com/go?wCapLock </A>
+BannerAds(tm), join multiple affiliate programs with one banner
+	<A HREF="http://www.L5Software.com/go?BannerAds"> http://www.L5Software.com/go?BannerAds </A>
+KeywordGo(tm), provides keyword access to your popular pages
+	<A HREF="http://www.L5Software.com/go?KeywordGo"> http://www.L5Software.com/go?KeywordGo </A>
+
+
+</pre></body></html></x-html>
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 17 05:32:32 2001
+From: Trevor Johnson <trevor () jpj ! net>
+Date: Wed, 17 Oct 2001 05:32:32 +0000
+To: freebsd-alpha
+Subject: Re: DEC Alpha 2100a
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409459
+
+> My lynx installed and ran a 4.4RC fine, but failed miserably with
+> a -current snapshot
+
+Which snapshot did you try?  If you gave some description of whatever
+problem you had, there's a chance someone might fix it, or know how to
+avoid it.
+
+> and  an  attempt to  upgrade to  -current via
+> make {build,install}world.  The {build,install}world effort  used
+> a kernel without SMP enabled.  Since the lynx was worthless to me
+> with only a single CPU, mine is headed for the surplus warehouse,
+> too.
+
+The SMP code was only added in April of this year.
+-- 
+Trevor Johnson
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 16 17:57:11 2001
+From: "M. L. Dodson" <bdodson () scms ! utmb ! EDU>
+Date: Tue, 16 Oct 2001 17:57:11 +0000
+To: freebsd-alpha
+Subject: Re: DEC Alpha 2100a
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409455
+
+
+My lynx installed and ran a 4.4RC fine, but failed miserably with
+a -current snapshot and  an  attempt to  upgrade to  -current via
+make {build,install}world.  The {build,install}world effort  used
+a kernel without SMP enabled.  Since the lynx was worthless to me
+with only a single CPU, mine is headed for the surplus warehouse,
+too.
+
+Bud Dodson
+
+Wilko Bulte writes:
+ > On Tue, Oct 16, 2001 at 01:33:24PM -0400, Daniel Milunus wrote:
+ > 
+ > 4.4 should run on the Lynx. My Lynx (at work) is waiting to go to the
+ > scrapyard so I have not tested 4.4 release candidates on it. Even 4.3 might
+ > run on it, I forgot.
+ > 
+ > Wilko
+ > 
+ > 
+ > > Do you know if there is a version of FreeBSD out there that will run on a
+ > > DEC Alpha 2100a?  I have searched around and found nothing.  Any help would
+ > > be appreciated.
+ > > 
+ > > Dan
+ > > 
+ > > ----------------------------------------------------------------------------
+ > > ----------------
+ > > Daniel Milunus (MCP+I, MCSE, MCP 2000)
+ > > Novell
+ > > Project Support Representative
+ > > Work: 617-914-8333
+ > > Mobile: 617-974-6984
+ > > AIM ID: idamnedit
+ > > http://pst.ctp.com
+ > > Quote: "Sorry doesn't put thumbs back on hands!!" - Homer Simpson
+ > > ----------------------------------------------------------------------------
+ > > ------------
+ > > 
+ > > 
+ > > To Unsubscribe: send mail to majordomo@FreeBSD.org
+ > > with "unsubscribe freebsd-alpha" in the body of the message
+ > ---end of quoted text---
+ > 
+ > -- 
+ > |   / o / /_  _   		email: 	wilko@FreeBSD.org
+ > |/|/ / / /(  (_)  Bulte		Arnhem, The Netherlands	
+ > 
+ > To Unsubscribe: send mail to majordomo@FreeBSD.org
+ > with "unsubscribe freebsd-alpha" in the body of the message
+-- 
+M. L. Dodson                                bdodson@scms.utmb.edu
+409-772-2178                                FAX: 409-772-1790
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 16 17:35:59 2001
+From: Wilko Bulte <wkb () freebie ! xs4all ! nl>
+Date: Tue, 16 Oct 2001 17:35:59 +0000
+To: freebsd-alpha
+Subject: Re: DEC Alpha 2100a
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409454
+
+On Tue, Oct 16, 2001 at 01:33:24PM -0400, Daniel Milunus wrote:
+
+4.4 should run on the Lynx. My Lynx (at work) is waiting to go to the
+scrapyard so I have not tested 4.4 release candidates on it. Even 4.3 might
+run on it, I forgot.
+
+Wilko
+
+
+> Do you know if there is a version of FreeBSD out there that will run on a
+> DEC Alpha 2100a?  I have searched around and found nothing.  Any help would
+> be appreciated.
+> 
+> Dan
+> 
+> ----------------------------------------------------------------------------
+> ----------------
+> Daniel Milunus (MCP+I, MCSE, MCP 2000)
+> Novell
+> Project Support Representative
+> Work: 617-914-8333
+> Mobile: 617-974-6984
+> AIM ID: idamnedit
+> http://pst.ctp.com
+> Quote: "Sorry doesn't put thumbs back on hands!!" - Homer Simpson
+> ----------------------------------------------------------------------------
+> ------------
+> 
+> 
+> To Unsubscribe: send mail to majordomo@FreeBSD.org
+> with "unsubscribe freebsd-alpha" in the body of the message
+---end of quoted text---
+
+-- 
+|   / o / /_  _   		email: 	wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, The Netherlands	
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 16 17:33:24 2001
+From: Daniel Milunus <Daniel.Milunus () ctp ! com>
+Date: Tue, 16 Oct 2001 17:33:24 +0000
+To: freebsd-alpha
+Subject: DEC Alpha 2100a
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409453
+
+Do you know if there is a version of FreeBSD out there that will run on a
+DEC Alpha 2100a?  I have searched around and found nothing.  Any help would
+be appreciated.
+
+Dan
+
+----------------------------------------------------------------------------
+----------------
+Daniel Milunus (MCP+I, MCSE, MCP 2000)
+Novell
+Project Support Representative
+Work: 617-914-8333
+Mobile: 617-974-6984
+AIM ID: idamnedit
+http://pst.ctp.com
+Quote: "Sorry doesn't put thumbs back on hands!!" - Homer Simpson
+----------------------------------------------------------------------------
+------------
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Tue Oct 16 21:33:50 2001
+From: Tyler Willingham <tylerwillingham () Mediaone ! net>
+Date: Tue, 16 Oct 2001 21:33:50 +0000
+To: freebsd-alpha
+Subject: Alphaserver 2000 5/300
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409457
+
+Greetings,
+
+I have recently received an alphaserver 2000 5/300, and was wondering if
+this architecture was supported by FreeBSD. I tried to install version
+4.4, but the boot disks from the site fail to boot (the system hits an
+unexpected machine check after loading both disks). I also tried the
+alpha version of the 4.3 alpha cd with the same results. 
+
+I have upgraded the firmware, and the machine does run debian/Linux. 
+
+I appreciate any info/comments that you have.
+
+Tyler
+-- 
+ mailto:tylerwillingham@mediaone.net
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Oct 14 21:50:22 2001
+From: friendz () openxxx ! net
+Date: Sun, 14 Oct 2001 21:50:22 +0000
+To: freebsd-alpha
+Subject: Hello, your friend recommended openxxx.net to you
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409450
+
+
+
+	You have been invited to check out this adult site
+	     by one of your friends who visited us.
+
+click here , our URL is: http://www.openxxx.net/
+	enjoy,
+						OpenXXX TEAM 2001
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Oct 07 10:20:10 2001
+From: Wilko Bulte <wkb () freebie ! xs4all ! nl>
+Date: Sun, 07 Oct 2001 10:20:10 +0000
+To: freebsd-alpha
+Subject: Re: ipnat
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409443
+
+On Sun, Oct 07, 2001 at 06:54:21PM +0900, Y Fujimori wrote:
+
+Can you please provide the error transcript that you experience?
+I don't recall having seen this problem on any of my Alpha boxes.
+
+Wilko
+
+> This is not FreeBSD's problem, but let me ask a question here.
+> I recently upgraded from 4.3-RELEASE to 4.4-RELEASE on AlphaPC164
+> boxes.  Today, I tested `build world', and I noticed both of boxes
+> failed in the same place.  It seems that ipnat cannot be compiled
+> properly.  Is this a known problem?
+> # I am not running cvs, so that sources here are just the one copied
+> from ftp.freebsd.org.
+> 
+> Thanks for your attention.
+> Yoriaki Fujimori
+
+-- 
+|   / o / /_  _   		email: 	wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, The Netherlands	
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Sun Oct 07 09:54:21 2001
+From: Y Fujimori <fujimori () grafin ! fujimori ! cache ! waseda ! ac ! jp>
+Date: Sun, 07 Oct 2001 09:54:21 +0000
+To: freebsd-alpha
+Subject: ipnat
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409442
+
+
+This is not FreeBSD's problem, but let me ask a question here.
+I recently upgraded from 4.3-RELEASE to 4.4-RELEASE on AlphaPC164
+boxes.  Today, I tested `build world', and I noticed both of boxes
+failed in the same place.  It seems that ipnat cannot be compiled
+properly.  Is this a known problem?
+# I am not running cvs, so that sources here are just the one copied
+from ftp.freebsd.org.
+
+Thanks for your attention.
+Yoriaki Fujimori
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 08 18:37:57 2001
+From: Wilko Bulte <wkb () freebie ! xs4all ! nl>
+Date: Mon, 08 Oct 2001 18:37:57 +0000
+To: freebsd-alpha
+Subject: Re: booting off of freebsd 4.3 install CD stops
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409446
+
+On Mon, Oct 08, 2001 at 02:36:33PM -0400, Andrew Gallatin wrote:
+> 
+> Can you provide a full transript of the boot log?
+> 
+> Is the scsi card built-in, or is it a PCI card?
+
+Did 4.3 boot correctly on AS1200 in the first place?
+
+-- 
+|   / o / /_  _   		email: 	wilko@FreeBSD.org
+|/|/ / / /(  (_)  Bulte		Arnhem, The Netherlands	
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 08 18:36:33 2001
+From: Andrew Gallatin <gallatin () cs ! duke ! edu>
+Date: Mon, 08 Oct 2001 18:36:33 +0000
+To: freebsd-alpha
+Subject: Re: booting off of freebsd 4.3 install CD stops
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409445
+
+
+Can you provide a full transript of the boot log?
+
+Is the scsi card built-in, or is it a PCI card?
+
+Drew
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Mon Oct 08 18:09:03 2001
+From: Charlie Root <mcarlson () Legato ! COM>
+Date: Mon, 08 Oct 2001 18:09:03 +0000
+To: freebsd-alpha
+Subject: booting off of freebsd 4.3 install CD stops
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409444
+
+I have a AlphaServer 1200 that I am trying to install Freebsd on. When
+I boot off of the CD, while its loading the kernel, it stops at the:
+
+"Waiting 15 seconds for SCSI devices to settle
+(noperiph:sym1:0:-1:-1): SCSI BUS reset delivered
+(noperiph:sym2:0:-1:-1): SCSI BUS reset delivered
+
+When I booted in verbose mode (boot -v) it shows this:
+
+"Waiting 15 seconds for SCSI devices to settle
+(noperiph:sym1:0:-1:-1): SCSI BUS reset delivered
+(noperiph:sym2:0:-1:-1): SCSI BUS reset delivered
+
+sym1: enable clock multiplier
+sym1: downloading SCSI SCRIPTS
+
+(noperiph:sym2:0:-1:-1): SCSI BUS reset delivered
+sym2: enable clock multiplier
+sym2: downloading SCSI SCRIPTS
+(probe5:sym0:0:5:0):    . CDB: 12 1 80 0 ff 0
+(probe5:sym0:0:5:0):    ILLEGAL REQUEST asc:24,0
+(probe5:sym0:0:5:0):    sks:c8,1
+
+Any suggestions? I burned the FreeBSD-4.3 ALPHA ISO with disk juggler in
+windows if that helps as well.
+
+Mike Carlson
+mcarlson@legato.com
+
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+
+From freebsd-alpha  Wed Oct 03 08:35:58 2001
+From: Jeff Duffy <jeff () alanne ! com>
+Date: Wed, 03 Oct 2001 08:35:58 +0000
+To: freebsd-alpha
+Subject: Alphastation 255 de0 IRQ mappings
+X-MARC-Message: https://marc.info/?l=freebsd-alpha&m=103030611409440
+
+Greetings.
+
+  I have an Alphastation 255 with two D-Link 530-TX+ cards and a Promise 
+ATA-100 controller in the PCI slots, running 4.4-RELEASE. After looking 
+through the archives and Google, I can't seem to figure out how to get 
+the onboard DEC Ethernet controller (de) to initiate when the PCI slots 
+are full, due to an IRQ conflict.
+
+  At boot, whatever card happens to be in the third PCI slot snatches 
+IRQ 5, which causes the init of de0 to fail. It seems that the firmware 
+will always map the onboard ethernet to IRQ 5, assuming that other 
+devices can be shared.
+
+  I can't find any utility like iconfig or ewrk_config to remap the 
+onboard ethernet IRQ, and I can't seem to get de0 to come up unless I 
+leave that slot empty. I'm hoping that rebuilding the kernel and 
+assigning de0 an IRQ explicitly will help, but I'm still hunting down 
+weird 'link already exists' errors.
+
+  Is there some nifty way to remap the IRQ of de0 I've missed without 
+recompiling?
+
+Thanks.
+
+Jeff Duffy
+
+
+To Unsubscribe: send mail to majordomo@FreeBSD.org
+with "unsubscribe freebsd-alpha" in the body of the message
+

@@ -1,0 +1,2854 @@
+From thorpej@nas.nasa.gov  Wed Jan 1 17:42:56 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: mjacob@feral.com
+Date: Wed, 01 Jan 1997 17:42:56 +0000
+Subject: Re: floppy support for UDB?
+
+On Sun, 29 Dec 96 06:51:01 PST 
+ mjacob@feral.com (Matthew Jacob) wrote:
+
+ > I see no floppy support (for the UDB). I also see no DMA support.
+ > 
+ > Anyone working on this?
+
+Regarding DMA... Yes, I'm working on it (see the bus dma thread on
+tech-kern sometime back...)
+
+I've been on holiday vacation, and while I was away, my workstation at
+NASA went down while I was working on the design document... I'll get
+back to that RSN... I fly back to the Bay Area on Saturday (I hope;
+I have to see what the situation at Portland International Airport
+looks like... these Northwest storms have been a real killer of
+air travel...)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From thorpej@nas.nasa.gov  Wed Jan 1 23:28:47 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: jb@cimlogic.com.au
+Date: Wed, 01 Jan 1997 23:28:47 +0000
+Subject: Re: games/gomoku
+
+On Sat, 4 Jan 1997 07:04:33 +1100 (EST) 
+ John Birrell <jb@cimlogic.com.au> wrote:
+
+ > I'd be interested in the results, however I've been told (in private
+ > mail) that there things in that code that "we don't want to do".
+ > So even if the differences are dramatic, there is no guarantee that
+ > NetBSD is even interested. 8-(
+
+Well, doing things like opening a config file is ... rather lame for
+something like malloc(), IMO.  That should be reserved for a debugging
+malloc...
+
+If the things that "we don't want to do" can be isolated and
+conditionally compiled into a libdebugmalloc (or some other less
+icky name :-), I would think that a better malloc would most certainly
+be welcome.
+
+ > BTW, in the early hours of this morning, my gomoku finished. It won!
+ > And so did I, 'cause my money was on black. Damn! I was betting
+ > against myself. 8-)
+
+I'm not really a game player, but something tells me I gotta check
+this out :-)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Thu Jan 2 20:23:42 1997
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: jb@cimlogic.com.au
+Date: Thu, 02 Jan 1997 20:23:42 +0000
+Subject: Re: games/gomoku
+
+> The gomoku game that was recently added to the tree is not 64 bit clean.
+> Who is going to clean it up?
+
+I just did.  The diff is below.  Not very "unclean" after all.
+(In fact, it took longer to compile than it did to fix...)
+
+After it built, it seems to work fine.
+
+
+
+cgd
+===================================================================
+Index: bdisp.c
+===================================================================
+RCS file: /cvsroot/src/games/gomoku/bdisp.c,v
+retrieving revision 1.2
+diff -c -r1.2 bdisp.c
+*** bdisp.c	1996/12/28 18:56:59	1.2
+--- bdisp.c	1997/01/03 01:06:12
+***************
+*** 46,51 ****
+--- 46,52 ----
+  
+  #include "gomoku.h"
+  #include <stdio.h>
++ #include <string.h>
+  #include <curses.h>
+  
+  #define	SCRNH		24		/* assume 24 lines for the moment */
+Index: pickmove.c
+===================================================================
+RCS file: /cvsroot/src/games/gomoku/pickmove.c,v
+retrieving revision 1.2
+diff -c -r1.2 pickmove.c
+*** pickmove.c	1996/12/28 18:57:04	1.2
+--- pickmove.c	1997/01/03 01:10:35
+***************
+*** 45,50 ****
+--- 45,52 ----
+  #endif /* not lint */
+  
+  #include <stdio.h>
++ #include <stdlib.h>
++ #include <string.h>
+  #include <curses.h>
+  #include <machine/limits.h>
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Thu Jan 2 21:58:40 1997
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: jb@cimlogic.com.au
+Date: Thu, 02 Jan 1997 21:58:40 +0000
+Subject: Re: games/gomoku
+
+> > After it built, it seems to work fine.
+> 
+> Seems to work, yes. Let it run for a while playing (with) itself, and
+> without having looked at what the code does, I'd say that it has a
+> a memory leak. I started it this morning and promply forgot about it
+> since I was working on another machine. In just under 5 hours it has
+> grown to:
+> 
+> USER       PID %CPU %MEM   VSZ  RSS TT  STAT STARTED       TIME COMMAND
+> root     27359  9.3 76.6 31944 19880 p1  R+    8:19AM   76:42.62 ./gomoku -c
+> 
+> and it has only completed 34 of whatever it is doing. The machine is now
+> busily swapping... Of course maybe that is what it is _supposed_ to do.
+> I dunno (don't play games).
+
+So, in less than 45 minutes (i dunno what the total real time was,
+since i was doing other things and wasn't paying attention), it got
+to:
+
+games     1268  0.0 27.4 24488 24928 p2  IN+   8:39PM   17:29.03 gomoku -c -d 
+
+on one of my boxes, and finished its game with itself.  (it won!)
+
+
+That memory-sucking problem looks like it could be bad memory
+fragmentation caused by the BSD malloc.
+
+I added -lgnumalloc to its LDADD, and noticed that:
+	(1) a game finished in < 15 minutes real time.  (It won
+	    again!)
+
+	(2) its memory usage was less, and stable over much of the
+	    lifetime of the game.  ps said at various times (lines
+	    trimmed to fit in 80 columns):
+
+cgd     2491 99.0 13.3 11536 12072 p2  R+    9:38PM    3:35.59 obj/gomoku -c -
+cgd     2491 98.8 13.3 11536 12072 p2  R+    9:38PM    9:12.22 obj/gomoku -c -
+cgd     2491 93.4 13.3 11536 12072 p2  SN+   9:38PM   13:45.27 obj/gomoku -c -
+
+
+It's not clear to me that there is a leak in gomoku, though if
+somebody has access to a good memory profiling and leak-checking tool,
+they're certainly free to look for leaks...
+
+
+I would be tempted to add -lgnumalloc to gomoku's Makefile's LDADD
+variable, and something similar to its DPADD variable, but (if i
+recall) heretofore the "standard" policy has been that libgnumalloc
+shouldn't be used on programs outside of the src/gnu tree.
+
+
+chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Thu Jan 2 23:32:13 1997
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: jb@cimlogic.com.au
+Date: Thu, 02 Jan 1997 23:32:13 +0000
+Subject: Re: games/gomoku
+
+> Chris G Demetriou wrote:
+> > 	(1) a game finished in < 15 minutes real time.  (It won
+> > 	    again!)
+> 
+> I think yours must be cleverer. Mine will go blind before either it
+> or itself wins. My money's on the black, though. 8-)
+> 
+> It is now doing 2 per hour. The virtual size hasn't grown much in the
+> last two hours, it's just really showing up the noname's disk I/O
+> (in-)abilities.
+> 
+> Were you running it on a machine with more than 32M of memory?
+
+96.  8-)
+
+
+chris
+
+From jb@cimlogic.com.au  Fri Jan 3 08:14:30 1997
+From: John Birrell <jb@cimlogic.com.au>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 03 Jan 1997 08:14:30 +0000
+Subject: games/gomoku
+
+G'day,
+
+The gomoku game that was recently added to the tree is not 64 bit clean.
+Who is going to clean it up?
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au; jb@netbsd.org           119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From jb@cimlogic.com.au  Fri Jan 3 13:16:27 1997
+From: John Birrell <jb@cimlogic.com.au>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Fri, 03 Jan 1997 13:16:27 +0000
+Subject: Re: games/gomoku
+
+Chris G Demetriou wrote:
+> > The gomoku game that was recently added to the tree is not 64 bit clean.
+> > Who is going to clean it up?
+> 
+> I just did.  The diff is below.  Not very "unclean" after all.
+> (In fact, it took longer to compile than it did to fix...)
+
+Yeah, I asked before waiting for the compile. 8-)
+
+> 
+> After it built, it seems to work fine.
+
+Seems to work, yes. Let it run for a while playing (with) itself, and
+without having looked at what the code does, I'd say that it has a
+a memory leak. I started it this morning and promply forgot about it
+since I was working on another machine. In just under 5 hours it has
+grown to:
+
+USER       PID %CPU %MEM   VSZ  RSS TT  STAT STARTED       TIME COMMAND
+root     27359  9.3 76.6 31944 19880 p1  R+    8:19AM   76:42.62 ./gomoku -c
+
+and it has only completed 34 of whatever it is doing. The machine is now
+busily swapping... Of course maybe that is what it is _supposed_ to do.
+I dunno (don't play games).
+
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au; jb@netbsd.org           119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From jb@cimlogic.com.au  Fri Jan 3 15:17:46 1997
+From: John Birrell <jb@cimlogic.com.au>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Fri, 03 Jan 1997 15:17:46 +0000
+Subject: Re: games/gomoku
+
+Chris G Demetriou wrote:
+> 	(1) a game finished in < 15 minutes real time.  (It won
+> 	    again!)
+
+I think yours must be cleverer. Mine will go blind before either it
+or itself wins. My money's on the black, though. 8-)
+
+It is now doing 2 per hour. The virtual size hasn't grown much in the
+last two hours, it's just really showing up the noname's disk I/O
+(in-)abilities.
+
+Were you running it on a machine with more than 32M of memory?
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au; jb@netbsd.org           119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From david@mono.org  Fri Jan 3 11:18:47 1997
+From: David Brownlee <david@mono.org>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Fri, 03 Jan 1997 11:18:47 +0000
+Subject: Re: games/gomoku
+
+On Thu, 2 Jan 1997, Chris G Demetriou wrote:
+
+> I would be tempted to add -lgnumalloc to gomoku's Makefile's LDADD
+> variable, and something similar to its DPADD variable, but (if i
+> recall) heretofore the "standard" policy has been that libgnumalloc
+> shouldn't be used on programs outside of the src/gnu tree.
+> 
+	I think FreeBSD has managed to do away with gnumalloc -
+	IIRC someone over therehas come up with a much better 'gnulike'
+	malloc under a BSD copyright, which they can then use
+	everywhere...
+
+	Is it worth someone looking into that?
+	Would anyone be interested in the results of me pulling it down
+	& compiling up my NetBSD boxen to use it?
+
+		David/abs	david@{mono.org,southern.com,mhm-internet.com}
+
+System Manager: Southern Studios Ltd, PO Box 59, London N22 1AR.
+Satisfied User: NetBSD, free Un*x {i386,sparc,mac68k,+more} 'www.netbsd.org'.
+  System Admin: MHM Internet, 14 Barley Mow Passage, Chiswick, London W4 4PH.
+         SysOP: Monochrome, Largest UK Internet BBS - 'telnet mono.org'.
+
+From jb@cimlogic.com.au  Sat Jan 4 07:04:33 1997
+From: John Birrell <jb@cimlogic.com.au>
+To: david@mono.org
+Date: Sat, 04 Jan 1997 07:04:33 +0000
+Subject: Re: games/gomoku
+
+David Brownlee wrote:
+> 	IIRC someone over therehas come up with a much better 'gnulike'
+> 	malloc under a BSD copyright, which they can then use
+> 	everywhere...
+> 
+> 	Is it worth someone looking into that?
+> 	Would anyone be interested in the results of me pulling it down
+> 	& compiling up my NetBSD boxen to use it?
+
+I'd be interested in the results, however I've been told (in private
+mail) that there things in that code that "we don't want to do".
+So even if the differences are dramatic, there is no guarantee that
+NetBSD is even interested. 8-(
+
+> 
+> 		David/abs	david@{mono.org,southern.com,mhm-internet.com}
+
+BTW, in the early hours of this morning, my gomoku finished. It won!
+And so did I, 'cause my money was on black. Damn! I was betting
+against myself. 8-)
+
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au; jb@netbsd.org           119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From jb@cimlogic.com.au  Sat Jan 4 14:21:32 1997
+From: John Birrell <jb@cimlogic.com.au>
+To: thorpej@nas.nasa.gov
+Date: Sat, 04 Jan 1997 14:21:32 +0000
+Subject: Re: games/gomoku
+
+Jason Thorpe wrote:
+>  John Birrell <jb@cimlogic.com.au> wrote:
+>  > I'd be interested in the results, however I've been told (in private
+>  > mail) that there things in that code that "we don't want to do".
+>  > So even if the differences are dramatic, there is no guarantee that
+>  > NetBSD is even interested. 8-(
+> 
+> Well, doing things like opening a config file is ... rather lame for
+> something like malloc(), IMO.  That should be reserved for a debugging
+> malloc...
+> 
+> If the things that "we don't want to do" can be isolated and
+> conditionally compiled into a libdebugmalloc (or some other less
+> icky name :-), I would think that a better malloc would most certainly
+> be welcome.
+
+The FreeBSD malloc only opens a file if you have MALLOC_STATS defined
+and no where in the FreeBSD libc code is that defined. It's just
+like all the DEBUG things that NetBSD has. I think that is reasonable.
+
+> 
+>  > BTW, in the early hours of this morning, my gomoku finished. It won!
+>  > And so did I, 'cause my money was on black. Damn! I was betting
+>  > against myself. 8-)
+> 
+> I'm not really a game player, but something tells me I gotta check
+> this out :-)
+
+Bored too are we? 8-) It's really not *that* exciting.
+
+> 
+> Jason R. Thorpe                                       thorpej@nas.nasa.gov
+> NASA Ames Research Center                               Home: 408.866.1912
+> NAS: M/S 258-6                                          Work: 415.604.0935
+> Moffett Field, CA 94035                                Pager: 415.428.6939
+> 
+
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au; jb@netbsd.org           119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From jb@cimlogic.com.au  Sat Jan 4 18:15:48 1997
+From: John Birrell <jb@cimlogic.com.au>
+To: thorpej@NetBSD.ORG
+Date: Sat, 04 Jan 1997 18:15:48 +0000
+Subject: Re: games/gomoku
+
+I said:
+> The FreeBSD malloc only opens a file if you have MALLOC_STATS defined
+> and no where in the FreeBSD libc code is that defined. It's just
+> like all the DEBUG things that NetBSD has. I think that is reasonable.
+
+Oops, that isn't correct. It still tries to read a config file. Sorry,
+you were right!
+
+I put the FreeBSD malloc in gomoku and look at how it handles the memory:
+
+(some random samples)
+
+root     16895 97.5 33.9  8992 8776 p0  R+    5:43PM    1:20.33 ./gomoku -c
+root     16895 94.6 35.0  9288 9072 p0  R+    5:43PM    1:24.19 ./gomoku -c
+root     16895 96.5 40.7 10768 10552 p0  R+    5:43PM    1:44.10 ./gomoku -c
+root     16895 93.7 41.9 11080 10864 p0  R+    5:43PM    1:47.07 ./gomoku -c
+root     16895 93.5 43.8 11584 11368 p0  R+    5:43PM    1:55.55 ./gomoku -c
+root     16895 92.9 44.7 11808 11600 p0  R+    5:43PM    2:03.08 ./gomoku -c
+root     16895 95.0 28.7  7656 7448 p0  R+    5:43PM    2:19.51 ./gomoku -c
+root     16895 93.0 33.1  8776 8568 p0  R+    5:43PM    2:24.18 ./gomoku -c
+root     16895 91.1 35.3  9360 9152 p0  R+    5:43PM    2:27.39 ./gomoku -c
+root     16895 84.6 37.5  9936 9728 p0  R+    5:43PM    2:31.95 ./gomoku -c
+root     16895 81.8 39.2 10360 10152 p0  R+    5:43PM    2:35.36 ./gomoku -c
+root     16895 76.2 54.7 14400 14192 p0  R+    5:43PM    3:43.68 ./gomoku -c
+root     16895 76.2 54.7 14400 14192 p0  R+    5:43PM    3:45.30 ./gomoku -c
+root     16895 75.1 18.3  4952 4744 p0  R+    5:43PM    3:46.88 ./gomoku -c
+root     16895 77.5 20.5  5520 5312 p0  R+    5:43PM    3:50.75 ./gomoku -c
+root     16895 82.2 23.6  6320 6112 p0  R+    5:43PM    3:58.40 ./gomoku -c
+root     16895 81.3 23.8  6368 6160 p0  R+    5:43PM    4:00.70 ./gomoku -c
+root     16895 79.7 18.3  4952 4744 p0  R+    5:43PM    4:02.11 ./gomoku -c
+root     16895 99.0 31.4  8344 8136 p0  R+    5:43PM    7:03.34 ./gomoku -c
+root     16895 95.8 31.5  8384 8176 p0  R+    5:43PM    7:05.29 ./gomoku -c
+root     16895 93.0 32.7  8680 8472 p0  R+    5:43PM    7:07.15 ./gomoku -c
+root     16895 99.0 40.6 10744 10536 p0  R+    5:43PM   10:56.82 ./gomoku -c
+root     16895 83.6 67.5 21040 17504 p0  R+    5:43PM   15:03.47 ./gomoku -c
+root     16895 82.4 67.6 21056 17544 p0  R+    5:43PM   15:05.70 ./gomoku -c
+root     16895 82.0 71.2 22024 18480 p0  R+    5:43PM   15:57.54 ./gomoku -c
+root     16895 83.1 17.9  6864 4624 p0  R+    5:43PM   16:33.00 ./gomoku -c
+
+Each time the memory usage drops back, it has just chosen a location.
+
+There are few 64 bit issues with the malloc code, mostly to do with the
+use of unsigned integer #defined values. An extra 'L' allows the code to
+work on NetBSD/Alpha. FreeBSD also has an extra option to madvise()
+to free up pages. That is one of the options that the config file
+can give. The options can also come from an environment variable.
+
+So, on my system, gomoku is unusable with NetBSD's malloc, but works
+well with FreeBSD's malloc (even with all the extra sanity checking
+enabled). Food for thought.
+
+PS. gomoku still wins _every_ time. Amazing!
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au; jb@netbsd.org           119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From acas@catt.rmit.edu.au  Mon Jan 6 10:41:13 1997
+From: Andrew Cassin <acas@catt.rmit.edu.au>
+To: jb@cimlogic.com.au
+Date: Mon, 06 Jan 1997 10:41:13 +0000
+Subject: Re: games/gomoku
+
+> The FreeBSD malloc only opens a file if you have MALLOC_STATS defined
+> and no where in the FreeBSD libc code is that defined. It's just
+> like all the DEBUG things that NetBSD has. I think that is reasonable.
+> 
+> > 
+> >  > BTW, in the early hours of this morning, my gomoku finished. It won!
+> >  > And so did I, 'cause my money was on black. Damn! I was betting
+> >  > against myself. 8-)
+> > 
+> > I'm not really a game player, but something tells me I gotta check
+> > this out :-)
+> 
+> Bored too are we? 8-) It's really not *that* exciting.
+
+There is an excellent debugging malloc already available via 
+ftp.letters.com (dmalloc) which will probably satisfy your debugging 
+requirements for malloc() et al. As for speed, AT&T research provide 
+vmalloc with some nifty features 
+(see http://www.research.att.com/orgs/ssr/book/reuse).
+
+Hope this helps,
+
+Andrew Cassin
+acassin@cs.mu.oz.au
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Mon Jan 6 18:08:30 1997
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 06 Jan 1997 18:08:30 +0000
+Subject: I'm out of town (USENIX) until next week...
+
+FYI:
+
+I'm going to be out of town, mostly away from e-mail, for the next
+week.  (I'm going to be at USENIX, in Anaheim, CA.)
+
+
+just thought i'd let you all know.  8-)
+
+
+chris
+
+From tober@bbnplanet.com  Thu Jan 9 11:40:38 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 09 Jan 1997 11:40:38 +0000
+Subject: AXPpci33 and PCIPCI bridges
+
+Well, it appears that even with the latest firmware, our AXPpci33
+systems do _not_ configure PPBs or devices behind PPBs (boo, hiss).  Does
+anyone know whether DEC is aware of and/or whether they might fix this?
+I'm now looking at having to carry our "evil hack" PPB configuration code into
+-current.  Perhaps PCI configuration is done by the SROM code and not the
+firmware, I'm not sure.  Does anyone know the latest version for the
+AXPpci33 SROM code and have access to it?  I'm very surprised that this issue
+hasn't been fixed, as PPBs aren't really obscure or exotic - we're supposed
+to be able to have uniquitous multifunction PCI peripherals that contain
+them, for example.
+-ben
+
+From matt@lkg.dec.com  Thu Jan 9 14:49:33 1997
+From: Matt Thomas <matt@lkg.dec.com>
+To: tober@bbnplanet.com
+Date: Thu, 09 Jan 1997 14:49:33 +0000
+Subject: Re: AXPpci33 and PCIPCI bridges
+
+The AXPpci33 is a fairly old design and during it's firmware development
+PPBs where just a gleam in some chip designer's eye.  Well, maybe not but
+you get the idea.  To add PPB support to the AXPpci33 firmware would be a
+significant development effort and due to relatively low volumes of AXPpci33
+board sold, it's not cost effective to due so.
+
+So it's highly unlikely that you'll ever PPB support for the AXPpci33.
+
+The EB164 and PC164 motherboards are recent to support PPBs...
+-- 
+Matt Thomas               Internet:   matt@3am-software.com
+3am Software Foundry      WWW URL:    http://www.3am-software.com/bio/matt.html
+Westford, MA              Disclaimer: I disavow all knowledge of this message
+
+From tober@bbnplanet.com  Thu Jan 9 15:09:35 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: matt@lkg.dec.com
+Date: Thu, 09 Jan 1997 15:09:35 +0000
+Subject: Re: AXPpci33 and PCIPCI bridges
+
+> 
+> 
+> The AXPpci33 is a fairly old design and during it's firmware development
+> PPBs where just a gleam in some chip designer's eye.  Well, maybe not but
+> you get the idea.  To add PPB support to the AXPpci33 firmware would be a
+> significant development effort and due to relatively low volumes of AXPpci33
+> board sold, it's not cost effective to due so.
+> 
+> So it's highly unlikely that you'll ever PPB support for the AXPpci33.
+> 
+> The EB164 and PC164 motherboards are recent to support PPBs...
+Understood.  I am, however, dealing with hardware which was chosen long
+ago and the choice of which cannot be changed at this time.  Not that it
+matters for this particular project, but would you happen to know whether
+the Multia is as PPB-stupid as the AXPpci33?
+-ben
+
+From perry@piermont.com  Fri Jan 10 00:57:41 1997
+From: Perry E. Metzger <perry@piermont.com>
+To: port-alpha@NetBSD.ORG, port-i386@NetBSD.ORG, current-users@NetBSD.ORG
+Date: Fri, 10 Jan 1997 00:57:41 +0000
+Subject: NCR driver upgrade in -current
+
+I have committed the latest fixes/upgrades to NCR SCSI driver from
+FreeBSD (and ported to NetBSD by Dave Huang <khym@bga.com>)
+
+This was tested on alpha by cgd, and tested on several i386 boxes. I
+stressed it hard on my machine and it still lived. This patch almost
+certainly causes no overall harm to the goddamned mess, but the NCR
+driver only works when you perform voodoo rituals on it anyway.
+
+This is what Dave said (in email) has been added to the driver:
+
+  ----------------------------------------------------------------------
+  This seems to be the most significant change:
+  General cleanup and new features for 53c875 based cards, especially the
+  Tekram DC390W/U/F, whose config EEPROM can now be dumped, if the kernel
+  is built with option NCR_TEKRAM_EEPROM.
+
+  Other changes:
+
+  - add brackets to expansion of OUTB/W/L macro arguments.
+  - remove unused NCB structure element ns_async
+  - support sync. SCSI offset of 16 (instead of only 8) on 825A and 875
+  - correctly identify 53c810A and 53c825A chips
+  - preserve SCSI BIOS settings of PCI performance options
+  - remove (already disabled) support for NCR reset because of command timeout
+  - reverse order of reading of SCSI and DMA specific interrupt cause registers
+  - add definition of Tekram config EEPROM contents (not currently used)
+  ----------------------------------------------------------------------
+
+From khym@bga.com  Fri Jan 10 00:29:03 1997
+From: Dave Huang <khym@bga.com>
+To: current-users@NetBSD.ORG
+Date: Fri, 10 Jan 1997 00:29:03 +0000
+Subject: Re: NCR driver upgrade in -current
+
+BTW, the update also fixes the problem a couple of people were having with
+xmcd locking up the scsi bus
+--
+Name: Dave Huang     |   Mammal, mammal / their names are called /
+INet: khym@bga.com   |   they raise a paw / the bat, the cat /
+FurryMUCK: Dahan     |   dolphin and dog / koala bear and hog -- TMBG
+Dahan: Hani G Y+C 21 Y++ L+++ W- C++ T++ A+ E+ S++ V++ F- Q+++ P+ B+ PA+ PL++
+
+From tls@panix.com  Fri Jan 10 01:42:30 1997
+From: Thor Lancelot Simon <tls@panix.com>
+To: port-alpha@NetBSD.ORG, port-i386@NetBSD.ORG, current-users@NetBSD.ORG
+Date: Fri, 10 Jan 1997 01:42:30 +0000
+Subject: Re: NCR driver upgrade in -current
+
+Does it support the onboard command RAM on the 810A, 825A, 865, and 875?
+
+If it does, it might actually "solve" some of the nastier problems for
+free, not to mention run a lot faster on some machines.
+
+Thor
+
+From dillema@pegasus.esprit.ec.org  Fri Jan 10 14:00:57 1997
+From: Feico Dillema <dillema@pegasus.esprit.ec.org>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 10 Jan 1997 14:00:57 +0000
+Subject: BNC/AUI support for alpha UDB.
+
+Hello,
+
+I'd like to  know whether somebody is working on BNC support for the
+`de' ethernet driver (maybe it's already there, but my -current system of 23 
+december does not seem to support it. just made a quick test so I could be
+wrong...). It would be very useful to me, cause it would sve me some money
+in connecting machines at home. I seem to remember
+from a previous discussion on this  list that the problem is known, but
+has a low implementation-priority. If so, could you inform me of the
+nature of the problem and what needs to be done to solve it. Maybe I could
+try to get it to work (althouhg I'm not an experienced kernel hacker of 
+any kind...).
+
+greetings,
+
+{ Feico Dillema,                                                        }
+{ University of Twente, P.O. Box 217, 7500 AE Enschede, The Netherlands }
+{ I'm a Natural Blond; Please Type Slowly...                            }
+
+From cjs@portal.ca  Fri Jan 10 11:08:16 1997
+From: Curt Sampson <cjs@portal.ca>
+To: dillema@pegasus.esprit.ec.org
+Date: Fri, 10 Jan 1997 11:08:16 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+On Fri, 10 Jan 1997, Feico Dillema wrote:
+
+> I'd like to  know whether somebody is working on BNC support for the
+> `de' ethernet driver....
+
+I was working on this, but someone (I can't remember who) convinced
+me to fix several problems with the 3c59x/3c90x ethernet cards
+first, and I borrowed a 10base-T hub, so this has managed to drop
+down a ways on my list.
+
+> If so, could you inform me of the
+> nature of the problem and what needs to be done to solve it. Maybe I could
+> try to get it to work (althouhg I'm not an experienced kernel hacker of 
+> any kind...).
+
+There's something, somewhere, we're not frobbing right to turn on
+that 10base-2 port. It can be done, since Linux seems to do it. I
+don't think that the problem needs any huge amount of expertise to
+solve, either, though it may require a fair amount of time just
+grovelling about in code.
+
+If you're interested in looking at this, we'd be glad of your help.
+The relevant part in NetBSD is the tulip_dc21040_media_select()
+function in src/sys/dev/pci/if_de.c. There's something not being done
+there which is being done in linux/drivers/net/de4x5.c.
+
+Under Linux, the kernel boot messages for BNC are:
+
+    eth0: DE434/5 at b000 (PCI bus 0, device 8), h/w address 08:00:2b:e4:1a:cd,
+	  and requires IRQ10 (provided by PCI BIOS).
+    de4x5.c:v0.41 96/3/21 davies@wanton.lkg.dec.com
+    eth0: media is EXT SIA.
+
+and for AI are:
+
+    eth0: DE434/5 at b000 (PCI bus 0, device 8), h/w address 08:00:2b:e5:26:91,
+	  and requires IRQ10 (provided by PCI BIOS).
+    de4x5.c:v0.41 96/3/21 davies@wanton.lkg.dec.com
+    eth0: media is BNC/AUI.
+
+Feel free to contact me through private e-mail if you have any
+further questions, or if you want me to dig about for any further
+docs I might have kicking around.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From ross@teraflop.com  Fri Jan 10 12:19:00 1997
+From: Ross Harvey <ross@teraflop.com>
+To: cjs@portal.ca, dillema@pegasus.esprit.ec.org
+Date: Fri, 10 Jan 1997 12:19:00 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+start for another month or so, but I would be happy to provide information
+to someone working on things now.
+
+One important note: the various DEC EN chips (21040, 21041, 21140) are NOT
+compatible, just similar. So if you just have one manual, you can break
+things...the driver is generally a common code set making run-time
+distinctions between the chips.
+
+Note also that these chips are in widespread general use...it's not
+just an alpha issue.
+
+ross@teraflop.com
+
+From jkatz@corinne.mac.edu  Fri Jan 10 16:20:27 1997
+From: J. Joseph Max Katz <jkatz@corinne.mac.edu>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 10 Jan 1997 16:20:27 +0000
+Subject: AXP 3000/300 console
+
+Greetings!
+	I know the WWW pages at netbsd.org show that the console on the
+3000/300 workstations is not supported. Is this still true? I may be
+getting one of these machines soon and could possibly work on some
+support.... (I still have to get the machine first...)
+
+  -Jon	  MacMurray College Sophomore (officially, after JTerm!)
+jkatz@corinne.mac.edu	Running OpenBSD 2.0   Hacking?
+root@corinne.mac.edu	 ///////|\\\\\\\	
+---------------------------------------------------------------------
+
+From John.C.Hayward@wheaton.edu  Sat Jan 11 11:19:34 1997
+From: John C. Hayward <John.C.Hayward@wheaton.edu>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 11 Jan 1997 11:19:34 +0000
+Subject: Alpha Recommendation Query
+
+Dear Alpha People,
+   We are in the process or distributing our network services on various
+machines.  Since NetBSD is well connected with Sendmail, DNS and so on
+we are considering using some Alphas running NetBSD for these services.
+With last falls sale of varioius Multia's we were thinking of using
+some of these inexpensive Alphas for doing various things and having a
+spare around to plug in as a replacement.  
+   Last Fall it seemed that the 166MHZ multia was going for $800 and in
+smaller supply the 233MHZ for $1100.
+   Any suggestions for what might be a good Alpha which NetBSD is
+supported which would be good for such a pupose?
+   If not we will probably get some Pent-Pros and put the i386 port
+up.
+
+TIA for any pointers.
+johnh...
+
+From tober@bbnplanet.com  Mon Jan 13 15:59:07 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 13 Jan 1997 15:59:07 +0000
+Subject: installboot problem
+
+I find that even in single-user mode, at security level 0, installboot complains
+about "read-only filesystem" when writing the disklabel.  This is when
+I invoke it as follows -
+	/usr/mdec/installboot /boot /usr/mdec/bootxx /dev/rsd1a
+(note that this is on a system which has root mounted from sd1a)
+which seems to me ought to be the correct way to invoke it.  As I said, this
+is with the machine in single-user mode and / mounted read/write.  The 
+installboot binary being used is that from the 11/27 snap.
+-ben
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 18:12:26 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: tober@bbnplanet.com
+Date: Mon, 13 Jan 1997 18:12:26 +0000
+Subject: Re: installboot problem
+
+> I find that even in single-user mode, at security level 0, installboot complains
+> about "read-only filesystem" when writing the disklabel.  This is when
+> I invoke it as follows -
+> 	/usr/mdec/installboot /boot /usr/mdec/bootxx /dev/rsd1a
+> (note that this is on a system which has root mounted from sd1a)
+> which seems to me ought to be the correct way to invoke it.  As I said, this
+> is with the machine in single-user mode and / mounted read/write.  The 
+> installboot binary being used is that from the 11/27 snap.
+
+Right.  this is a simple, but serious, problem with all
+installboot-like programs (i.e. the one used on the alpha, and the
+ones used on other ports).
+
+The problem is that 'installboot' needs read-write access to the
+partition containing a mounted file system.  That's a no-no.
+
+The way to get around it (grab a trash can; you're going to vomit) is
+to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+above.  That happens to work since the disk handling code doesn't
+disallow read/write accesses to partitions overlapping mounted file
+systems (at least in this case) and because both 'a' and 'c' start at
+the same place on the disk.
+
+
+If you had your 'a' partition start somewhere else on the disk, this
+might not work, but then i'm not so sure that that NetBSD/alpha boot
+block would work, either.  8-)
+
+
+chris
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 20:12:22 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: ross@teraflop.com
+Date: Mon, 13 Jan 1997 20:12:22 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+> Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+> start for another month or so, but I would be happy to provide information
+> to someone working on things now.
+
+Unfortunately, this won't help the BNC problem on the UDB.
+
+from what i've gathered:
+	(1) the selection of BNC/AUI or TP is done by an on-chip
+	    register, but
+
+	(2) (at least on the multia) the selection of BNC or AUI
+	    (once you've selected the BNC/AUI setting on the chip)
+	    is done via a multia-specific register that's somewhere
+	    in the Multia's motherboard register spaces (i.e. _not_
+	    in the 21040's PCI configuraton, I/O, or memory space).
+
+
+The right databook to have in this situation is a multia technical
+reference manual.  The 21x4x databooks may be peripherally useful, but
+won't help solve the problem at hand.
+
+
+> Note also that these chips are in widespread general use...it's not
+> just an alpha issue.
+
+As far as I'm aware, the Multia BNC issues Really Are specific to the
+implementation of the built-in ethernet on the Multia, and have no
+significance to the rest of the world.
+
+At least for some boards (e.d. the DE500, or whichever has AUI, BNC,
+and TP), media selection works quite nicely.
+
+
+cgd
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 20:12:22 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: ross@teraflop.com
+Date: Mon, 13 Jan 1997 20:12:22 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+> Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+> start for another month or so, but I would be happy to provide information
+> to someone working on things now.
+
+Unfortunately, this won't help the BNC problem on the UDB.
+
+from what i've gathered:
+	(1) the selection of BNC/AUI or TP is done by an on-chip
+	    register, but
+
+	(2) (at least on the multia) the selection of BNC or AUI
+	    (once you've selected the BNC/AUI setting on the chip)
+	    is done via a multia-specific register that's somewhere
+	    in the Multia's motherboard register spaces (i.e. _not_
+	    in the 21040's PCI configuraton, I/O, or memory space).
+
+
+The right databook to have in this situation is a multia technical
+reference manual.  The 21x4x databooks may be peripherally useful, but
+won't help solve the problem at hand.
+
+
+> Note also that these chips are in widespread general use...it's not
+> just an alpha issue.
+
+As far as I'm aware, the Multia BNC issues Really Are specific to the
+implementation of the built-in ethernet on the Multia, and have no
+significance to the rest of the world.
+
+At least for some boards (e.d. the DE500, or whichever has AUI, BNC,
+and TP), media selection works quite nicely.
+
+
+cgd
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 20:12:22 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: ross@teraflop.com
+Date: Mon, 13 Jan 1997 20:12:22 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+> Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+> start for another month or so, but I would be happy to provide information
+> to someone working on things now.
+
+Unfortunately, this won't help the BNC problem on the UDB.
+
+from what i've gathered:
+	(1) the selection of BNC/AUI or TP is done by an on-chip
+	    register, but
+
+	(2) (at least on the multia) the selection of BNC or AUI
+	    (once you've selected the BNC/AUI setting on the chip)
+	    is done via a multia-specific register that's somewhere
+	    in the Multia's motherboard register spaces (i.e. _not_
+	    in the 21040's PCI configuraton, I/O, or memory space).
+
+
+The right databook to have in this situation is a multia technical
+reference manual.  The 21x4x databooks may be peripherally useful, but
+won't help solve the problem at hand.
+
+
+> Note also that these chips are in widespread general use...it's not
+> just an alpha issue.
+
+As far as I'm aware, the Multia BNC issues Really Are specific to the
+implementation of the built-in ethernet on the Multia, and have no
+significance to the rest of the world.
+
+At least for some boards (e.d. the DE500, or whichever has AUI, BNC,
+and TP), media selection works quite nicely.
+
+
+cgd
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 20:12:22 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: ross@teraflop.com
+Date: Mon, 13 Jan 1997 20:12:22 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+> Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+> start for another month or so, but I would be happy to provide information
+> to someone working on things now.
+
+Unfortunately, this won't help the BNC problem on the UDB.
+
+from what i've gathered:
+	(1) the selection of BNC/AUI or TP is done by an on-chip
+	    register, but
+
+	(2) (at least on the multia) the selection of BNC or AUI
+	    (once you've selected the BNC/AUI setting on the chip)
+	    is done via a multia-specific register that's somewhere
+	    in the Multia's motherboard register spaces (i.e. _not_
+	    in the 21040's PCI configuraton, I/O, or memory space).
+
+
+The right databook to have in this situation is a multia technical
+reference manual.  The 21x4x databooks may be peripherally useful, but
+won't help solve the problem at hand.
+
+
+> Note also that these chips are in widespread general use...it's not
+> just an alpha issue.
+
+As far as I'm aware, the Multia BNC issues Really Are specific to the
+implementation of the built-in ethernet on the Multia, and have no
+significance to the rest of the world.
+
+At least for some boards (e.d. the DE500, or whichever has AUI, BNC,
+and TP), media selection works quite nicely.
+
+
+cgd
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 20:12:22 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: ross@teraflop.com
+Date: Mon, 13 Jan 1997 20:12:22 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+> Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+> start for another month or so, but I would be happy to provide information
+> to someone working on things now.
+
+Unfortunately, this won't help the BNC problem on the UDB.
+
+from what i've gathered:
+	(1) the selection of BNC/AUI or TP is done by an on-chip
+	    register, but
+
+	(2) (at least on the multia) the selection of BNC or AUI
+	    (once you've selected the BNC/AUI setting on the chip)
+	    is done via a multia-specific register that's somewhere
+	    in the Multia's motherboard register spaces (i.e. _not_
+	    in the 21040's PCI configuraton, I/O, or memory space).
+
+
+The right databook to have in this situation is a multia technical
+reference manual.  The 21x4x databooks may be peripherally useful, but
+won't help solve the problem at hand.
+
+
+> Note also that these chips are in widespread general use...it's not
+> just an alpha issue.
+
+As far as I'm aware, the Multia BNC issues Really Are specific to the
+implementation of the built-in ethernet on the Multia, and have no
+significance to the rest of the world.
+
+At least for some boards (e.d. the DE500, or whichever has AUI, BNC,
+and TP), media selection works quite nicely.
+
+
+cgd
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 20:12:22 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: ross@teraflop.com
+Date: Mon, 13 Jan 1997 20:12:22 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+> Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+> start for another month or so, but I would be happy to provide information
+> to someone working on things now.
+
+Unfortunately, this won't help the BNC problem on the UDB.
+
+from what i've gathered:
+	(1) the selection of BNC/AUI or TP is done by an on-chip
+	    register, but
+
+	(2) (at least on the multia) the selection of BNC or AUI
+	    (once you've selected the BNC/AUI setting on the chip)
+	    is done via a multia-specific register that's somewhere
+	    in the Multia's motherboard register spaces (i.e. _not_
+	    in the 21040's PCI configuraton, I/O, or memory space).
+
+
+The right databook to have in this situation is a multia technical
+reference manual.  The 21x4x databooks may be peripherally useful, but
+won't help solve the problem at hand.
+
+
+> Note also that these chips are in widespread general use...it's not
+> just an alpha issue.
+
+As far as I'm aware, the Multia BNC issues Really Are specific to the
+implementation of the built-in ethernet on the Multia, and have no
+significance to the rest of the world.
+
+At least for some boards (e.d. the DE500, or whichever has AUI, BNC,
+and TP), media selection works quite nicely.
+
+
+cgd
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 20:12:22 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: ross@teraflop.com
+Date: Mon, 13 Jan 1997 20:12:22 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+> Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+> start for another month or so, but I would be happy to provide information
+> to someone working on things now.
+
+Unfortunately, this won't help the BNC problem on the UDB.
+
+from what i've gathered:
+	(1) the selection of BNC/AUI or TP is done by an on-chip
+	    register, but
+
+	(2) (at least on the multia) the selection of BNC or AUI
+	    (once you've selected the BNC/AUI setting on the chip)
+	    is done via a multia-specific register that's somewhere
+	    in the Multia's motherboard register spaces (i.e. _not_
+	    in the 21040's PCI configuraton, I/O, or memory space).
+
+
+The right databook to have in this situation is a multia technical
+reference manual.  The 21x4x databooks may be peripherally useful, but
+won't help solve the problem at hand.
+
+
+> Note also that these chips are in widespread general use...it's not
+> just an alpha issue.
+
+As far as I'm aware, the Multia BNC issues Really Are specific to the
+implementation of the built-in ethernet on the Multia, and have no
+significance to the rest of the world.
+
+At least for some boards (e.d. the DE500, or whichever has AUI, BNC,
+and TP), media selection works quite nicely.
+
+
+cgd
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 20:12:22 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: ross@teraflop.com
+Date: Mon, 13 Jan 1997 20:12:22 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+> Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+> start for another month or so, but I would be happy to provide information
+> to someone working on things now.
+
+Unfortunately, this won't help the BNC problem on the UDB.
+
+from what i've gathered:
+	(1) the selection of BNC/AUI or TP is done by an on-chip
+	    register, but
+
+	(2) (at least on the multia) the selection of BNC or AUI
+	    (once you've selected the BNC/AUI setting on the chip)
+	    is done via a multia-specific register that's somewhere
+	    in the Multia's motherboard register spaces (i.e. _not_
+	    in the 21040's PCI configuraton, I/O, or memory space).
+
+
+The right databook to have in this situation is a multia technical
+reference manual.  The 21x4x databooks may be peripherally useful, but
+won't help solve the problem at hand.
+
+
+> Note also that these chips are in widespread general use...it's not
+> just an alpha issue.
+
+As far as I'm aware, the Multia BNC issues Really Are specific to the
+implementation of the built-in ethernet on the Multia, and have no
+significance to the rest of the world.
+
+At least for some boards (e.d. the DE500, or whichever has AUI, BNC,
+and TP), media selection works quite nicely.
+
+
+cgd
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 20:12:22 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: ross@teraflop.com
+Date: Mon, 13 Jan 1997 20:12:22 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+> Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+> start for another month or so, but I would be happy to provide information
+> to someone working on things now.
+
+Unfortunately, this won't help the BNC problem on the UDB.
+
+from what i've gathered:
+	(1) the selection of BNC/AUI or TP is done by an on-chip
+	    register, but
+
+	(2) (at least on the multia) the selection of BNC or AUI
+	    (once you've selected the BNC/AUI setting on the chip)
+	    is done via a multia-specific register that's somewhere
+	    in the Multia's motherboard register spaces (i.e. _not_
+	    in the 21040's PCI configuraton, I/O, or memory space).
+
+
+The right databook to have in this situation is a multia technical
+reference manual.  The 21x4x databooks may be peripherally useful, but
+won't help solve the problem at hand.
+
+
+> Note also that these chips are in widespread general use...it's not
+> just an alpha issue.
+
+As far as I'm aware, the Multia BNC issues Really Are specific to the
+implementation of the built-in ethernet on the Multia, and have no
+significance to the rest of the world.
+
+At least for some boards (e.d. the DE500, or whichever has AUI, BNC,
+and TP), media selection works quite nicely.
+
+
+cgd
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 20:12:22 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: ross@teraflop.com
+Date: Mon, 13 Jan 1997 20:12:22 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+> Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+> start for another month or so, but I would be happy to provide information
+> to someone working on things now.
+
+Unfortunately, this won't help the BNC problem on the UDB.
+
+from what i've gathered:
+	(1) the selection of BNC/AUI or TP is done by an on-chip
+	    register, but
+
+	(2) (at least on the multia) the selection of BNC or AUI
+	    (once you've selected the BNC/AUI setting on the chip)
+	    is done via a multia-specific register that's somewhere
+	    in the Multia's motherboard register spaces (i.e. _not_
+	    in the 21040's PCI configuraton, I/O, or memory space).
+
+
+The right databook to have in this situation is a multia technical
+reference manual.  The 21x4x databooks may be peripherally useful, but
+won't help solve the problem at hand.
+
+
+> Note also that these chips are in widespread general use...it's not
+> just an alpha issue.
+
+As far as I'm aware, the Multia BNC issues Really Are specific to the
+implementation of the built-in ethernet on the Multia, and have no
+significance to the rest of the world.
+
+At least for some boards (e.d. the DE500, or whichever has AUI, BNC,
+and TP), media selection works quite nicely.
+
+
+cgd
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 20:12:22 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: ross@teraflop.com
+Date: Mon, 13 Jan 1997 20:12:22 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+> Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+> start for another month or so, but I would be happy to provide information
+> to someone working on things now.
+
+Unfortunately, this won't help the BNC problem on the UDB.
+
+from what i've gathered:
+	(1) the selection of BNC/AUI or TP is done by an on-chip
+	    register, but
+
+	(2) (at least on the multia) the selection of BNC or AUI
+	    (once you've selected the BNC/AUI setting on the chip)
+	    is done via a multia-specific register that's somewhere
+	    in the Multia's motherboard register spaces (i.e. _not_
+	    in the 21040's PCI configuraton, I/O, or memory space).
+
+
+The right databook to have in this situation is a multia technical
+reference manual.  The 21x4x databooks may be peripherally useful, but
+won't help solve the problem at hand.
+
+
+> Note also that these chips are in widespread general use...it's not
+> just an alpha issue.
+
+As far as I'm aware, the Multia BNC issues Really Are specific to the
+implementation of the built-in ethernet on the Multia, and have no
+significance to the rest of the world.
+
+At least for some boards (e.d. the DE500, or whichever has AUI, BNC,
+and TP), media selection works quite nicely.
+
+
+cgd
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 20:12:22 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: ross@teraflop.com
+Date: Mon, 13 Jan 1997 20:12:22 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+> Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+> start for another month or so, but I would be happy to provide information
+> to someone working on things now.
+
+Unfortunately, this won't help the BNC problem on the UDB.
+
+from what i've gathered:
+	(1) the selection of BNC/AUI or TP is done by an on-chip
+	    register, but
+
+	(2) (at least on the multia) the selection of BNC or AUI
+	    (once you've selected the BNC/AUI setting on the chip)
+	    is done via a multia-specific register that's somewhere
+	    in the Multia's motherboard register spaces (i.e. _not_
+	    in the 21040's PCI configuraton, I/O, or memory space).
+
+
+The right databook to have in this situation is a multia technical
+reference manual.  The 21x4x databooks may be peripherally useful, but
+won't help solve the problem at hand.
+
+
+> Note also that these chips are in widespread general use...it's not
+> just an alpha issue.
+
+As far as I'm aware, the Multia BNC issues Really Are specific to the
+implementation of the built-in ethernet on the Multia, and have no
+significance to the rest of the world.
+
+At least for some boards (e.d. the DE500, or whichever has AUI, BNC,
+and TP), media selection works quite nicely.
+
+
+cgd
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 20:12:22 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: ross@teraflop.com
+Date: Mon, 13 Jan 1997 20:12:22 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+> Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+> start for another month or so, but I would be happy to provide information
+> to someone working on things now.
+
+Unfortunately, this won't help the BNC problem on the UDB.
+
+from what i've gathered:
+	(1) the selection of BNC/AUI or TP is done by an on-chip
+	    register, but
+
+	(2) (at least on the multia) the selection of BNC or AUI
+	    (once you've selected the BNC/AUI setting on the chip)
+	    is done via a multia-specific register that's somewhere
+	    in the Multia's motherboard register spaces (i.e. _not_
+	    in the 21040's PCI configuraton, I/O, or memory space).
+
+
+The right databook to have in this situation is a multia technical
+reference manual.  The 21x4x databooks may be peripherally useful, but
+won't help solve the problem at hand.
+
+
+> Note also that these chips are in widespread general use...it's not
+> just an alpha issue.
+
+As far as I'm aware, the Multia BNC issues Really Are specific to the
+implementation of the built-in ethernet on the Multia, and have no
+significance to the rest of the world.
+
+At least for some boards (e.d. the DE500, or whichever has AUI, BNC,
+and TP), media selection works quite nicely.
+
+
+cgd
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Jan 13 20:12:22 1997
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: ross@teraflop.com
+Date: Mon, 13 Jan 1997 20:12:22 +0000
+Subject: Re: BNC/AUI support for alpha UDB.
+
+> Avalon has ALL the dec ethernet chip manuals. Our netbsd project won't
+> start for another month or so, but I would be happy to provide information
+> to someone working on things now.
+
+Unfortunately, this won't help the BNC problem on the UDB.
+
+from what i've gathered:
+	(1) the selection of BNC/AUI or TP is done by an on-chip
+	    register, but
+
+	(2) (at least on the multia) the selection of BNC or AUI
+	    (once you've selected the BNC/AUI setting on the chip)
+	    is done via a multia-specific register that's somewhere
+	    in the Multia's motherboard register spaces (i.e. _not_
+	    in the 21040's PCI configuraton, I/O, or memory space).
+
+
+The right databook to have in this situation is a multia technical
+reference manual.  The 21x4x databooks may be peripherally useful, but
+won't help solve the problem at hand.
+
+
+> Note also that these chips are in widespread general use...it's not
+> just an alpha issue.
+
+As far as I'm aware, the Multia BNC issues Really Are specific to the
+implementation of the built-in ethernet on the Multia, and have no
+significance to the rest of the world.
+
+At least for some boards (e.d. the DE500, or whichever has AUI, BNC,
+and TP), media selection works quite nicely.
+
+
+cgd
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From tober@bbnplanet.com  Tue Jan 14 07:03:12 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 14 Jan 1997 07:03:12 +0000
+Subject: Re: installboot problem
+
+> Right.  this is a simple, but serious, problem with all
+> installboot-like programs (i.e. the one used on the alpha, and the
+> ones used on other ports).
+> 
+> The problem is that 'installboot' needs read-write access to the
+> partition containing a mounted file system.  That's a no-no.
+> 
+> The way to get around it (grab a trash can; you're going to vomit) is
+> to use the disk's c partition, i.e. '/dev/rsd1c' for the example given
+> above.  That happens to work since the disk handling code doesn't
+> disallow read/write accesses to partitions overlapping mounted file
+> systems (at least in this case) and because both 'a' and 'c' start at
+> the same place on the disk.
+> 
+> 
+> If you had your 'a' partition start somewhere else on the disk, this
+> might not work, but then i'm not so sure that that NetBSD/alpha boot
+> block would work, either.  8-)
+
+Thanks.  This being the case, I suggest that, at least in the interim,
+the examples on the installboot manual page and/or the example in the 
+Alpha port FAQ be changed to reflect reality.  For the longer term, it
+is probably a worthy goal to do one of the following - either
+1.  Not have installboot require that the root filesystem be mounted, and,
+in fact, have it require that it be run on an unmounted disk.  This would
+require putting some filesystem code into installboot (similar to the
+standalone filesystem stuff for systems that support things like a standalone
+fsck) and would also prohibit running installboot on the current root
+filesystem.
+-or-
+2.  Introduce some kind of new interface to the kernel for writing a boot
+block.  This is probably the real right thing to do for a number of reasons.
+The interface could be as simple as a pseudopartition that exists for all
+disks and is guaranteed to address the boot block and only the boot block.
+Also, really, no filesystem partition really ought to address the boot block,
+as the boot block is itself not part of any filesystem.  Probably in the
+future the 'a' partition of the disk should begin after the disk label and
+boot block and any related crud instead of at the beginning of the disk,
+although this would run counter to what the OEM Unix would do on those ports
+that have OEM Unixes to worry about.
+-ben
+
+From mycroft@gnu.ai.mit.edu  Tue Jan 14 13:50:54 1997
+From: Charles M. Hannum <mycroft@gnu.ai.mit.edu>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 14 Jan 1997 13:50:54 +0000
+Subject: READ ME: Duplicate messages
+
+Due to a configuration error on the mail server, numerous duplicates
+of a few messages to this list were sent out within the last day or
+so.  I have fixed the configuration error and removed the duplicates
+from the queue, so the problem should be fixed.
+
+In the future. if you notice duplicate messages coming through the
+NetBSD mailing lists, please send mail to `postmaster@netbsd.org' as
+soon as possible, with complete copies (including all headers,
+especially the `Received:' lines) of at least 2 of the duplicates.
+
+(For the record, I'm not the person who screwed it up.  B-))
+
+From cgd@CS.cmu.edu  Tue Jan 14 20:16:58 1997
+From: Chris G. Demetriou <cgd@CS.cmu.edu>
+To: tober@bbnplanet.COM
+Date: Tue, 14 Jan 1997 20:16:58 +0000
+Subject: Re: installboot problem
+
+> Thanks.  This being the case, I suggest that, at least in the interim,
+> the examples on the installboot manual page and/or the example in the 
+> Alpha port FAQ be changed to reflect reality.  For the longer term, it
+> is probably a worthy goal to do one of the following - either
+
+That's probably reasonable, but i think i'd like to fix it right...
+
+
+> 1.  Not have installboot require that the root filesystem be mounted, and,
+> in fact, have it require that it be run on an unmounted disk.  This would
+> require putting some filesystem code into installboot (similar to the
+> standalone filesystem stuff for systems that support things like a standalone
+> fsck) and would also prohibit running installboot on the current root
+> filesystem.
+
+Of course, the latter condition make this somewhat unreasonable...
+
+
+> 2.  Introduce some kind of new interface to the kernel for writing a boot
+> block.  This is probably the real right thing to do for a number of reasons.
+> The interface could be as simple as a pseudopartition that exists for all
+> disks and is guaranteed to address the boot block and only the boot block.
+> Also, really, no filesystem partition really ought to address the boot block,
+> as the boot block is itself not part of any filesystem.  Probably in the
+> future the 'a' partition of the disk should begin after the disk label and
+> boot block and any related crud instead of at the beginning of the disk,
+> although this would run counter to what the OEM Unix would do on those ports
+> that have OEM Unixes to worry about.
+
+While that's a nice sentiment, right now NetBSD/Alpha disks are
+'compatible' with several other systems' (e.g. DU, probably
+NetBSD/i386 w/o lots of bios partitions, and probably several other
+little endian ffs-using systems) disk formats and i'd rather keep it
+that way.
+
+Also, putting this code into the kernel makes it harder to come up
+with a machine-independent "disklabel and boot-block frobbing"
+library, later.
+
+
+It looks like 'the right solution' to this might not be too hard.
+I'll look into it, and see what i can do...
+
+
+chris
+
+From tober@bbnplanet.com  Wed Jan 15 10:45:16 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 15 Jan 1997 10:45:16 +0000
+Subject: Alpha X server limitations
+
+I've noticed that the X server (from the November 27 binary snapshot) doesn't
+seem to support the caps lock key as such, the keyboard LEDs, or automatic
+key repeat.  I find at least the last of these annoying enough that I'd be
+willing to work on fixing it.  Before I start, however, I wanted to check
+whether anyone else might already be working on this.
+-ben
+
+From cgd@CS.cmu.edu  Fri Jan 17 16:24:12 1997
+From: Chris G. Demetriou <cgd@CS.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 17 Jan 1997 16:24:12 +0000
+Subject: netbooting machines with old firmware?
+
+So, anybody out there get the 'your firmware is too old' message while
+trying to netboot?
+
+I've got what i'd like to think is a workaround for this (based on
+some of my earlier experimentation with netbooting), but i need it
+tested before I check it in.
+
+If you send me your ethernet address, i'll send you a 'netboot' binary
+which may or may not work.  (probably "will not" work, but should get
+closer to working, and will enable me to make some changes so
+hopefully it _will_ work...)
+
+
+chris
+
+From cgd@CS.cmu.edu  Mon Jan 20 14:57:24 1997
+From: Chris G. Demetriou <cgd@CS.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 20 Jan 1997 14:57:24 +0000
+Subject: FYI: recent boot block changes...
+
+So, as some of you have noticed, i've been doing a fair bunch of work
+on the boot blocks lately.
+
+The goals have been to:
+	(1) clean them up,
+	(2) make them support network booting on older firmware
+	    machines,
+	(3) make them support booting gzipped kernel images (thanks
+	    to the work of Matthias Drochner, who's been doing
+	    some similar work on bootblocks for the x86).
+
+(2) is somewhat interesting: my initial work with netbooting was done
+on old-firmware machines, so i knew it was possible (and even knew the
+... weird tricks necessary to make ti work).  This was actually
+necessitated by the fact that I could netboot my 3000/300LX only with
+old firmware.  (New firmware results in tftp checksum errors when i
+tried to load my boot block... and apparently there are some folks in
+DEC who think this is a "hardware problem."  *chuckle*)
+
+The real problem with netbooting from old-firmware machines was
+finding out the machine's ethernet address (which the boot block needs
+to send out its own bootp requests).  With older versions of firmware,
+there's no way (that documented; there might be an undocumented way)
+to get the machine's ethernet address without groveling around in the
+hardware, which i _really_ want/wanted to avoid.
+
+Therefore, my solution was to write a program
+(/usr/mdec/setnetbootinfo) which can hard-code an ethernet address
+into a network boot block.  (There are other issues that have to be
+dealt with, e.g. the semantics of 'read' are ... weird, at least on my
+3000/300LX -- i'd like to see what others run into with old
+firmware...)
+
+Unfortunately, i've not yet written documentation for setnetbootinfo.
+8-)
+
+
+(1) and (3) haven't been completely integrated yet, but should be
+soon.
+
+
+As noted in the 'GENERIC' kernel config file (and the current default
+for GENERIC kernel builds) you need the kernel to be linked at a
+higher address than normal to netboot successfully.  (I don't know why
+this is, but i've got a few guesses...)
+
+
+Anyway, the new boot blocks work on all the machines i've tested
+(AlphaStation 200, AlphaStation 255, DEC 3000/300LX), and so i'm
+putting binaries up for your consumption.
+
+The /usr/mdec binaries are at:
+	ftp://ftp.netbsd.org/pub/incoming/cgd/mdec-970120.tar.gz
+
+
+Would people who want to netboot old-firmware machines please try out
+the 'netboot' and 'setnetboot' programs there?  if you run into
+problems, send me mail...
+
+
+cgd
+
+From cgd@CS.cmu.edu  Tue Jan 21 18:01:59 1997
+From: Chris G. Demetriou <cgd@CS.cmu.edu>
+To: John.C.Hayward@wheaton.edu
+Date: Tue, 21 Jan 1997 18:01:59 +0000
+Subject: Re: Alpha Recommendation Query
+
+>    We are in the process or distributing our network services on various
+> machines.  Since NetBSD is well connected with Sendmail, DNS and so on
+> we are considering using some Alphas running NetBSD for these services.
+> With last falls sale of varioius Multia's we were thinking of using
+> some of these inexpensive Alphas for doing various things and having a
+> spare around to plug in as a replacement.  
+>    Last Fall it seemed that the 166MHZ multia was going for $800 and in
+> smaller supply the 233MHZ for $1100.
+>    Any suggestions for what might be a good Alpha which NetBSD is
+> supported which would be good for such a pupose?
+>    If not we will probably get some Pent-Pros and put the i386 port
+> up.
+
+So, Multias, etc., are (in my experience, at least) sturdy little
+boxes, but ... rather slow.
+
+If you're thinking machines comparable to Pentium Pro systems, i'd say
+you're looking for systems with either a high-end 21064A cpu (e.g. the
+faster versions of the AlphaStation 255), or with a low-end 21164[A]
+(e.g. the AlphaStation 500 and 600, or the eb164/pc164
+motherboard-based systems).
+
+
+AlphaStation 200/400/255 systems are my primary development machines,
+and they work great.
+
+AlphaStation 500 and 600 systems work, but their built-in SCSI
+controllers aren't supported, and so you need to add an NCR 53c810
+SCSI board (an '815 board, or a board based on any other member of the
+53c8xx family _will not_ due, since the firmware won't recognize it).
+
+The eb164/pc164 systems are being mass-marketed these days.  They
+_almost_ work with NetBSD.  (NetBSD boots on them, but for some
+reason, just about all binaries croak ... rather quickly.)  I'm in the
+process of trying to debug that, now.
+
+
+
+
+chris
+
+From cgd@CS.cmu.edu  Tue Jan 21 18:15:08 1997
+From: Chris G. Demetriou <cgd@CS.cmu.edu>
+To: tober@bbnplanet.com
+Date: Tue, 21 Jan 1997 18:15:08 +0000
+Subject: Re: installboot problem
+
+> Thanks.  This being the case, I suggest that, at least in the interim,
+> the examples on the installboot manual page and/or the example in the 
+> Alpha port FAQ be changed to reflect reality.
+
+So, this is what I did.  I also made the current reality the 'correct'
+behaviour, while i was at it.  8-)
+
+
+Though it's not particularly useful, you can now put "boot" (i.e. the
+second-stage bootstrap) on any (FFS) file system on the boot disk that
+you'd like, but you can still only load your kernel off of the 'a'
+partition.
+
+
+
+chris
+
+From gallatin@cs.duke.edu  Wed Jan 22 09:01:16 1997
+From: Andrew Gallatin <gallatin@cs.duke.edu>
+To: John.C.Hayward@wheaton.edu
+Date: Wed, 22 Jan 1997 09:01:16 +0000
+Subject: Re: Alpha Recommendation Query
+
+Chris G. Demetriou writes:
+ > >    We are in the process or distributing our network services on various
+ > > machines.  Since NetBSD is well connected with Sendmail, DNS and so on
+ > > we are considering using some Alphas running NetBSD for these services.
+ > > With last falls sale of varioius Multia's we were thinking of using
+ > > some of these inexpensive Alphas for doing various things and having a
+ > > spare around to plug in as a replacement.  
+ > >    Last Fall it seemed that the 166MHZ multia was going for $800 and in
+ > > smaller supply the 233MHZ for $1100.
+ > >    Any suggestions for what might be a good Alpha which NetBSD is
+ > > supported which would be good for such a pupose?
+ > >    If not we will probably get some Pent-Pros and put the i386 port
+ > > up.
+ > 
+ > So, Multias, etc., are (in my experience, at least) sturdy little
+ > boxes, but ... rather slow.
+ > 
+ > If you're thinking machines comparable to Pentium Pro systems, i'd say
+ > you're looking for systems with either a high-end 21064A cpu (e.g. the
+ > faster versions of the AlphaStation 255), or with a low-end 21164[A]
+ > (e.g. the AlphaStation 500 and 600, or the eb164/pc164
+ > motherboard-based systems).
+ > 
+ > 
+ > AlphaStation 200/400/255 systems are my primary development machines,
+ > and they work great.
+
+DCG claims to have cheap 200 4/233's.  These are 233Mhz 21064a's
+w/512k L2 cache. $2300 for a 32MB, 1G system, $2800 for a 64MB, 2GB
+system.  Keep in mind that NetBSD will not run X with the graphics
+cards he's listing here (PowerStorm 3D10 & ZLXp-E2).  See
+http://www.dcginc.com/alpha233.htm
+
+I've never bought anything from this guy, but a friend of mine who's
+shopping for an alpha just ordered one from here & passed the URL on to
+me.
+
+Drew
+
+------------------------------------------------------------------------------
+Duke University				Internet:	gallatin@cs.duke.edu
+Department of Computer Science		Phone:		(919) 660-6590
+
+From cjs@portal.ca  Wed Jan 22 11:35:22 1997
+From: Curt Sampson <cjs@portal.ca>
+To: gallatin@cs.duke.edu
+Date: Wed, 22 Jan 1997 11:35:22 +0000
+Subject: Re: Alpha Recommendation Query
+
+On Wed, 22 Jan 1997, Andrew Gallatin wrote:
+
+> DCG claims to have cheap 200 4/233's.  These are 233Mhz 21064a's
+> w/512k L2 cache. $2300 for a 32MB, 1G system...
+> I've never bought anything from this guy, but a friend of mine who's
+> shopping for an alpha just ordered one from here & passed the URL on to
+> me.
+
+I bought my Multia from DCG. They seem fine and reliable; I had no
+problem getting technical information (such as jumper settings for
+various resolutions of the video `card') out of them, and my Mulita
+shipped with a reasonable tech. manual.
+
+Keep in mind these `cheap' 200s are still getting on twice the
+price of a similarly configured Multia. If someone was looking in the
+$1000 range, they're not going to get a `real' Alpha.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From cgd@CS.cmu.edu  Fri Jan 24 20:41:47 1997
+From: Chris G. Demetriou <cgd@CS.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 24 Jan 1997 20:41:47 +0000
+Subject: 'de' driver messages?
+
+anybody seen messages like:
+
+de0: enabling 10baseT port
+de0: link down: cable problem?
+de0: enabling 10baseT port
+de0: link down: cable problem?
+de0: enabling 10baseT port
+de0: link down: cable problem?
+de0: enabling 10baseT port
+
+from the new 'de' driver?
+
+i often see them when booting my AlphaStation 200s with kernels with
+the new driver.
+
+I've never seen one occur after the interface is ifconfig'd up, but
+they often appear (randomly, it would seem) up until that time...
+
+
+
+anybody?
+
+
+cgd
+
+From mjacob@feral.com  Fri Jan 24 18:20:42 1997
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG, cgd@CS.cmu.edu
+Date: Fri, 24 Jan 1997 18:20:42 +0000
+Subject: Re: 'de' driver messages?
+
+Yes, I saw that, whined at Jason, then I said I would look at
+it 'next week'. Whereupon, at home on my multia, I was unable
+to reproduce the problem.
+
+From oster@cs.usask.ca  Sat Jan 25 18:42:16 1997
+From: Greg Oster <oster@cs.usask.ca>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 25 Jan 1997 18:42:16 +0000
+Subject: External SIA on Multia (A FIX!!!!)
+
+Hi
+
+I'm happy to report that I think I've tracked down the little bug that was not
+letting the External SIA port work on my Multia.  
+
+I'm not sure if this will fix the bug Chris has been seeing recently, but it 
+may
+fix  PR 3141 (just posted by Matthias Scheler)
+
+The fix is relative to /src/sys/dev/pci/if_de.c (as of Jan 13 12:20 -- i.e. 
+-current), and basically consists of changing a "300" to a "3000".  (I'm not 
+sure if the other minor change is strictly needed)  (The 300 (which was likely 
+just a typo) wasn't a long enough delay, and interrupts were being lost 
+somewhere... (at least that's my theory).)
+
+(I've included a diff at the end.. not sure how well it will travel through 
+the mail though :-/ )
+
+My multia now says:
+ de0: enabling External SIA port
+when it boots (although the message sometimes takes a little while to appear) 
+and the BNC connection works like a charm...
+
+Later...
+
+Greg Oster
+
+oster@cs.usask.ca
+Department of Computer Science
+University of Saskatchewan, Saskatoon, Saskatchewan, CANADA
+----8<----8<----8<----
+oster@rizzo-7> diff -p if_de.c if_de.c.orig
+*** if_de.c     Sat Jan 25 18:06:44 1997
+--- if_de.c.orig        Thu Jan 23 19:48:37 1997
+*************** tulip_media_poll(
+*** 773,779 ****
+               event == TULIP_MEDIAPOLL_TXPROBE_FAILED ? "txprobe failed" : 
+"timeout",
+               tulip_mediums[sc->tulip_probe_media]);
+  #endif
+!       sc->tulip_probe_timeout = TULIP_IS_MEDIA_TP(sc->tulip_probe_media) ? 
+2500 : 3000;
+        sc->tulip_probe_state = TULIP_PROBE_MEDIATEST;
+        sc->tulip_probe.probe_txprobes = 0;
+        tulip_reset(sc);
+--- 773,779 ----
+               event == TULIP_MEDIAPOLL_TXPROBE_FAILED ? "txprobe failed" : 
+"timeout",
+               tulip_mediums[sc->tulip_probe_media]);
+  #endif
+!       sc->tulip_probe_timeout = TULIP_IS_MEDIA_TP(sc->tulip_probe_media) ? 
+2500 : 300;
+        sc->tulip_probe_state = TULIP_PROBE_MEDIATEST;
+        sc->tulip_probe.probe_txprobes = 0;
+        tulip_reset(sc);
+*************** tulip_21040_mediainfo_init(
+*** 853,859 ****
+        TULIP_MEDIAINFO_SIA_INIT(sc, &sc->tulip_mediainfo[2], 21040, AUIBNC);
+      }
+  
+!     if (media == TULIP_MEDIA_EXTSIA || media == TULIP_MEDIA_UNKNOWN) {
+        TULIP_MEDIAINFO_SIA_INIT(sc, &sc->tulip_mediainfo[3], 21040, EXTSIA);
+      }
+  }
+--- 853,859 ----
+        TULIP_MEDIAINFO_SIA_INIT(sc, &sc->tulip_mediainfo[2], 21040, AUIBNC);
+      }
+  
+!     if (media == TULIP_MEDIA_UNKNOWN) {
+        TULIP_MEDIAINFO_SIA_INIT(sc, &sc->tulip_mediainfo[3], 21040, EXTSIA);
+      }
+  }
+
+From tron@lyssa.owl.de  Sun Jan 26 02:49:06 1997
+From: Matthias Scheler <tron@lyssa.owl.de>
+To: oster@cs.usask.ca
+Date: Sun, 26 Jan 1997 02:49:06 +0000
+Subject: Re: External SIA on Multia (A FIX!!!!)
+
+Greg Oster said:
+> I'm not sure if this will fix the bug Chris has been seeing recently, but it 
+> may fix  PR 3141 (just posted by Matthias Scheler)
+
+I'm sorry but it doesn't. With this fix the "cable problem" message appear
+slower but the problem remains.
+
+-- 
+Matthias Scheler				http://colwyn.owl.de/~tron/
+
+From cgd@CS.cmu.edu  Tue Jan 28 14:30:59 1997
+From: Chris G. Demetriou <cgd@CS.cmu.edu>
+To: tober@bbnplanet.com
+Date: Tue, 28 Jan 1997 14:30:59 +0000
+Subject: Re: Alpha X server limitations
+
+> I've noticed that the X server (from the November 27 binary snapshot) doesn't
+> seem to support the caps lock key as such, the keyboard LEDs, or automatic
+> key repeat.  I find at least the last of these annoying enough that I'd be
+> willing to work on fixing it.  Before I start, however, I wanted to check
+> whether anyone else might already be working on this.
+
+So, there are lots of limitations with Alpha X server support right now.
+
+Crappy keyboard support is one of them.  The other big one is "no
+support for anything other than the TGA."  8-)
+
+I'm in the process of seriously whacking the console interface used by
+the Alphas, which should at least allow some of these problems to be
+addressed in a sane manner.  (I've been in the process of doing this
+for a while, but things have been stalled recently.  8-)
+
+It should be to a point within a few days where it's ready to be
+released to the world, if i can beat an X server into working
+properly.
+
+
+Several notes/comments here:
+
+	(1) the new console interface will break existing X servers.
+
+	(2) we still need to get alpha X support into some
+	    maintainable state, preferably into the Xfree86 tree.
+	    Unfortunately, it's not clear to me that it'll drop
+	    easily into XFree86 because of the assumptions made
+	    in that code about access to system resources.
+
+	(3) I hate hacking X, and want to minimize the amount of
+	    X hacking that I have to do.  8-)
+
+chris
+
+From tober@bbnplanet.com  Tue Jan 28 14:44:43 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: cgd@cs.cmu.edu
+Date: Tue, 28 Jan 1997 14:44:43 +0000
+Subject: Re: Alpha X server limitations
+
+> So, there are lots of limitations with Alpha X server support right now.
+> 
+> Crappy keyboard support is one of them.  The other big one is "no
+> support for anything other than the TGA."  8-)
+> 
+> I'm in the process of seriously whacking the console interface used by
+> the Alphas, which should at least allow some of these problems to be
+> addressed in a sane manner.  (I've been in the process of doing this
+> for a while, but things have been stalled recently.  8-)
+> 
+> It should be to a point within a few days where it's ready to be
+> released to the world, if i can beat an X server into working
+> properly.
+> 
+> 
+> Several notes/comments here:
+> 
+> 	(1) the new console interface will break existing X servers.
+> 
+> 	(2) we still need to get alpha X support into some
+> 	    maintainable state, preferably into the Xfree86 tree.
+> 	    Unfortunately, it's not clear to me that it'll drop
+> 	    easily into XFree86 because of the assumptions made
+> 	    in that code about access to system resources.
+> 
+> 	(3) I hate hacking X, and want to minimize the amount of
+> 	    X hacking that I have to do.  8-)
+> 
+> chris	
+How different is the new console from the console facility provided by
+Linux on the Alpha?  Supposedly, XFree86 is working with Linux on the Alpha,
+and, unless there are good ideological reasons for doing so, things probably
+ought to be made such that the code in XFree86 need not be that different
+for Linux/Alpha and NetBSD/Alpha.
+-ben
+
+From thorpej@nas.nasa.gov  Tue Jan 28 11:51:15 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: tober@bbnplanet.com
+Date: Tue, 28 Jan 1997 11:51:15 +0000
+Subject: Re: Alpha X server limitations
+
+On Tue, 28 Jan 1997 14:44:43 -0500 (EST) 
+ Ben Tober <tober@bbnplanet.com> wrote:
+
+ > How different is the new console from the console facility provided by
+ > Linux on the Alpha?  Supposedly, XFree86 is working with Linux on the Alpha,
+ > and, unless there are good ideological reasons for doing so, things probably
+ > ought to be made such that the code in XFree86 need not be that different
+ > for Linux/Alpha and NetBSD/Alpha.
+ > -ben
+
+As I understand it, the Linux console stuff is designed to make it
+look like a PC.  This is totally the wrong model for things like
+the TurboChannel framebuffers (like on my DEC 3000/400 :-).
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From tober@bbnplanet.com  Tue Jan 28 15:17:32 1997
+From: Ben Tober <tober@bbnplanet.com>
+To: thorpej@nas.nasa.gov
+Date: Tue, 28 Jan 1997 15:17:32 +0000
+Subject: Re: Alpha X server limitations
+
+> 
+> As I understand it, the Linux console stuff is designed to make it
+> look like a PC.  This is totally the wrong model for things like
+> the TurboChannel framebuffers (like on my DEC 3000/400 :-).
+>
+Hmm, this could be the wrong impression, but I believe that console
+interfaces (in the context of X) usually just deal with the keyboard and
+possibly the mouse but usually not the framebuffer.  I thought that
+framebuffers were generally mmap()'d into the address space of the X server.
+How would that be an inapplicable technique for a TC framebuffer?  It
+always seemed pretty generic to me.  Granted, it doesn't necessarily work
+well where the framebuffer occupies some IO address space (which generally
+could not be mmap()'d, or at least on some CPUs could not be) and the X
+server needs to have high-performance access to that IO address space.
+In that case, in fact, I'm not sure how one should deal with it...
+-ben
+
+From cgd@CS.cmu.edu  Tue Jan 28 15:26:31 1997
+From: Chris G. Demetriou <cgd@CS.cmu.edu>
+To: tober@bbnplanet.COM
+Date: Tue, 28 Jan 1997 15:26:31 +0000
+Subject: Re: Alpha X server limitations
+
+> Hmm, this could be the wrong impression, but I believe that console
+> interfaces (in the context of X) usually just deal with the keyboard and
+> possibly the mouse but usually not the framebuffer.  I thought that
+> framebuffers were generally mmap()'d into the address space of the X server.
+
+Right.
+
+"How do you find out what there is to map, and how do you map it?"
+
+
+In what i'd call a sane world, you open a device, say, /dev/ttyE0
+which corresponds to the frame buffer device, ask it what it is, how
+much of it can be mapped, and then mmap it using that device.
+
+As far as I can tell, Xfree86 on the alpha and x86 wants to do
+something like the following for PCI frame buffers:
+
+	(1) grovel around PCI configuration space to see what
+	    frame buffer devices exist in the machine,
+
+	(2) groven around PCI configuration space some more
+	    to see where they're mapped into the system address
+	    space,
+
+	(3) map that with /dev/mem.
+
+
+That'd be equivalent to encoding information about what TC slots were
+where in the TC Alphas, then looking in those slots' ROMs to find an
+ID that is known to be a TC video board, etc.
+
+"wrong."
+
+
+
+cgd
+
+From thorpej@nas.nasa.gov  Tue Jan 28 13:15:07 1997
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: tober@bbnplanet.com
+Date: Tue, 28 Jan 1997 13:15:07 +0000
+Subject: Re: Alpha X server limitations
+
+On Tue, 28 Jan 1997 15:17:32 -0500 (EST) 
+ Ben Tober <tober@bbnplanet.com> wrote:
+
+ > Hmm, this could be the wrong impression, but I believe that console
+ > interfaces (in the context of X) usually just deal with the keyboard and
+ > possibly the mouse but usually not the framebuffer.  I thought that
+ > framebuffers were generally mmap()'d into the address space of the X server.
+ > How would that be an inapplicable technique for a TC framebuffer?  It
+ > always seemed pretty generic to me.  Granted, it doesn't necessarily work
+ > well where the framebuffer occupies some IO address space (which generally
+ > could not be mmap()'d, or at least on some CPUs could not be) and the X
+ > server needs to have high-performance access to that IO address space.
+ > In that case, in fact, I'm not sure how one should deal with it...
+ > -ben
+
+Oh, well, in the case of keyboards and mice, the Alpha wscons stuff
+looks very much like the Sun event stuff, which is fairly well
+supported in X :-)
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From cgd@CS.cmu.edu  Tue Jan 28 16:25:18 1997
+From: Chris G. Demetriou <cgd@CS.cmu.edu>
+To: thorpej@nas.nasa.gov
+Date: Tue, 28 Jan 1997 16:25:18 +0000
+Subject: Re: Alpha X server limitations
+
+> Oh, well, in the case of keyboards and mice, the Alpha wscons stuff
+> looks very much like the Sun event stuff, which is fairly well
+> supported in X :-)
+
+"Very much" and not "exactly" because one of the goals here was to
+have a clean, consistent, "integrated" interface.  As a result, I
+didn't think necessary or appropriate to pick up the 'other baggage'
+that went with the Sun firm_event interface (which in turn was cloned
+from the SunOS interfaces).
+
+
+
+cgd
+
+From cgd@CS.cmu.edu  Tue Jan 28 17:43:51 1997
+From: Chris G. Demetriou <cgd@CS.cmu.edu>
+To: tober@bbnplanet.COM
+Date: Tue, 28 Jan 1997 17:43:51 +0000
+Subject: Re: Alpha X server limitations
+
+> How different is the new console from the console facility provided by
+> Linux on the Alpha?
+
+"very."
+
+> Supposedly, XFree86 is working with Linux on the Alpha,
+> and, unless there are good ideological reasons for doing so, things probably
+> ought to be made such that the code in XFree86 need not be that different
+> for Linux/Alpha and NetBSD/Alpha.
+
+OK, where should i start?
+
+(1) Alpha Linux's console interface is, from what I can tell, i386
+Linux's console interface (perhaps with a few tweaks).  They basically
+said "these are PCs on speed."  That is quite simply _wrong_,
+especially if there's any desire to support turbochannel frame
+buffers.
+
+(2) the existing X server code in Xfree86 on the Alpha uses functions
+'inb()' and 'outb()', with their traditional arguments.  What do they
+mean (what _can_ they mean) if you've got multiple ISA or multiple
+primary PCI busses?  What do they mean on systems that look nothing
+like PCs?
+
+(3) XFree86 is completely wrongheaded in the way it does frame bufffer
+detection.  Basically, it looks through PCI configuration space (on
+Alpha Linux by using some routines in libc(?), from what i can tell
+reading the mailing lists), figures out what frame buffers are there,
+where they are in /dev/mem, and accesses them that way.  _That_ is
+totally wrong-headed, as well.  It might make sense for PCs, and on
+OSes that have no reasonable console interface, but it doesn't make
+sense on workstations or on systems with console interfaces which
+actually do a fair bit of work (e.g. detecting generic 'classes' of
+devices for you).
+
+(4) I want a console interface that can be picked up by other ports;
+i'm already aware of one port-in-progress that's planning to use it.
+
+
+
+Quite honestly ... i'm not impressed by the XFree86 support for the
+Alpha.
+
+
+cgd
+

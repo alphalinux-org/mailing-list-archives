@@ -1,0 +1,5133 @@
+From qv@sparky.iol.unh.edu  Fri Nov 1 12:46:56 1996
+From: Quaizar Vohra <qv@sparky.iol.unh.edu>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 01 Nov 1996 12:46:56 +0000
+Subject: Turbochannel Ethernet interface
+
+Hi,
+	Does anybody know if there is any problem with turbochannel
+ethernet interface on a sandpiper (3000/400).
+I get an error "le: reg did not settle (to x0): xa6b3"
+
+Quaizar
+
+From tih@nhh.no  Fri Nov 1 23:24:38 1996
+From: Tom I Helbekkmo <tih@nhh.no>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 01 Nov 1996 23:24:38 +0000
+Subject: Kerberos bug bites alpha port
+
+There's a little bug in domestic/lib/libkrb/tf_util.c; a left-over
+case of assuming that longs are four bytes.
+
+*** tf_util.c.ORIG	Mon Dec 25 13:09:20 1995
+--- tf_util.c	Fri Nov  1 22:55:20 1996
+***************
+*** 86,92 ****
+   *              int             lifetime
+   *              int             kvno
+   *              KTEXT_ST        ticket_st
+!  *              long            issue_date
+   *
+   * Short description of routines:
+   *
+--- 86,92 ----
+   *              int             lifetime
+   *              int             kvno
+   *              KTEXT_ST        ticket_st
+!  *              int32_t         issue_date
+   *
+   * Short description of routines:
+   *
+***************
+*** 570,577 ****
+      if (write(fd, (char *) (ticket->dat), count) != count)
+  	goto bad;
+      /* Issue date */
+!     if (write(fd, (char *) &issue_date, sizeof(long))
+! 	!= sizeof(long))
+  	goto bad;
+  
+      /* Actually, we should check each write for success */
+--- 570,577 ----
+      if (write(fd, (char *) (ticket->dat), count) != count)
+  	goto bad;
+      /* Issue date */
+!     if (write(fd, (char *) &issue_date, sizeof(issue_date))
+! 	!= sizeof(issue_date))
+  	goto bad;
+  
+      /* Actually, we should check each write for success */
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Fri Nov 1 19:12:34 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: tih@nhh.no
+Date: Fri, 01 Nov 1996 19:12:34 +0000
+Subject: Re: Kerberos bug bites alpha port
+
+> There's a little bug in domestic/lib/libkrb/tf_util.c; a left-over
+> case of assuming that longs are four bytes.
+
+Left-over?  I'm not sure i've ever completely compiled the kerberos
+code on the Alpha...  8-)
+
+Other than that, is it working for you?
+
+
+
+chris
+
+From tih@nhh.no  Sat Nov 2 12:32:54 1996
+From: Tom I Helbekkmo <tih@nhh.no>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Sat, 02 Nov 1996 12:32:54 +0000
+Subject: Re: Kerberos bug bites alpha port
+
+On Fri, 1 Nov 1996, Chris G Demetriou wrote:
+
+> Other than that, is it working for you?
+
+Kerberos IV works fine so far -- but I haven't beaten on it very hard.
+However, authenticated and encrypted telnet connections work, and so
+does Amanda (the U of Maryland backup system) after I fixed the bugs in
+_their_ code.
+
+-tih
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Sun Nov 3 01:16:50 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: tm@squonk.net
+Date: Sun, 03 Nov 1996 01:16:50 +0000
+Subject: Re: NetBSD crashes on boot
+
+Sorry for the delay in replying, but i've been out of town.  Anyway...
+
+> I'm trying to get NetBSD running on my Alpha Multia.  I'm able to load
+> NetBSD, but it crashes soon after loading.  :-(
+
+Hmm.  I see that you've got one of the 233MHz Multias.  Is anybody
+else running NetBSD in one?  (All of the multias have the same CPU,
+the 21066, right?  I've got a 166MHz one here, but can't crack it open
+right now to double-check...)
+
+Have you updated your firmware to the latest revision?  It (along with
+instructions) should be somewhere under:
+
+	ftp://ftp.digital.com/pub/DEC/Alpha/firmware
+
+I seem to recall somebody (John Birrell, maybe?) running into problems
+like these a long time ago...  If you've not tried to upgrade your
+firmware, i'd strongly suggest that you do ASAP.  You should be able
+to put a firmware image on to a floppy with another UN*X machine or a
+DOS system.
+
+Please tell me (or the list) the results of booting with the new
+firmware.
+
+
+> The following is a log of what happens.  BTW, if it makes a difference,
+> it's a headless system.  Any ideas on what's wrong?  Also, is there 
+> anything that can be done about the unknown vendor complaints?
+
+Headlessness shouldn't make a difference.  See above for one idea on
+what's wrong, but I dunno why that would cause the symptoms you're
+seeing.
+
+All of the 'weird' kernel messages (from the unkonwn 0x200d/0x00c2
+devices to the apparent pcivga recognition) seem bogus.  Also, a 'tga'
+should be been recognized, since the Multia includes a TGA frame
+buffer (and it should have shown up even if you're not using it).
+Note also that the thing which claimed to be a PCI VGA board
+apperently wasn't responding to cursor-position-query I/O port
+accesses in a very 'normal' manner (which makes sense, since there
+wasn't any real PCI VGA board there! 8-).
+
+The many lines of register dumps and machine checks, etc., are caused
+by the firmware losing.  This lends (a bit of) credence to the theory
+that the firmware is to blame.
+
+
+Try the latest firmware, please, and get back to me/us...
+
+
+chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Mon Nov 4 11:43:25 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: qv@sparky.iol.unh.edu
+Date: Mon, 04 Nov 1996 11:43:25 +0000
+Subject: Re: Turbochannel Ethernet interface
+
+> 	Does anybody know if there is any problem with turbochannel
+> ethernet interface on a sandpiper (3000/400).
+> I get an error "le: reg did not settle (to x0): xa6b3"
+
+I've not heard anybody else report this problem.  I don't have any
+3000/400s, but I do have a 3000/300LX and it works fine.  As far as I
+know, others are running on 3000/400s and haven't seen that message...
+
+Anybody?
+
+
+chris
+
+From cjs@portal.ca  Tue Nov 5 13:10:57 1996
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 05 Nov 1996 13:10:57 +0000
+Subject: Multia Booting, Console Type and Font
+
+My Multia finally arrived yesterday, and I'm quite pleased with it
+so far. It's one of the 233 MHz/512K cache/24M RAM/500M disk models,
+and it boots along like stink compared to my Sparcstation 1. :-)
+I bought it from DCG (www.dcginc.com) for $1100, and it came
+pre-loaded with Red Hat Linux.
+
+I noticed that it seems to have both the ARC and the SRM consoles
+built-in. It starts up with an SRM console prompt, and if the ARC
+console is enabled it says `Loading ARC' and then runs that.
+Switching back and forth is easy; I didn't need to reload any
+firmware.
+
+I was under the impression that Linux needed its own firmware to
+load, but it seems that Red Hat, at least, now loads up using the
+ARC.  There is (or rather, was :-)) a 1.5 MB DOS partition at the
+beginning of the disk with an exe program and the milo loader in
+it. I quick perusal shows that this change happened just couple of
+weeks ago. As it turns out, it's a nifty little idea, except that
+a) you've got to have a DOS-type partition table and MBR on your
+disk, and b) you can't compile it without a Windows NT developer
+kit.
+
+Also, I noticed that the CPU when I got it was marked `233 MHz' on
+the heat sink, but someone had set the jumpers to run it at 266
+MHz. (I noticed this when I did a hardware list in the ARC monitor
+actually.) I've heard that a couple of people have overclocked to
+266 Mhz without problems, but I'm wondering if it's worth the risk.
+
+(Just as a quickie benchmark I tried out a Dhrystone test. At 233
+MHz it's about equivalant to a 133 MHz Pentium, and at 266 MHz it's
+about equivalant to what I calculated a 150 MHz Pentium should be.)
+
+At any rate, I got all my stuff loaded up via a Jaz drive, and
+wiped the disk, and copied everything over there. My next concern
+is setting the machine up so that I can boot something if I blow
+up my drive. The easiest thing looks to be to just set up another
+bootable Jaz disk with a known good OS on it. But before I go out
+and spend $125 on this, is there any support for booting from
+floppy?
+
+Also, what is the terminal type of the built-in video console?
+vt100 sort of works, but there seem to be things about it that
+don't work.  And is there any chance we can get a smaller font?
+I'm sure the current one looks very nice on a 19" monitor at 1280
+x 1024, but on my little old monochrome monitor, which supports
+only 640 x 480, it gives me a 53 column by 21 line screen that
+reminds me of a VIC-20. (Ok, so it's not quite that bad... :-))
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From cjs@portal.ca  Tue Nov 5 15:25:01 1996
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 05 Nov 1996 15:25:01 +0000
+Subject: bin.tar.gz vs. rz25-image.gz
+
+I'm not really clear on whether I need to install bin.tar.gz if
+I've set up a disk from the rz25-image.gz disk image. Does the
+latter include everything that the former has in it?
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From cjs@portal.ca  Tue Nov 5 16:23:29 1996
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 05 Nov 1996 16:23:29 +0000
+Subject: Booting in single-user mode
+
+Oh, and sorry to be a pest, but there's one more thing. My Multia
+insists on booting up in single-user mode. I've checked the SRM
+environment variables, and there are no flags set. When the NetBSD
+bootstrap starts, it says that it's pasing "" as the flags. Yet
+init seems to decide that it's got a `-s' flag and goes single-user.
+Has anyone any idea what's causing this?
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From cjs@portal.ca  Tue Nov 5 22:01:42 1996
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 05 Nov 1996 22:01:42 +0000
+Subject: Booting With Serial Console on Multia
+
+Is there anything special that needs to be done to a kernel to let
+a Multia  boot from a serial console, rather than a VGA/keyboard
+console? I'm just using the standard generic kernel, and it panics
+when it tries to initialise wscons. I've attached a boot log to
+the end of this message.
+
+One thing that looks rather odd is that when I boot from the graphics
+console, the kernel detects a tga device, but when I boot from a
+serial console the kernel detects a pcivga device instead.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+>>>boot dka0
+(boot dka0.0.0.6.0)
+block 0 of dka0.0.0.6.0 is a valid boot block
+reading 15 blocks from dka0.0.0.6.0
+bootstrap code read in
+base = 166000, image_start = 0, image_bytes = 1e00
+initializing HWRPB at 2000
+initializing page table at 158000
+initializing machine state
+setting affinity to the primary CPU
+jumping to bootstrap code
+
+NetBSD/Alpha primary boot...
+Jumping to entry point...
+
+
+NetBSD/Alpha boot, Revision $NetBSD: version,v 1.5 1996/05/09 23:54:18 cgd Exp $
+(cgd@bunnahabhain.pdl.cs.cmu.edu, Fri Sep 13 16:10:36 EDT 1996)
+
+VMS PAL revision: 0x1000000010530
+OSF PAL rev: 0x1000000020123
+Switch to OSF PAL code succeeded.
+
+boot_dev = "SCSI 0 6 0 0 0 0 0"
+boot_file = ""
+boot_flags = ""
+boot_console = "0"
+Boot: /netbsd 
+1420032+137984+118752
+calling fffffc0000230000 with 1e7, ac, 4, 200266c0, 0
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+        The Regents of the University of California.  All rights reserved.
+
+NetBSD 1.2 (GENERIC) #78: Fri Sep 13 12:09:37 EDT 1996
+    cgd@bunnahabhain.pdl.cs.cmu.edu:/usr/src/sys/arch/alpha/compile/GENERIC
+Alpha PC AXPpci33 ("NoName"), 233MHz
+8192 byte page size, 1 processor.
+real mem = 25165824 (2424832 reserved for PROM, 22740992 used by NetBSD)
+avail mem = 16080896
+using 277 buffers containing 2269184 bytes of memory
+mainbus0 (root)
+cpu0 at mainbus0: 21066/21068 (LCA4), UNKNOWN MINOR TYPE (2)
+cpu0: VAX FP support, IEEE FP support, Primary Eligible
+lca0 at mainbus0
+pci0 at lca0 bus 0
+unknown vendor 0x200d product 0x00c2 (class prehistoric, unknown subclass 0xc2, revision 0x0d) at pci0 dev 0 function 0 not configured
+unknown vendor 0x200d product 0x00c2 (class prehistoric, unknown subclass 0xc2, revision 0x0d) at pci0 dev 1 function 0 not configured
+unknown vendor 0x200d product 0x00c2 (class prehistoric, unknown subclass 0xc2, revision 0x0d) at pci0 dev 2 function 0 not configured
+unknown vendor 0x200d product 0x00c2 (class prehistoric, unknown subclass 0xc2, revision 0x0d) at pci0 dev 3 function 0 not configured
+unknown vendor 0x200d product 0x00c2 (class prehistoric, unknown subclass 0xc2, revision 0x0d) at pci0 dev 4 function 0 not configured
+unknown vendor 0x200d product 0x00c2 (class prehistoric, unknown subclass 0xc2, revision 0x0d) at pci0 dev 5 function 0 not configured
+ncr0 at pci0 dev 6 function 0: NCR 53c810 SCSI
+ncr0: interrupting at isa irq 11
+ncr0: restart (scsi reset).
+scsibus0 at ncr0
+sd0 at scsibus0 targ 0 lun 0: <TOSHIBA, MK2526FB, 906B> SCSI2 0/direct fixed
+sd0: sd0(ncr0:0:0): FAST SCSI-2 100ns (10 Mb/sec) offset 8.
+503MB, 4195 cyl, 6 head, 41 sec, 512 bytes/sec
+sd1 at scsibus0 targ 3 lun 0: <iomega, jaz 1GB, H.62> SCSI2 0/direct removable
+sd1: sd1(ncr0:3:0): FAST SCSI-2 100ns (10 Mb/sec) offset 8.
+sd1(ncr0:3:0): illegal request, data = 1c 2a 01 34 c3 00 00 00 00 00 00 00 00 00 00 00 00
+sd1: could not mode sense (4); using fictitious geometry
+1021MB, 1021 cyl, 64 head, 32 sec, 512 bytes/sec
+sio0 at pci0 dev 7 function 0: Intel 82378IB PCI-ISA Bridge (System I/O) (rev. 0x84)
+isa0 at sio0
+com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, working fifo
+sio_intr_establish: irq 4: warning: using edge-triggered on level-triggered
+com0: console
+com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, working fifo
+sio_intr_establish: irq 3: warning: using edge-triggered on level-triggered
+lpt0 at isa0 port 0x3bc-0x3c3 irq 7
+pcprobe: reset error 1
+pckbd0 at isa0 irq 1
+mcclock0 at isa0 port 0x70-0x71: mc146818 or compatible
+de0 at pci0 dev 8 function 0: DC21040 [10Mb/s] pass 2.3
+de0: Ethernet address 08:00:2b:e5:a5:5f
+de0: enabling 10baseT/UTP port
+de0: interrupting at isa irq 15
+pcivga0 at pci0 dev 9 function 0: unknown vendor 0x201c product 0x0001 (rev. 0x1c)
+wscons0 at pcivga0panic: wscons_emul_attach: bogus location (n: 25/80, c: 819/15
+halted.
+
+
+halted CPU 0
+
+halt code = 5
+HALT instruction executed
+PC = fffffc0000230190
+
+Unexpected Machine Check through vector 00000067
+
+From tm@squonk.net  Wed Nov 6 07:59:37 1996
+From: None <tm@squonk.net>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 06 Nov 1996 07:59:37 +0000
+Subject: Re: NetBSD crashes on boot
+
+>Please tell me (or the list) the results of booting with the new
+>firmware.
+
+Actually, the firmware was upgraded to 3.8 before I even copied the rz25
+image to disk.
+
+
+>Headlessness shouldn't make a difference.  See above for one idea on
+>what's wrong, but I dunno why that would cause the symptoms you're
+>seeing.
+>
+>All of the 'weird' kernel messages (from the unkonwn 0x200d/0x00c2
+>devices to the apparent pcivga recognition) seem bogus.  Also, a 'tga'
+>should be been recognized, since the Multia includes a TGA frame
+>buffer (and it should have shown up even if you're not using it).
+>Note also that the thing which claimed to be a PCI VGA board
+>apperently wasn't responding to cursor-position-query I/O port
+>accesses in a very 'normal' manner (which makes sense, since there
+>wasn't any real PCI VGA board there! 8-).
+>
+>The many lines of register dumps and machine checks, etc., are caused
+>by the firmware losing.  This lends (a bit of) credence to the theory
+>that the firmware is to blame.
+>
+>Try the latest firmware, please, and get back to me/us...
+
+I've got it up and running, but with a lot of weirdness.  The way I was
+able to get it to boot was to boot across the net first, which failed
+(I forget the error it gave), and then after getting back to the monitor,
+booting from disk.  I also got tons more messages about bogus or unknown
+devices on boot.  Once I got it up, the network software didn't work.  If
+I tried to telnet to my other machine, it would say it was trying, but
+the packet sniffer running on the other machine wouldn't pick anything
+up.
+
+Also, after shutting down the system, I tried booting from the net again,
+and now it fails, and the packet sniffer sees no packets from the alpha.
+If it makes any difference, the firmware ewa0_port and ewa0_mode variables
+are set to thin-wire, which is what I'm using.  I noticed when I was
+originally trying to boot from the network, if ewa0_mode was set to auto,
+which was the default, the sniffer wouldn't see any packets from the alpha.
+When I switched it to thin-wire, then it started to work.
+
+-- 
+Trip Martin   | Harry Browne, libertarian for president
+tm@squonk.net | http://www.harrybrowne96.org/
+Power tends to corrupt; absolute power corrupts absolutely - Lord Acton
+(A scary but very accurate view of modern times)
+
+From sentner@noc.digex.net  Wed Nov 6 08:39:13 1996
+From: Eric Sentner <sentner@noc.digex.net>
+To: cjs@portal.ca
+Date: Wed, 06 Nov 1996 08:39:13 +0000
+Subject: Re: Booting in single-user mode
+
+References: <Pine.NEB.3.93.961105153810.5126R-100000@cynic.portal.ca>
+
+Yes, you need to use the '-a' flag to boot multi user.  I think the
+newer versions of the kernel have this compiled in, but I might be
+mistaken. :)
+
+-- Eric
+
+On November 5, Curt Sampson wrote:
+
+> 
+> Oh, and sorry to be a pest, but there's one more thing. My Multia
+> insists on booting up in single-user mode. I've checked the SRM
+> environment variables, and there are no flags set. When the NetBSD
+> bootstrap starts, it says that it's pasing "" as the flags. Yet
+> init seems to decide that it's got a `-s' flag and goes single-user.
+> Has anyone any idea what's causing this?
+> 
+> cjs
+> 
+> Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+> Internet Portal Services, Inc.	
+> Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From clc@hkstar.com  Wed Nov 6 22:15:21 1996
+From: Chu Chiu Leung <clc@hkstar.com>
+To: cjs@portal.ca, port-alpha@NetBSD.ORG
+Date: Wed, 06 Nov 1996 22:15:21 +0000
+Subject: Re: bin.tar.gz vs. rz25-image.gz
+
+hi curt,
+
+the rz25-image.gz contains everything, X11R6, inclusive.
+i had just recompiled the 1.2B source with cygnus-tools.
+
+am making the XFree86-3.2 from source, hope less modifications
+is needed to remake it. and wish that share library be support
+soon on NetBSD/Alpha.
+
+am using the same multia from www.dcginc.com as you.
+
+Best wishes,              /
+                  ___/   /    ___/                Clarence Chu
+                 /      /    /                   clc@hkstar.com
+               ____/ ____/ ____/           http://www.hkstar.com/~clc
+
+From clc@hkstar.com  Wed Nov 6 22:17:00 1996
+From: Chu Chiu Leung <clc@hkstar.com>
+To: cjs@portal.ca, port-alpha@NetBSD.ORG
+Date: Wed, 06 Nov 1996 22:17:00 +0000
+Subject: Re: Booting in single-user mode
+
+hi curt,
+
+"boot dka??? -flags -a" will boot it in multi-user mode.
+
+Best wishes,              /
+                  ___/   /    ___/                Clarence Chu
+                 /      /    /                   clc@hkstar.com
+               ____/ ____/ ____/           http://www.hkstar.com/~clc
+
+From cjs@portal.ca  Wed Nov 6 07:46:09 1996
+From: Curt Sampson <cjs@portal.ca>
+To: sentner@noc.digex.net
+Date: Wed, 06 Nov 1996 07:46:09 +0000
+Subject: Re: Booting in single-user mode
+
+On Wed, 6 Nov 1996, Eric Sentner wrote:
+
+> Yes, you need to use the '-a' flag to boot multi user.  I think the
+> newer versions of the kernel have this compiled in, but I might be
+> mistaken. :)
+
+Ok, that's not a problem since this can be set up and saved in the
+DEC Alpha's SRM monitor. However, I seem to recall that the '-a'
+option was the `ask' option for kernels on th i386 that do interactive
+configuration.  (Or was that just FreeBSD?) Shouldn't we change
+the i386 interactive configuration to, say, `-i' for consistency
+across the ports?
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From tih@nhh.no  Wed Nov 6 18:55:05 1996
+From: Tom I Helbekkmo <tih@nhh.no>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Wed, 06 Nov 1996 18:55:05 +0000
+Subject: Re: Kerberos bug bites alpha port
+
+On Fri, 1 Nov 1996, Chris G Demetriou wrote:
+
+> > There's a little bug in domestic/lib/libkrb/tf_util.c; a left-over
+> > case of assuming that longs are four bytes.
+> 
+> Left-over?  I'm not sure i've ever completely compiled the kerberos
+> code on the Alpha...  8-)
+
+I've found a couple more of these now, needed for the Cyrus IMAP
+system from CMU to run on NetBSD/alpha.  I'm appending patches for
+some other files in domestic/lib/libkrb below.
+
+> Other than that, is it working for you?
+
+Working fine.  Amanda does backups just great, and Cyrus seems to be very
+happy as well.  I'll report further if anything interesting happens.
+
+-tih
+
+*** mk_priv.c.ORIG	Fri Dec 22 13:15:03 1995
+--- mk_priv.c	Wed Nov  6 09:36:36 1996
+***************
+*** 47,56 ****
+  /* static storage */
+  
+  
+! static u_long c_length;
+  static struct timeval msg_time;
+  static u_char msg_time_5ms;
+! static long msg_time_sec;
+  
+  /*
+   * krb_mk_priv() constructs an AUTH_MSG_PRIVATE message.  It takes
+--- 47,56 ----
+  /* static storage */
+  
+  
+! static u_int32_t c_length;
+  static struct timeval msg_time;
+  static u_char msg_time_5ms;
+! static int32_t msg_time_sec;
+  
+  /*
+   * krb_mk_priv() constructs an AUTH_MSG_PRIVATE message.  It takes
+***************
+*** 118,124 ****
+      if (gettimeofday(&msg_time,(struct timezone *)0)) {
+          return -1;
+      }
+!     msg_time_sec = (long) msg_time.tv_sec;
+      msg_time_5ms = msg_time.tv_usec/5000; /* 5ms quanta */
+  
+      p = out;
+--- 118,124 ----
+      if (gettimeofday(&msg_time,(struct timezone *)0)) {
+          return -1;
+      }
+!     msg_time_sec = (int32_t) msg_time.tv_sec;
+      msg_time_5ms = msg_time.tv_usec/5000; /* 5ms quanta */
+  
+      p = out;
+*** rd_priv.c.ORIG	Fri Dec 22 13:15:04 1995
+--- rd_priv.c	Wed Nov  6 09:43:28 1996
+***************
+*** 43,49 ****
+  
+  /* static storage */
+  
+! static u_long c_length;
+  static int swap_bytes;
+  static struct timeval local_time;
+  static long delta_t;
+--- 43,49 ----
+  
+  /* static storage */
+  
+! static u_int32_t c_length;
+  static int swap_bytes;
+  static struct timeval local_time;
+  static long delta_t;
+***************
+*** 81,87 ****
+      MSG_DAT *m_data;		/*various input/output data from msg */
+  {
+      register u_char *p,*q;
+!     static u_long src_addr;	/* Can't send structs since no
+  				 * guarantees on size */
+  
+      if (gettimeofday(&local_time,(struct timezone *)0))
+--- 81,87 ----
+      MSG_DAT *m_data;		/*various input/output data from msg */
+  {
+      register u_char *p,*q;
+!     static u_int32_t src_addr;	/* Can't send structs since no
+  				 * guarantees on size */
+  
+      if (gettimeofday(&local_time,(struct timezone *)0))
+***************
+*** 146,152 ****
+      /* don't swap, net order always */
+      p += sizeof(src_addr);
+  
+!     if (src_addr != (u_long) sender->sin_addr.s_addr)
+  	return RD_AP_MODIFIED;
+  
+      /* safely get time_sec */
+--- 146,152 ----
+      /* don't swap, net order always */
+      p += sizeof(src_addr);
+  
+!     if (src_addr != (u_int32_t) sender->sin_addr.s_addr)
+  	return RD_AP_MODIFIED;
+  
+      /* safely get time_sec */
+*** mk_safe.c.ORIG	Fri Dec 22 13:15:03 1995
+--- mk_safe.c	Wed Nov  6 09:39:36 1996
+***************
+*** 49,55 ****
+  static C_Block big_cksum[2];
+  static struct timeval msg_time;
+  static u_char msg_time_5ms;
+! static long msg_time_sec;
+  
+  /*
+   * krb_mk_safe() constructs an AUTH_MSG_SAFE message.  It takes some
+--- 49,55 ----
+  static C_Block big_cksum[2];
+  static struct timeval msg_time;
+  static u_char msg_time_5ms;
+! static int32_t msg_time_sec;
+  
+  /*
+   * krb_mk_safe() constructs an AUTH_MSG_SAFE message.  It takes some
+***************
+*** 105,111 ****
+      if (gettimeofday(&msg_time,(struct timezone *)0)) {
+          return  -1;
+      }
+!     msg_time_sec = (long) msg_time.tv_sec;
+      msg_time_5ms = msg_time.tv_usec/5000; /* 5ms quanta */
+  
+      p = out;
+--- 105,111 ----
+      if (gettimeofday(&msg_time,(struct timezone *)0)) {
+          return  -1;
+      }
+!     msg_time_sec = (int32_t) msg_time.tv_sec;
+      msg_time_5ms = msg_time.tv_usec/5000; /* 5ms quanta */
+  
+      p = out;
+***************
+*** 166,171 ****
+      bcopy((char *)big_cksum,(char *)p,sizeof(big_cksum));
+      p += sizeof(big_cksum);
+  
+!     return ((long)(p - out));	/* resulting size */
+  
+  }
+--- 166,171 ----
+      bcopy((char *)big_cksum,(char *)p,sizeof(big_cksum));
+      p += sizeof(big_cksum);
+  
+!     return ((int32_t)(p - out));	/* resulting size */
+  
+  }
+*** rd_safe.c.ORIG	Fri Dec 22 13:15:04 1995
+--- rd_safe.c	Wed Nov  6 09:45:20 1996
+***************
+*** 75,86 ****
+      MSG_DAT *m_data;		/* where to put message information */
+  {
+      register u_char     *p,*q;
+!     static      u_long  src_addr; /* Can't send structs since no
+                                     * guarantees on size */
+      /* Be very conservative */
+!     if (sizeof(u_long) != sizeof(struct in_addr)) {
+          fprintf(stderr,"\n\
+! krb_rd_safe protocol err sizeof(u_long) != sizeof(struct in_addr)");
+          exit(-1);
+      }
+  
+--- 75,86 ----
+      MSG_DAT *m_data;		/* where to put message information */
+  {
+      register u_char     *p,*q;
+!     static      u_int32_t  src_addr; /* Can't send structs since no
+                                     * guarantees on size */
+      /* Be very conservative */
+!     if (sizeof(u_int32_t) != sizeof(struct in_addr)) {
+          fprintf(stderr,"\n\
+! krb_rd_safe protocol err sizeof(u_int32_t) != sizeof(struct in_addr)");
+          exit(-1);
+      }
+  
+***************
+*** 126,132 ****
+      /* don't swap, net order always */
+      p += sizeof(src_addr);
+  
+!     if (src_addr != (u_long) sender->sin_addr.s_addr)
+          return RD_AP_MODIFIED;
+  
+      /* safely get time_sec */
+--- 126,132 ----
+      /* don't swap, net order always */
+      p += sizeof(src_addr);
+  
+!     if (src_addr != (u_int32_t) sender->sin_addr.s_addr)
+          return RD_AP_MODIFIED;
+  
+      /* safely get time_sec */
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Wed Nov 6 13:29:10 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: cjs@portal.ca
+Date: Wed, 06 Nov 1996 13:29:10 +0000
+Subject: Re: bin.tar.gz vs. rz25-image.gz
+
+> I'm not really clear on whether I need to install bin.tar.gz if
+> I've set up a disk from the rz25-image.gz disk image. Does the
+> latter include everything that the former has in it?
+
+yes.  you don't need to install bin.tar.gz.  I provide bin.tar.gz so
+that people running previous snapshots can more easily upgrade.
+
+
+
+cgd
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Wed Nov 6 13:37:56 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: cjs@portal.ca
+Date: Wed, 06 Nov 1996 13:37:56 +0000
+Subject: Re: Booting in single-user mode
+
+> Oh, and sorry to be a pest, but there's one more thing. My Multia
+> insists on booting up in single-user mode. I've checked the SRM
+> environment variables, and there are no flags set. When the NetBSD
+> bootstrap starts, it says that it's pasing "" as the flags. Yet
+> init seems to decide that it's got a `-s' flag and goes single-user.
+> Has anyone any idea what's causing this?
+
+The convention on recent DEC systems (at least Alphas and PMAXen, and
+maybe even VAXen) is that you need to give the "A" boot flag to boot
+multi-user.  ("Autoboot" i guess.)
+
+
+
+
+chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Wed Nov 6 13:47:44 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: cjs@portal.ca
+Date: Wed, 06 Nov 1996 13:47:44 +0000
+Subject: Re: Multia Booting, Console Type and Font
+
+> I was under the impression that Linux needed its own firmware to
+> load, [ ... ]
+
+Actually, i seem to recall that for a while now, Linux on the Alpha
+needed either Milo (the Linux firmware) or the SRM console.
+
+Certainly, it's supported the SRM console for a while now.
+
+
+> is there any support for booting from
+> floppy?
+
+Not yet.
+
+If you can put a disk image on a floppy, etc., you could probably boot
+it.  The boot blocks use the SRM console callbacks to read the disk,
+so you should be able to boot from floppy, but writing the floppy
+image could be hard...  also, fitting a kernel on to the floppy could
+be hard...  8-)
+
+
+> Also, what is the terminal type of the built-in video console?
+
+'sun'.
+
+
+> And is there any chance we can get a smaller font?
+
+"go for it!"  8-)
+
+There's no other font supported, currently, but it shouldn't be too
+hard to frob things for a different font.  See
+arch/alpha/wscons/wscons_rfont.h for the font definition.
+
+
+
+cgd
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Wed Nov 6 14:04:13 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: cjs@portal.ca
+Date: Wed, 06 Nov 1996 14:04:13 +0000
+Subject: Re: Booting With Serial Console on Multia
+
+> Is there anything special that needs to be done to a kernel to let
+> a Multia  boot from a serial console, rather than a VGA/keyboard
+> console?
+
+(1) if you unplug your keyboard, things should work.  Obviously, for
+you, they don't.  8-)
+
+(2) you should also be able to "set console serial" at the SRM console
+firmware prompt, and it should boot using the serial console even if
+the keyboard is plugged in.
+
+FYI, there is no VGA in that machine.  The video board is a TGA,
+though you seem to have run into a previously-discovered bogosity...
+
+
+> I'm just using the standard generic kernel, and it panics
+> when it tries to initialise wscons. I've attached a boot log to
+> the end of this message.
+>
+> One thing that looks rather odd is that when I boot from the graphics
+> console, the kernel detects a tga device, but when I boot from a
+> serial console the kernel detects a pcivga device instead.
+
+Right.  That's the "previously-discovered bogosity."  8-)
+
+tm@squonk.net reported something similar on 10/28 (to this list,
+message ID 199610290049.TAA04085@squonk.net), and i suggested that he
+upgrade his firmware (though i didn't provide a complete URL for the
+new firmware).  I don't think he ever posted a result...
+
+New Multia/UDB firmware is available from:
+
+	ftp://ftp.digital.com/pub/DEC/Alpha/firmware/interim/multia/
+
+Please upgrade your firmware and tell us (the list) if the problem
+continues.
+
+
+
+
+chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Wed Nov 6 15:00:09 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: tih@nhh.no
+Date: Wed, 06 Nov 1996 15:00:09 +0000
+Subject: Re: Kerberos bug bites alpha port
+
+> I'm appending patches for
+> some other files in domestic/lib/libkrb below.
+
+I read them over and they look OK (and better than what was there
+before 8-).  They're in the tree now.
+
+
+
+chris
+
+From mjacob@nas.nasa.gov  Wed Nov 6 14:21:20 1996
+From: Matthew P. Jacob <mjacob@nas.nasa.gov>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 06 Nov 1996 14:21:20 +0000
+Subject: bash port?
+
+I did this back to front: After getting bash-1.14.7 working (wierdly) under
+netbsd-alpha (but using the default osf1 stuff), I then went back and fixed
+the source to build it under netbsd-alpha 1.2 (post, actually) and have
+it actually end up known as NetBSD alpha (native).
+
+Has somebody already done this? If not, I'll ship the patches off to
+the bash maintainers....
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Wed Nov 6 18:52:00 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: sentner@noc.digex.net
+Date: Wed, 06 Nov 1996 18:52:00 +0000
+Subject: Re: Booting in single-user mode
+
+> Yes, you need to use the '-a' flag to boot multi user.  I think the
+> newer versions of the kernel have this compiled in, but I might be
+> mistaken. :)
+
+NetBSD/Alpha has require '-A' (or '-a') since more or less day one, to
+boot multi-user.
+
+I wanted to follow DEC's lead with boot options, so that people could
+alternately boot Digital UNIX (formerly DEC OSF/1!) and NetBSD from
+seperate disks w/o having to worry about flags (I was doing it for
+a while, myself 8-), and have continued the flags' meanings so as to
+keep backward compatibility.
+
+Note that all flags are case-insensitive.  Supported flags are:
+
+	a/A	autoboot to multi-user
+
+	c/C	(if DEBUG defined when building) panic and do a crash
+		dump immediately after autoconfiguration
+
+	h/H	always halt, never reboot (even if 'reboot' is
+		requested).  Useful on (my) crash-test machines, to
+		void infinite reboot loops.
+
+	n/N	ask root, etc., device names instead of trying to
+		figure them out automatically.
+
+
+
+chris
+
+From greywolf@siva.captech.com  Wed Nov 6 18:27:58 1996
+From: Grey Wolf <greywolf@siva.captech.com>
+To: cjs@portal.ca
+Date: Wed, 06 Nov 1996 18:27:58 +0000
+Subject: Re: Booting in single-user mode
+
+Curt Sampson sez:
+# On Wed, 6 Nov 1996, Eric Sentner wrote:
+# 
+# > Yes, you need to use the '-a' flag to boot multi user.  I think the
+# > newer versions of the kernel have this compiled in, but I might be
+# > mistaken. :)
+# 
+# Ok, that's not a problem since this can be set up and saved in the
+# DEC Alpha's SRM monitor. However, I seem to recall that the '-a'
+# option was the `ask' option for kernels on th i386 that do interactive
+# configuration.  (Or was that just FreeBSD?) Shouldn't we change
+# the i386 interactive configuration to, say, `-i' for consistency
+# across the ports?
+#
+
+If you want to be consistent, the other ports should switch to '-a' for
+"ask".  I've seen '-i' come to mean "use the following program as the
+path to init", and I've even had to use it on occasion.  It's saved
+my butt, lemme tell ya.
+
+Who uses '-a' to boot multi-user, now?  I think I missed this thread,
+unless I'm receiving mail out of order again...don't answer this, I'll
+ask again if I'm truly lost.
+
+#undef RAMBLE
+
+				--*greywolf;
+
+From cjs@portal.ca  Wed Nov 6 19:45:27 1996
+From: Curt Sampson <cjs@portal.ca>
+To: greywolf@siva.captech.com
+Date: Wed, 06 Nov 1996 19:45:27 +0000
+Subject: Re: Booting in single-user mode
+
+On Wed, 6 Nov 1996, Grey Wolf wrote:
+
+> If you want to be consistent, the other ports should switch to '-a' for
+> "ask".  I've seen '-i' come to mean "use the following program as the
+> path to init", and I've even had to use it on occasion.  It's saved
+> my butt, lemme tell ya.
+> 
+> Who uses '-a' to boot multi-user, now?  I think I missed this thread,
+> unless I'm receiving mail out of order again...don't answer this, I'll
+> ask again if I'm truly lost.
+
+I thought I'd added that to the message; it's the DEC Alpha port.
+Digital Unix uses 'a' to go multiuser (otherwise it goes single-user
+by default), and it just makes life a bit easier for those who have
+both Digital Unix and NetBSD on a machine not to have to reset that
+environment variable when switching from one to the other.
+
+I personally would rather see consistent kernel options across all
+ports, for those of us that are running NetBSD on multiple
+architectures (four in my case).
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From cjs@portal.ca  Wed Nov 6 20:37:12 1996
+From: Curt Sampson <cjs@portal.ca>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Wed, 06 Nov 1996 20:37:12 +0000
+Subject: Re: Booting With Serial Console on Multia
+
+On Wed, 6 Nov 1996, Chris G Demetriou wrote:
+
+> Please upgrade your firmware and tell us (the list) if the problem
+> continues.
+
+I've now upgraded my firmware from BL5 V3.8-1 Jun 22 1995 18:10:45
+to BL5 V3.8-3 Aug 10 1995 03:22:55 (which was what I downloaded
+from ftp.digital.com today). Unfortunately, it hasn't helped; the
+boot blows up in the exact same way.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From cjs@portal.ca  Wed Nov 6 23:23:20 1996
+From: Curt Sampson <cjs@portal.ca>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Wed, 06 Nov 1996 23:23:20 +0000
+Subject: Re: Booting With Serial Console on Multia
+
+I'd just like to confirm that compiling a kernel without the pcivga
+device works properly for a serial boot; the system detects the
+tga correctly.
+
+I'd also like to note that, if anyone else out there is trying to
+do this, you have to manually add a file called `pcivga.h' containing
+`#define NPCIVGA 0' to your compile directory after the configure,
+otherwise your kernel won't compile.
+
+I'm poking about a bit to see if I can find out what causes this
+false detection.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+On Wed, 6 Nov 1996, Curt Sampson wrote:
+
+> Date: Wed, 6 Nov 1996 20:37:12 -0800 (PST)
+> From: Curt Sampson <cjs@portal.ca>
+> To: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+> Cc: NetBSD/Alpha Users <port-alpha@netbsd.org>
+> Subject: Re: Booting With Serial Console on Multia 
+> 
+> On Wed, 6 Nov 1996, Chris G Demetriou wrote:
+> 
+> > Please upgrade your firmware and tell us (the list) if the problem
+> > continues.
+> 
+> I've now upgraded my firmware from BL5 V3.8-1 Jun 22 1995 18:10:45
+> to BL5 V3.8-3 Aug 10 1995 03:22:55 (which was what I downloaded
+> from ftp.digital.com today). Unfortunately, it hasn't helped; the
+> boot blows up in the exact same way.
+> 
+> cjs
+> 
+> Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+> Internet Portal Services, Inc.	
+> Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+> 
+>
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Thu Nov 7 00:37:16 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 07 Nov 1996 00:37:16 +0000
+Subject: 166MHz Multias/UDBs with serial console?
+
+So, from recent posts here, it seems that the 233MHz Multia/UDB
+systems:
+
+	(1) work fine when booted with graphics consoles,
+
+	(2) don't work so well when booted with serial consoles
+	    (or, is it just "when booted without graphics consoles?"
+	    i.e. do monitor+keyboard but serial console systems work?)
+
+I know that 166MHz Multia/UDB systems work OK when booted with
+graphics consoles (i'm typing from one right now 8-), but have no easy
+way of testing how they work without graphics consoles or with serial
+consoles.
+
+Is anybody using a 166MHz Multia/UDB with a serial console?
+
+
+
+chris
+
+From tm@squonk.net  Thu Nov 7 05:49:05 1996
+From: None <tm@squonk.net>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 07 Nov 1996 05:49:05 +0000
+Subject: Re: NetBSD crashes on boot
+
+>Please tell me (or the list) the results of booting with the new
+>firmware.
+
+Actually, the firmware was upgraded to 3.8 before I even copied the rz25
+image to disk.
+
+
+>Headlessness shouldn't make a difference.  See above for one idea on
+>what's wrong, but I dunno why that would cause the symptoms you're
+>seeing.
+>
+>All of the 'weird' kernel messages (from the unkonwn 0x200d/0x00c2
+>devices to the apparent pcivga recognition) seem bogus.  Also, a 'tga'
+>should be been recognized, since the Multia includes a TGA frame
+>buffer (and it should have shown up even if you're not using it).
+>Note also that the thing which claimed to be a PCI VGA board
+>apperently wasn't responding to cursor-position-query I/O port
+>accesses in a very 'normal' manner (which makes sense, since there
+>wasn't any real PCI VGA board there! 8-).
+>
+>The many lines of register dumps and machine checks, etc., are caused
+>by the firmware losing.  This lends (a bit of) credence to the theory
+>that the firmware is to blame.
+>
+>Try the latest firmware, please, and get back to me/us...
+
+I've got it up and running, but with a lot of weirdness.  The way I was
+able to get it to boot was to boot across the net first, which failed
+(I forget the error it gave), and then after getting back to the monitor,
+booting from disk.  I also got tons more messages about bogus or unknown
+devices on boot.  Once I got it up, the network software didn't work.  If
+I tried to telnet to my other machine, it would say it was trying, but
+the packet sniffer running on the other machine wouldn't pick anything
+up.
+
+Also, after shutting down the system, I tried booting from the net again,
+and now it fails, and the packet sniffer sees no packets from the alpha.
+If it makes any difference, the firmware ewa0_port and ewa0_mode variables
+are set to thin-wire, which is what I'm using.  I noticed when I was
+originally trying to boot from the network, if ewa0_mode was set to auto,
+which was the default, the sniffer wouldn't see any packets from the alpha.
+When I switched it to thin-wire, then it started to work.
+
+(I already posted this once, but it seems to have gotten dumped in the 
+bit-bucket)
+
+-- 
+Trip Martin   | Harry Browne, libertarian for president
+tm@squonk.net | http://www.harrybrowne96.org/
+Power tends to corrupt; absolute power corrupts absolutely - Lord Acton
+(A scary but very accurate view of modern times)
+
+From jonathan@cc.odu.edu  Thu Nov 7 08:23:53 1996
+From: Jonathan Sturges <jonathan@cc.odu.edu>
+To: tm@squonk.net
+Date: Thu, 07 Nov 1996 08:23:53 +0000
+Subject: Re: NetBSD crashes on boot
+
+Just an FYI...
+last I heard, you couldn't use the ThinWire connection under NetBSD yet.  
+TP or AUI was OK, but not Thin.  This may be part of your network problems.
+
+ThinWire does work under Linux, though.
+
+good luck,
+Jonathan
+
+On Wed, 6 Nov 1996 tm@squonk.net wrote:
+> Also, after shutting down the system, I tried booting from the net again,
+> and now it fails, and the packet sniffer sees no packets from the alpha.
+> If it makes any difference, the firmware ewa0_port and ewa0_mode variables
+> are set to thin-wire, which is what I'm using.  I noticed when I was
+> originally trying to boot from the network, if ewa0_mode was set to auto,
+> which was the default, the sniffer wouldn't see any packets from the alpha.
+> When I switched it to thin-wire, then it started to work.
+
+From cjs@portal.ca  Thu Nov 7 07:48:02 1996
+From: Curt Sampson <cjs@portal.ca>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Thu, 07 Nov 1996 07:48:02 +0000
+Subject: Re: Booting With Serial Console on Multia
+
+On Wed, 6 Nov 1996, Curt Sampson wrote:
+
+> I'd just like to confirm that compiling a kernel without the pcivga
+> device works properly for a serial boot; the system detects the
+> tga correctly.
+> ...
+> I'm poking about a bit to see if I can find out what causes this
+> false detection.
+
+Latest bit of news on this: it appears that the tga is either not
+being probed at all or isn't being detected when the system is
+booted from a serial console. This means that it can't override
+the pcivga probe (which also is always detected, just with a lower
+priority). I've got to go off to work now, so I can't so any more
+work on this until this evening.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Thu Nov 7 11:18:22 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: cjs@portal.ca
+Date: Thu, 07 Nov 1996 11:18:22 +0000
+Subject: Re: Booting in single-user mode
+
+> I thought I'd added that to the message; it's the DEC Alpha port.
+> Digital Unix uses 'a' to go multiuser (otherwise it goes single-user
+> by default), and it just makes life a bit easier for those who have
+> both Digital Unix and NetBSD on a machine not to have to reset that
+> environment variable when switching from one to the other.
+
+Not just the Alpha, the pmax as well.
+
+I'm not planning to change it for the alpha port, for two reqsons:
+	(1) compatibility with Digital UNIX's boot flags, and
+	(2) compatibility with NetBSD/Alpha's "traditional" boot
+	    flags.
+
+Standardizing the boot flags can never be completely useful, in my
+opinion, since some ports will always have options which make no sense
+on other ports.  Given that, any 'standard' must either be incomplete,
+or annoying to port maintainers trying to pick new option flags.
+
+
+
+chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Thu Nov 7 11:31:01 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: mjacob@nas.nasa.gov
+Date: Thu, 07 Nov 1996 11:31:01 +0000
+Subject: Re: bash port?
+
+> I did this back to front: After getting bash-1.14.7 working (wierdly) under
+> netbsd-alpha (but using the default osf1 stuff), I then went back and fixed
+> the source to build it under netbsd-alpha 1.2 (post, actually) and have
+> it actually end up known as NetBSD alpha (native).
+> 
+> Has somebody already done this? If not, I'll ship the patches off to
+> the bash maintainers....
+
+I submitted patches to bash 1.14.6 for NetBSD/Alpha support to the
+bash maintainers on around May 9, 1996...
+
+Take a look in:
+	ftp://ftp.netbsd.org/pub/NetBSD/arch/alpha/ported-software
+
+(I apologize to the folks who sent me more entries for that list, that
+i've not gotten around to yet.  *sigh*  too busy.)
+
+
+Given that 1.14.7 was released at the end of august, you should
+probably send them to the bash maintainers.  Once you've done that,
+send them to me and i'll put them up for FTP, as well.
+
+
+
+chris
+
+From sentner@noc.digex.net  Thu Nov 7 11:46:40 1996
+From: Eric Sentner <sentner@noc.digex.net>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Thu, 07 Nov 1996 11:46:40 +0000
+Subject: Re: 166MHz Multias/UDBs with serial console?
+
+References: <17466.847345036@ux2.sp.cs.cmu.edu>
+
+I'm using a 233MHz Multia and have had no problems with it booting
+with or without the console.. I have seen some problems when there is
+a monitor+keyboard plugged and I tried booting with serial.. 
+
+-- Eric
+
+On November 7, Chris G. Demetriou wrote:
+
+> So, from recent posts here, it seems that the 233MHz Multia/UDB
+> systems:
+> 
+> 	(1) work fine when booted with graphics consoles,
+> 
+> 	(2) don't work so well when booted with serial consoles
+> 	    (or, is it just "when booted without graphics consoles?"
+> 	    i.e. do monitor+keyboard but serial console systems work?)
+> 
+> I know that 166MHz Multia/UDB systems work OK when booted with
+> graphics consoles (i'm typing from one right now 8-), but have no easy
+> way of testing how they work without graphics consoles or with serial
+> consoles.
+> 
+> Is anybody using a 166MHz Multia/UDB with a serial console?
+> 
+> 
+> 
+> chris
+
+From cjs@portal.ca  Thu Nov 7 14:54:16 1996
+From: Curt Sampson <cjs@portal.ca>
+To: tm@squonk.net
+Date: Thu, 07 Nov 1996 14:54:16 +0000
+Subject: Re: NetBSD crashes on boot
+
+On Thu, 7 Nov 1996 tm@squonk.net wrote:
+
+> Actually, the firmware was upgraded to 3.8 before I even copied the rz25
+> image to disk.
+
+There are serveral versions of 3.8. See my previous message about my
+upgrade. (Not that it helped. :-))
+
+> (I already posted this once, but it seems to have gotten dumped in the 
+> bit-bucket)
+
+I saw it. The lists just seem a bit slow this week.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Thu Nov 7 22:00:06 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: cjs@portal.ca
+Date: Thu, 07 Nov 1996 22:00:06 +0000
+Subject: Re: Booting With Serial Console on Multia
+
+> Latest bit of news on this: it appears that the tga is either not
+> being probed at all or isn't being detected when the system is
+> booted from a serial console. This means that it can't override
+> the pcivga probe (which also is always detected, just with a lower
+> priority). I've got to go off to work now, so I can't so any more
+> work on this until this evening.
+
+The TGA is not a PCI VGA device.  it should never, ever, match as a
+PCI VGA device.
+
+It's come to my attention (I guessed, based on information about which
+systems -- all -- suffer from this when using a serial console, and
+have received some information to back up my guess) that this is a
+firmware bug.  I'm dragging new firmware files home right now, to
+upgrade my Multia's firmware.  If the upgrade works, i.e. doesn't seem
+to cause new problems on my (headed) system (i am the guinea pig,
+coo-coo ka-choo), i'll see what I can do about making it available to
+people who need it.
+
+There's little point in you investigating this further...
+
+
+
+cgd
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Thu Nov 7 23:00:42 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 07 Nov 1996 23:00:42 +0000
+Subject: new firmware for multias.
+
+So, if you've been having problems with your multia with a serial
+console, detecting bogus devices, detecting a PCI VGA adapter, etc.,
+get in touch with me and (after a round of e-mail 8-) i'll point you
+to a newer firmware update floppy image that should fix your problems.
+
+I'm running the new firmware on the machine i'm typing this from, and
+it seems to work fine.  It's also reported to not have the problems
+mentioned above.
+
+
+
+chris
+
+From cjs@portal.ca  Thu Nov 7 23:20:54 1996
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 07 Nov 1996 23:20:54 +0000
+Subject: Getting out of `Eh?' Debugger
+
+Often when I do a shutdown (-h or -r) on my Multia, it generates
+all sorts of interesting exceptions and debugging information, and
+eventually drops me into some sort of monitor without a prompt that
+prints `Eh?' in response to commands it doesn't understand. Is
+there an easy way to get from this back to the SRM monitor without
+power-cycling the machine?
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From jb@cimlogic.com.au  Fri Nov 8 14:18:28 1996
+From: John Birrell <jb@cimlogic.com.au>
+To: jonathan@cc.odu.edu
+Date: Fri, 08 Nov 1996 14:18:28 +0000
+Subject: Re: NetBSD crashes on boot
+
+Jonathan Sturges wrote:
+> Just an FYI...
+> last I heard, you couldn't use the ThinWire connection under NetBSD yet.  
+> TP or AUI was OK, but not Thin.  This may be part of your network problems.
+> 
+> ThinWire does work under Linux, though.
+
+Thinwire works on my noname. Always has.
+
+>From dmesg:
+
+de0 at pci0 dev 12 function 0: DC21040 [10Mb/s] pass 2.3
+de0: Ethernet address 08:00:2b:e5:1e:61
+de0: enabling Thinwire/AUI port
+de0: interrupting at isa irq 5
+
+Regards,
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au                          119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From jonathan@cc.odu.edu  Fri Nov 8 08:27:34 1996
+From: Jonathan Sturges <jonathan@cc.odu.edu>
+To: jb@cimlogic.com.au
+Date: Fri, 08 Nov 1996 08:27:34 +0000
+Subject: Re: NetBSD crashes on boot
+
+On Fri, 8 Nov 1996, John Birrell wrote:
+
+> Jonathan Sturges wrote:
+> > Just an FYI...
+> > last I heard, you couldn't use the ThinWire connection under NetBSD yet.  
+> > TP or AUI was OK, but not Thin.  This may be part of your network problems.
+> > 
+> > ThinWire does work under Linux, though.
+> 
+> Thinwire works on my noname. Always has.
+
+I stand corrected!  :)
+
+-Jonathan
+
+From thorpej@nas.nasa.gov  Fri Nov 8 08:08:59 1996
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: cjs@portal.ca
+Date: Fri, 08 Nov 1996 08:08:59 +0000
+Subject: Re: NetBSD crashes on boot
+
+On Thu, 7 Nov 1996 14:54:16 -0800 (PST) 
+ Curt Sampson <cjs@portal.ca> wrote:
+
+ > I saw it. The lists just seem a bit slow this week.
+
+Yes, the router that mail.netbsd.org sits behind is having some
+problems; we seem to get getting a 25% or higher error rate on the
+packets that it forwards... This causes connections to time out,
+reset, etc.  The net result is an insane backlog of e-mail.
+
+I checked the logs, and while we did deliver > 50,000 pieces of mail
+yesterday, the backlog was hovering around 34,000.  The backlog increases
+the "post -> receive" latency; I've been observing ~4 hours.  Compare that
+to the ~10 minutes latency we had for several weeks following the switch
+to the new mail server.
+
+A new router is being installed tonight.  Hopefully some of the problems
+will go away.
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Fri Nov 8 11:30:32 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: cjs@portal.ca
+Date: Fri, 08 Nov 1996 11:30:32 +0000
+Subject: Re: Getting out of `Eh?' Debugger
+
+> Often when I do a shutdown (-h or -r) on my Multia, it generates
+> all sorts of interesting exceptions and debugging information, and
+> eventually drops me into some sort of monitor without a prompt that
+> prints `Eh?' in response to commands it doesn't understand. Is
+> there an easy way to get from this back to the SRM monitor without
+> power-cycling the machine?
+
+So, you said (in another piece of mail) that this was (and the other
+problems were) fixed by that new firmware image, correct?
+
+i've never, ever, seen any revision of DEC firmware for any machine
+say "Eh?" and I think i'm thankful for that... 8-)
+
+
+
+chris
+
+From cjs@portal.ca  Fri Nov 8 08:36:59 1996
+From: Curt Sampson <cjs@portal.ca>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Fri, 08 Nov 1996 08:36:59 +0000
+Subject: Re: Getting out of `Eh?' Debugger
+
+On Fri, 8 Nov 1996, Chris G Demetriou wrote:
+
+> > Often when I do a shutdown (-h or -r) on my Multia, it generates
+> > all sorts of interesting exceptions and debugging information, and
+> > eventually drops me into some sort of monitor without a prompt that
+> > prints `Eh?' in response to commands it doesn't understand. Is
+> > there an easy way to get from this back to the SRM monitor without
+> > power-cycling the machine?
+> 
+> So, you said (in another piece of mail) that this was (and the other
+> problems were) fixed by that new firmware image, correct?
+
+Well, it hasn't dropped into this debugger thingie again, though
+I wouldn't want to be that the `Eh?' software isn't still lurking
+in there somewhere. :-)
+
+> i've never, ever, seen any revision of DEC firmware for any machine
+> say "Eh?" and I think i'm thankful for that... 8-)
+
+Well, from up here in Canada it felt kind of homey and familiar. :-)
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From cjs@portal.ca  Fri Nov 8 08:49:33 1996
+From: Curt Sampson <cjs@portal.ca>
+To: jb@cimlogic.com.au
+Date: Fri, 08 Nov 1996 08:49:33 +0000
+Subject: Re: NetBSD crashes on boot
+
+On Fri, 8 Nov 1996, John Birrell wrote:
+
+> Thinwire works on my noname. Always has.
+> 
+> >From dmesg:
+> 
+> de0 at pci0 dev 12 function 0: DC21040 [10Mb/s] pass 2.3
+> de0: Ethernet address 08:00:2b:e5:1e:61
+> de0: enabling Thinwire/AUI port
+> de0: interrupting at isa irq 5
+
+Can you give us the exact details of that machine? Those are pretty
+much the exact same messages I get from my 233 MHz Multia (excepting
+the pci device number and irq), and mine certainly does not work.
+I never see anything out the port after NetBSD boots. (I do see
+the loopback packet the monitor sends out, and more packets if I
+try to netboot. This is with tcpdump runnning on another machine.)
+
+I've been examining the Linux driver to see what it does differently,
+and I'm playing with the NetBSD driver to see if I can't figure
+out which of the things the Linux driver does differently is the
+one that causes the Thinwire port to work, but so far I've had no
+luck.
+
+The sad thing about all of this, of course, is that I'm starting
+to enjoy (in a rather twisted sense) working on device drivers
+without any documentation. :-)
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From matt@lkg.dec.com  Fri Nov 8 19:08:16 1996
+From: Matt Thomas <matt@lkg.dec.com>
+To: cjs@portal.ca
+Date: Fri, 08 Nov 1996 19:08:16 +0000
+Subject: Re: NetBSD crashes on boot
+
+A noname is not a multia.  There are close but not quite the same.
+The multia BNC port is actually a External SIA port.  I have
+modified the de driver to deal with this but, so far, my Multia
+still doesn't use the BNC port correctly.
+
+If Chris ever gets the new bus-space interface on Alpha working,
+I'll let you play with the new de driver.
+-- 
+Matt Thomas               Internet:   matt@3am-software.com
+3am Software Foundry      WWW URL:    http://www.3am-software.com/bio/matt.html
+Westford, MA              Disclaimer: I disavow all knowledge of this message
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Fri Nov 8 23:57:52 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: jb@cimlogic.com.au
+Date: Fri, 08 Nov 1996 23:57:52 +0000
+Subject: Re: NetBSD crashes on boot
+
+> The noname has everything on the mother board except for graphics and
+> ethernet. I've got a Stealth PCI video card in there.
+
+the multia has both built-in video and built-in ethernet.  (i.e. both
+are on motherboard.)
+
+You have a system that has the same CPU type as the multia and works
+mostly the same way, but is definitely not a multia.  I'd not be
+surprised if DEC did different versions of the firmware for the two
+types of boxes (esp. since the multia has PCMCIA.)
+
+What ethernet connectors does your box have?  the multia has
+connectors for UTP, thinnet and AUI...
+
+
+> I don't know how the noname compares to Multia.
+
+"see above."
+
+
+> cgd is (always) the best
+> person to answer that. 8-).
+
+I'm not so sure i agree...  i've never seen a real live AXPpci system
+that wasn't a multia/udb...
+
+
+
+cgd
+
+From thorpej@nas.nasa.gov  Fri Nov 8 23:33:20 1996
+From: Jason Thorpe <thorpej@nas.nasa.gov>
+To: matt@lkg.dec.com
+Date: Fri, 08 Nov 1996 23:33:20 +0000
+Subject: Re: NetBSD crashes on boot
+
+On Fri, 08 Nov 1996 19:08:16 +0000 
+ Matt Thomas <matt@lkg.dec.com> wrote:
+
+ > If Chris ever gets the new bus-space interface on Alpha working,
+ > I'll let you play with the new de driver.
+
+As far as I know, he's done this.  He is waiting for me to add barrier
+calls to all of the drivers before he removes the implicit barriers
+in the read/write methods, but the bus_space* infrastructure should
+be there...
+
+Jason R. Thorpe                                       thorpej@nas.nasa.gov
+NASA Ames Research Center                               Home: 408.866.1912
+NAS: M/S 258-6                                          Work: 415.604.0935
+Moffett Field, CA 94035                                Pager: 415.428.6939
+
+From jb@cimlogic.com.au  Sat Nov 9 07:06:05 1996
+From: John Birrell <jb@cimlogic.com.au>
+To: cjs@portal.ca
+Date: Sat, 09 Nov 1996 07:06:05 +0000
+Subject: Re: NetBSD crashes on boot
+
+Curt Sampson wrote:
+> > de0 at pci0 dev 12 function 0: DC21040 [10Mb/s] pass 2.3
+> > de0: Ethernet address 08:00:2b:e5:1e:61
+> > de0: enabling Thinwire/AUI port
+> > de0: interrupting at isa irq 5
+> 
+> Can you give us the exact details of that machine?
+
+My dmesg output is:
+
+NetBSD 1.2 (NETBSD2) #1: Tue Oct  8 17:15:22 EST 1996
+    jb@netbsd2.cimlogic.com.au:/u/netbsd/src/sys/arch/alpha/compile/NETBSD2
+Alpha PC AXPpci33 ("NoName"), 166MHz
+8192 byte page size, 1 processor.
+real mem = 33554432 (2064384 reserved for PROM, 31490048 used by NetBSD)
+avail mem = 23388160
+using 384 buffers containing 3145728 bytes of memory
+mainbus0 (root)
+cpu0 at mainbus0: 21066/21068 (LCA4), UNKNOWN MINOR TYPE (2)
+cpu0: VAX FP support, IEEE FP support, Primary Eligible
+lca0 at mainbus0
+pci0 at lca0 bus 0
+ncr0 at pci0 dev 6 function 0: NCR 53c810 SCSI
+ncr0: interrupting at isa irq 11
+ncr0: restart (scsi reset).
+scsibus0 at ncr0
+sd0 at scsibus0 targ 0 lun 0: <DEC, RZ26L    (C) DEC, 440C> SCSI2 0/direct fixed
+sd0: sd0(ncr0:0:0): FAST SCSI-2 100ns (10 Mb/sec) offset 8.
+1001MB, 3117 cyl, 8 head, 82 sec, 512 bytes/sec
+sd1 at scsibus0 targ 1 lun 0: <DEC, RZ26     (C) DEC, T392> SCSI2 0/direct fixed
+sd1: sd1(ncr0:1:0): FAST SCSI-2 100ns (10 Mb/sec) offset 8.
+1001MB, 2570 cyl, 14 head, 57 sec, 512 bytes/sec
+probe(ncr0:3:0): 225ns (4 Mb/sec) offset 8.
+sd2 at scsibus0 targ 3 lun 0: <FUJITSU, M2266S-512, 0020> SCSI2 0/direct fixed
+sd2: 1029MB, 1658 cyl, 15 head, 84 sec, 512 bytes/sec
+sio0 at pci0 dev 7 function 0: Intel 82378IB PCI-ISA Bridge (System I/O) (rev. 0
+x03)
+isa0 at sio0
+com0 at isa0 port 0x3f8-0x3ff irq 4: ns16550a, working fifo
+com1 at isa0 port 0x2f8-0x2ff irq 3: ns16550a, working fifo
+lpt0 at isa0 port 0x3bc-0x3c3 irq 7
+pckbd0 at isa0 irq 1
+pms0 at isa0 port 0x60-0x67 irq 12
+mcclock0 at isa0 port 0x70-0x71: mc146818 or compatible
+pcivga0 at pci0 dev 8 function 0: S3 964 (rev. 0x00)
+wscons0 at pcivga0: console
+de0 at pci0 dev 12 function 0: DC21040 [10Mb/s] pass 2.3
+de0: Ethernet address 08:00:2b:e5:1e:61
+de0: enabling Thinwire/AUI port
+de0: interrupting at isa irq 5
+init: copying out path `/sbin/init' 11
+
+The noname has everything on the mother board except for graphics and
+ethernet. I've got a Stealth PCI video card in there.
+
+I don't know how the noname compares to Multia. cgd is (always) the best
+person to answer that. 8-).
+
+
+Regards,
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au                          119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Sat Nov 9 00:36:26 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: matt@lkg.dec.com
+Date: Sat, 09 Nov 1996 00:36:26 +0000
+Subject: Re: NetBSD crashes on boot
+
+> If Chris ever gets the new bus-space interface on Alpha working,
+> I'll let you play with the new de driver.
+
+Uh, actually, it's been working since before i left for OSDI...
+
+I recall you sending me some mail about it, but haven't had time to
+answer it yet...  I seem to recall you asked for diffs, and diffs are,
+well, just too large...
+
+
+cgd
+
+From jb@cimlogic.com.au  Sat Nov 9 16:47:30 1996
+From: John Birrell <jb@cimlogic.com.au>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Sat, 09 Nov 1996 16:47:30 +0000
+Subject: Re: NetBSD crashes on boot
+
+Chris G Demetriou wrote:
+> What ethernet connectors does your box have?  the multia has
+> connectors for UTP, thinnet and AUI...
+
+I'm using a DE435-AA (plugs into PCI), same as DEC sell for Intel PCs.
+It has connectors for UTP, thinnet and AUI.
+
+> > cgd is (always) the best
+> > person to answer that. 8-).
+> 
+> I'm not so sure i agree...  i've never seen a real live AXPpci system
+> that wasn't a multia/udb...
+
+You did the integration of Jeffrey Hsu's work on noname, so I thought
+you might have looked at what that stuff did. 8-) Would you like a
+real live AXPpci system that isn't a Multia/UDB? I have a couple of
+spare boards without processors.
+
+> 
+> 
+> 
+> cgd
+> 
+
+Regards,
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au                          119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From jce@boone.com  Wed Nov 13 11:34:00 1996
+From: Joe Ennis <jce@boone.com>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Wed, 13 Nov 1996 11:34:00 +0000
+Subject: Re: bash port?
+
+Patch worked for me. Thanks!
+
+FWIW,  I got mutt going too.  Compiled and ran right out of the box.
+
+Anyone have python running?
+
+> > I did this back to front: After getting bash-1.14.7 working (wierdly) under
+> > netbsd-alpha (but using the default osf1 stuff), I then went back and fixed
+> > the source to build it under netbsd-alpha 1.2 (post, actually) and have
+> > it actually end up known as NetBSD alpha (native).
+> > 
+> > Has somebody already done this? If not, I'll ship the patches off to
+> > the bash maintainers....
+> 
+> I submitted patches to bash 1.14.6 for NetBSD/Alpha support to the
+> bash maintainers on around May 9, 1996...
+> 
+> Take a look in:
+> 	ftp://ftp.netbsd.org/pub/NetBSD/arch/alpha/ported-software
+> 
+> (I apologize to the folks who sent me more entries for that list, that
+> i've not gotten around to yet.  *sigh*  too busy.)
+> 
+> 
+> Given that 1.14.7 was released at the end of august, you should
+> probably send them to the bash maintainers.  Once you've done that,
+> send them to me and i'll put them up for FTP, as well.
+> 
+> chris
+
+--
+joe
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Wed Nov 13 23:54:36 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 13 Nov 1996 23:54:36 +0000
+Subject: try a new kernel for me?
+
+So, i just put up a new kernel at
+
+	ftp://ftp.netbsd.org/pub/incoming/cgd/netbsd.GENERIC.gz
+
+In addition to the changes which have been checked in recently (most
+notably, lots of warning fixes and some other random stuff, like
+cleaning up the various machine-type support gunk and making the
+processor type names be more prettily printed), it has some changes
+that haven't been checked in.
+
+In particular, i've written (i won't say designed, since i more or
+less took existing code and pasted it together 8-) a bit of common
+interrupt handling code, so that i don't have to write all new
+chained-interrupt handling code for each CPU that needs it.  (I'm in
+thep rocess of making the eb164 boot, and, well, i just couldn't stand
+to write _another_ chained-interrupt implementation, or, more probably
+to copy it from the kn20 support code and whack it until it worked.)
+
+Anyway, I'd _really_ like people with AlphaStation 200/400-family
+machines, AXPpcis/Multias/UDBs, and AlphaStation 500/600-family
+machines to try it out.  It worked the first time booted on my
+AlphaStation 200, and so should work on the 200/400's and the
+AXPpci-family machines.  There's untested, new code for for the
+500/600-family machines which could really use testing.  People
+wanting to try it on the TC machines are welcome to... you can at
+least see if the various other changes didn't break for you...  8-)
+
+
+please report results (positive or negative, along with your system
+type) to me directly.
+
+
+
+thanks.
+
+
+later,
+
+chris
+
+From dillema@cs.utwente.nl  Thu Nov 14 17:12:52 1996
+From: Feico Dillema <dillema@cs.utwente.nl>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 14 Nov 1996 17:12:52 +0000
+Subject: Changing Ethernet-IRQ in netbsd kernel
+
+Hello,
+
+I have a UDB 266 MHZ, and installed netbsd on it. However,
+I've not been able to get the Ethernet up and running.
+It seems that the IRQ-setting is wrong. I installed Linux
+on another disk and did get networking up properly. 
+Linux sees the Ethernet IRQ at 10, while my NetBSD kernel
+sees it at IRQ 15. Is there an ease way to patch the
+netbsd kernel to change the IRQ setting from 15 to 10.
+
+As long as I have no networking up and running I cannot
+compile a kernel myself. If patching the kernel is not an 
+option, can somebody send my a kernel configured with IRQ
+10 for Ethernet so I can transport it to my UDB using 
+floppy-net?
+
+If you can help my out on this one, I'd be quite grateful.
+(i'm kinda eager to see netbsd up and running on my new
+machine ;-)
+
+{ Feico Dillema,                                                        }
+{ Faculty of Computer Science / TIOS, Phone UT: +31.53.4894099          }
+{ University of Twente, P.O. Box 217, 7500 AE Enschede, The Netherlands }
+{ ........ Look! Windows'95. But kids, don't try this at home ......... }
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Thu Nov 14 12:28:53 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: wulf@ping.net.au
+Date: Thu, 14 Nov 1996 12:28:53 +0000
+Subject: Re: try a new kernel for me?
+
+> One thing though.... we still get bad magic numbers on bootup....
+
+>From savecore, etc?
+
+-current kernels + savecore + "the other necessary stuff" now
+understands and does the right thing with kernel core dumps, so with
+up to date binaries (i really need to make a snapshot soon...) things
+would work fine.
+
+
+If you normally don't see them, but do see them when booting from a
+kernel that you're testing (i.e. not named /netbsd), well, that's
+normal.
+
+
+
+cgd
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Thu Nov 14 15:36:37 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: dillema@cs.utwente.nl
+Date: Thu, 14 Nov 1996 15:36:37 +0000
+Subject: Re: Changing Ethernet-IRQ in netbsd kernel
+
+> I have a UDB 266 MHZ, and installed netbsd on it. However,
+> I've not been able to get the Ethernet up and running.
+> It seems that the IRQ-setting is wrong. I installed Linux
+> on another disk and did get networking up properly. 
+> Linux sees the Ethernet IRQ at 10, while my NetBSD kernel
+> sees it at IRQ 15. Is there an ease way to patch the
+> netbsd kernel to change the IRQ setting from 15 to 10.
+
+The ethernet's IRQ as reported by NetBSD is what the firmware sets it
+to.  Not only can't you change it, you don't _want_ to...  NetBSD uses
+the value provided by the firmware, and doesn't have any notion of a
+'fixed' IRQ for the ethernet card.
+
+
+> If you can help my out on this one, I'd be quite grateful.
+> (i'm kinda eager to see netbsd up and running on my new
+> machine ;-)
+
+Which ethernet connector are you using?  I seem to recall that with
+the 'de' driver in NetBSD, one of them (i think it's the thinnet
+connector) can't be used on the Multia/UDB.
+
+
+
+chris
+
+From wulf@ping.net.au  Fri Nov 15 01:23:18 1996
+From: Berndt Josef Wulf <wulf@ping.net.au>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Fri, 15 Nov 1996 01:23:18 +0000
+Subject: Re: try a new kernel for me?
+
+Chris G Demetriou wrote
+> 
+> So, i just put up a new kernel at
+> 
+> 	ftp://ftp.netbsd.org/pub/incoming/cgd/netbsd.GENERIC.gz
+> 
+> In addition to the changes which have been checked in recently (most
+> notably, lots of warning fixes and some other random stuff, like
+> cleaning up the various machine-type support gunk and making the
+> processor type names be more prettily printed), it has some changes
+> that haven't been checked in.
+> 
+> In particular, i've written (i won't say designed, since i more or
+> less took existing code and pasted it together 8-) a bit of common
+> interrupt handling code, so that i don't have to write all new
+> chained-interrupt handling code for each CPU that needs it.  (I'm in
+> thep rocess of making the eb164 boot, and, well, i just couldn't stand
+> to write _another_ chained-interrupt implementation, or, more probably
+> to copy it from the kn20 support code and whack it until it worked.)
+> 
+> Anyway, I'd _really_ like people with AlphaStation 200/400-family
+> machines, AXPpcis/Multias/UDBs, and AlphaStation 500/600-family
+> machines to try it out.  It worked the first time booted on my
+> AlphaStation 200, and so should work on the 200/400's and the
+> AXPpci-family machines.  There's untested, new code for for the
+> 500/600-family machines which could really use testing.  People
+> wanting to try it on the TC machines are welcome to... you can at
+> least see if the various other changes didn't break for you...  8-)
+> 
+> 
+> please report results (positive or negative, along with your system
+> type) to me directly.
+> 
+> 
+> 
+> thanks.
+> 
+> 
+> later,
+> 
+> chris
+> 
+
+Hi Chris,
+
+I have just booted up with your new kernel and as far what I am
+concerned everthing seem to be fine.
+
+One thing though.... we still get bad magic numbers on bootup....
+
+
+cheerio Berndt
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@ping.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.2
+
+From jhawk@bbnplanet.com  Fri Nov 15 11:47:28 1996
+From: John Hawkinson <jhawk@bbnplanet.com>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 15 Nov 1996 11:47:28 +0000
+Subject: panic: wscons_emul_attach: bogus location on 3000/900?
+
+Hi,
+
+	I've been asked to help someone get a 3000/900 up and
+running NetBSD. Booting off the 1.2 rz25 image, it gets:
+
+wscons0 at sfb0panic: wscons_emul_attach: bogus location (n: 0/0, c: 0/0
+halted.
+
+Attached is a transcript of the boot.
+
+This is with the most recent firmware (6.8) as well as 6.7.
+There is no "interim"  firmware available for the 3000/900
+on ftp.digital.com.
+
+Any suggestions?
+
+("set console serial" also does not function with this ROM monitor.
+ There is no keyboard or monitor plugged in, and I'm not sure
+ whether there is a frame buffer.)
+
+Thanks!
+
+--jhawk
+
+
+>>> boot
+INIT-S-CPU...
+INIT-S-RESET_TC...
+INIT-S-ASIC...
+INIT-S-MEM...
+INIT-S-NVR...
+INIT-S-SCC...
+INIT-S-NI...
+INIT-S-SCSI...
+INIT-S-ISDN...
+INIT-S-TC5...
+INIT-S-TC0...
+AUDIT_BOOT_STARTS ... 
+AUDIT_CHECKSUM_GOOD
+AUDIT_LOAD_BEGINS
+AUDIT_LOAD_DONE
+
+NetBSD/Alpha primary boot...
+Jumping to entry point...
+
+
+NetBSD/Alpha boot, Revision $NetBSD: version,v 1.5 1996/05/09 23:54:18 cgd Exp $
+(cgd@bunnahabhain.pdl.cs.cmu.edu, Fri Sep 13 16:10:36 EDT 1996)
+
+VMS PAL revision: 0x100010538
+OSF PAL rev: 0x2012d
+Switch to OSF PAL code succeeded.
+
+boot_dev = "SCSI 0 6 0 0 200 0 FLAMG-IO"
+boot_file = ""
+boot_flags = "A"
+boot_console = "0"
+Boot: /netbsd A
+1420032+137984+118752
+calling fffffc0000230000 with 1e7, b8, 4, 200266c0, 0
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+        The Regents of the University of California.  All rights reserved.
+
+NetBSD 1.2 (GENERIC) #78: Fri Sep 13 12:09:37 EDT 1996
+    cgd@bunnahabhain.pdl.cs.cmu.edu:/usr/src/sys/arch/alpha/compile/GENERIC
+DEC 3000/900 ("Flamingo45"), 275MHz
+8192 byte page size, 1 processor.
+real mem = 67108864 (2097152 reserved for PROM, 65011712 used by NetBSD)
+avail mem = 53633024
+using 793 buffers containing 6496256 bytes of memory
+mainbus0 (root)
+cpu0 at mainbus0: 21064A (EV45), Pass 4, Revision F001
+cpu0: VAX FP support, IEEE FP support
+tcasic0 at mainbus0
+tc0 at tcasic0: 25 MHz clock
+ioasic0 at tc0 slot 7 offset 0x0: fast mode
+le0 at ioasic0 offset 0xc0000: address 08:00:2b:39:99:36
+le0: 32 receive buffers, 8 transmit buffers
+scc0 at ioasic0 offset 0x100000
+scc1 at ioasic0 offset 0x180000: console
+mcclock0 at ioasic0 offset 0x200000: mc146818 or compatible
+AMD79c30 at ioasic0 offset 0x240000 not configured
+sfb0 at tc0 slot 7 offset 0x2000000: 0 x 0, 8bpp
+wscons0 at sfb0panic: wscons_emul_attach: bogus location (n: 0/0, c: 0/0
+halted.
+
+
+?05 HLT INSTR
+  PC= FFFFFC00.00230190 PSL= 00000000.00000006
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Fri Nov 15 17:00:39 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: jhawk@bbnplanet.com
+Date: Fri, 15 Nov 1996 17:00:39 +0000
+Subject: Re: panic: wscons_emul_attach: bogus location on 3000/900?
+
+> 	I've been asked to help someone get a 3000/900 up and
+> running NetBSD. Booting off the 1.2 rz25 image, it gets:
+> 
+> wscons0 at sfb0panic: wscons_emul_attach: bogus location (n: 0/0, c: 0/0
+> halted.
+
+Interesting...  more on this below.
+
+> ("set console serial" also does not function with this ROM monitor.
+>  There is no keyboard or monitor plugged in, and I'm not sure
+>  whether there is a frame buffer.)
+
+As stated in the NetBSD/alpha 'STATUS' readme:
+
+	To configure various Alpha systems to use a serial
+	console, do the following depending on the model:
+	
+	        DEC 3000/[4-9]00's:
+	                Flip the appropriate switch on the back of the machine.
+	
+	        DEC 3000/300 family machines: 
+	                Boot the machine with the keyboard/mouse connector
+	                unplugged.
+	
+	        DECpc AXPs, AlphaStations, and AXPpci systems: 
+	                Get to the console prompt.  Set the variable
+	                "console" to be "serial", and "init" or power cycle
+	                the system.
+
+However, it sounds like you're already using the serial console, so...
+
+
+> sfb0 at tc0 slot 7 offset 0x2000000: 0 x 0, 8bpp
+> wscons0 at sfb0panic: wscons_emul_attach: bogus location (n: 0/0, c: 0/0
+> halted.
+
+The documentation i have on these boxes is ... a bit inconsistent.
+
+It claims that the 900 (and the 800), like the 500, has a built in
+frame buffer.  However, when talking about the frame buffer it only
+talks about the 500...
+
+
+So, I suppose there are a few of questions that you could answer for me:
+
+	(1) does it look like your machine has a port for a frame
+	    buffer in the back?
+	
+	(2) what does it say while booting?
+
+	(3) what does "show conf" at the firmware prompt output?
+
+I figure either:
+
+	the machine doesn't have a frame buffer, and my previous
+	heuristic to check for one is inappropriate, or
+
+	the machine does have a frame buffer, but that frame buffer
+	isn't configured by the firmware if there's no monitor
+	attached.
+
+Either can be fixed, i just need to know which one needs to be.  8-)
+
+
+chris
+
+From jhawk@bbnplanet.com  Fri Nov 15 17:14:21 1996
+From: John Hawkinson <jhawk@bbnplanet.com>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Fri, 15 Nov 1996 17:14:21 +0000
+Subject: Re: panic: wscons_emul_attach: bogus location on 3000/900?
+
+> However, it sounds like you're already using the serial console, so...
+
+Right, sorry to be less than precisely clear.
+
+> It claims that the 900 (and the 800), like the 500, has a built in
+> frame buffer.  However, when talking about the frame buffer it only
+> talks about the 500...
+> 
+> 
+> So, I suppose there are a few of questions that you could answer for me:
+> 
+> 	(1) does it look like your machine has a port for a frame
+> 	    buffer in the back?
+
+Getting someone to check...might be awhile.
+
+> 	(2) what does it say while booting?
+
+"Say"? Could you be more specific? I've included
+what I think you want (output while booting Digital Unix).
+
+> 	(3) what does "show conf" at the firmware prompt output?
+
+Attaching.
+
+> 	the machine doesn't have a frame buffer, and my previous
+> 	heuristic to check for one is inappropriate, or
+
+OK.
+
+> 	the machine does have a frame buffer, but that frame buffer
+> 	isn't configured by the firmware if there's no monitor
+> 	attached.
+
+Err, ok.
+
+> Either can be fixed, i just need to know which one needs to be.  8-)
+
+Right-oh. So you're saying what happens here is that a frame
+buffer is being detected (sfb0), but has bogus information attached.
+
+--jhawk
+
+DEC 3000 - M900
+Digital Equipment Corporation
+     VPP PAL V5.56-82000101/OSF PAL V1.45-82000201 - Built on 22-JUL-1996 13:58:51.33
+
+TCINFO      DEVNAM        DEVSTAT
+------      --------      --------
+                 CPU      OK KN17-AB -V6.7-S85A-I20C-sV2.1-DECchip 21064A P2.0
+                 OSC      275 MHz
+                ASIC      OK
+                 MEM      OK
+8
+7
+                 NVR      OK
+                 SCC      OK
+                  NI      OK
+                ISDN      OK
+6
+                SCSI      OK
+5-PMAF-FD       TC5    
+0-PMAF-FD       TC0    
+>>> show device
+
+  BOOTDEV      ADDR      DEVTYPE    NUMBYTES     RM/FX    WP    DEVNAM      REV
+  -------      ----      -------    --------     -----    --    ------      ---
+  ESA0         08-00-2B-39-99-36 , TENBT
+  DKA200       A/2/0     DISK         1.05GB      FX            RZ26L       440C
+  DKA300       A/3/0     DISK         1.05GB      FX            RZ26L       440C
+ ..HostID..    A/7       INITR
+  DKB400       B/4/0     RODISK     615.32MB      RM      WP    RRD42       4.5d
+ ..HostID..    B/7       INITR
+
+
+
+
+
+********************************* ENTRY     1. *********************************
+
+----- EVENT INFORMATION -----
+
+EVENT CLASS                             OPERATIONAL EVENT 
+OS EVENT TYPE                  300.     SYSTEM STARTUP 
+SEQUENCE NUMBER                  0.
+OPERATING SYSTEM                        DEC OSF/1 
+OCCURRED/LOGGED ON                      Thu Feb 16 17:30:34 1995
+OCCURRED ON SYSTEM                      d4000 
+SYSTEM ID                 x00080004     CPU TYPE:  DEC 3000 
+SYSTYPE                   x00000000
+MESSAGE                                 Alpha boot: available memory from 
+                                         _0x830000 to 0x4000000 
+                                        DEC OSF/1 V3.0B  (Rev. 358.78); Thu 
+                                         _Feb 16 19:28:23 CST 1995  
+                                        physical memory = 64.00 megabytes. 
+                                        available memory = 53.31 megabytes. 
+                                        using 238 buffers containing 1.85 
+                                         _megabytes of memory 
+                                        tc0 at nexus 
+                                        scc0 at tc0 slot 7 
+                                        tcds0 at tc0 slot 6 
+                                        scsi0 at tcds0 slot 0 
+                                        rz2 at scsi0 bus 0 target 2 lun 0 (DEC 
+                                         _    RZ26L    (C) DEC 440C) 
+                                        rz3 at scsi0 bus 0 target 3 lun 0 (DEC 
+                                         _    RZ26L    (C) DEC 440C) 
+                                        scsi1 at tcds0 slot 1 
+                                        rz12 at scsi1 bus 1 target 4 lun 0 
+                                         _(DEC     RRD43   (C) DEC  1084) 
+                                        bba0 at tc0 slot 7 
+                                        ln0: DEC LANCE Module Name: PMAD-BA  
+                                        ln0 at tc0 slot 7 
+                                        ln0: DEC LANCE Ethernet Interface, 
+                                         _hardware address: 08-00-2B-39-99-36  
+                                        fta0: DEC CRE DEFTA FDDI Module Name: 
+                                         _PMAF-FD  
+                                        fta0 at tc0 slot 0 
+                                        fta0: DMA Available. 
+                                        fta0: DEC CRE DEFTA (PDQ) FDDI 
+                                         _Interface, Hardware address: 
+                                         _08-00-2B-B0-8F-B2 
+                                        fta0: Firmware rev:  2.2 
+                                        fta1: DEC CRE DEFTA FDDI Module Name: 
+                                         _PMAF-FD  
+                                        fta1 at tc0 slot 5 
+                                        fta1: DMA Available. 
+                                        fta1: DEC CRE DEFTA (PDQ) FDDI 
+                                         _Interface, Hardware address: 
+                                         _08-00-2B-B0-90-92 
+                                        fta1: Firmware rev:  2.2 
+                                        DEC 3000 - M900 system 
+                                        Firmware revision: 5.2 
+                                        PALcode: OSF version 1.35 
+                                        lvm0: configured. 
+                                        lvm1: configured. 
+                                        dli: configured 
+                                        SuperLAT. Copyright 1993 Meridian 
+                                         _Technology Corp. All rights 
+                                         _reserved. 
+
+
+>>> boot dka300
+INIT-S-CPU...
+INIT-S-RESET_TC...
+INIT-S-ASIC...
+INIT-S-MEM...
+INIT-S-NVR...
+INIT-S-SCC...
+INIT-S-NI...
+INIT-S-SCSI...
+INIT-S-ISDN...
+INIT-S-TC5...
+INIT-S-TC0...
+AUDIT_BOOT_STARTS ... 
+AUDIT_CHECKSUM_GOOD
+AUDIT_LOAD_BEGINS
+AUDIT_LOAD_DONE
+
+OSF boot - Mon Jul 24 21:56:39 EDT 1995
+
+Loading vmunix ...
+Current PAL Revision <0x10538>
+Switching to OSF PALcode Succeeded
+New PAL Revision <0x2012d>
+Loading into KSEG Address Space
+
+Sizes:
+text = 3115744
+data = 427456
+bss  = 628736
+Starting at 0xfffffc00002387e0
+
+Alpha boot: available memory from 0x750000 to 0x4000000
+Digital UNIX V3.2C  (Rev. 148); Wed Nov 13 15:54:58 PST 1996 
+physical memory = 64.00 megabytes.
+available memory = 56.68 megabytes.
+using 238 buffers containing 1.85 megabytes of memory
+tc0 at nexus
+scc0 at tc0 slot 7
+tcds0 at tc0 slot 6
+scsi0 at tcds0 slot 0
+rz2 at scsi0 bus 0 target 2 lun 0 (DEC     RZ26L    (C) DEC 440C)
+rz3 at scsi0 bus 0 target 3 lun 0 (DEC     RZ26L    (C) DEC 440C)
+scsi1 at tcds0 slot 1
+rz12 at scsi1 bus 1 target 4 lun 0 (DEC     RRD42   (C) DEC  4.5d)
+bba0 at tc0 slot 7
+ln0: DEC LANCE Module Name: PMAD-BA 
+ln0 at tc0 slot 7
+ln0: DEC LANCE Ethernet Interface, hardware address: 08-00-2B-39-99-36 
+fta0: DEC CRE DEFTA FDDI Module Name: PMAF-FD 
+fta0 at tc0 slot 0
+fta0: DMA Available.
+fta0: DEC CRE DEFTA (PDQ) FDDI Interface, Hardware address: 08-00-2B-B0-8F-B2
+fta0: Firmware rev:  2.2
+fta1: DEC CRE DEFTA FDDI Module Name: PMAF-FD 
+fta1 at tc0 slot 5
+fta1: DMA Available.
+fta1: DEC CRE DEFTA (PDQ) FDDI Interface, Hardware address: 08-00-2B-B0-90-92
+fta1: Firmware rev:  2.2
+DEC 3000 - M900 system
+Firmware revision: 6.8
+PALcode: OSF version 1.45
+lvm0: configured.
+lvm1: configured.
+dli: configured
+
+From jhawk@bbnplanet.com  Fri Nov 15 17:35:01 1996
+From: John Hawkinson <jhawk@bbnplanet.com>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Fri, 15 Nov 1996 17:35:01 +0000
+Subject: Re: panic: wscons_emul_attach: bogus location on 3000/900?
+
+I wrote (quoting Chris initially):
+} >       (1) does it look like your machine has a port for a frame
+} >           buffer in the back?
+} 
+} Getting someone to check...might be awhile.
+
+I had some folks check and neither the 3000/800 nor the 3000/900
+has a built-in framebuffer.
+
+--jhawk
+
+From jhawk@bbnplanet.com  Fri Nov 15 18:17:52 1996
+From: John Hawkinson <jhawk@bbnplanet.com>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Fri, 15 Nov 1996 18:17:52 +0000
+Subject: Re: panic: wscons_emul_attach: bogus location on 3000/900?
+
+> That was one possibility.  The other, correct, one is that a frame
+> buffer was being detected that wasn't actually _there_...  8-)
+
+OK.
+
+> I put a new kernel up at
+> 
+> 	ftp://ftp.netbsd.org/pub/incoming/cgd/netbsd.GENERIC.gz 
+> 
+> which should solve your problem.  Give it a spin, and tell me how it
+> goes.
+
+Works fine.
+
+Next problem:
+
+	Characters entered on the console seem to quasi-randomly
+repeated. I've attached the kernel probe output and results of my
+attempt to enter a terminal type, followed by my entering a-zA-Z
+(there was one typo in one of them, but note that most characters are
+doubled).  To get it to accept "xterm" I had to enter each letter
+multiple times and delete until finally it accepted the letter in question
+as a single one.
+
+Clues, how to debug, etc., would be appreciated.
+
+--jhawk
+
+NetBSD/Alpha boot, Revision $NetBSD: version,v 1.5 1996/05/09 23:54:18 cgd Exp $
+(cgd@bunnahabhain.pdl.cs.cmu.edu, Fri Sep 13 16:10:36 EDT 1996)
+
+VMS PAL revision: 0x100010538
+OSF PAL rev: 0x2012d
+Switch to OSF PAL code succeeded.
+
+boot_dev = "SCSI 0 6 0 0 200 0 FLAMG-IO"
+boot_file = ""
+boot_flags = "-A"
+boot_console = "0"
+Boot: /netbsd -A
+1526304+147280+110480
+calling fffffc0000230000 with 1f4, b8, 4, 200266c0, 0
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+    The Regents of the University of California.  All rights reserved.
+
+NetBSD 1.2B (GENERIC) #186: Fri Nov 15 17:33:55 EST 1996
+    cgd@bunnahabhain.pdl.cs.cmu.edu:/usr/src/sys/arch/alpha/compile/GENERIC
+DEC 3000/900 ("Flamingo45"), 275MHz
+8192 byte page size, 1 processor.
+real mem = 67108864 (2097152 reserved for PROM, 65011712 used by NetBSD)
+avail mem = 53526528
+using 793 buffers containing 6496256 bytes of memory
+mainbus0 (root)
+cpu0 at mainbus0: 21064A (pass 2)
+cpu0: VAX FP support, IEEE FP support
+tcasic0 at mainbus0
+tc0 at tcasic0: 25 MHz clock
+ioasic0 at tc0 slot 7 offset 0x0: fast mode
+le0 at ioasic0 offset 0xc0000: address 08:00:2b:39:99:36
+le0: 32 receive buffers, 8 transmit buffers
+scc0 at ioasic0 offset 0x100000
+scc1 at ioasic0 offset 0x180000: console
+mcclock0 at ioasic0 offset 0x200000: mc146818 or compatible
+AMD79c30 at ioasic0 offset 0x240000 not configured
+tcds0 at tc0 slot 6 offset 0x0
+esp0 at tcds0 slot 0: address 0xfffffc01d0100000: NCR53C94 25Mhz, target 7
+scsibus0 at esp0
+probe(esp0:2:0): max sync rate 6.25Mb/s
+sd0 at scsibus0 targ 2 lun 0: <DEC, RZ26L    (C) DEC, 440C> SCSI2 0/direct fixed
+sd0: 1001MB, 3117 cyl, 8 head, 82 sec, 512 bytes/sec
+probe(esp0:3:0): max sync rate 6.25Mb/s
+sd1 at scsibus0 targ 3 lun 0: <DEC, RZ26L    (C) DEC, 440C> SCSI2 0/direct fixed
+sd1: 1001MB, 3117 cyl, 8 head, 82 sec, 512 bytes/sec
+esp1 at tcds0 slot 1: address 0xfffffc01d0100200: NCR53C94 25Mhz, target 7
+scsibus1 at esp1
+cd0 at scsibus1 targ 4 lun 0: <DEC, RRD42   (C) DEC, 4.5d> SCSI2 5/cdrom removable
+fta0 at tc0 slot 5 offset 0x0: DEC DEFTA TC FDDI DAS Controller
+fta0: FDDI address 08:00:2b:b0:90:92, FW= 2.2, HW=0, SMT V7.2
+fta0: FDDI Port[A] = A (PMD = ANSI Multi-Mode), FDDI Port[B] = B (PMD = ANSI Multi-Mode)
+fta1 at tc0 slot 0 offset 0x0: DEC DEFTA TC FDDI DAS Controller
+fta1: FDDI address 08:00:2b:b0:8f:b2, FW= 2.2, HW=0, SMT V7.2
+fta1: FDDI Port[A] = A (PMD = ANSI Multi-Mode), FDDI Port[B] = B (PMD = ANSI Multi-Mode)
+root on sd0a swap on sd0b
+WARNING: clock lost 9495 days -- CHECK AND RESET THE DATE!
+init: copying out path `/sbin/init' 11
+Checking root and /usr...
+Remounting root device...
+Mounting /usr...
+Returning to single-user mode...
+Enter pathname of shell or RETURN for sh: 
+
+Terminal type? Terminal type? xtteerrmm
+tset: terminal type xtteerrmm is unknown
+Terminal type? xteerrm
+tset: terminal type xteerrm is unknown
+Terminal type? 
+
+Terminal type? Terminal type? 
+Terminal type? xterm
+# abcdeefghiijkllmmnoopqrsttuvwxxyzz
+abcdeefghiijkllmmnoopqrsttuvwxxyzz: not found
+# aabbccdeefgghhijjkkllmmnooppqrrssttuuvwxyyz
+aabbccdeefgghhijjkkllmmnooppqrrssttuuvwxyyz: not found
+# abbcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
+abbcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ: not found
+# abbcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
+abbcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ: not found
+# abbcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
+abbcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ: not found
+#
+
+From cjs@portal.ca  Fri Nov 15 16:03:48 1996
+From: Curt Sampson <cjs@portal.ca>
+To: jhawk@bbnplanet.com
+Date: Fri, 15 Nov 1996 16:03:48 +0000
+Subject: Re: panic: wscons_emul_attach: bogus location on 3000/900?
+
+> wscons0 at sfb0panic: wscons_emul_attach: bogus location (n: 0/0, c: 0/0
+> halted.
+> 
+> Attached is a transcript of the boot.
+> 
+> This is with the most recent firmware (6.8) as well as 6.7.
+> There is no "interim"  firmware available for the 3000/900
+> on ftp.digital.com.
+> 
+> Any suggestions?
+
+I assume it's detecing an `sfb0' device that you don't actually
+have in the system. (At least, this was the case with the pcivga0
+device I don't have when I had buggy firmware and was trying to
+boot serially.)
+
+If you build a kernel without that device and the wscons device,
+you might be ok. That fixed it for me until I got new firmware.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Fri Nov 15 17:41:08 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: jhawk@bbnplanet.com
+Date: Fri, 15 Nov 1996 17:41:08 +0000
+Subject: Re: panic: wscons_emul_attach: bogus location on 3000/900?
+
+> > It claims that the 900 (and the 800), like the 500, has a built in
+> > frame buffer.  However, when talking about the frame buffer it only
+> > talks about the 500...
+> > 
+> > 
+> > So, I suppose there are a few of questions that you could answer for me:
+> > 
+> > 	(1) does it look like your machine has a port for a frame
+> > 	    buffer in the back?
+> 
+> Getting someone to check...might be awhile.
+
+No need; the info you supplied is enough.  (But, thanks to my delay in
+getting this reply out, i see that that's already been done...  8-)
+
+
+> > 	(2) what does it say while booting?
+> 
+> "Say"? Could you be more specific? I've included
+> what I think you want (output while booting Digital Unix).
+
+I meant, in particular:
+
+> DEC 3000 - M900
+> Digital Equipment Corporation
+>      VPP PAL V5.56-82000101/OSF PAL V1.45-82000201 - Built on 22-JUL-1996 13:58:51.33
+> 
+> TCINFO      DEVNAM        DEVSTAT
+> ------      --------      --------
+>                  CPU      OK KN17-AB -V6.7-S85A-I20C-sV2.1-DECchip 21064A P2.0
+>                  OSC      275 MHz
+>                 ASIC      OK
+>                  MEM      OK
+> 8
+> 7
+>                  NVR      OK
+>                  SCC      OK
+>                   NI      OK
+>                 ISDN      OK
+> 6
+>                 SCSI      OK
+> 5-PMAF-FD       TC5    
+> 0-PMAF-FD       TC0    
+
+There is no 'CXT' there, which there would be if it had graphics
+attached.  (That's the 'show conf' output, but it would also be shown
+at power-on-self-test time.
+
+
+> > Either can be fixed, i just need to know which one needs to be.  8-)
+> 
+> Right-oh. So you're saying what happens here is that a frame
+> buffer is being detected (sfb0), but has bogus information attached.
+
+That was one possibility.  The other, correct, one is that a frame
+buffer was being detected that wasn't actually _there_...  8-)
+
+
+
+I put a new kernel up at
+
+	ftp://ftp.netbsd.org/pub/incoming/cgd/netbsd.GENERIC.gz 
+
+which should solve your problem.  Give it a spin, and tell me how it
+goes.  (You should be able to either put it on your DU root partition
+and boot it with the DU boot blocks, but if you do that boot with -N.
+Also, you should be able to mount your netbsd root partition under DU,
+and copy it, etc.)
+
+Tell me how it goes.  This change could be made into a 1.2 patch
+pretty easily, if you need that.
+
+
+
+chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Fri Nov 15 19:04:34 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: jhawk@bbnplanet.com
+Date: Fri, 15 Nov 1996 19:04:34 +0000
+Subject: Re: panic: wscons_emul_attach: bogus location on 3000/900?
+
+> > I put a new kernel up at
+> > 
+> > 	ftp://ftp.netbsd.org/pub/incoming/cgd/netbsd.GENERIC.gz 
+> > 
+> > which should solve your problem.  Give it a spin, and tell me how it
+> > goes.
+> 
+> Works fine.
+
+Cool!
+
+
+> Next problem:
+> 
+> 	Characters entered on the console seem to quasi-randomly
+> repeated. I've attached the kernel probe output and results of my
+> attempt to enter a terminal type, followed by my entering a-zA-Z
+> (there was one typo in one of them, but note that most characters are
+> doubled).  To get it to accept "xterm" I had to enter each letter
+> multiple times and delete until finally it accepted the letter in question
+> as a single one.
+> 
+> Clues, how to debug, etc., would be appreciated.
+
+That's a good one.  I've seen that before, but never need it happen
+quite so regularly and severly...
+
+The z8530 has a hardware settle time, and I'd always thought that that
+was taken care of in hardware on the alpha since i figured that if
+that _was_ a problem, it would have blown up more severely...
+
+
+I've built a kernel which includes short delays when accessing the SCC
+registers.  it's now at:
+
+	ftp://ftp.netbsd.org/pub/incoming/cgd/netbsd.GENERIC.gz 
+
+(same place as the old one)
+
+I've booted it on my 3000/300LX, and it seems to work fine there.
+(just a sanity check; it used to work fine...  8-)
+
+
+
+chris
+
+From cjs@portal.ca  Fri Nov 15 16:33:20 1996
+From: Curt Sampson <cjs@portal.ca>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Fri, 15 Nov 1996 16:33:20 +0000
+Subject: Re: Changing Ethernet-IRQ in netbsd kernel
+
+On Thu, 14 Nov 1996, Chris G Demetriou wrote:
+
+> Which ethernet connector are you using?  I seem to recall that with
+> the 'de' driver in NetBSD, one of them (i think it's the thinnet
+> connector) can't be used on the Multia/UDB.
+
+That's correct. If my job ever stops dumping on me for a couple of
+days (I just worked through my entire `day off' today) I'll continue
+to try and find out why it allegedly works under Linux, but not
+for us. (I've not tried it myself under Linux, and I'm starting to
+get a bit suspicious because I've poked the couple of the things
+that were different in the port selection code under Linux into
+the NetBSD driver, and it still didn't work. There aren't any
+special UDB-specific things happening, as far as I can tell, in
+the Linux driver. I just switches to AUI/BNC if it doesn't get a
+10base-T carrier, and then switches to AUI/BNC again if it doesn't
+get an AUI carrier.)
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From jhawk@bbnplanet.com  Fri Nov 15 20:28:40 1996
+From: John Hawkinson <jhawk@bbnplanet.com>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Fri, 15 Nov 1996 20:28:40 +0000
+Subject: Re: panic: wscons_emul_attach: bogus location on 3000/900?
+
+> That's a good one.  I've seen that before, but never need it happen
+> quite so regularly and severly...
+> 
+> The z8530 has a hardware settle time, and I'd always thought that that
+> was taken care of in hardware on the alpha since i figured that if
+> that _was_ a problem, it would have blown up more severely...
+
+OK. 
+
+> I've built a kernel which includes short delays when accessing the SCC
+> registers.  it's now at:
+
+This works just fine, thanks. There are some occasional silo overflows.
+
+Chris sent me the patches in question via email (for those of you
+out there w/ 3000/900s or perhaps those reading the archive :-)).
+
+--jhawk
+
+From cjs@portal.ca  Sun Nov 17 01:51:18 1996
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 17 Nov 1996 01:51:18 +0000
+Subject: savecore not recognised as a core
+
+I'm running current as of about a week ago. just blew up my machine
+and got a core dump, which savecore dutifully saved in /var/crash.
+However, when I try to run gdb on the kernel and that corefile, I
+get
+
+    "/var/crash/netbsd.0.core" is not a core dump: File format not recognized
+
+Is this supposed to work?
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Sun Nov 17 14:14:47 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: cjs@portal.ca
+Date: Sun, 17 Nov 1996 14:14:47 +0000
+Subject: Re: savecore not recognised as a core
+
+> I'm running current as of about a week ago. just blew up my machine
+> and got a core dump, which savecore dutifully saved in /var/crash.
+> However, when I try to run gdb on the kernel and that corefile, I
+> get
+> 
+>     "/var/crash/netbsd.0.core" is not a core dump: File format not recognized
+> 
+> Is this supposed to work?
+
+No.  I've definitely never taught "old" gdb (the one i'm shipping 8-)
+how to deal with kernel core files.  I think i might have taught "new"
+gdb, but i'm not sure (don't rememeber), and can't easily ship diffs
+for the new toolchain right now...
+
+kvm-using programs like 'ps' and 'w' which include dead-kernel support
+should be able to examine it just fine, though.
+
+
+Generally, the best way i've found to figure out where crashes due to
+traps are is to take the PC and RA reported by the panic message, and
+use gdb to find it in the 'netbsd.gdb' that got built when the kernel
+was built.  I've heard that 'list *<address>' is the easiest way to do
+that (thanks jhawk! 8-).
+
+
+
+chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Sun Nov 17 22:54:32 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: jb@cimlogic.com.au
+Date: Sun, 17 Nov 1996 22:54:32 +0000
+Subject: Re: When is ELF coming?
+
+> Soon?!
+
+Unfortunately, making ELF work properly on the Alpha requires
+Extensive changes to binutils.  When i say "properly," i mean
+"capable of completely rebuilding the system without special hacks,
+e.g. disabling a bunch of ld flags."  It's not clear that's true of
+the Linux ELF support for the alpha, because i'm working with the guy
+who did it, and NetBSD has pointed out a heck of a lot of problems...
+8-)
+
+Also, the changes are _still_ not completely working yet, either, but
+that's another matter.
+
+I seriously doubt, at this point, that it's going to be feasible to
+back-port the binutils changes to binutils 2.7...  If you're
+interested in testing the code, i'm sure that something can be worked
+out so that you get it as soon as it actually works properly (see the
+above definition 8-) for me, but i'm probably not going to be
+"supporting" it until the next release of binutils is out.
+
+
+> And it has weak symbols?
+
+Well, i've been waiting for weak symbols in libc for a long, long
+time, and J.T. hasn't gotten around to doing it yet, even though he
+apparently has code which implements it and works.  I even have a
+bunch of code to do it, which i didn't check in, to keep out of his
+way.
+
+I've asked for the status several times (last time was about a week
+and a half ago), and have consistently told that something would be
+happening with it "soon."  I have no idea what the hold-up is.
+
+*sigh*
+
+
+
+chris
+
+From cjs@portal.ca  Sun Nov 17 22:38:06 1996
+From: Curt Sampson <cjs@portal.ca>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 17 Nov 1996 22:38:06 +0000
+Subject: Thinwire Port on Multias
+
+Well, I can't get that darn thinwire port on my Multia to work.
+I've been through the Linux device driver, and it doesn't seem to
+be doing anything special to select it. The entire relevant chunk
+of Linux code is as follows:
+
+-----------------------------------
+/* This is a mysterious value that can be written to CSR11 in the 21040
+   to detect a full-duplex frame.  No one knows what it should be, but if
+   left at its default value some 10base2(!) packets trigger a
+   full-duplex-request interrupt. */
+#define FULL_DUPLEX_MAGIC       0x6969
+
+#define TSIAC_NO10TP            0x00000008      /* 10baseT(0) or not(1) */
+#define TSIAC_CONFIG            0x00000004      /* Configuration */
+#define TSIAC_SWRESET           0x00000001      /* 21041: software reset */
+#define TSIAC_RESET                     0x00000000      /* reset */
+#define TSIAC_C21041            (TSIAC_OUTEN|TSIAC_SELED|TSIAC_SWRESET)
+#define TSIAC_C21040            TSIAC_CONFIG
+
+static void     
+generic21040_select(struct device *dev) 
+{
+        int ioaddr = dev->base_addr;
+        const char *media;
+                        
+        dev->if_port &= 3;
+        switch (dev->if_port)
+        {               
+        case TULIP_10TP_PORT:
+                media = "10baseT";  
+                break;  
+        case TULIP_AUI_PORT:
+                media = "AUI";
+                break;
+        case TULIP_BNC_PORT:
+                media = "BNC"; 
+                break;  
+        default:        
+                media = "unknown type"; 
+                break;          
+        }
+        printk("%s: enabling %s port.\n", dev->name, media);
+        /* Set the full duplex match frame. */
+        tio_write(FULL_DUPLEX_MAGIC, CSR11);
+        tio_write(TSIAC_RESET, CSR13);
+        /* Reset the serial interface */
+        tio_write((dev->if_port ? TSIAC_NO10TP: 0) | TSIAC_C21040, CSR13);
+}               
+-----------------------------------
+
+Not too tricky.
+
+I have converted our driver to send the full duplex magic, and to
+output exactly the same thing (0x0c) to CR13 as the Linux driver
+does (ours adds the software reset bit), and still no joy.
+
+If anyone out there has access to an alpha running Linux, would
+you mind checking to see that this interface really does work, and
+sending me a copy of the startup messages related to this interface?
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From mjacob@feral.com  Sun Nov 17 22:50:57 1996
+From: Matthew Jacob <mjacob@feral.com>
+To: port-alpha@NetBSD.ORG, cjs@portal.ca
+Date: Sun, 17 Nov 1996 22:50:57 +0000
+Subject: Re: Thinwire Port on Multias
+
+Umm- I believe that it actually doesn't work.
+
+Didn't this come up about a 2 months ago? At any rate,
+I believe that Matt Thomas @DEC says it doesn't work.
+
+Look thru the archives from Tue Sep 24.
+
+From simonb@telstra.com.au  Mon Nov 18 11:07:23 1996
+From: Simon Burge <simonb@telstra.com.au>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Mon, 18 Nov 1996 11:07:23 +0000
+Subject: Re: panic: wscons_emul_attach: bogus location on 3000/900?
+
+On Fri, 15 Nov 1996 19:04:34 -0500  Chris G Demetriou wrote:
+
+> That's a good one.  I've seen that before, but never need it happen
+> quite so regularly and severly...
+> 
+> The z8530 has a hardware settle time, and I'd always thought that that
+> was taken care of in hardware on the alpha since i figured that if
+> that _was_ a problem, it would have blown up more severely...
+
+This was about as severe as it was on the MIPS DECstations - looks like
+DEC still didn't get it right...
+
+Simon.
+
+From jb@cimlogic.com.au  Mon Nov 18 14:28:42 1996
+From: John Birrell <jb@cimlogic.com.au>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 18 Nov 1996 14:28:42 +0000
+Subject: When is ELF coming?
+
+Soon?!
+
+And it has weak symbols?
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au                          119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From jb@cimlogic.com.au  Mon Nov 18 15:23:06 1996
+From: John Birrell <jb@cimlogic.com.au>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Mon, 18 Nov 1996 15:23:06 +0000
+Subject: Re: When is ELF coming?
+
+Chris G Demetriou wrote:
+> I seriously doubt, at this point, that it's going to be feasible to
+> back-port the binutils changes to binutils 2.7...  If you're
+> interested in testing the code, i'm sure that something can be worked
+> out so that you get it as soon as it actually works properly (see the
+> above definition 8-) for me, but i'm probably not going to be
+> "supporting" it until the next release of binutils is out.
+
+I'm looking for versions of gcc/ld that let me check out a design of
+libc/libpthread that uses lots and lots of weak symbols (like every
+syscall, any stdio function that needs locking, ...). My need for more
+GOTs can wait.
+
+Is it possible to run a hybrid system, using ELF selectively, or is
+it "all or nothing"?
+
+> > And it has weak symbols?
+
+I meant compiler support for weak symbols (instead of the sig 11
+I get using V2.7-95q4).
+
+> 
+> Well, i've been waiting for weak symbols in libc for a long, long
+> time, and J.T. hasn't gotten around to doing it yet, even though he
+> apparently has code which implements it and works.  I even have a
+> bunch of code to do it, which i didn't check in, to keep out of his
+> way.
+
+Is there anything anyone else can do about this?
+
+What do you need weak symbols in libc for?
+I'll show you mine if you show me yours... 8-)
+
+Regards,
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au                          119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Mon Nov 18 00:08:00 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: jb@cimlogic.com.au
+Date: Mon, 18 Nov 1996 00:08:00 +0000
+Subject: Re: When is ELF coming?
+
+> I'm looking for versions of gcc/ld that let me check out a design of
+> libc/libpthread that uses lots and lots of weak symbols (like every
+> syscall, any stdio function that needs locking, ...). My need for more
+> GOTs can wait.
+
+Yah, i understand.
+
+
+> Is it possible to run a hybrid system, using ELF selectively, or is
+> it "all or nothing"?
+
+Well, to run a hybrid system (and be able to compile programs), you
+need to have at least libraries building...  And i've noted a few
+problems with those.
+
+
+If the libraries built fine, i'd really have no great objection to
+getting an ELF user-land, etc., out there.  but the problem is that
+they _don't_ without severe hacking to work around bugs in the
+toolchain.
+
+
+> > > And it has weak symbols?
+> 
+> I meant compiler support for weak symbols (instead of the sig 11
+> I get using V2.7-95q4).
+
+Ahh, i didn't realize that was what you meant.  8-)
+
+I'd not even tried them with the current toolchain.  now, i guess, i'm
+glad!
+
+
+> > Well, i've been waiting for weak symbols in libc for a long, long
+> > time, and J.T. hasn't gotten around to doing it yet, even though he
+> > apparently has code which implements it and works.  I even have a
+> > bunch of code to do it, which i didn't check in, to keep out of his
+> > way.
+> 
+> Is there anything anyone else can do about this?
+
+well, my tack has been to keep pestering him occasionally...
+
+
+> What do you need weak symbols in libc for?
+> I'll show you mine if you show me yours... 8-)
+
+Shared libraries.
+
+ELF shared libraries look like one big .o, in terms of the linking
+model...  I can't define it precisely (since i'm no an ELF guru), but
+it's more or less seomthing like:
+
+If you've got 'real' (non-weak) symbols in your libraries that the
+user program also wants to define, lossage ensues.
+
+One example of this is /usr/bin/pr: it defines a global FILE * named
+'err'.  That gets confused with the libc (function) definition of
+'err'.  SEGV.
+
+
+
+chris
+
+From brad@anduin.eldar.org  Mon Nov 18 09:33:48 1996
+From: Brad Spencer <brad@anduin.eldar.org>
+To: cjs@portal.ca
+Date: Mon, 18 Nov 1996 09:33:48 +0000
+Subject: Re: Thinwire Port on Multias
+
+Well, I can't get that darn thinwire port on my Multia to work.
+   I've been through the Linux device driver, and it doesn't seem to
+   be doing anything special to select it. The entire relevant chunk
+   of Linux code is as follows:
+
+[snip]
+
+   Not too tricky.
+
+   I have converted our driver to send the full duplex magic, and to
+   output exactly the same thing (0x0c) to CR13 as the Linux driver
+   does (ours adds the software reset bit), and still no joy.
+
+   If anyone out there has access to an alpha running Linux, would
+   you mind checking to see that this interface really does work, and
+   sending me a copy of the startup messages related to this interface?
+
+   cjs
+
+   Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+   Internet Portal Services, Inc.	
+   Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+
+Hello....  My Multia was shipped with Redhat Linux installed and the
+thinwire port worked.  I used it to telnet/rsh to a NetBSD machine
+which contained the NetBSD Alpha disk image.  I did the old 'cat
+disk_image | rsh alpha_machine "zcat | dd of=other_disk"' to write the
+image to another disk I had attached to the Multia.  [Of course, I
+booted the NetBSD disk and wiped Linux, so I can't try this again].
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Mon Nov 18 12:24:24 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: mjacob@feral.com
+Date: Mon, 18 Nov 1996 12:24:24 +0000
+Subject: Re: Thinwire Port on Multias
+
+> Umm- I believe that it actually doesn't work.
+> 
+> Didn't this come up about a 2 months ago? At any rate,
+> I believe that Matt Thomas @DEC says it doesn't work.
+
+Matt said that he tried to make the linux method work in NEtBSD, and
+that the result didn't work...  not that linux didn't work with that
+port...
+
+every indication that i've seen shows that linux does, in fact, do the
+right thing -- see the message here recently from the guy (i forget
+who) who said that it worked fine with linux but didn't work when he
+installed netbsd...  8-)
+
+
+
+chris
+
+From mjacob@feral.com  Mon Nov 18 09:30:22 1996
+From: Matthew Jacob <mjacob@feral.com>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Mon, 18 Nov 1996 09:30:22 +0000
+Subject: Re: Thinwire Port on Multias
+
+Heh. Well, that just goes to show that one can misread mail.
+
+I, in fact, could not make the thinwire port work when I first
+got my UDB- even for NT. That may be because the autosense stuff
+in the SRM was turned on.
+
+Well, you learn something new every day....
+
+From oster@cs.usask.ca  Mon Nov 18 13:24:14 1996
+From: Greg Oster <oster@cs.usask.ca>
+To: cjs@portal.ca
+Date: Mon, 18 Nov 1996 13:24:14 +0000
+Subject: Re: Thinwire Port on Multias
+
+cjs@portal.ca writes:
+> 
+> Well, I can't get that darn thinwire port on my Multia to work.
+> I've been through the Linux device driver, and it doesn't seem to
+> be doing anything special to select it. The entire relevant chunk
+> of Linux code is as follows:
+[linux code snipped]
+> Not too tricky.
+> 
+> I have converted our driver to send the full duplex magic, and to
+> output exactly the same thing (0x0c) to CR13 as the Linux driver
+> does (ours adds the software reset bit), and still no joy.
+> 
+> If anyone out there has access to an alpha running Linux, would
+
+We've got a whole wack of Multias running Red Hat Linux release 3.0.3 with a 
+1.3.90 kernel. 
+
+> you mind checking to see that this interface really does work, 
+
+The Thinwire (coax) port works just fine... :-/
+
+> and
+> sending me a copy of the startup messages related to this interface?
+
+[snip]
+eth0: DE434/5 at b000 (PCI bus 0, device 8), h/w address 08:00:2b:e4:1a:cd,
+      and requires IRQ10 (provided by PCI BIOS).
+de4x5.c:v0.41 96/3/21 davies@wanton.lkg.dec.com
+Partition check:
+ sda: sda1 sda2 sda3 sda4
+VFS: Mounted root (ext2 filesystem) readonly.
+Adding Swap: 103184k swap-space
+Max size:265581   Log zone size:2048
+First datazone:28   Root inode number 57344
+ISO9660 Extensions: RRIP_1991A
+eth0: media is EXT SIA.
+[snip]
+
+Good luck...
+
+Later...
+
+Greg Oster
+
+oster@cs.usask.ca
+Department of Computer Science
+University of Saskatchewan, Saskatoon, Saskatchewan, CANADA
+
+From cjs@portal.ca  Mon Nov 18 14:26:41 1996
+From: Curt Sampson <cjs@portal.ca>
+To: oster@cs.usask.ca
+Date: Mon, 18 Nov 1996 14:26:41 +0000
+Subject: Re: Thinwire Port on Multias
+
+On Mon, 18 Nov 1996, Greg Oster wrote:
+
+> eth0: DE434/5 at b000 (PCI bus 0, device 8), h/w address 08:00:2b:e4:1a:cd,
+
+Oh bloody hell! That's a completely different driver! There's about
+eight hours of hacking wasted. *Sigh*.
+
+I'm not even going to think about why Linux has two separate drivers
+for the same bloody chip.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From jb@cimlogic.com.au  Tue Nov 19 09:35:36 1996
+From: John Birrell <jb@cimlogic.com.au>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Tue, 19 Nov 1996 09:35:36 +0000
+Subject: Re: When is ELF coming?
+
+Chris G Demetriou wrote:
+> > What do you need weak symbols in libc for?
+> > I'll show you mine if you show me yours... 8-)
+> 
+> Shared libraries.
+> 
+> ELF shared libraries look like one big .o, in terms of the linking
+> model...  I can't define it precisely (since i'm no an ELF guru), but
+> it's more or less seomthing like:
+> 
+> If you've got 'real' (non-weak) symbols in your libraries that the
+> user program also wants to define, lossage ensues.
+> 
+> One example of this is /usr/bin/pr: it defines a global FILE * named
+> 'err'.  That gets confused with the libc (function) definition of
+> 'err'.  SEGV.
+
+So you need _every_ libc function that is in the programmer's name space
+to have a name outside that space and a weak alias back to the original
+name?
+
+And the modified libc code has to work on ports where no weak alias
+support exists and/or with a K & R compiler?!! (rhetorical 8-).
+
+Does this mean you need a macro like HIDENAME() and code things like:
+
+int
+HIDENAME(sigpause)(mask)
+    int mask;
+{
+    return (HIDENAME(sigsuspend)((sigset_t *)&mask));
+}
+
+[not sure that is a good example, but it was in a window nearby 8-)]
+
+I was trialling this sort of thing to hide functions that libpthread
+needs to supply a thread-specific version of.
+
+Now I see a problem... if I had done such a thing to libc it would
+suit both your ELF requirements and mine, but I would end up with the
+ELF shared library problem occurring in libpthread. libpthread would
+need non-weak symbols to override the weak ones in libc - then
+libpthread wouldn't work shared under ELF. There are no degress of
+"weakness". Hmmm. Any suggestions?
+
+> chris
+> 
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au                          119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Tue Nov 19 00:32:20 1996
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 19 Nov 1996 00:32:20 +0000
+Subject: note: 'pcivga' changed to 'vga', ISA VGA support...
+
+So, FYI:
+
+'pcivga' has been renamed 'vga'; if you've got custom kernel config
+files that define pcivga devices, you should change all instances of
+'pcivga' to 'vga'.
+
+I also added ISA VGA support.  If you have an ISA VGA board, you can
+enable it by adding a "vga0 at isa?" line to your config file
+(or uncommenting one of the ones in the 'standard' config files I
+ship).  However, at this time, you SHOULD NOT use both "vga0 at
+isa..." and "vga* at pci..." (or any similar combination) in the same
+kernel, because of a few outstanding problems in the way those devices
+are configured.  Eventually that'll be fixed, but right now it
+could cause you some problems if you try it.
+
+
+
+chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Tue Nov 19 10:06:37 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: jb@cimlogic.com.au
+Date: Tue, 19 Nov 1996 10:06:37 +0000
+Subject: Re: When is ELF coming?
+
+> > One example of this is /usr/bin/pr: it defines a global FILE * named
+> > 'err'.  That gets confused with the libc (function) definition of
+> > 'err'.  SEGV.
+> 
+> So you need _every_ libc function that is in the programmer's name space
+> to have a name outside that space and a weak alias back to the original
+> name?
+
+Right.
+
+I'm not really sure, but i'd guess that if you want to support a 'gcc
+-traditional' programming model, i.e. where ANSI's notion of user- and
+standard-namespace symbols doesn't apply, you'd have to do it for
+_every_ function that you might reasonably expect the user to use..
+
+
+> And the modified libc code has to work on ports where no weak alias
+> support exists and/or with a K & R compiler?!! (rhetorical 8-).
+> 
+> Does this mean you need a macro like HIDENAME() and code things like:
+> 
+> int
+> HIDENAME(sigpause)(mask)
+>     int mask;
+> {
+>     return (HIDENAME(sigsuspend)((sigset_t *)&mask));
+> }
+
+I don't really know; J.T.'s the guy doing this work, and i'm not
+really capable of describing what he's done.
+
+
+> Now I see a problem... if I had done such a thing to libc it would
+> suit both your ELF requirements and mine, but I would end up with the
+> ELF shared library problem occurring in libpthread. libpthread would
+> need non-weak symbols to override the weak ones in libc - then
+> libpthread wouldn't work shared under ELF. There are no degress of
+> "weakness". Hmmm. Any suggestions?
+
+I don't know how that sort of thing works, unfortunately.  All i
+really know is why (i'm told 8-) i need weak references, and why i
+get a SEGV from some programs if i don't have them...  8-)
+
+
+chris
+
+From dillema@cs.utwente.nl  Tue Nov 19 18:20:39 1996
+From: Feico Dillema <dillema@cs.utwente.nl>
+To: port-alpha@NetBSD.ORG
+Date: Tue, 19 Nov 1996 18:20:39 +0000
+Subject: dump/restore problem...
+
+Hello,
+
+I am not able to dump and restore a filesystem (my root fs to be precise)
+My system is a 266Mhz UDB running NetBSD-alpha 1.2. The (a) command line
+example that fails is:
+
+dump 0f - /dev/sd0a | restore -rf -
+
+resulting in a checksum error (by restore).
+when dumping to a file I have not been able to read it on another
+system using that restore.
+
+Has this problem been reported (and solved?) yet. Is there a patch?
+Or can anybody please tell me how to copy a root filesystem from one
+disk to another (type of) disk????
+
+Thanks,
+
+{ Feico Dillema,                                                        }
+{ Faculty of Computer Science / TIOS, Phone UT: +31.53.4894099          }
+{ University of Twente, P.O. Box 217, 7500 AE Enschede, The Netherlands }
+{ ........ Look! Windows'95. But kids, don't try this at home ......... }
+
+From cjs@portal.ca  Tue Nov 19 16:48:16 1996
+From: Curt Sampson <cjs@portal.ca>
+To: jb@cimlogic.com.au
+Date: Tue, 19 Nov 1996 16:48:16 +0000
+Subject: Re: When is ELF coming?
+
+Can someone out there point me to a document that describes how weak
+symbols work (or are supposed to work) in a dynamic linking environment?
+My conception of them is rather vague.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From cjs@portal.ca  Tue Nov 19 21:15:11 1996
+From: Curt Sampson <cjs@portal.ca>
+To: jb@cimlogic.com.au
+Date: Tue, 19 Nov 1996 21:15:11 +0000
+Subject: Re: When is ELF coming?
+
+On Wed, 20 Nov 1996, John Birrell wrote:
+
+> Code a function with one name, declare a weak alias of that function
+> to another name by which it can be referenced iff there isn't another
+> function of that name linked (possibly in another library).
+
+What I can't figure out is what the use of this is. I mean, I
+understand that it's useful not to have your entire namespace filled
+with the symbols from all your libraries even before you start :-),
+but isn't a linker supposed to do this sort of thing automagically?
+This seems to work now; I can put my own getpid() in a program and
+that will be called instead of the library routine without complaint,
+and even though I link against libc (for printf), which contains
+getpid().
+
+Of course, I suppose things do get interesting if you override
+getpid, and then call library routines that call getpid. But what's
+to say you didn't want these other library routines calling your
+getpid in the first place?
+
+I'm obviously missing some essential clue here.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From lukem@vlad.supp.cpr.itg.telstra.com.au  Wed Nov 20 11:20:18 1996
+From: Luke Mewburn <lukem@vlad.supp.cpr.itg.telstra.com.au>
+To: dillema@cs.utwente.nl
+Date: Wed, 20 Nov 1996 11:20:18 +0000
+Subject: Re: dump/restore problem...
+
+Feico Dillema writes:
+> I am not able to dump and restore a filesystem (my root fs to be precise)
+> My system is a 266Mhz UDB running NetBSD-alpha 1.2. The (a) command line
+> example that fails is:
+> 
+> dump 0f - /dev/sd0a | restore -rf -
+> 
+> resulting in a checksum error (by restore).
+> when dumping to a file I have not been able to read it on another
+> system using that restore.
+
+(Disclaimer: I haven't used NetBSD/alpha. I've just seen people
+ complain about similar things before and I know a bit about the
+ dump/restore code)
+
+Dump and restore aren't 64bit friendly (yet). The main problem is
+probably that <protocols/dumprestore.h> has lots of 'long'
+definitions, which I think are 64bit on alpha and 32bit elsewhere.
+
+A medium term "project" I was thinking of performing was making
+dump/restore 64bit clean, as well as making restore more portable to
+other operating systems. At my current employer we've ported NetBSD's
+dump to ULTRIX (as bdump), and restore to ULTRIX (as brestore) and
+Solaris (as brestore), so we can restore NetBSD & Ultrix filesystems
+on our Solaris boxes. This needs a bit of work, but I think it's an
+worthwhile goal to have.
+
+
+> Has this problem been reported (and solved?) yet. Is there a patch?
+> Or can anybody please tell me how to copy a root filesystem from one
+> disk to another (type of) disk????
+
+Try something like (from memory - untested :):
+	gtar -C <sourcedisk> -lcf - | gtar -C <destdir> -xpf -
+
+Luke.
+
+From jb@cimlogic.com.au  Wed Nov 20 09:15:06 1996
+From: John Birrell <jb@cimlogic.com.au>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 20 Nov 1996 09:15:06 +0000
+Subject: Weak symbols & gcc V2.7-95q4
+
+[Just correcting something I said]
+> I meant compiler support for weak symbols (instead of the sig 11
+> I get using V2.7-95q4).
+
+Oops. If I get the __attribute__ syntax wrong (missing quotes),
+*then* I get sig 11.
+
+With the correct syntax, I get
+
+"warning: alias definitions not supported in this configuration"
+
+8-)
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au                          119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From jb@cimlogic.com.au  Wed Nov 20 13:04:58 1996
+From: John Birrell <jb@cimlogic.com.au>
+To: cjs@portal.ca
+Date: Wed, 20 Nov 1996 13:04:58 +0000
+Subject: Re: When is ELF coming?
+
+Curt Sampson wrote:
+> Can someone out there point me to a document that describes how weak
+> symbols work (or are supposed to work) in a dynamic linking environment?
+> My conception of them is rather vague.
+
+I don't know of a document, but (to my understanding at least) the concept
+is really simple. 8-)
+
+Code a function with one name, declare a weak alias of that function
+to another name by which it can be referenced iff there isn't another
+function of that name linked (possibly in another library).
+
+e.g:
+----------------------------------------------------------------
+void harry_who() __attribute__ (( weak, alias ("harry") ));
+
+int main()
+{
+	harry_who();
+}
+
+void harry()
+{
+	printf("Who am I?\n");
+}
+----------------------------------------------------------------
+
+> 
+> cjs
+
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au                          119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From jb@cimlogic.com.au  Wed Nov 20 19:00:17 1996
+From: John Birrell <jb@cimlogic.com.au>
+To: cjs@portal.ca
+Date: Wed, 20 Nov 1996 19:00:17 +0000
+Subject: Re: When is ELF coming?
+
+Curt Sampson wrote:
+> What I can't figure out is what the use of this is. I mean, I
+> understand that it's useful not to have your entire namespace filled
+> with the symbols from all your libraries even before you start :-),
+
+Here's why I need it:
+
+libc has a syscall (function) called "read", for example. Suppose I
+want a threaded process using POSIX threads implemented in user-space.
+libpthread needs to supply a function called "read" that provides
+a blocking interface to the programmer, but actually does non-blocking
+calls to the kernel. To allow an application to be linked to both libc
+and libpthread (to share common code), libc needs to have its version
+of the syscall with a non-weak name like "_sys_read" with a weak symbol
+called "read". If an application is linked against libc only, the
+linker won't find a non-weak symbol for "read", so it will use the
+weak one. If the same application is linked against libc _and_
+libpthread, then the linker will link "read" calls to the symbol in
+libpthread, ignoring the weak one in libc.
+
+Another example:
+
+Chris has updated his cerror.S code to allow for J.T.'s design of
+__errno based on _REENTRANT. If the current tool set supported
+weak symbols, a better (IMHO) design would have been to have cerror.S
+coded with "_cerror" as the non-weak symbol with a weak alias for "cerror"
+and leave the code accessing the global errno variable directly. Then
+in libpthread, the version of cerror with a non-weak symbol would have
+the code to access a thread-specific error variable (which will be slower).
+The way it stands now, if you build libc on NetBSD/Alpha with -D_REENTRANT
+you'll take a performance hit whenever errors are returned from syscalls.
+
+> but isn't a linker supposed to do this sort of thing automagically?
+
+You tell the linker what you want it to do. One of the ways of telling
+it is via the "weak" bit. Without this, the linker would have two
+symbols of the same name - which one would it take? Probably the
+wrong one.
+
+> This seems to work now; I can put my own getpid() in a program and
+> that will be called instead of the library routine without complaint,
+> and even though I link against libc (for printf), which contains
+> getpid().
+
+I think you'll find that if you override getpid (by providing your
+own non-weak symbol), then any library call that calls getpid will
+call *your* routine and probably end in tears.
+
+mktemp() in libc calls getpid(). I tried this:
+
+---------------------------------------------------------------------
+#include <sys/types.h>
+#include <stdio.h>
+#include <unistd.h>
+
+pid_t getpid()
+{
+    printf("This is not the real getpid!\n");
+    return(1);
+}
+
+int main()
+{
+    char path[128] = "/tmp/harry.XXXX";
+    char *ptr;
+    if ((ptr = mktemp(path)) != NULL)
+       printf("mktemp returned '%s'\n",ptr);
+    return(0);
+}
+---------------------------------------------------------------------
+
+and when I run it:
+
+This is not the real getpid!
+mktemp returned '/tmp/harry.0001'
+
+Now if libc had getpid with the non-weak symbol as "_sys_getpid" and
+a weak symbol as "getpid", my design would have libc internals calling
+_sys_getpid, not getpid. So, according to the principle of least
+astonishment 8-), weak symbols in libc are desirable. But...
+
+When you add libpthread into the equation, this gets really tricky
+if you consider libc functions that are layered on top of functions
+that libpthread provides a replacement for. "read" is a good example.
+"res_send" calls "read". In a threaded program, res_send in libc
+needs to call "read" in libpthread, not "_sys_read" in libc so that
+libpthread handles the blocking case. And then if you code a function
+called "read", I'm sunk. I'd need degrees of weakness to handle _three_
+functions with apparently the same name. 8-(
+
+> cjs
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au                          119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From hsu@freefall.freebsd.org  Wed Nov 20 19:00:31 1996
+From: Jeffrey Hsu <hsu@freefall.freebsd.org>
+To: jb@cimlogic.com.au
+Date: Wed, 20 Nov 1996 19:00:31 +0000
+Subject: Re: When is ELF coming?
+
+> libpthread needs to supply a function called "read" that provides
+  > a blocking interface to the programmer, but actually does non-blocking
+  > calls to the kernel.
+
+If the file descriptor has been set to non-blocking mode, _sys_read
+may not work as expected, no?  Another example would be write(), which
+is used internally inside libc.  Even if, using weak symbols, the libc
+routine correctly calls _sys_write(), it may not be expecting an EAGAIN
+error return.
+
+From jb@cimlogic.com.au  Thu Nov 21 16:12:32 1996
+From: John Birrell <jb@cimlogic.com.au>
+To: hsu@freefall.freebsd.org
+Date: Thu, 21 Nov 1996 16:12:32 +0000
+Subject: Re: When is ELF coming?
+
+Jeffrey Hsu wrote:
+>   > libpthread needs to supply a function called "read" that provides
+>   > a blocking interface to the programmer, but actually does non-blocking
+>   > calls to the kernel.
+> 
+> If the file descriptor has been set to non-blocking mode, _sys_read
+> may not work as expected, no?  Another example would be write(), which
+> is used internally inside libc.  Even if, using weak symbols, the libc
+> routine correctly calls _sys_write(), it may not be expecting an EAGAIN
+> error return.
+
+[I'm not sure I'm able to explain this well.
+ I'm doing NT stuff this week. %$#@!... *Sigh* ]
+
+If libc is changed to use hidden names (like _sys_read) to solve
+Chris' problem with ELF shared libraries then it will function 
+exactly like it does now, until you try to use libpthread.
+
+With libpthread (which is when things turn non-blocking internally and
+the potential for EAGAIN occurs), the design comes unstuck because
+libpthread wants to replace the _sys_read that libc is using.
+
+If it were possible, the solution would require another level of aliasing.
+Say a non-weak (strong) symbol is level 0, with increasing numbers being
+weaker.
+
+Take read as an example:
+
+library           symbol              level      comments
+-------------------------------------------------------------------------
+libc              __sys_read          0          (the syscall)
+                  _sys_read           1          (weak alias of __sys_read)
+                  read                2          (weak alias of __sys_read)
+
+libpthread        _sys_read           0          (the pthread wrapper)
+                  read                1          (weak alias of _sys_read)
+
+
+Then code libc functions (like res_send) to call a function called
+_sys_read to do a "read". If linked against just libc, then this is
+resolved to __sys_read (the actual syscall) by a level 1 alias. If also
+linked against libpthread, then _sys_read (the pthread wrapper) is a
+level 0 (== non-weak) alias. This works fine.
+
+A user call to a function called "read" linked against just libc resolves
+to __sys_read (the syscall) through a level 2 alias. When linked against
+libpthread too, the "read" call resolves to _sys_read (the pthread
+wrapper) through a level 1 alias which takes precedence over the level
+2 alias found in libc.
+
+If you take away the alias levels and just have a boolean weak symbol
+like we have now, then the two "read" aliases can't be differentiated. 8-(
+
+Does that make sense?
+
+Can you see a solution (assuming that I've explained the problem 8-)?
+
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au                          119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From wulf@ping.net.au  Thu Nov 21 19:54:15 1996
+From: Berndt Josef Wulf <wulf@ping.net.au>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 21 Nov 1996 19:54:15 +0000
+Subject: Any news on X-servers with pcivga support?
+
+g'day,
+
+the title says it all. I had a good look around but can't detect any
+advances on this subject. Has it been canned?
+
+Whilest on the subject... scrolling text still is jerky. Which files
+contain the code responsible for it? The screen jumps by about 9 lines
+instead of scrolling line by line once it reaches the end of the
+screen. This is independent from selected terminal type and shell.
+
+Many thanks in advance
+
+cheerio Berndt
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@ping.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.2
+
+From tih@nhh.no  Thu Nov 21 15:40:23 1996
+From: Tom I Helbekkmo <tih@nhh.no>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Thu, 21 Nov 1996 15:40:23 +0000
+Subject: Re: panic: wscons_emul_attach: bogus location on 3000/900?
+
+On Fri, 15 Nov 1996, Chris G Demetriou wrote:
+
+> I've built a kernel which includes short delays when accessing the SCC
+> registers.
+
+Our 3000/500 had _major_ problems with duplicated characters when running
+off the GENERIC kernel in the 1.2 distribution.  Upgrading it to a current
+(as of about two or three weeks ago) kernel took care of it.  It's been
+well-behaved since.
+
+While I'm writing: I'm running this box with SCSI disks mounted both
+internally and externally.  A few minutes ago, browsing the web pages for
+the alpha port, I read that this will not work, and will cause data
+loss.  Am I misreading the warning, or am I being very, very lucky?
+
+-tih
+
+From cjs@portal.ca  Thu Nov 21 17:27:15 1996
+From: Curt Sampson <cjs@portal.ca>
+To: jb@cimlogic.com.au
+Date: Thu, 21 Nov 1996 17:27:15 +0000
+Subject: Re: When is ELF coming?
+
+On Thu, 21 Nov 1996, John Birrell wrote:
+
+> If libc is changed to use hidden names (like _sys_read) to solve
+> Chris' problem with ELF shared libraries then it will function 
+> exactly like it does now, until you try to use libpthread.
+> 
+> With libpthread (which is when things turn non-blocking internally and
+> the potential for EAGAIN occurs), the design comes unstuck because
+> libpthread wants to replace the _sys_read that libc is using.
+> ...
+> Can you see a solution (assuming that I've explained the problem 8-)?
+
+Well, again, I'm still reading up on this stuff, and have not yet
+started reading code, so there may be something completely wrong
+in what I'm thinking here. But from the looks of it to me at this
+point, weak symbols are a bad hack, and not at all the proper
+solution to the problem.
+
+I think that dynamic library linking should work just as static
+library linking does. (This appears to be the case on the i386.)
+For each function, it searches first the binary and then all the
+libraries in order, and binds the first one that it finds. So if
+you link like this:
+
+	cc program.o libone.so.1.1 libtwo.so.1.1
+
+and anything, anywhere in your program calls foo(), it will search
+in the following order for foo()
+
+    program.o
+    libone.so.1.1
+    libtwo.so.1.1
+
+You can have foo defined in any of these, and it will find it. You
+can have foo defined in more than one, even all three, without
+problems.
+
+I still don't know what order the shared libs in the hints file
+get linked in, which could have a pretty big effect on pthreads,
+but that's something that can be hacked on.
+
+In other words, in my limited scope of vision at this time I don't
+see why we can't just add i386-type shared libraries to the alpha
+ECOFF format files and solve all of our problems in one fell swoop.
+Not to mention that we'll avoid the `is this a NetBSD ELF file or
+a Digital UNIX ELF file?' question when we load a binary. (ELF
+doesn't appear to have any OS type; just CPU type.)
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From cjs@portal.ca  Thu Nov 21 23:14:04 1996
+From: Curt Sampson <cjs@portal.ca>
+To: jb@cimlogic.com.au
+Date: Thu, 21 Nov 1996 23:14:04 +0000
+Subject: Re: When is ELF coming?
+
+On Fri, 22 Nov 1996, John Birrell wrote:
+
+> I just accepted that Chris would have a good reason for doing all
+> that work on gnu tools (knowing how he *loves* gnu's copyleft 8-).
+
+Well, I suspect that there's a huge pile of work to be done on the
+gnu tools either way. I suspect that all of the a.out shared lib
+stuff is stuff that was hacked into NetBSD. I couldn't get a
+gcc-2.7.2/binutils-2.7 environment to link dynamic executables.
+
+I'd be willing to have a go at some of this work, but I work very
+slowly.
+
+I'm not a big fan of copyleft, either. It's not as bad as that
+hideous indentation style, though, which seems to combine the
+disadvantages of every indentation system on the planet.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From jb@cimlogic.com.au  Fri Nov 22 17:22:29 1996
+From: John Birrell <jb@cimlogic.com.au>
+To: cjs@portal.ca
+Date: Fri, 22 Nov 1996 17:22:29 +0000
+Subject: Re: When is ELF coming?
+
+Curt Sampson wrote:
+> In other words, in my limited scope of vision at this time I don't
+> see why we can't just add i386-type shared libraries to the alpha
+> ECOFF format files and solve all of our problems in one fell swoop.
+> Not to mention that we'll avoid the `is this a NetBSD ELF file or
+> a Digital UNIX ELF file?' question when we load a binary. (ELF
+> doesn't appear to have any OS type; just CPU type.)
+
+I don't know the answer to this.
+
+I just accepted that Chris would have a good reason for doing all
+that work on gnu tools (knowing how he *loves* gnu's copyleft 8-).
+
+Weak symbols for libc/libpthread is a direction I was sent
+"on good authority". I didn't go that way of my own accord.
+
+> 
+> cjs
+
+-- 
+John Birrell                                CIMlogic Pty Ltd
+jb@cimlogic.com.au                          119 Cecil Street
+Ph  +61  3 9690 6900                        South Melbourne Vic 3205
+Fax +61  3 9690 6650                        Australia
+Mob +61 18  353  137
+
+From tih@nhh.no  Fri Nov 22 09:15:46 1996
+From: Tom I Helbekkmo <tih@nhh.no>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 22 Nov 1996 09:15:46 +0000
+Subject: dump and restore on the alpha port
+
+Someone mentioned that dump and restore don't work on the alpha port.
+Sure enough, they don't.  The following is a quick hack that at least
+allowed me to do a "dump | restore" of my /var file system and have
+the resulting copy come out identical to the original.  That's the
+extent of my testing so far, but I figured I'd share this right away,
+so that others can look at it.  I'd really appreciate it if someone
+else could take a look through the sources to dump and restore, to
+check whether my changes seem correct and sufficient.
+
+Actually, they are _not_ sufficient: I can't dump from the alpha and
+restore on the i386 with this code.  I just can't figure out why.  :-(
+
+-tih
+
+*** include/protocols/dumprestore.h.ORIG	Sat Oct 14 01:37:26 1995
+--- include/protocols/dumprestore.h	Fri Nov 22 07:44:35 1996
+***************
+*** 69,93 ****
+  union u_spcl {
+  	char dummy[TP_BSIZE];
+  	struct	s_spcl {
+! 		long	c_type;		    /* record type (see below) */
+  		time_t	c_date;		    /* date of this dump */
+  		time_t	c_ddate;	    /* date of previous dump */
+! 		long	c_volume;	    /* dump volume number */
+  		daddr_t	c_tapea;	    /* logical block of this record */
+  		ino_t	c_inumber;	    /* number of inode */
+! 		long	c_magic;	    /* magic number (see above) */
+! 		long	c_checksum;	    /* record checksum */
+  		struct	dinode	c_dinode;   /* ownership and mode of inode */
+! 		long	c_count;	    /* number of valid c_addr entries */
+  		char	c_addr[TP_NINDIR];  /* 1 => data; 0 => hole in inode */
+  		char	c_label[LBLSIZE];   /* dump label */
+! 		long	c_level;	    /* level of this dump */
+  		char	c_filesys[NAMELEN]; /* name of dumpped file system */
+  		char	c_dev[NAMELEN];	    /* name of dumpped device */
+  		char	c_host[NAMELEN];    /* name of dumpped host */
+! 		long	c_flags;	    /* additional information */
+! 		long	c_firstrec;	    /* first record on volume */
+! 		long	c_spare[32];	    /* reserved for future uses */
+  	} s_spcl;
+  } u_spcl;
+  #define spcl u_spcl.s_spcl
+--- 69,93 ----
+  union u_spcl {
+  	char dummy[TP_BSIZE];
+  	struct	s_spcl {
+! 		int32_t	c_type;		    /* record type (see below) */
+  		time_t	c_date;		    /* date of this dump */
+  		time_t	c_ddate;	    /* date of previous dump */
+! 		int32_t	c_volume;	    /* dump volume number */
+  		daddr_t	c_tapea;	    /* logical block of this record */
+  		ino_t	c_inumber;	    /* number of inode */
+! 		int32_t	c_magic;	    /* magic number (see above) */
+! 		int32_t	c_checksum;	    /* record checksum */
+  		struct	dinode	c_dinode;   /* ownership and mode of inode */
+! 		int32_t	c_count;	    /* number of valid c_addr entries */
+  		char	c_addr[TP_NINDIR];  /* 1 => data; 0 => hole in inode */
+  		char	c_label[LBLSIZE];   /* dump label */
+! 		int32_t	c_level;	    /* level of this dump */
+  		char	c_filesys[NAMELEN]; /* name of dumpped file system */
+  		char	c_dev[NAMELEN];	    /* name of dumpped device */
+  		char	c_host[NAMELEN];    /* name of dumpped host */
+! 		int32_t	c_flags;	    /* additional information */
+! 		int32_t	c_firstrec;	    /* first record on volume */
+! 		int32_t	c_spare[32];	    /* reserved for future uses */
+  	} s_spcl;
+  } u_spcl;
+  #define spcl u_spcl.s_spcl
+*** sbin/dump/traverse.c.ORIG	Sat Oct 14 02:08:54 1995
+--- sbin/dump/traverse.c	Fri Nov 22 08:10:00 1996
+***************
+*** 73,79 ****
+  #ifdef	FS_44INODEFMT
+  typedef	quad_t fsizeT;
+  #else
+! typedef	long fsizeT;
+  #endif
+  
+  static	int dirindir __P((ino_t ino, daddr_t blkno, int level, long *size));
+--- 73,79 ----
+  #ifdef	FS_44INODEFMT
+  typedef	quad_t fsizeT;
+  #else
+! typedef	int32_t fsizeT;
+  #endif
+  
+  static	int dirindir __P((ino_t ino, daddr_t blkno, int level, long *size));
+***************
+*** 507,520 ****
+  writeheader(ino)
+  	ino_t ino;
+  {
+! 	register long sum, cnt, *lp;
+  
+  	spcl.c_inumber = ino;
+  	spcl.c_magic = NFS_MAGIC;
+  	spcl.c_checksum = 0;
+! 	lp = (long *)&spcl;
+  	sum = 0;
+! 	cnt = sizeof(union u_spcl) / (4 * sizeof(long));
+  	while (--cnt >= 0) {
+  		sum += *lp++;
+  		sum += *lp++;
+--- 507,520 ----
+  writeheader(ino)
+  	ino_t ino;
+  {
+! 	register int32_t sum, cnt, *lp;
+  
+  	spcl.c_inumber = ino;
+  	spcl.c_magic = NFS_MAGIC;
+  	spcl.c_checksum = 0;
+! 	lp = (int32_t *)&spcl;
+  	sum = 0;
+! 	cnt = sizeof(union u_spcl) / (4 * sizeof(int32_t));
+  	while (--cnt >= 0) {
+  		sum += *lp++;
+  		sum += *lp++;
+*** sbin/restore/dirs.c.ORIG	Thu Oct 24 13:14:01 1996
+--- sbin/restore/dirs.c	Fri Nov 22 07:43:42 1996
+***************
+*** 76,83 ****
+  struct inotab {
+  	struct	inotab *t_next;
+  	ino_t	t_ino;
+! 	long	t_seekpt;
+! 	long	t_size;
+  };
+  static struct inotab *inotab[HASHSIZE];
+  
+--- 76,83 ----
+  struct inotab {
+  	struct	inotab *t_next;
+  	ino_t	t_ino;
+! 	int32_t	t_seekpt;
+! 	int32_t	t_size;
+  };
+  static struct inotab *inotab[HASHSIZE];
+  
+***************
+*** 100,107 ****
+  #define DIRBLKSIZ 1024
+  struct rstdirdesc {
+  	int	dd_fd;
+! 	long	dd_loc;
+! 	long	dd_size;
+  	char	dd_buf[DIRBLKSIZ];
+  };
+  
+--- 100,107 ----
+  #define DIRBLKSIZ 1024
+  struct rstdirdesc {
+  	int	dd_fd;
+! 	int32_t	dd_loc;
+! 	int32_t	dd_size;
+  	char	dd_buf[DIRBLKSIZ];
+  };
+  
+*** sbin/restore/symtab.c.ORIG	Sat Oct 14 02:13:34 1995
+--- sbin/restore/symtab.c	Fri Nov 22 07:42:14 1996
+***************
+*** 439,451 ****
+   * Useful quantities placed at the end of a dumped symbol table.
+   */
+  struct symtableheader {
+! 	long	volno;
+! 	long	stringsize;
+! 	long	entrytblsize;
+  	time_t	dumptime;
+  	time_t	dumpdate;
+  	ino_t	maxino;
+! 	long	ntrec;
+  };
+  
+  /*
+--- 439,451 ----
+   * Useful quantities placed at the end of a dumped symbol table.
+   */
+  struct symtableheader {
+! 	int32_t	volno;
+! 	int32_t	stringsize;
+! 	int32_t	entrytblsize;
+  	time_t	dumptime;
+  	time_t	dumpdate;
+  	ino_t	maxino;
+! 	int32_t	ntrec;
+  };
+  
+  /*
+*** sbin/restore/tape.c.ORIG	Sat Mar 16 13:18:43 1996
+--- sbin/restore/tape.c	Fri Nov 22 07:40:53 1996
+***************
+*** 1002,1034 ****
+  	long i;
+  	union {
+  		quad_t	qval;
+! 		long	val[2];
+  	} qcvt;
+  	union u_ospcl {
+  		char dummy[TP_BSIZE];
+  		struct	s_ospcl {
+! 			long	c_type;
+! 			long	c_date;
+! 			long	c_ddate;
+! 			long	c_volume;
+! 			long	c_tapea;
+! 			u_short	c_inumber;
+! 			long	c_magic;
+! 			long	c_checksum;
+  			struct odinode {
+  				unsigned short odi_mode;
+! 				u_short	odi_nlink;
+! 				u_short	odi_uid;
+! 				u_short	odi_gid;
+! 				long	odi_size;
+! 				long	odi_rdev;
+! 				char	odi_addr[36];
+! 				long	odi_atime;
+! 				long	odi_mtime;
+! 				long	odi_ctime;
+  			} c_dinode;
+! 			long	c_count;
+! 			char	c_addr[256];
+  		} s_ospcl;
+  	} u_ospcl;
+  
+--- 1002,1034 ----
+  	long i;
+  	union {
+  		quad_t	qval;
+! 		int32_t	val[2];
+  	} qcvt;
+  	union u_ospcl {
+  		char dummy[TP_BSIZE];
+  		struct	s_ospcl {
+! 			int32_t   c_type;
+! 			int32_t   c_date;
+! 			int32_t   c_ddate;
+! 			int32_t   c_volume;
+! 			int32_t   c_tapea;
+! 			u_int16_t c_inumber;
+! 			int32_t   c_magic;
+! 			int32_t   c_checksum;
+  			struct odinode {
+  				unsigned short odi_mode;
+! 				u_int16_t odi_nlink;
+! 				u_int16_t odi_uid;
+! 				u_int16_t odi_gid;
+! 				int32_t   odi_size;
+! 				int32_t   odi_rdev;
+! 				char      odi_addr[36];
+! 				int32_t   odi_atime;
+! 				int32_t   odi_mtime;
+! 				int32_t   odi_ctime;
+  			} c_dinode;
+! 			int32_t c_count;
+! 			char    c_addr[256];
+  		} s_ospcl;
+  	} u_ospcl;
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Fri Nov 22 13:47:09 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: tih@nhh.no
+Date: Fri, 22 Nov 1996 13:47:09 +0000
+Subject: TC machines with two strings of SCSI disks
+
+Tom I Helbekkmo <tih@nhh.no> said:
+> While I'm writing: I'm running this box with SCSI disks mounted both
+> internally and externally.  A few minutes ago, browsing the web pages for
+> the alpha port, I read that this will not work, and will cause data
+> loss.  Am I misreading the warning, or am I being very, very lucky?
+
+So, the last time i tried it (well over a year ago, i'd guess), it
+didn't work.
+
+Since then the interrupt handling logic for the TC boxes, the TCDS DMA
+code, and the esp driver have all received serious overhauls.
+
+I could very well believe that it works now.
+
+
+At boot, when you fsck, does fsck try to preen file systems on disks
+on both busses at the same time?  If so, and it works, then the
+problem that was previously there has most likely gone away.
+
+Does anybody else have experience using disks on both SCSI busses of a
+3000/[4-9]00?
+
+
+
+chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Fri Nov 22 17:37:03 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: jb@cimlogic.com.au
+Date: Fri, 22 Nov 1996 17:37:03 +0000
+Subject: Re: When is ELF coming?
+
+> Curt Sampson wrote:
+> > In other words, in my limited scope of vision at this time I don't
+> > see why we can't just add i386-type shared libraries to the alpha
+> > ECOFF format files and solve all of our problems in one fell swoop.
+> > Not to mention that we'll avoid the `is this a NetBSD ELF file or
+> > a Digital UNIX ELF file?' question when we load a binary. (ELF
+> > doesn't appear to have any OS type; just CPU type.)
+> 
+> I don't know the answer to this.
+
+It more or less boils down to something like:
+
+if you're going to add support for shared libraries for a given
+executable format, and that format already defines the shared library
+format, then you should use it.
+
+
+I don't particularly _like_ all of the aspects of ELF or ELF shared
+libraries, but it's better (in the long term) than going with ECOFF,
+and i don't particularly feel inclined to create my own executable
+format...  8-)
+
+
+A.out has historically had no 'well-defined' shared library scheme.
+Paul Kranenburg took the closest thing to that, the Sun method, and
+implemented something pretty close to that...
+
+
+> I just accepted that Chris would have a good reason for doing all
+> that work on gnu tools (knowing how he *loves* gnu's copyleft 8-).
+
+I've actually done relatively little work on the toolchain, since that
+code is almost completely opaque to me.  I've mostly been testing the
+code written by others (Richard Henderson, to support Linux on the
+Alpha; and Matt Thomas, who did the NetBSD/alpha shared lib changes),
+as well as writing whatever changes to the configuration headers,
+etc., that are appropriate.
+
+
+
+chris
+
+From cjs@portal.ca  Fri Nov 22 15:33:36 1996
+From: Curt Sampson <cjs@portal.ca>
+To: Chris_G_Demetriou@ux2.sp.cs.cmu.edu
+Date: Fri, 22 Nov 1996 15:33:36 +0000
+Subject: Re: When is ELF coming?
+
+On Fri, 22 Nov 1996, Chris G Demetriou wrote:
+
+> I don't particularly _like_ all of the aspects of ELF or ELF shared
+> libraries, but it's better (in the long term) than going with ECOFF,
+> and i don't particularly feel inclined to create my own executable
+> format...  8-)
+> 
+> A.out has historically had no 'well-defined' shared library scheme.
+> Paul Kranenburg took the closest thing to that, the Sun method, and
+> implemented something pretty close to that...
+
+Well, I still don't have any documentation on ECOFF, so I'm way
+out on a limb here, but if it's not too much different from COFF,
+it's essentially a slightly extended a.out, in which case we could
+adapt our current a.out shared library scheme to it fairly `easily.'
+
+This would also give us some other advantages, such as being able
+to tell the difference between Linux/Alpha and NetBSD/Alpha
+executables before they've made some system calls.
+
+However, if ELF shared libs are there or almost there, one probably
+does not want to go backward.
+
+However, I still don't see where weak symbols come in. According
+to the Linux/i386 ELF documentation I've read, symbol overriding
+works just as it would when linking statically, and weak symbols
+aren't necessary.
+
+cjs
+
+Curt Sampson    cjs@portal.ca		Info at http://www.portal.ca/
+Internet Portal Services, Inc.	
+Vancouver, BC   (604) 257-9400		De gustibus, aut bene aut nihil.
+
+From tls@panix.com  Sat Nov 23 02:52:56 1996
+From: Thor Lancelot Simon <tls@panix.com>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 23 Nov 1996 02:52:56 +0000
+Subject: Re: When is ELF coming?
+
+ECOFF really isn't a bad executable format.
+
+For one thing, unlike many other -- ELF in particular -- it actually has an
+OS type field, in addition to a machine-type field.  Since I now have to
+deal with *three* different OS flavors of ELF on the i386, two of which don't
+use any sensible method at all for indicating that their binaries use their
+particular ABI and one of which uses a method that even its own variant of
+'file' can't distinguish (but, thankfully, its kernel can), it's hard for me
+to see ELF as a good choice.
+
+Can someone actually enumerate some good reasons for using ELF rather than
+ECOFF, our own extended a.out, or, say, OSF/ROSE?  Each has some drawbacks,
+but none seemingly so severe as ELF's lack of an OS-type header field.
+
+Thor
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Sat Nov 23 14:20:58 1996
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: tls@panix.com
+Date: Sat, 23 Nov 1996 14:20:58 +0000
+Subject: Re: When is ELF coming?
+
+> Can someone actually enumerate some good reasons for using ELF rather than
+> ECOFF, our own extended a.out, or, say, OSF/ROSE?  Each has some drawbacks,
+> but none seemingly so severe as ELF's lack of an OS-type header field.
+
+In the case of the alpha:
+
+	(1) People are actually actively improving the ELF support,
+
+	(2) ELF has fewer limitations (w.r.t. the GOT, etc.) than
+	    ECOFF does.
+
+I'm not going to do any more toolchain hacking than i have to.
+
+That means that if somebody wants to me switch to a custom format for
+the alpha, _they_ are going to have to do all of the toolchain work.
+I don't consider that unreasonable, because i just don't have time to
+_waste_ time on something somebody else is already doing better, when
+there are important things i _can_ be doing.
+
+
+cgd
+
+From etheisen@TECLink.Net  Sat Nov 23 13:25:08 1996
+From: Erik M. Theisen <etheisen@TECLink.Net>
+To: tls@panix.com
+Date: Sat, 23 Nov 1996 13:25:08 +0000
+Subject: Re: When is ELF coming?
+
+> 
+> ECOFF really isn't a bad executable format.
+> 
+> For one thing, unlike many other -- ELF in particular -- it actually has an
+> OS type field, in addition to a machine-type field.  Since I now have to
+> deal with *three* different OS flavors of ELF on the i386, two of which don't
+> use any sensible method at all for indicating that their binaries use their
+> particular ABI and one of which uses a method that even its own variant of
+> 'file' can't distinguish (but, thankfully, its kernel can), it's hard for me
+> to see ELF as a good choice.
+> 
+> Can someone actually enumerate some good reasons for using ELF rather than
+> ECOFF, our own extended a.out, or, say, OSF/ROSE?  Each has some drawbacks,
+> but none seemingly so severe as ELF's lack of an OS-type header field.
+> 
+> Thor
+
+It's not just a problem with OS tags.  It also lacks a simple way to determine 
+if it's stripped or if it's statically linked.
+
+More seriously a ELF binary from our OS can inadvertately be executed on 
+foreign OSs (SVR4 for example) resulting in a core.  OS vendors won't make an 
+effort to fix this and the fault will be ours.
+
+The situation is getting worse too.  SCO just shipped SCO UNIX in ELF format.  
+This breaks ibcs compat. And SCO has no way to determine if its executing a 
+native bin, a UNIXWare bin, or something else.  In my book, they are shipping 
+two broken OSs.
+
+I really think the native OS format should be used for a given target 
+platform.  If you insist on going ELF I suggest you take a good look at OLF 
+(Open Linkage Format) instead as it resolves these problems.
+
+OLF is ELF but prevents bogus OSs from executing one of our bins accidentally. 
+ It provides OS identification, strip tags, and dynamic linked tags.  Foreign 
+OS bins are converted and tagged allowing complete identification as to the 
+type and contents of the binary.
+
+GNU binutils can spit OLF out with very, very minor mods to the ELF code.  I 
+have already created the necessary tools to convert to and from ELF.  And most 
+of the kernel mods are minor.
+
+If and when ELF version 2 comes out and fixes these problems, it is a simple 
+matter to return to ELF and OLF can be retired.
+
+If the free OS community comes together on this we'll be far better in the 
+long run.  One standard format is always the way to go.
+
+Ciao,
+Erik
+
+From mellon@fugue.com  Sat Nov 23 12:16:57 1996
+From: Ted Lemon <mellon@fugue.com>
+To: etheisen@teclink.net
+Date: Sat, 23 Nov 1996 12:16:57 +0000
+Subject: Re: When is ELF coming?
+
+Can you tell us more about OLF?   Who invented it?   Who's using it?
+I can't think of any argument against using it, particularly if
+somebody's already done the toolchain mods.   A minor tweak to the GNU
+toolchain is a lot better than a major tweak.   The problem is that
+it would probably need to be anointed by at least one free OS before
+the GNU people would buy back the changes.
+
+We've talked in the past about either modifying the ELF header to add
+a machine type field, or changing the first four bytes to
+differentiate, but I can't recall anybody ever suggesting doing both.
+This sounds like a good solution.
+
+			       _MelloN_
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Sun Nov 24 19:48:05 1996
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Sun, 24 Nov 1996 19:48:05 +0000
+Subject: PPB on LCA?
+
+has anybody tried putting a PCI-PCI bridge in an LCA-based
+(e.g. Multia or AXPpci) system?  Does it work?
+
+
+chris
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Mon Nov 25 00:05:50 1996
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Mon, 25 Nov 1996 00:05:50 +0000
+Subject: eb164 support, config file changes, VGA support
+
+Some recent changes you should be aware of:
+
+	(1) eb164 support now works, as far as I can tell.  I'll be
+	    updating the various readme files and the web pages
+	    within a few days.
+
+	(2) both ISA/EISA and PCI VGA support can now coexist in the
+	    same kernel, and either type of card should be usable by
+	    NetBSD as the console device.  This has only been tested
+	    on PCI VGA boards (which were the real problem case,
+	    since they could be falsely detected as ISA VGA boards),
+	    but should work fine with ISA VGA boards as well.
+	    (somebody with an ISA VGA board, try it and tell me!)
+
+	(3) to support memory and I/O space-allocation in a sane way,
+	    the pckbd and pms drivers have been put under a common
+	    'pcppi' parent driver, since they share their I/O port
+	    space.  Eventually, that driver will be smarter than it
+	    is, and will handle all interaction with the keyboard
+	    controller.  For now, it just does the space mapping.
+	    This means that your config files will need to change
+	    a bit.  Look in the GENERIC config file to see an example
+	    of what you'll now need for pcppi, pckbd, and pms.
+
+
+The space-management changes mentioned in (3) were rather extensive.
+They've been tested on Multias, on an eb164, and on an AlphaStation
+200 (i.e. i tried them on one machine type using each of the three
+PCI bus interface implementations).  They should work fine on
+other supported systems (most notably the AlphaStation 500 and 600
+family), but if they don't get in touch and i'll try and figure out
+what's going wrong.
+
+These changes don't really affect TC machines much at all.  8-)
+
+
+I've put up a new GENERIC kernel which includes these changes and
+eb164 support, at ftp://ftp.netbsd.org/pub/incoming/cgd/netbsd.GENERIC.gz
+
+If you run into any problems that you might might be related to these
+changes, please get in touch...
+
+
+chris
+
+From tober@bbnplanet.com  Mon Nov 25 11:19:10 1996
+From: Ben Tober <tober@bbnplanet.com>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Mon, 25 Nov 1996 11:19:10 +0000
+Subject: Re: PPB on LCA?
+
+> 
+> has anybody tried putting a PCI-PCI bridge in an LCA-based
+> (e.g. Multia or AXPpci) system?  Does it work?
+> 
+>
+We have a fair amount of experience now with PCI-to-PCI bridging with the
+AXPpci.  It has some problems.  For one thing, although the PCI spec implies
+that the firmware is supposed to configure PCI-to-PCI bridges and the devices
+behind them, in our experience it does not.  I don't know if DEC has fixed
+this in firmware, but I don't think so.  We have code (written by Trevor
+Mendez, who no longer works here) that will configure the bridges and
+devices behind them.  I believe that we shared that code but that it has
+not been incorporated into the distribution because it's really a work-around
+for hardware/firmware brokenness.  Beyond this, this code is not very robust
+or flexible and hasn't been tested except in our admittedly weird configuration.
+Also, another thing you should know if you plan to use PCI-to-PCI bridging
+if you intend to have more than one level of bridging is that this
+configuration seems to be prone to live-lock problems when the AXPpci wants
+to master a device far downstream at the same time as some far downstream
+bus master device wants to master the AXPpci's memory.  It looks like the
+AXPpci acquires the "top" bus, the mastering peripheral acquires the
+"bottom" bus, neither can really get the "middle" bus, and eventually they
+back off and retry, slamming into each other again, ad infinitum, until
+the Alpha's 2^24 maximum bus retry timer goes off and you get a machine
+check.  We're using older bridge chips right now (21050, I think?) and there
+are newer chips (21150?) that may rectify this problem.  We're currently
+waiting on new bridge chips, they're heavily back-ordered at this time.
+-ben
+
+From Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu  Tue Nov 26 00:29:36 1996
+From: Chris G Demetriou <Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu>
+To: tih@nhh.no
+Date: Tue, 26 Nov 1996 00:29:36 +0000
+Subject: Re: dump and restore on the alpha port
+
+> Actually, they are _not_ sufficient: I can't dump from the alpha and
+> restore on the i386 with this code.  I just can't figure out why.  :-(
+
+So, does that normally work?  I.e. can you normally take dump images
+from one little-endian box and restore them on another little-endian
+box?  (you can't do this between endiannesses, so i could believe that
+you couldn't do it between different machines of the same endianness.)
+
+"Check the structure offsets and stuff."
+
+
+chris
+
+From lukem@vlad.supp.cpr.itg.telstra.com.au  Tue Nov 26 16:53:23 1996
+From: Luke Mewburn <lukem@vlad.supp.cpr.itg.telstra.com.au>
+To: Chris_G_Demetriou@auchentoshan.pdl.cs.cmu.edu
+Date: Tue, 26 Nov 1996 16:53:23 +0000
+Subject: Re: dump and restore on the alpha port
+
+Chris G Demetriou writes:
+> > Actually, they are _not_ sufficient: I can't dump from the alpha and
+> > restore on the i386 with this code.  I just can't figure out why.  :-(
+> 
+> So, does that normally work?  I.e. can you normally take dump images
+> from one little-endian box and restore them on another little-endian
+> box?  (you can't do this between endiannesses, so i could believe that
+> you couldn't do it between different machines of the same endianness.)
+> 
+> "Check the structure offsets and stuff."
+
+We ported Net/2 dump to ULTRIX (little endian MIPS), and Net/2 restore
+to ULTRIX and Solaris/SPARC (big endian SPARC), and it works ok
+restoring dumps made with the native ULTRIX dump, and our ported dump.
+
+However, trying to port NetBSD's restore so that the Solaris box could
+read ULTRIX dumps wasn't fully successful, and since the version we
+had worked anyway, I didn't bother trying to fix it - restore is
+currently too dependant upon the format of the filesystem that was
+dumped (which it shouldn't be).
+
+Now, I know a lot of people will say "dump is FS dependant, so too
+bad". Even so, the ability to restore dumps made on one architecture
+to another of the same vintage (e.g, NetBSD/* on NetBSD/*) is a
+worthwhile goal, and if we can read most *BSD (and older BSD) dumps,
+then even better (although the latter could be painful on 64 bit
+architectures as older dumps may have made lots of assuptions).
+
+If we could get dump and restore working, and if restore could be made
+more portable, that would be a big long-term win. I'm willing to assist
+in this as a ``project'' or whatever.
+
+
+--
+Luke Mewburn                            UNIX Technical Support
+<lukem@telstra.com.au>                CPR Project, ITG, Telstra.
+Phone: +61 3 9634 2112			 (for 3 more days...)
+
+    I'm changing employers (to connect.com.au) at the start
+    of December 1996. This mail address should forward anyway.
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Wed Nov 27 16:06:33 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 27 Nov 1996 16:06:33 +0000
+Subject: FYI: new NetBSD/alpha snapshot (961127) available.
+
+FYI:
+
+There's a new NetBSD/alpha snapshot, dated 961127, available from:
+
+	ftp://ftp.netbsd.org/pub/NetBSD/arch/alpha/961127
+
+
+It should include fully-functional EB164 support, as well as all the
+fun stuff that's been made to work since 1.2 (e.g. crash dump
+support, and a bunch of bug fixes).
+
+
+There's one problem that i know of:
+
+The little hack-ish rc script on the distribution image that's
+supposed to check the root and /usr partitions, mount them
+read-write, etc., doesn't quite work (since, because there's no
+/etc/fstab, fsck needs to be invoked with "-t ffs", and i forgot
+to update the script).  To get rid of that script and replace
+it with the normal /etc/rc, you want to do something like:
+
+        mount -u /dev/`sysctl -n machdep.root_device` /
+        /bin/rm -f /etc/rc
+        /bin/cp -p /alphadist/rc.real /etc/rc
+
+
+
+chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Wed Nov 27 17:25:18 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: wulf@ping.net.au
+Date: Wed, 27 Nov 1996 17:25:18 +0000
+Subject: Re: x11.tar.gz
+
+> I just noticed that the size of x11.tar.gz has doubled since the last
+> snapshot.
+
+Uh, no it hasn't.
+
+Comparing with the last snapshot (the 1.2 release):
+
+
+% ls -la NetBSD-1.2/alpha/bin/x11.tar.gz arch/alpha/961127/bin/x11.tar.gz
+-r--rw-r--  1 cgd  netbsd  26882189 Sep 13 18:33 NetBSD-1.2/alpha/bin/x11.tar.gz
+-rw-r--r--  1 cgd  users   26939650 Nov 27 04:14 arch/alpha/961127/bin/x11.tar.gz
+
+
+The previous snapshot's x11 tar file was approximately the same size,
+as well.
+
+
+> There wouldn't be a pci-vga x-server hidden in it?
+
+No, there's not.
+
+
+chris
+
+From erik@docunetworks.com  Wed Nov 27 20:46:22 1996
+From: Erik Johannessen <erik@docunetworks.com>
+To: port-alpha@NetBSD.ORG
+Date: Wed, 27 Nov 1996 20:46:22 +0000
+Subject: TCSH/BASH and Installboot
+
+We just installed NetBSD/alpha on a noname machine, we got it up and
+running using the rz-25 diskimage, but we have a few problems: 
+
+1st: We installed it on /dev/sd1 , now we want to set up /dev/sd0 to be
+the boot drive, but installboot won't let us do it. I've read the faq,
+tried what it suggested, but that just gives us device busy. 
+
+2nd: I have tried both bash and tcsh, but both of them, after compiling,
+will give me badly formatted output on ls / echo etc. Any suggestions on
+how to fix this?
+
+This is NetBSD 1.2 btw, and we are running the bin.tar.gz and etc.tar.gz
+snapshot.
+
+Any help would be greatly appreciated.
+
+
+
+Erik Johannessen - System Administrator | One of the advantages of being 
+Email:erik@docunetworks.com             | disorderly is that one is 
+Voice:1-612-550-9552                    | constantly making exciting
+Fax:1-612-550-9552			| discoveries.      - A. A. Milne
+
+From brad@anduin.eldar.org  Wed Nov 27 22:02:09 1996
+From: Brad Spencer <brad@anduin.eldar.org>
+To: erik@docunetworks.com
+Date: Wed, 27 Nov 1996 22:02:09 +0000
+Subject: Re: TCSH/BASH and Installboot
+
+We just installed NetBSD/alpha on a noname machine, we got it up and
+   running using the rz-25 diskimage, but we have a few problems: 
+
+   1st: We installed it on /dev/sd1 , now we want to set up /dev/sd0 to be
+   the boot drive, but installboot won't let us do it. I've read the faq,
+   tried what it suggested, but that just gives us device busy. 
+
+   2nd: I have tried both bash and tcsh, but both of them, after compiling,
+   will give me badly formatted output on ls / echo etc. Any suggestions on
+   how to fix this?
+
+   This is NetBSD 1.2 btw, and we are running the bin.tar.gz and etc.tar.gz
+   snapshot.
+
+   Any help would be greatly appreciated.
+
+
+Hello....
+
+I don't know about BASH, but I am happly running TCSH 6.06.  There was
+one minor change, an addition to the host.defs file, as it didn't know
+what a NetBSD/alpha machine was:
+
+vendor  : defined(sun3)                                 : "sun"
++vendor  : defined(__alpha__)                            : "dec"
+hosttype:                                               : "NetBSD"
+ostype  :                                               : "NetBSD"
+machtype: defined(sparc)                                : "sparc"
+machtype: defined(mc68020)                              : "m68k"
+machtype: defined(i386)                                 : "i386"
+machtype: defined(pmax)                                 : "i860"
+machtype: defined(pc532)                                : "pc532"
++machtype: defined(__alpha__)                            : "alpha"
+enddef  :
+
+The lines with a '+' as the first character are the ones to add.
+
+I think a standard 'xmkmf' will create all the proper Makefiles and
+the like.
+
+
+Brad Spencer - brad@anduin.eldar.org   http://anduin.eldar.org
+
+From tjm@cgt.com  Wed Nov 27 19:03:27 1996
+From: Thomas J. Merritt <tjm@cgt.com>
+To: erik@docunetworks.com
+Date: Wed, 27 Nov 1996 19:03:27 +0000
+Subject: Re: TCSH/BASH and Installboot
+
+|<><><><><> Original message from Erik Johannessen  <><><><><>
+|We just installed NetBSD/alpha on a noname machine, we got it up and
+|running using the rz-25 diskimage, but we have a few problems: 
+|
+|1st: We installed it on /dev/sd1 , now we want to set up /dev/sd0 to be
+|the boot drive, but installboot won't let us do it. I've read the faq,
+|tried what it suggested, but that just gives us device busy. 
+|
+|2nd: I have tried both bash and tcsh, but both of them, after compiling,
+|will give me badly formatted output on ls / echo etc. Any suggestions on
+|how to fix this?
+
+I opted to port pdksh and it seems to run fine.  You might want to try
+it in place of tcsh or bash.  I found that bash was a bit painful on
+NetBSD/alpha last spring. I don't know if anyone has improved it since
+then since I've switched to pdksh.  Be sure that you get 5.2.3 or later
+as version 4.9 will not run reliably.
+
+|This is NetBSD 1.2 btw, and we are running the bin.tar.gz and etc.tar.gz
+|snapshot.
+|
+|Any help would be greatly appreciated.
+
+From wulf@ping.net.au  Thu Nov 28 08:29:04 1996
+From: Berndt Josef Wulf <wulf@ping.net.au>
+To: port-alpha@NetBSD.ORG
+Date: Thu, 28 Nov 1996 08:29:04 +0000
+Subject: x11.tar.gz
+
+Hi,
+
+I just noticed that the size of x11.tar.gz has doubled since the last
+snapshot.
+
+There wouldn't be a pci-vga x-server hidden in it?
+:-)
+
+I like to know, because I run on a slow link and it wouldn't be worth
+downloading a 30MB package without the support for my graphics card...
+
+cheerio Berndt
+-- 
+Name	: Berndt Josef Wulf
+E-Mail	: wulf@ping.net.au
+Sysinfo	: DEC AXPpci33+, NetBSD-1.2
+
+From erik@docunetworks.com  Thu Nov 28 08:47:56 1996
+From: Erik Johannessen <erik@docunetworks.com>
+To: brad@anduin.eldar.org
+Date: Thu, 28 Nov 1996 08:47:56 +0000
+Subject: Re: TCSH/BASH and Installboot
+
+> Hello....
+> 
+> I don't know about BASH, but I am happly running TCSH 6.06.  There was
+> one minor change, an addition to the host.defs file, as it didn't know
+> what a NetBSD/alpha machine was:
+> 
+> vendor  : defined(sun3)                                 : "sun"
+> +vendor  : defined(__alpha__)                            : "dec"
+> hosttype:                                               : "NetBSD"
+> ostype  :                                               : "NetBSD"
+> machtype: defined(sparc)                                : "sparc"
+> machtype: defined(mc68020)                              : "m68k"
+> machtype: defined(i386)                                 : "i386"
+> machtype: defined(pmax)                                 : "i860"
+> machtype: defined(pc532)                                : "pc532"
+> +machtype: defined(__alpha__)                            : "alpha"
+> enddef  :
+> 
+> The lines with a '+' as the first character are the ones to add.
+> 
+> I think a standard 'xmkmf' will create all the proper Makefiles and
+> the like.
+> 
+> 
+Ok, I did all this, and tcsh compiled without a single warning *phew* but
+the output is still mangled. This is what ls gives me:
+gumby# ls
+.aubconf                .pinerc                 tcsh-6.06
+                                                         .cshrc
+.
+tin                     tcsh-6.06.tar.gz
+                                        .login                  Mail
+t
+csh.readme
+          .newsrc                       News                    top-3.3
+
+.oldnewsr
+c               aub.perl                top-3.3-netbsd.tar
+                                                          .pine-debug1
+m
+ail
+   gumby#
+
+what gives?
+
+---
+
+Erik Johannessen - System Administrator | One of the advantages of being 
+Email:erik@docunetworks.com             | disorderly is that one is 
+Voice:1-612-550-9552                    | constantly making exciting
+Fax:1-612-550-9552			| discoveries.      - A. A. Milne
+
+From shettich@octavian.ICS.UCI.EDU  Fri Nov 29 18:18:46 1996
+From: Seth Hettich <shettich@octavian.ICS.UCI.EDU>
+To: port-alpha@NetBSD.ORG
+Date: Fri, 29 Nov 1996 18:18:46 +0000
+Subject: Sound support?
+
+I have a UDB running the latest rz25 image.  I saw the
+wss device in the GENERIC kernel config file, does it work?
+I there any way to get audio under netbsd/alpha?
+
+-Seth
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Sat Nov 30 12:09:56 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: tih@nhh.no
+Date: Sat, 30 Nov 1996 12:09:56 +0000
+Subject: Re: dump and restore on the alpha port
+
+[ so, a couple of people pointed out that dump images _were_ in fact,
+  supposed to be portable, even to other endiannesses, etc.  Shows you
+  how often i do dumps... 8-]
+
+> Actually, they are _not_ sufficient: I can't dump from the alpha and
+> restore on the i386 with this code.  I just can't figure out why.  :-(
+
+How do they fail?  I was able to create a dump image of a small (~4MB)
+file system on the alpha, transfer it to an x86, run 'restore -ivf
+imagename' on it, add all the files, and extract them all (well,
+except for the device nodes, since i was running it as myself).
+
+However, on the _alpha_ i can't restore the dump image with the same
+procedure...  (it seg-faults...)
+
+I'm looking into it...
+
+
+
+chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Sat Nov 30 12:46:43 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: tih@nhh.no
+Date: Sat, 30 Nov 1996 12:46:43 +0000
+Subject: Re: dump and restore on the alpha port
+
+I said:
+> However, on the _alpha_ i can't restore the dump image with the same
+> procedure...  (it seg-faults...)
+
+Ahh, that was because i was trying to run the 'restore' process on an
+NFS file system...  I figured, if all you want is to get a few files
+back...  (there is much more lossage in dump and restore than i had
+previously believed.  8-)
+
+
+So, now, as far as i can tell: (contrary to your statement in the mail
+with the patches) _i_ can extract dumps created on the alpha on both
+the i386 and the alpha...
+
+I've not tried creating a dump on the i386 and extracting it on the
+alpha, yet.
+
+
+
+chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Sat Nov 30 13:46:03 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: tih@nhh.no
+Date: Sat, 30 Nov 1996 13:46:03 +0000
+Subject: Re: dump and restore on the alpha port
+
+I said:
+> I said:
+> > However, on the _alpha_ i can't restore the dump image with the same
+> > procedure...  (it seg-faults...)
+> 
+> Ahh, that was because i was trying to run the 'restore' process on an
+> NFS file system...  I figured, if all you want is to get a few files
+> back...  (there is much more lossage in dump and restore than i had
+> previously believed.  8-)
+
+So, after a bit of working tracking it down (it was trashing the
+stack...), i've fixed this, FYI.
+
+
+> I've not tried creating a dump on the i386 and extracting it on the
+> alpha, yet.
+
+I tried this, too, and it worked fine.
+
+
+
+chris
+
+From Chris_G_Demetriou@ux2.sp.cs.cmu.edu  Sat Nov 30 14:11:49 1996
+From: Chris G Demetriou <Chris_G_Demetriou@ux2.sp.cs.cmu.edu>
+To: wulf@ping.net.au
+Date: Sat, 30 Nov 1996 14:11:49 +0000
+Subject: Re: Any news on X-servers with pcivga support?
+
+[ sorry for the delay... this last thursday was one of the more major
+  US holidays, and things have been hectic all around... ]
+
+> the title says it all. I had a good look around but can't detect any
+> advances on this subject. Has it been canned?
+
+In a nutshell: there was a volunteer who indicated that he wanted to
+work on it, and he hasn't produced anything (at least, that i'm
+aware).
+
+As previously noted, I don't really have much time to be working on
+NetBSD/alpha at all (i spend much more time on it than i should), let
+alone PCI VGA X server support.  I've been trying to get some bogons
+out of the way (e.g. the fact that ISA VGA didn't previously work),
+and now i'm going to see about some sane interface by which the
+drivers can describe to user-land processes what they're letting the
+user-land processes map.
+
+Apparently the XFree86 situation has improved somewhat, or at least
+the Alpha Linux XFree people are being more chattery about making sure
+things work right (under Linux) on the Alpha.  That indicates that
+it'd only take a finite amount of work to make it go with
+NetBSD/alpha, but i don't know how much work that'd be and don't have
+much time to find out.
+
+
+> Whilest on the subject... scrolling text still is jerky. Which files
+> contain the code responsible for it? The screen jumps by about 9 lines
+> instead of scrolling line by line once it reaches the end of the
+> screen. This is independent from selected terminal type and shell.
+
+Actually, it's 10 lines, and the source code responsible is the
+arch/alpha/wscons/wscons_emul.c, lines 122 - 133.  8-)
+
+It's actually intentional, and I put it in because it's bloody slow to
+scroll the TGA line by line.  On a 24-line VGA, though i could see how
+it would be annoying.  Any suggestions for a 'not ugly' way to fix it?
+I guess i could make the number of lines to scroll a kernel option,
+though i'm loathe to do it...
+
+FYI: The emulation code is also (at least) a little bit buggy, and
+doesn't even do a very good job of emulating the (simple!!) sun
+terminal that it claims to emulate.
+
+
+Sort of a wscons emulation wishlist, if anybody's bored:
+
+I'd really prefer it emulated a more 'buff' terminal type, e.g. ansi
+or vt???, but 'sun' was the only thing i could easily get the specs on
+at the time i cobbled the code together.  (the ANSI terminal spec was
+out of print, and i have only a quick reference sheet for a vt220...
+no real docs on anything, other than the SunOS manual pages that
+desribe their terminal emulation. 8-)
+
+It should be possible to have multiple emulations compiled into the
+kernel, with a way (e.g. user-land program) to switch between them.
+People wishing to save memory could use a dumb terminal (i.e. no real
+emulation), others could have 'ansi' or vt220, or whatever.  This
+would also make the code more palatable to other ports.  (i'd
+eventually like to see it used by other ports, but it's in need of a
+bunch of work yet...)
+
+Accelerated raster functions for the TGA would be something cool to
+experiment with.  It should be relatively easy to implement the
+operations that wscons uses often, especially the typically-costly
+ones (e.g. block copy and clear).
+
+And then, of course, seriously cleaning up the whole chunk of code.
+If anybody wants to work on _this_, get in touch...  8-)
+
+
+chris
+
+From rat@cynical.org  Sat Nov 30 21:15:07 1996
+From: The Terminator rAT <rat@cynical.org>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 30 Nov 1996 21:15:07 +0000
+Subject: 'unexpected machine check' panic on Multia
+
+Hello all!  I hope someone can help me with my latest alpha adventure:
+
+I recently upgraded my Multia/UDB to the 961127 snapshot.  I've been
+getting panics in the ncr driver since then (i.e. 5 times in 1 day of
+total uptime).  Here's the latest message : 
+
+	unexpected machine check :
+
+	    mces    = 0x19
+	    vector  = 0x670
+	    param   = 0xfffffc0000006048
+	    pc      = 0xfffffc0000284be4
+	    ra      = 0xfffffc0000284bbc
+	    curproc = 0xfffffe004a5ed400
+	        pid = 101, comm = update
+
+	panic: machine check
+	ncr0:2: ERROR (a0:40) (e-aa-0) (8/13) @ (494:c0000000).
+		script cmd = c000004
+		reg:     da 10 80 13 47 08 02 1f 02 0e 82 aa 80 00 0a 00.
+	ncr0: restart (fatal error).
+
+At this point (apparently -- I didn't actually witness the crash), the 
+screen is hatched with 3-1/4 diagonal lines of pixels (my guess is that 
+they're '0xff's stored in <width of fb>+1 incremented locations.
+
+I rebooted the machine, cleaned up the crashdump (/var/crash/*) so 
+sendmail quit complaining and checked the addresses with 'gdb 
+/netbsd.gdb' (netbsd.gdb from 961127 snapshot) :
+
+	pc : sys_sync
+	ra : sys_sync
+
+This afternoon, the machine crashed also.  The PC/RA in that case was 
+"ncr_timeout / softclock".  I have suspected that the Quantum XP32150W 
+that came with the machine is flaky.  THere does not appear to be any 
+noticeable correlation between crashes and specific system activity.
+
+Hardware configuration is :
+
+	Alpha PC AXPpci33 ("NoName"), 166MHz
+	48 MB memory
+	Ethernet on AUI connector (via 10-base2 to AUI xcvr)
+	sd0: Toshiba MK1824FBV (300+ MB internal 2.5" drive)
+	sd1: Quantum XP32150W (3.5" external)
+	cd0: Compaq CR503BCQ (5.25" external)
+
+All else is stock Multia/UDB from Starship / Computer Guys.
+
+Any help/ideas would be most appreciated.
+
+Thanks again!
+
+	-rAT
+
+O----O The Terminator rAT - rat@cynical.org - The Cynical Software Foundation
+ \oO/
+==\/==                            Oiwuetnbiset!
+
+From shettich@octavian.ICS.UCI.EDU  Sat Nov 30 11:15:55 1996
+From: Seth Hettich <shettich@octavian.ICS.UCI.EDU>
+To: port-alpha@NetBSD.ORG
+Date: Sat, 30 Nov 1996 11:15:55 +0000
+Subject: help building new kernel
+
+I'm trying to build a kernel with some more mbufs, I
+assume the correct way to do this is up up maxusers.
+I made a copy of the GENERIC config file, and raised
+maxusers.  It compiled fine, but if I try to boot
+with the new kernel it resets the machine as soon as
+the kernel starts to load.
+
+Is maxusers the right way to get more mbufs?
+
+
+-Seth
+

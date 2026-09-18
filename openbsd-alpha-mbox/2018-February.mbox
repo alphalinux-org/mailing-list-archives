@@ -1,0 +1,383 @@
+From openbsd-alpha  Sat Feb 24 21:17:24 2018
+From: Cody Swanson <lists () sysop ! ca>
+Date: Sat, 24 Feb 2018 21:17:24 +0000
+To: openbsd-alpha
+Subject: OpenBSD 6.2 on DS20e panic: ffs_valloc: dup alloc
+Message-Id: <6c8ce7eb-abc6-f13f-6c6b-6925777a2b28 () sysop ! ca>
+X-MARC-Message: https://marc.info/?l=openbsd-alpha&m=151951036424634
+
+Hello,
+
+I realize this architecture is not very popular anymore but I was 
+playing with different OS's on my alpha system and I thought I would 
+make note of a bug I seem to be encountering. I'm running OpenBSD 6.2 
+release on a DS20e dual processor system. The system has had no issues 
+with stability running OpenVMS and Tru64 so I don't think it's a 
+hardware fault.
+
+Before I submit a bug report I'd like to know if anyone else is running 
+6.2 on Tsunami based alphas and if so have you encountered any stability 
+issues? It's listed as a supported platform on the Alpha port's homepage 
+although I wonder how many Alphas are getting regular use with OpenBSD.
+
+Here's some more detail about the crash I pulled from the debug console. 
+At the time of the crash the system was freshly installed and I was 
+extracting the ports tree using tar. I've cleaned up /usr (had to be 
+fsck'd) and tried extracting the ports twice more. Both times it crashed 
+with the same panic message. I also verified the ports file checksum to 
+ensure I wasn't dealing with a corrupt file.
+
+
+# mode = 03777, inum = 291456, fs = /usr
+panic: ffs_valloc: dup alloc
+Stopped at      db_enter+0x8:   lda     sp,10(sp)
+     TID    PID    UID     PRFLAGS     PFLAGS  CPU  COMMAND
+*242947  86907      0    0x100003          0    0  tar
+  450014  87652     73    0x100010       0x80    1  syslogd
+db_enter(0, fffffc0000d2fa40, fffffd01fc0003fd, 8, 3, fffffe0000000008) 
+at db_e
+nter+0x8
+panic(?, fffffc0000d2fa40, fffffc0000ca6a88, 8, 3, fffffe0000000008) at 
+panic+0
+xcc
+ffs_inode_alloc(?, ?, ?, ?, 3, fffffe0000000008) at ffs_inode_alloc+0x46c
+ufs_makeinode(?, ?, ?, ?, 3, fffffe0000000008) at ufs_makeinode+0x90
+https://www.openbsd.org/ddb.html describes the minimum info required in bug
+reports.  Insufficient info makes it difficult to find and fix bugs.
+
+ddb{0}> show uvm
+Current UVM status:
+   pagesize=8192 (0x2000), pagemask=0x1fff, pageshift=13
+   514142 VM pages: 4140 active, 1230 inactive, 0 wired, 455407 free 
+(61928 zero
+)
+   min  10% (25) anon, 10% (25) vnode, 5% (12) vtext
+   pages  0 anon, 0 vnode, 0 vtext
+   freemin=17138, free-target=22850, inactive-target=0, wired-max=171380
+   faults=108015, traps=99673, intrs=1437877, ctxswitch=206654 fpuswitch=717
+   softint=668689, syscalls=545128, kmapent=9
+   fault counts:
+     noram=0, noanon=0, noamap=0, pgwait=0, pgrele=0
+     ok relocks(total)=3850(3850), anget(retries)=57345(0), amapcopy=43802
+     neighbor anon/obj pg=1403/25029, gets(lock/unlock)=20481/3850
+     cases: anon=49696, anoncow=7649, obj=18746, prcopy=1735, przero=30189
+   daemon and swap counts:
+     woke=0, revs=0, scans=0, obscans=0, anscans=0
+     busy=0, freed=0, reactivate=0, deactivate=0
+     pageouts=0, pending=0, nswget=0
+     nswapdev=1, nanon=0, nanonneeded=0 nfreeanon=0
+     swpages=350240, swpginuse=0, swpgonly=0 paging=0
+   kernel pointers:
+     objs(kern)=0xfffffc0000d8a5a0
+
+ddb{0}> show bcstats
+Current Buffer Cache status:
+numbufs 23749 busymapped 0, delwri 1702
+kvaslots 12853 avail kva slots 12853
+bufpages 47488, dmapages 47488, dirtypages 3404
+pendingreads 0, pendingwrites 0
+highflips 0, highflops 0, dmaflips 0
+ddb{0}>
+
+ddb{0}> dmesg
+[ using 1136928 bytes of bsd ELF symbol table ]
+consinit: not using prom console
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+         The Regents of the University of California.  All rights reserved.
+Copyright (c) 1995-2017 OpenBSD. All rights reserved. 
+https://www.OpenBSD.org
+
+OpenBSD 6.2 (GENERIC.MP) #132: Tue Oct  3 23:46:33 MDT 2017
+     deraadt@alpha.openbsd.org:/usr/src/sys/arch/alpha/compile/GENERIC.MP
+COMPAQ AlphaStation DS20E 833 MHz
+8192 byte page size, 2 processors.
+real mem = 4294967296 (4096MB)
+rsvd mem = 2932736 (2MB)
+avail mem = 4211441664 (4016MB)
+mainbus0 at root
+cpu0 at mainbus0: ID 0 (primary), 21264B-4 (unknown minor type 4)
+cpu0: architecture extensions: 307<PAT,MVI,CIX,FIX,BWX>
+cpu1 at mainbus0: ID 1, 21264B-3 (unknown minor type 3)
+cpu1: architecture extensions: 307<PAT,MVI,CIX,FIX,BWX>
+tsc0 at mainbus0: 21272 Chipset, Cchip rev 0
+tsc0: 8 Dchips, 2 memory buses of 32 bytes
+tsc0: arrays present: 1024MB, 1024MB, 1024MB, 1024MB, Dchip 0 rev 1
+tsp0 at tsc0 hose 0
+pci0 at tsp0 bus 0
+sio0 at pci0 dev 5 function 0 "Contaq Microsystems CY82C693U ISA" rev 0x00
+pciide0 at pci0 dev 5 function 1 "Contaq Microsystems CY82C693U ISA" rev 
+0x00: D
+MA, channel 0 wired to compatibility
+atapiscsi0 at pciide0 channel 0 drive 0
+scsibus0 at atapiscsi0: 2 targets
+cd0 at scsibus0 targ 0 lun 0: <COMPAQ, CD-224E, 9.5B> ATAPI 5/cdrom 
+removable
+cd0(pciide0:0:0): using PIO mode 4, DMA mode 2
+pciide1 at pci0 dev 5 function 2 "Contaq Microsystems CY82C693U ISA" rev 
+0x00: n
+o DMA, channel 0 wired to compatibility
+pciide1: channel 0 disabled (no drives)
+ohci0 at pci0 dev 5 function 3 "Contaq Microsystems CY82C693U ISA" rev 
+0x00: is
+a irq 10, version 1.0, legacy support
+ahc0 at pci0 dev 6 function 0 "Adaptec AIC-7895" rev 0x04: dec 6600 irq 19
+scsibus1 at ahc0: 16 targets, initiator 7
+ahc0: target 0 using 8bit transfers
+ahc0: target 0 using asynchronous transfers
+sd0 at scsibus1 targ 0 lun 0: <COMPAQ, BD03685A24, HPB6> SCSI3 0/direct 
+fixed e
+ui.000c50fffeddfe43
+sd0: 34732MB, 512 bytes/sector, 71132000 sectors
+ahc0: target 1 using 8bit transfers
+ahc0: target 1 using asynchronous transfers
+sd1 at scsibus1 targ 1 lun 0: <COMPAQ, BD03685A24, HPB6> SCSI3 0/direct 
+fixed e
+ui.000c50fffee403e6
+sd1: 34732MB, 512 bytes/sector, 71132000 sectors
+ahc1 at pci0 dev 6 function 1 "Adaptec AIC-7895" rev 0x04: dec 6600 irq 18
+scsibus2 at ahc1: 16 targets, initiator 7
+vga0 at pci0 dev 7 function 0 "TI 3DLabs Permedia 2" rev 0x01
+wsdisplay0 at vga0 mux 1
+wsdisplay0: screen 0-5 added (80x25, vt100 emulation)
+isa0 at sio0
+isadma0 at isa0
+fdc0 at isa0 port 0x3f0/6 irq 6 drq 2
+com0 at isa0 port 0x3f8/8 irq 4: ns16550a, 16 byte fifo
+com0: console
+com1 at isa0 port 0x2f8/8 irq 3: ns16550a, 16 byte fifo
+pckbc0 at isa0 port 0x60/5 irq 1 irq 12
+pckbd0 at pckbc0 (kbd slot)
+wskbd0 at pckbd0 mux 1
+wskbd0: connecting to wsdisplay0
+pms0 at pckbc0 (aux slot)
+wsmouse0 at pms0 mux 0
+pcppi0 at isa0 port 0x61
+spkr0 at pcppi0
+lpt0 at isa0 port 0x3bc/4 irq 7
+mcclock0 at isa0 port 0x70/2: mc146818 or compatible
+usb0 at ohci0: USB revision 1.0
+uhub0 at usb0 configuration 1 interface 0 "Contaq Microsys OHCI root 
+hub" rev 1
+.00/1.00 addr 1
+tsp1 at tsc0 hose 1
+pci1 at tsp1 bus 0
+dc0 at pci1 dev 9 function 0 "DEC 21142/3" rev 0x30: dec 6600 irq 39, 
+address 0
+8:00:2b:c5:22:de
+dcphy0 at dc0 phy 31: internal PHY
+tsciic0 at tsc0
+iic0 at tsciic0
+spdmem0 at iic0 addr 0x50: 256MB SDRAM registered ECC PC66
+spdmem1 at iic0 addr 0x51: 256MB SDRAM registered ECC PC66
+spdmem2 at iic0 addr 0x52: 256MB SDRAM registered ECC PC66
+spdmem3 at iic0 addr 0x53: 256MB SDRAM registered ECC PC66
+<3>stray isa irq 3
+ahc0: target 0 using 16bit transfers
+ahc0: target 0 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 0 using 16bit transfers
+ahc0: target 0 synchronous at 20.0MHz, offset = 0x8
+vscsi0 at root
+scsibus3 at vscsi0: 256 targets
+softraid0 at root
+scsibus4 at softraid0: 256 targets
+ahc0: target 1 using 16bit transfers
+ahc0: target 1 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 1 using 16bit transfers
+ahc0: target 1 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 0 using 16bit transfers
+ahc0: target 0 synchronous at 20.0MHz, offset = 0x8
+root on sd1a (2d53171e26f61daa.a) swap on sd1b dump on sd1b
+ahc0: target 1 using 16bit transfers
+ahc0: target 1 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 1 using 16bit transfers
+ahc0: target 1 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 1 using 16bit transfers
+ahc0: target 1 synchronous at 20.0MHz, offset = 0x8
+fd0 at fdc0 drive 0: 1.44MB 80 cyl, 2 head, 18 sec
+<3>stray isa irq 4
+syncing disks... done
+cpu1: shutting down...
+rebooting...
+
+[ using 1136928 bytes of bsd ELF symbol table ]
+consinit: not using prom console
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+         The Regents of the University of California.  All rights reserved.
+Copyright (c) 1995-2017 OpenBSD. All rights reserved. 
+https://www.OpenBSD.org
+
+OpenBSD 6.2 (GENERIC.MP) #132: Tue Oct  3 23:46:33 MDT 2017
+     deraadt@alpha.openbsd.org:/usr/src/sys/arch/alpha/compile/GENERIC.MP
+COMPAQ AlphaStation DS20E 833 MHz
+8192 byte page size, 2 processors.
+real mem = 4294967296 (4096MB)
+rsvd mem = 2932736 (2MB)
+avail mem = 4211441664 (4016MB)
+mainbus0 at root
+cpu0 at mainbus0: ID 0 (primary), 21264B-4 (unknown minor type 4)
+cpu0: architecture extensions: 307<PAT,MVI,CIX,FIX,BWX>
+cpu1 at mainbus0: ID 1, 21264B-3 (unknown minor type 3)
+cpu1: architecture extensions: 307<PAT,MVI,CIX,FIX,BWX>
+tsc0 at mainbus0: 21272 Chipset, Cchip rev 0
+tsc0: 8 Dchips, 2 memory buses of 32 bytes
+tsc0: arrays present: 1024MB, 1024MB, 1024MB, 1024MB, Dchip 0 rev 1
+tsp0 at tsc0 hose 0
+pci0 at tsp0 bus 0
+sio0 at pci0 dev 5 function 0 "Contaq Microsystems CY82C693U ISA" rev 0x00
+pciide0 at pci0 dev 5 function 1 "Contaq Microsystems CY82C693U ISA" rev 
+0x00: D
+MA, channel 0 wired to compatibility
+atapiscsi0 at pciide0 channel 0 drive 0
+scsibus0 at atapiscsi0: 2 targets
+cd0 at scsibus0 targ 0 lun 0: <COMPAQ, CD-224E, 9.5B> ATAPI 5/cdrom 
+removable
+cd0(pciide0:0:0): using PIO mode 4, DMA mode 2
+pciide1 at pci0 dev 5 function 2 "Contaq Microsystems CY82C693U ISA" rev 
+0x00: n
+o DMA, channel 0 wired to compatibility
+pciide1: channel 0 disabled (no drives)
+ohci0 at pci0 dev 5 function 3 "Contaq Microsystems CY82C693U ISA" rev 
+0x00: is
+a irq 10, version 1.0, legacy support
+ahc0 at pci0 dev 6 function 0 "Adaptec AIC-7895" rev 0x04: dec 6600 irq 19
+scsibus1 at ahc0: 16 targets, initiator 7
+ahc0: target 0 using 8bit transfers
+ahc0: target 0 using asynchronous transfers
+sd0 at scsibus1 targ 0 lun 0: <COMPAQ, BD03685A24, HPB6> SCSI3 0/direct 
+fixed e
+ui.000c50fffeddfe43
+sd0: 34732MB, 512 bytes/sector, 71132000 sectors
+ahc0: target 1 using 8bit transfers
+ahc0: target 1 using asynchronous transfers
+sd1 at scsibus1 targ 1 lun 0: <COMPAQ, BD03685A24, HPB6> SCSI3 0/direct 
+fixed e
+ui.000c50fffee403e6
+sd1: 34732MB, 512 bytes/sector, 71132000 sectors
+ahc1 at pci0 dev 6 function 1 "Adaptec AIC-7895" rev 0x04: dec 6600 irq 18
+scsibus2 at ahc1: 16 targets, initiator 7
+vga0 at pci0 dev 7 function 0 "TI 3DLabs Permedia 2" rev 0x01
+wsdisplay0 at vga0 mux 1
+wsdisplay0: screen 0-5 added (80x25, vt100 emulation)
+isa0 at sio0
+isadma0 at isa0
+fdc0 at isa0 port 0x3f0/6 irq 6 drq 2
+com0 at isa0 port 0x3f8/8 irq 4: ns16550a, 16 byte fifo
+com0: console
+com1 at isa0 port 0x2f8/8 irq 3: ns16550a, 16 byte fifo
+pckbc0 at isa0 port 0x60/5 irq 1 irq 12
+pckbd0 at pckbc0 (kbd slot)
+wskbd0 at pckbd0 mux 1
+wskbd0: connecting to wsdisplay0
+pms0 at pckbc0 (aux slot)
+wsmouse0 at pms0 mux 0
+pcppi0 at isa0 port 0x61
+spkr0 at pcppi0
+lpt0 at isa0 port 0x3bc/4 irq 7
+mcclock0 at isa0 port 0x70/2: mc146818 or compatible
+usb0 at ohci0: USB revision 1.0
+uhub0 at usb0 configuration 1 interface 0 "Contaq Microsys OHCI root 
+hub" rev 1
+.00/1.00 addr 1
+tsp1 at tsc0 hose 1
+pci1 at tsp1 bus 0
+dc0 at pci1 dev 9 function 0 "DEC 21142/3" rev 0x30: dec 6600 irq 39, 
+address 0
+8:00:2b:c5:22:de
+dcphy0 at dc0 phy 31: internal PHY
+tsciic0 at tsc0
+iic0 at tsciic0
+spdmem0 at iic0 addr 0x50: 256MB SDRAM registered ECC PC66
+spdmem1 at iic0 addr 0x51: 256MB SDRAM registered ECC PC66
+spdmem2 at iic0 addr 0x52: 256MB SDRAM registered ECC PC66
+spdmem3 at iic0 addr 0x53: 256MB SDRAM registered ECC PC66
+<3>stray isa irq 3
+ahc0: target 0 using 16bit transfers
+ahc0: target 0 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 0 using 16bit transfers
+ahc0: target 0 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 1 using 16bit transfers
+ahc0: target 1 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 1 using 16bit transfers
+vscsi0 at root
+scsibus3 at vscsi0: 256 targets
+ahc0: target 1 synchronous at 20.0MHz, offset = 0x8
+softraid0 at root
+scsibus4 at softraid0: 256 targets
+ahc0: target 0 using 16bit transfers
+ahc0: target 0 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 0 using 16bit transfers
+ahc0: target 0 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 1 using 16bit transfers
+ahc0: target 1 synchronous at 20.0MHz, offset = 0x8
+root on sd1a (2d53171e26f61daa.a) swap on sd1b dump on sd1b
+ahc0: target 1 using 16bit transfers
+ahc0: target 1 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 1 using 16bit transfers
+ahc0: target 1 synchronous at 20.0MHz, offset = 0x8
+ahc0: target 1 using 16bit transfers
+ahc0: target 1 synchronous at 20.0MHz, offset = 0x8
+fd0 at fdc0 drive 0: 1.44MB 80 cyl, 2 head, 18 sec
+<3>stray isa irq 3
+<3>stray isa irq 4
+<3>stray isa irq 4
+mode = 03777, inum = 291456, fs = /usr
+panic: ffs_valloc: dup alloc
+Stopped at      db_enter+0x8:   lda     sp,10(sp)
+     TID    PID    UID     PRFLAGS     PFLAGS  CPU  COMMAND
+*242947  86907      0    0x100003          0    0  tar
+  450014  87652     73    0x100010       0x80    1  syslogd
+db_enter(0, fffffc0000d2fa40, fffffd01fc0003fd, 8, 3, fffffe0000000008) 
+at db_e
+nter+0x8
+panic(?, fffffc0000d2fa40, fffffc0000ca6a88, 8, 3, fffffe0000000008) at 
+panic+0
+xcc
+ffs_inode_alloc(?, ?, ?, ?, 3, fffffe0000000008) at ffs_inode_alloc+0x46c
+ufs_makeinode(?, ?, ?, ?, 3, fffffe0000000008) at ufs_makeinode+0x90
+https://www.openbsd.org/ddb.html describes the minimum info required in bug
+reports.  Insufficient info makes it difficult to find and fix bugs.
+ddb{0}> Current UVM status:
+   pagesize=8192 (0x2000), pagemask=0x1fff, pageshift=13
+   514142 VM pages: 4140 active, 1230 inactive, 0 wired, 455407 free 
+(61928 zero
+)
+   min  10% (25) anon, 10% (25) vnode, 5% (12) vtext
+   pages  0 anon, 0 vnode, 0 vtext
+   freemin=17138, free-target=22850, inactive-target=0, wired-max=171380
+   faults=108015, traps=99673, intrs=1437877, ctxswitch=206654 fpuswitch=717
+   softint=668689, syscalls=545128, kmapent=9
+   fault counts:
+     noram=0, noanon=0, noamap=0, pgwait=0, pgrele=0
+     ok relocks(total)=3850(3850), anget(retries)=57345(0), amapcopy=43802
+     neighbor anon/obj pg=1403/25029, gets(lock/unlock)=20481/3850
+     cases: anon=49696, anoncow=7649, obj=18746, prcopy=1735, przero=30189
+   daemon and swap counts:
+     woke=0, revs=0, scans=0, obscans=0, anscans=0
+     busy=0, freed=0, reactivate=0, deactivate=0
+     pageouts=0, pending=0, nswget=0
+     nswapdev=1, nanon=0, nanonneeded=0 nfreeanon=0
+     swpages=350240, swpginuse=0, swpgonly=0 paging=0
+   kernel pointers:
+     objs(kern)=0xfffffc0000d8a5a0
+ddb{0}> Current Buffer Cache status:
+numbufs 23749 busymapped 0, delwri 1702
+kvaslots 12853 avail kva slots 12853
+bufpages 47488, dmapages 47488, dirtypages 3404
+pendingreads 0, pendingwrites 0
+highflips 0, highflops 0, dmaflips 0
+ddb{0}> show panic
+ffs_valloc: dup alloc
+
+ddb{0}> trace
+db_enter(0, fffffc0000d2fa40, fffffd01fc0003fd, 8, 3, fffffe0000000008) 
+at db_e
+nter+0x8
+panic(?, fffffc0000d2fa40, fffffc0000ca6a88, 8, 3, fffffe0000000008) at 
+panic+0
+xcc
+ffs_inode_alloc(?, ?, ?, ?, 3, fffffe0000000008) at ffs_inode_alloc+0x46c
+ufs_makeinode(?, ?, ?, ?, 3, fffffe0000000008) at ufs_makeinode+0x90
+
+ddb{0}> machine ddbcpu 1
+CPU 1 has no register state
+

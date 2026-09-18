@@ -1,0 +1,865 @@
+From john@ziaspace.com  Mon Jul 2 23:31:15 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: John Klos <john@ziaspace.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: installboot killing disklabel?
+Date: Mon, 2 Jul 2018 23:31:15 +0000 (UTC)
+Lines: 28
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.1807022321490.18096@hlin.zia.io>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: blaine.gmane.org 1530574161 1677 195.159.176.226 (2 Jul 2018 23:29:21 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Mon, 2 Jul 2018 23:29:21 +0000 (UTC)
+To: port-alpha@netbsd.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Jul 03 01:29:17 2018
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1fa8Fs-0000Gk-Vi
+	for netbsd-port-alpha@m.gmane.org; Tue, 03 Jul 2018 01:29:13 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 10CF584E03; Mon,  2 Jul 2018 23:31:22 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 86AD484D04
+	for <port-alpha@netbsd.org>; Mon,  2 Jul 2018 23:31:19 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id RWGU4dXAKQHr for <port-alpha@netbsd.org>;
+	Mon,  2 Jul 2018 23:31:19 +0000 (UTC)
+Original-Received: from hlin.zia.io (hlin.zia.io [82.221.135.73])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 4590784D5D
+	for <port-alpha@netbsd.org>; Mon,  2 Jul 2018 23:31:17 +0000 (UTC)
+Original-Received: from hlin.zia.io (localhost [127.0.0.1])
+	by hlin.zia.io (8.15.2/8.15.2) with ESMTPS id w62NVFoG005030
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT)
+	for <port-alpha@netbsd.org>; Mon, 2 Jul 2018 23:31:16 GMT
+Original-Received: from localhost (john@localhost)
+	by hlin.zia.io (8.15.2/8.15.2/Submit) with ESMTP id w62NVF8O010344
+	for <port-alpha@netbsd.org>; Mon, 2 Jul 2018 23:31:15 GMT
+X-Authentication-Warning: hlin.zia.io: john owned process doing -bs
+X-X-Sender: john@hlin.zia.io
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.4.3 (hlin.zia.io [127.0.0.1]); Mon, 02 Jul 2018 23:31:16 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5037
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5037>
+
+I'm trying to use an amd64 system to install NetBSD/Alpha on a 120 gig 
+SSD. Here's the disklabel:
+
+16 partitions:
+#        size    offset     fstype [fsize bsize cpg/sgs]
+  a:   8388608         0     4.2BSD      0     0     0  # (Cyl. 0 - 8322*)
+  b:   8388608   8388608       swap                     # (Cyl. 8322*- 16644*)
+  d: 234441648         0     unused      0     0        # (Cyl. 0 - 232580)
+  e: 217664432  16777216     4.2BSD      0     0     0  # (Cyl. 16644*- 232580)
+
+I newfs'd /dev/sd0a as ffsv1, mounted, untargzipped the alpha sets, then 
+copied usr/mdec/boot to the root of that filesystem, then 
+usr/mdec/bootxx_ffs to the outside of that filesystem. I then unmounted 
+and ran installboot:
+
+installboot -vv -m alpha /dev/sd0d bootxx_ffs /boot
+
+Checking the disklabel then shows:
+
+4 partitions:
+#        size    offset     fstype [fsize bsize cpg/sgs]
+  a: 234441648         0     4.2BSD      0     0     0  # (Cyl. 0 - 232580)
+  d: 234441648         0     unused      0     0        # (Cyl. 0 - 232580)
+
+Why is installboot killing the disk's disklabel?
+
+John Klos
+
+
+From mouse@Rodents-Montreal.ORG  Mon Jul 2 23:38:29 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Mouse <mouse@Rodents-Montreal.ORG>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: installboot killing disklabel?
+Date: Mon, 2 Jul 2018 23:38:29 -0400 (EDT)
+Lines: 47
+Approved: news@gmane.org
+Message-ID: <201807030338.XAA26476@Stone.Rodents-Montreal.ORG>
+References: <Pine.NEB.4.64.1807022321490.18096@hlin.zia.io>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+X-Trace: blaine.gmane.org 1530589010 9354 195.159.176.226 (3 Jul 2018 03:36:50 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Tue, 3 Jul 2018 03:36:50 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Jul 03 05:36:46 2018
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1faC7R-0002Jl-4C
+	for netbsd-port-alpha@m.gmane.org; Tue, 03 Jul 2018 05:36:45 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id B6B5184F91; Tue,  3 Jul 2018 03:38:54 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 2647084DAF
+	for <port-alpha@NetBSD.org>; Tue,  3 Jul 2018 03:38:50 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id t3J01AOXdCb3 for <port-alpha@netbsd.org>;
+	Tue,  3 Jul 2018 03:38:49 +0000 (UTC)
+Original-Received: from Stone.Rodents-Montreal.ORG (Stone.Rodents-Montreal.ORG [98.124.61.89])
+	by mail.netbsd.org (Postfix) with ESMTP id CD3AC84CD8
+	for <port-alpha@NetBSD.org>; Tue,  3 Jul 2018 03:38:48 +0000 (UTC)
+Original-Received: (from mouse@localhost)
+	by Stone.Rodents-Montreal.ORG (8.8.8/8.8.8) id XAA26476;
+	Mon, 2 Jul 2018 23:38:29 -0400 (EDT)
+X-Erik-Conspiracy: There is no Conspiracy - and if there were I wouldn't be part of it anyway.
+X-Message-Flag: Microsoft: the company who gave us the botnet zombies.
+X-Composition-Start-Date: Mon, 2 Jul 2018 23:02:58 -0400 (EDT)
+In-Reply-To: <Pine.NEB.4.64.1807022321490.18096@hlin.zia.io>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5038
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5038>
+
+> I'm trying to use an amd64 system to install NetBSD/Alpha on a 120
+> gig SSD. Here's the disklabel:
+
+> 16 partitions:
+> #        size    offset     fstype [fsize bsize cpg/sgs]
+>   a:   8388608         0     4.2BSD      0     0     0  # (Cyl. 0 - 8322*)
+>   b:   8388608   8388608       swap                     # (Cyl. 8322*- 16644*)
+>   d: 234441648         0     unused      0     0        # (Cyl. 0 - 232580)
+>   e: 217664432  16777216     4.2BSD      0     0     0  # (Cyl. 16644*- 232580)
+
+> I newfs'd /dev/sd0a as ffsv1, mounted, untargzipped the alpha sets,
+> then copied usr/mdec/boot to the root of that filesystem, then
+> usr/mdec/bootxx_ffs to the outside of that filesystem.
+
+What is "the outside of" a filesystem?  In particular, what does it
+mean to copy a file there?  (I don't recall anything like hp300's LIF
+from the days back when I played with alphas, but that means little.)
+
+> I then unmounted and ran installboot:
+
+> installboot -vv -m alpha /dev/sd0d bootxx_ffs /boot
+
+> Checking the disklabel then shows:
+
+> 4 partitions:
+> #        size    offset     fstype [fsize bsize cpg/sgs]
+>   a: 234441648         0     4.2BSD      0     0     0  # (Cyl. 0 - 232580)
+>   d: 234441648         0     unused      0     0        # (Cyl. 0 - 232580)
+
+> Why is installboot killing the disk's disklabel?
+
+Is it?  Did you check the disklabel immediately before the last step,
+or do you know only that _something_ in the steps you list damaged the
+disklabel?
+
+Also, do you know whether the first-quoted disklabel was present on the
+disk, or just in core?  If the former, I've seen, on other ports and
+other versions, the in-core disklabel thrown away (and thus effectively
+reset to what's on disk) at certain times; I think it tends to happen
+when no partitions are open, but I haven't investigated in detail.  I
+speculate wildly that something of the sort might be behind this.
+
+/~\ The ASCII				  Mouse
+\ / Ribbon Campaign
+ X  Against HTML		mouse@rodents-montreal.org
+/ \ Email!	     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+
+From martin@duskware.de  Tue Jul 3 09:22:12 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Martin Husemann <martin@duskware.de>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: installboot killing disklabel?
+Date: Tue, 3 Jul 2018 09:22:12 +0200
+Lines: 15
+Approved: news@gmane.org
+Message-ID: <20180703072212.GA2199@mail.duskware.de>
+References: <Pine.NEB.4.64.1807022321490.18096@hlin.zia.io>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+X-Trace: blaine.gmane.org 1530602413 16066 195.159.176.226 (3 Jul 2018 07:20:13 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Tue, 3 Jul 2018 07:20:13 +0000 (UTC)
+User-Agent: Mutt/1.7.2 (2016-11-26)
+Cc: port-alpha@netbsd.org
+To: John Klos <john@ziaspace.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Jul 03 09:20:09 2018
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1faFbc-00044B-Uz
+	for netbsd-port-alpha@m.gmane.org; Tue, 03 Jul 2018 09:20:09 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 0E31E84EB8; Tue,  3 Jul 2018 07:22:18 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id CFA9C84E84
+	for <port-alpha@netbsd.org>; Tue,  3 Jul 2018 07:22:15 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id rF_IXpLGGqj5 for <port-alpha@netbsd.org>;
+	Tue,  3 Jul 2018 07:22:15 +0000 (UTC)
+Original-Received: from mail.duskware.de (mail.duskware.de [91.199.88.144])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 17BD084DAE
+	for <port-alpha@netbsd.org>; Tue,  3 Jul 2018 07:22:14 +0000 (UTC)
+Original-Received: by mail.duskware.de (Postfix, from userid 205)
+	id 8331DA801E; Tue,  3 Jul 2018 09:22:12 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <Pine.NEB.4.64.1807022321490.18096@hlin.zia.io>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5039
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5039>
+
+On Mon, Jul 02, 2018 at 11:31:15PM +0000, John Klos wrote:
+> I'm trying to use an amd64 system to install NetBSD/Alpha on a 120 gig SSD.
+> Here's the disklabel:
+> 
+> 16 partitions:
+> #        size    offset     fstype [fsize bsize cpg/sgs]
+>  a:   8388608         0     4.2BSD      0     0     0  # (Cyl. 0 - 8322*)
+>  b:   8388608   8388608       swap                     # (Cyl. 8322*- 16644*)
+>  d: 234441648         0     unused      0     0        # (Cyl. 0 - 232580)
+>  e: 217664432  16777216     4.2BSD      0     0     0  # (Cyl. 16644*- 232580)
+
+This does look wrong, alpha should have 'd' as 'c'.
+
+Martin
+
+
+From thorpej@me.com  Tue Jul 3 07:54:16 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: installboot killing disklabel?
+Date: Tue, 03 Jul 2018 07:54:16 -0700
+Lines: 16
+Approved: news@gmane.org
+Message-ID: <7653E1CB-1304-495D-BA6A-C6D411736745@me.com>
+References: <Pine.NEB.4.64.1807022321490.18096@hlin.zia.io>
+ <20180703072212.GA2199@mail.duskware.de>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+X-Trace: blaine.gmane.org 1530629539 17516 195.159.176.226 (3 Jul 2018 14:52:19 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Tue, 3 Jul 2018 14:52:19 +0000 (UTC)
+Cc: John Klos <john@ziaspace.com>, port-alpha@netbsd.org
+To: Martin Husemann <martin@duskware.de>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Jul 03 16:52:15 2018
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1faMf8-0004Pr-Nk
+	for netbsd-port-alpha@m.gmane.org; Tue, 03 Jul 2018 16:52:15 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 3900E84F13; Tue,  3 Jul 2018 14:54:23 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id A231484EC0
+	for <port-alpha@netbsd.org>; Tue,  3 Jul 2018 14:54:19 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id EVNQKFiMrohY for <port-alpha@netbsd.org>;
+	Tue,  3 Jul 2018 14:54:19 +0000 (UTC)
+Original-Received: from pv34p98im-ztdg02162201.me.com (pv34p98im-ztdg02162201.me.com [17.143.234.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id D15F684E09
+	for <port-alpha@netbsd.org>; Tue,  3 Jul 2018 14:54:18 +0000 (UTC)
+Original-Received: from process-dkim-sign-daemon.pv34p98im-ztdg02162201.me.com by
+ pv34p98im-ztdg02162201.me.com
+ (Oracle Communications Messaging Server 8.0.1.2.20170607 64bit (built Jun  7
+ 2017)) id <0PBA00A00HZDGE00@pv34p98im-ztdg02162201.me.com> for
+ port-alpha@netbsd.org; Tue, 03 Jul 2018 14:54:18 +0000 (GMT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=04042017;
+	t=1530629658; bh=U+F5Oktl4O4CgdXepDm/w60sFDbe3vyMJlhr3D7R4xE=;
+	h=Content-type:MIME-version:Subject:From:Date:Message-id:To;
+	b=Y1q8TBCBsnLYuQdqWi2L7YL4cXWW8qgL9MYuQ2h1PFQZmXt/c8ym6iXJlK8ITwdn+
+ cK92w/qYjP4pc6zJ0R8ACEt9AKXUcalWm+RC3tUIlbO5MQof6ktM3V2qDmZgxM7ml5
+ oxWuyovF7q2rpNpcYcZVyaSSLZQEwglgyi8HnPEwMKy/sgho9XjBTag9uUshN7EhP4
+ wIG65YDFu+xfNE+vZQ3+1NYRY/PYsb5kltviwiIZttrhqW0aPQefMsiX5O39k4h9yl
+ 00IdQtE/MEBv9hPZwV5WU3WttPb+8dr4WMnyoTLSvKEhWaLYMc1lotnewVzIdT/I0h
+ lwb0PvQWGc4Iw==
+Original-Received: from icloud.com ([127.0.0.1]) by pv34p98im-ztdg02162201.me.com
+ (Oracle Communications Messaging Server 8.0.1.2.20170607 64bit (built Jun  7
+ 2017)) with ESMTPSA id <0PBA000DHPEGND20@pv34p98im-ztdg02162201.me.com>; Tue,
+ 03 Jul 2018 14:54:18 +0000 (GMT)
+X-Proofpoint-Virus-Version: vendor=fsecure engine=2.50.10432:,,
+ definitions=2018-07-03_05:,, signatures=0
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 spamscore=0
+ clxscore=1011 suspectscore=0 malwarescore=0 phishscore=0 adultscore=0
+ bulkscore=0 classifier=spam adjust=0 reason=mlx scancount=1
+ engine=8.0.1-1707230000 definitions=main-1807030171
+X-Mailer: iPhone Mail (15F79)
+In-reply-to: <20180703072212.GA2199@mail.duskware.de>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5040
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5040>
+
+Yes, fallout from the dumb decision to make =E2=80=98d=E2=80=99 the raw (who=
+le disk) partition on i386 back in ancient history.
+
+The entire way we do disk partitioning is a mess, and I never really had the=
+ time to make =E2=80=9Cwedges=E2=80=9D what I envisioned it to be.  Maybe I=E2=
+=80=99ll take another crack at it one day.
+
+-- thorpej
+Sent from my iPhone.
+
+> On Jul 3, 2018, at 12:22 AM, Martin Husemann <martin@duskware.de> wrote:
+>=20
+> This does look wrong, alpha should have 'd' as 'c'.
+>=20
+> Martin
+
+
+From thorpej@me.com  Tue Jul 3 08:19:16 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: installboot killing disklabel?
+Date: Tue, 03 Jul 2018 08:19:16 -0700
+Lines: 44
+Approved: news@gmane.org
+Message-ID: <40B522C5-0800-4B5E-9791-25AD4AB27F0B@me.com>
+References: <Pine.NEB.4.64.1807022321490.18096@hlin.zia.io>
+ <20180703072212.GA2199@mail.duskware.de>
+ <7653E1CB-1304-495D-BA6A-C6D411736745@me.com>
+ <B88F7557-30B3-4F53-B456-A33660B2D4C3@hogrelius.nu>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0 (Mac OS X Mail 11.5 \(3445.9.1\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+X-Trace: blaine.gmane.org 1530631060 6652 195.159.176.226 (3 Jul 2018 15:17:40 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Tue, 3 Jul 2018 15:17:40 +0000 (UTC)
+Cc: Martin Husemann <martin@duskware.de>, John Klos <john@ziaspace.com>,
+ "port-alpha@netbsd.org" <port-alpha@netbsd.org>
+To: =?utf-8?Q?Anders_H=C3=B6grelius?= <ahs@hogrelius.nu>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Jul 03 17:17:36 2018
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1faN3e-0001Z4-2o
+	for netbsd-port-alpha@m.gmane.org; Tue, 03 Jul 2018 17:17:34 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 4BA4184DCC; Tue,  3 Jul 2018 15:19:41 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 2906784D5B
+	for <port-alpha@netbsd.org>; Tue,  3 Jul 2018 15:19:35 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([127.0.0.1])
+	by localhost (mail.netbsd.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id MIqUjtWRM4hV for <port-alpha@netbsd.org>;
+	Tue,  3 Jul 2018 15:19:34 +0000 (UTC)
+Original-Received: from pv34p98im-ztdg02172101.me.com (pv34p98im-ztdg02172101.me.com [17.143.234.142])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 3234884D04
+	for <port-alpha@netbsd.org>; Tue,  3 Jul 2018 15:19:34 +0000 (UTC)
+Original-Received: from process-dkim-sign-daemon.pv34p98im-ztdg02172101.me.com by
+ pv34p98im-ztdg02172101.me.com
+ (Oracle Communications Messaging Server 8.0.1.2.20170607 64bit (built Jun  7
+ 2017)) id <0PBA00P00NCB9I00@pv34p98im-ztdg02172101.me.com> for
+ port-alpha@netbsd.org; Tue, 03 Jul 2018 15:19:33 +0000 (GMT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=04042017;
+	t=1530631173; bh=IlGs05/rgZabssZjsqmY7HkCSKGRYqMdpu5NmR2huVk=;
+	h=Content-type:MIME-version:Subject:From:Date:Message-id:To;
+	b=vQC69OhNek1j1JaWrJBiJWbO2JvoqGEkV8VXcSEBAjoVJlDFih3Myl/lZIGdE7njt
+ t5n1tLsix4AhEFuMS6dn0f7rZSs2EMuKz0/NR6gkeugMxzFXQFTv9SoC9AA7xLinxF
+ fe1+97t7/Z2ouhCzn3i/m++UaMlvkjCTbPnlebKOjlpLZA0ppFeALKf5SwjbL1BBx8
+ Zf9YlmGv4P3vz+NsJ47WudJ19cX+8MdTtOwumJ5MLcmyksqd3Dz8DpfPwhLbqeGjA5
+ /kokFO+tU6vpumDWg5M76dp+cxMqQt2JjxuMoPOA52vofZOtntrYLgnz4gvO7cm7fo
+ hSvcTWPYLg3Ng==
+Original-Received: from icloud.com ([127.0.0.1]) by pv34p98im-ztdg02172101.me.com
+ (Oracle Communications Messaging Server 8.0.1.2.20170607 64bit (built Jun  7
+ 2017)) with ESMTPSA id <0PBA009MPQKGOL10@pv34p98im-ztdg02172101.me.com>; Tue,
+ 03 Jul 2018 15:19:33 +0000 (GMT)
+X-Proofpoint-Virus-Version: vendor=fsecure engine=2.50.10432:,,
+ definitions=2018-07-03_06:,, signatures=0
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 spamscore=0
+ clxscore=1011 suspectscore=0 malwarescore=0 phishscore=0 adultscore=0
+ bulkscore=0 classifier=spam adjust=0 reason=mlx scancount=1
+ engine=8.0.1-1707230000 definitions=main-1807030175
+In-reply-to: <B88F7557-30B3-4F53-B456-A33660B2D4C3@hogrelius.nu>
+X-Mailer: Apple Mail (2.3445.9.1)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5041
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5041>
+
+
+
+> On Jul 3, 2018, at 8:10 AM, Anders H=C3=B6grelius <ahs@hogrelius.nu> =
+wrote:
+>=20
+> Correct me if I=E2=80=99m wrong here, but i386 and thus also AMD =
+expects the disklabel to be in sector 1 as it needs the space in sector =
+0 for the boot sector. Alpha and others do not use a boot sector and =
+expects the disklabel to be in sector 0.=20
+>=20
+> Could this be the reason why it gets trashed?
+
+Yes, this is what I was referring to in my subsequent email.
+
+It's not that it's trashed, it's just not where the Alpha expects to =
+find it.
+
+>=20
+> Anders
+>=20
+> Sent from my iPhone
+>=20
+>> On Jul 3, 2018, at 7:54 AM, Jason Thorpe <thorpej@me.com> wrote:
+>>=20
+>> Yes, fallout from the dumb decision to make =E2=80=98d=E2=80=99 the =
+raw (whole disk) partition on i386 back in ancient history.
+>>=20
+>> The entire way we do disk partitioning is a mess, and I never really =
+had the time to make =E2=80=9Cwedges=E2=80=9D what I envisioned it to =
+be.  Maybe I=E2=80=99ll take another crack at it one day.
+>>=20
+>> -- thorpej
+>> Sent from my iPhone.
+>>=20
+>>> On Jul 3, 2018, at 12:22 AM, Martin Husemann <martin@duskware.de> =
+wrote:
+>>>=20
+>>> This does look wrong, alpha should have 'd' as 'c'.
+>>>=20
+>>> Martin
+
+-- thorpej
+
+
+
+From thorpej@me.com  Tue Jul 3 07:58:45 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Jason Thorpe <thorpej@me.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: installboot killing disklabel?
+Date: Tue, 03 Jul 2018 07:58:45 -0700
+Lines: 26
+Approved: news@gmane.org
+Message-ID: <2B67B122-7558-4AAA-BD24-6EBDB6055610@me.com>
+References: <Pine.NEB.4.64.1807022321490.18096@hlin.zia.io>
+ <20180703072212.GA2199@mail.duskware.de>
+ <7653E1CB-1304-495D-BA6A-C6D411736745@me.com>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+X-Trace: blaine.gmane.org 1530640609 27200 195.159.176.226 (3 Jul 2018 17:56:49 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Tue, 3 Jul 2018 17:56:49 +0000 (UTC)
+Cc: John Klos <john@ziaspace.com>, port-alpha@netbsd.org
+To: Martin Husemann <martin@duskware.de>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Jul 03 19:56:44 2018
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1faPXg-0006xX-6E
+	for netbsd-port-alpha@m.gmane.org; Tue, 03 Jul 2018 19:56:44 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 8F00F84F72; Tue,  3 Jul 2018 17:58:52 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 71BA684EEB
+	for <port-alpha@netbsd.org>; Tue,  3 Jul 2018 17:58:49 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (2048-bit key) header.d=me.com
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id 2yszAWdEW0W1 for <port-alpha@netbsd.org>;
+	Tue,  3 Jul 2018 17:58:48 +0000 (UTC)
+Original-Received: from pv34p98im-ztdg02162201.me.com (pv34p98im-ztdg02162201.me.com [17.143.234.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 9364F84E7C
+	for <port-alpha@netbsd.org>; Tue,  3 Jul 2018 17:58:48 +0000 (UTC)
+Original-Received: from process-dkim-sign-daemon.pv34p98im-ztdg02162201.me.com by
+ pv34p98im-ztdg02162201.me.com
+ (Oracle Communications Messaging Server 8.0.1.2.20170607 64bit (built Jun  7
+ 2017)) id <0PBA00A00HZDGE00@pv34p98im-ztdg02162201.me.com> for
+ port-alpha@netbsd.org; Tue, 03 Jul 2018 14:58:48 +0000 (GMT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=me.com; s=04042017;
+	t=1530629928; bh=aXgEg9oub3XkHdhso4WPqS8bnx8SvDY2gcGOhQs0YAE=;
+	h=Content-type:MIME-version:Subject:From:Date:Message-id:To;
+	b=QTIfdp+yDbh9BqhpRwMQeS2EENypgJw5B4Fqxmf/jka5kuegUt9Q4oH/msfrOXntU
+ I4CDPd7FbRgZGuecRNkJM+gACwENHhbIf+L23S4RHg/hQPna+ykv8gVioyrCh9NLv6
+ mf4pFq3BZE0m3Y+Ah66uTZ8jTGssyJ28CKumnOhZNfW/g7TwbUEcNhsVH8kvgFmesf
+ wJ8kYWwlzOVTS73+HfIaseIytSiDs3Om3ZboyD/nOlbhFqVPiSg6JOsSGEFKeVzeYg
+ hqXbehoHwlClFtWbq9eGfh9XAZQsduBgYe11ZIf3wFETucQ1m8AFtk6SnpYFaPBpnz
+ hc6uZO88Pn7UQ==
+Original-Received: from icloud.com ([127.0.0.1]) by pv34p98im-ztdg02162201.me.com
+ (Oracle Communications Messaging Server 8.0.1.2.20170607 64bit (built Jun  7
+ 2017)) with ESMTPSA id <0PBA000M4PLYND20@pv34p98im-ztdg02162201.me.com>; Tue,
+ 03 Jul 2018 14:58:47 +0000 (GMT)
+X-Proofpoint-Virus-Version: vendor=fsecure engine=2.50.10432:,,
+ definitions=2018-07-03_05:,, signatures=0
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 spamscore=0
+ clxscore=1015 suspectscore=0 malwarescore=0 phishscore=0 adultscore=0
+ bulkscore=0 classifier=spam adjust=0 reason=mlx scancount=1
+ engine=8.0.1-1707230000 definitions=main-1807030172
+X-Mailer: iPhone Mail (15F79)
+In-reply-to: <7653E1CB-1304-495D-BA6A-C6D411736745@me.com>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5042
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5042>
+
+Also note that =E2=80=9Clabel sector=E2=80=9D and =E2=80=9Clabel offset=E2=80=
+=9D may be different between x86 and Alpha (I don=E2=80=99t recall off hand)=
+.  That would also cause problems (x86 would write it to the wrong location)=
+.
+
+-- thorpej
+Sent from my iPhone.
+
+> On Jul 3, 2018, at 7:54 AM, Jason Thorpe <thorpej@me.com> wrote:
+>=20
+> Yes, fallout from the dumb decision to make =E2=80=98d=E2=80=99 the raw (w=
+hole disk) partition on i386 back in ancient history.
+>=20
+> The entire way we do disk partitioning is a mess, and I never really had t=
+he time to make =E2=80=9Cwedges=E2=80=9D what I envisioned it to be.  Maybe I=
+=E2=80=99ll take another crack at it one day.
+>=20
+> -- thorpej
+> Sent from my iPhone.
+>=20
+>> On Jul 3, 2018, at 12:22 AM, Martin Husemann <martin@duskware.de> wrote:
+>>=20
+>> This does look wrong, alpha should have 'd' as 'c'.
+>>=20
+>> Martin
+
+
+From mouse@Rodents-Montreal.ORG  Tue Jul 3 14:32:06 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: Mouse <mouse@Rodents-Montreal.ORG>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: installboot killing disklabel?
+Date: Tue, 3 Jul 2018 14:32:06 -0400 (EDT)
+Lines: 35
+Approved: news@gmane.org
+Message-ID: <201807031832.OAA24360@Stone.Rodents-Montreal.ORG>
+References: <Pine.NEB.4.64.1807022321490.18096@hlin.zia.io>
+ <20180703072212.GA2199@mail.duskware.de>
+ <7653E1CB-1304-495D-BA6A-C6D411736745@me.com>
+	<2B67B122-7558-4AAA-BD24-6EBDB6055610@me.com>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+X-Trace: blaine.gmane.org 1530642612 16058 195.159.176.226 (3 Jul 2018 18:30:12 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Tue, 3 Jul 2018 18:30:12 +0000 (UTC)
+To: port-alpha@NetBSD.org
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Tue Jul 03 20:30:08 2018
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1faQ3x-00043S-Mi
+	for netbsd-port-alpha@m.gmane.org; Tue, 03 Jul 2018 20:30:06 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id D32A58518A; Tue,  3 Jul 2018 18:32:13 +0000 (UTC)
+Delivered-To: port-alpha@NetBSD.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 54E6085185
+	for <port-alpha@NetBSD.org>; Tue,  3 Jul 2018 18:32:09 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id uZI89VJ0x2qa for <port-alpha@netbsd.org>;
+	Tue,  3 Jul 2018 18:32:08 +0000 (UTC)
+Original-Received: from Stone.Rodents-Montreal.ORG (Stone.Rodents-Montreal.ORG [98.124.61.89])
+	by mail.netbsd.org (Postfix) with ESMTP id 4907E84E4A
+	for <port-alpha@NetBSD.org>; Tue,  3 Jul 2018 18:32:07 +0000 (UTC)
+Original-Received: (from mouse@localhost)
+	by Stone.Rodents-Montreal.ORG (8.8.8/8.8.8) id OAA24360;
+	Tue, 3 Jul 2018 14:32:06 -0400 (EDT)
+X-Erik-Conspiracy: There is no Conspiracy - and if there were I wouldn't be part of it anyway.
+X-Message-Flag: Microsoft: the company who gave us the botnet zombies.
+X-Composition-Start-Date: Tue, 3 Jul 2018 14:09:30 -0400 (EDT)
+In-Reply-To: <2B67B122-7558-4AAA-BD24-6EBDB6055610@me.com>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5043
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5043>
+
+> Also note that â??label sectorâ?? and â??label offsetâ?? may be
+> different between x86 and Alpha (I donâ??t recall off hand).
+
+i386/amd64: LABELSECTOR=1, LABELOFFSET=0
+alpha: LABELSECTOR=0, LABELOFFSET=64
+
+At least in 5.2, and I would tend to assume those haven't changed in a
+very long time.
+
+> That would also cause problems (x86 would write it to the wrong
+> location).
+
+Indeed it would.
+
+That was careless of me; the post said "trying to use an amd64 system"
+and I didn't notice.  However, it does read as though the disklabel
+mangling shows up on the original system.
+
+I'd say the answer to the original question very probably is
+"installboot -m alpha doesn't try to avoid damage to non-alpha
+disklabels, ending up overwriting the x86 disklabel location".
+
+If NetBSD/alpha uses disklabels compatible-enough with NetBSD/i386 and
+NetBSD/amd64 disklabels, I have a program that can be used to create
+the alpha disklabel on a non-alpha system; it can also set the kernel's
+label, so you can use the resulting label to set up the filesystems.
+ftp.rodents-montreal.org:/mouse/hacks/bsdlabel.c has the latest
+version; if the above alpha values are still current, you'd want to run
+it with "-block 0 -offset 64".
+
+/~\ The ASCII				  Mouse
+\ / Ribbon Campaign
+ X  Against HTML		mouse@rodents-montreal.org
+/ \ Email!	     7D C8 61 52 5D E7 2D 39  4E F1 31 3E E8 B3 27 4B
+
+
+From ahs@hogrelius.nu  Tue Jul 3 08:10:12 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: =?UTF-8?q?Anders_H=C3=B6grelius?= <ahs@hogrelius.nu>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: installboot killing disklabel?
+Date: Tue, 3 Jul 2018 08:10:12 -0700
+Lines: 17
+Approved: news@gmane.org
+Message-ID: <B88F7557-30B3-4F53-B456-A33660B2D4C3@hogrelius.nu>
+References: <Pine.NEB.4.64.1807022321490.18096@hlin.zia.io>
+	<20180703072212.GA2199@mail.duskware.de>
+	<7653E1CB-1304-495D-BA6A-C6D411736745@me.com>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+X-Trace: blaine.gmane.org 1530686133 8683 195.159.176.226 (4 Jul 2018 06:35:33 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Wed, 4 Jul 2018 06:35:33 +0000 (UTC)
+Cc: Martin Husemann <martin@duskware.de>, John Klos <john@ziaspace.com>,
+	"port-alpha@netbsd.org" <port-alpha@netbsd.org>
+To: Jason Thorpe <thorpej@me.com>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Wed Jul 04 08:35:29 2018
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1fabNu-000278-Fu
+	for netbsd-port-alpha@m.gmane.org; Wed, 04 Jul 2018 08:35:27 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id 4D475851B6; Wed,  4 Jul 2018 06:37:34 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: by mail.netbsd.org (Postfix, from userid 1347)
+	id AAA28851B2; Wed,  4 Jul 2018 06:37:33 +0000 (UTC)
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id 1FDA684ED5
+	for <port-alpha@netbsd.org>; Tue,  3 Jul 2018 17:41:11 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Authentication-Results: mail.netbsd.org (amavisd-new);
+	dkim=pass (1024-bit key) header.d=hogrelius.nu
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id P_xYcH8d6tJU for <port-alpha@netbsd.org>;
+	Tue,  3 Jul 2018 17:41:10 +0000 (UTC)
+X-TNF-Warning: sender is <>
+Original-Received: from webmail.hogrelius.nu (mail.hogrelius.nu [193.11.112.145])
+	(using TLSv1.1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id 0970E84E7C
+	for <port-alpha@netbsd.org>; Tue,  3 Jul 2018 17:41:09 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple;
+	d=hogrelius.nu; s=mail;
+	h=from:subject:date:message-id:to:cc:mime-version:content-type:
+	 content-transfer-encoding:in-reply-to:references;
+	bh=9y6+WysUGpGGiDLmAFEtHb6BymBLCcsXIUe/tWEbI54=;
+	b=aNYkY0+kL3vT3XCdI+EydVCvMaAvvMMOiQXtMoqjJtRfeCu8jfixCQ2JJVdOlhfiExWLI+XnAntHC
+	 DSYXr7OblvtvvzySiQLa5aG/k4AKD/c0W1GCVkK1zppHHEzyQ3po5awrCJE8t6DoCGVoXV+Yr3o7gz
+	 /cCyYcnAVdYUfhbg=
+X-Envelope-To: thorpej@me.com, martin@duskware.de, john@ziaspace.com,
+	port-alpha@netbsd.org
+X-Final-To: ~ahs@hogrelius.nu/Sent Items, thorpej@me.com, martin@duskware.de,
+	john@ziaspace.com, port-alpha@netbsd.org
+Original-Received: from [107.77.228.172] ([107.77.228.172])
+	(authenticated user ahs@hogrelius.nu)
+	by webmail.hogrelius.nu (Kerio Connect 9.2.5 patch 3) with ESMTPSA;
+	Tue, 3 Jul 2018 08:10:14 -0700
+In-Reply-To: <7653E1CB-1304-495D-BA6A-C6D411736745@me.com>
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5044
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5044>
+
+Q29ycmVjdCBtZSBpZiBJ4oCZbSB3cm9uZyBoZXJlLCBidXQgaTM4NiBhbmQgdGh1cyBhbHNvIEFN
+RCBleHBlY3RzIHRoZSBkaXNrbGFiZWwgdG8gYmUgaW4gc2VjdG9yIDEgYXMgaXQgbmVlZHMgdGhl
+IHNwYWNlIGluIHNlY3RvciAwIGZvciB0aGUgYm9vdCBzZWN0b3IuIEFscGhhIGFuZCBvdGhlcnMg
+ZG8gbm90IHVzZSBhIGJvb3Qgc2VjdG9yIGFuZCBleHBlY3RzIHRoZSBkaXNrbGFiZWwgdG8gYmUg
+aW4gc2VjdG9yIDAuIA0KDQpDb3VsZCB0aGlzIGJlIHRoZSByZWFzb24gd2h5IGl0IGdldHMgdHJh
+c2hlZD8NCg0KQW5kZXJzDQoNClNlbnQgZnJvbSBteSBpUGhvbmUNCg0KPiBPbiBKdWwgMywgMjAx
+OCwgYXQgNzo1NCBBTSwgSmFzb24gVGhvcnBlIDx0aG9ycGVqQG1lLmNvbT4gd3JvdGU6DQo+IA0K
+PiBZZXMsIGZhbGxvdXQgZnJvbSB0aGUgZHVtYiBkZWNpc2lvbiB0byBtYWtlIOKAmGTigJkgdGhl
+IHJhdyAod2hvbGUgZGlzaykgcGFydGl0aW9uIG9uIGkzODYgYmFjayBpbiBhbmNpZW50IGhpc3Rv
+cnkuDQo+IA0KPiBUaGUgZW50aXJlIHdheSB3ZSBkbyBkaXNrIHBhcnRpdGlvbmluZyBpcyBhIG1l
+c3MsIGFuZCBJIG5ldmVyIHJlYWxseSBoYWQgdGhlIHRpbWUgdG8gbWFrZSDigJx3ZWRnZXPigJ0g
+d2hhdCBJIGVudmlzaW9uZWQgaXQgdG8gYmUuICBNYXliZSBJ4oCZbGwgdGFrZSBhbm90aGVyIGNy
+YWNrIGF0IGl0IG9uZSBkYXkuDQo+IA0KPiAtLSB0aG9ycGVqDQo+IFNlbnQgZnJvbSBteSBpUGhv
+bmUuDQo+IA0KPj4gT24gSnVsIDMsIDIwMTgsIGF0IDEyOjIyIEFNLCBNYXJ0aW4gSHVzZW1hbm4g
+PG1hcnRpbkBkdXNrd2FyZS5kZT4gd3JvdGU6DQo+PiANCj4+IFRoaXMgZG9lcyBsb29rIHdyb25n
+LCBhbHBoYSBzaG91bGQgaGF2ZSAnZCcgYXMgJ2MnLg0KPj4gDQo+PiBNYXJ0aW4NCg==
+
+
+From john@ziaspace.com  Fri Jul 6 21:16:39 2018
+Path: news.gmane.org!.POSTED!not-for-mail
+From: John Klos <john@ziaspace.com>
+Newsgroups: gmane.os.netbsd.ports.alpha
+Subject: Re: installboot killing disklabel?
+Date: Fri, 6 Jul 2018 21:16:39 +0000 (UTC)
+Lines: 29
+Approved: news@gmane.org
+Message-ID: <Pine.NEB.4.64.1807062107280.15445@hlin.zia.io>
+References: <Pine.NEB.4.64.1807022321490.18096@hlin.zia.io>
+ <20180703072212.GA2199@mail.duskware.de> <7653E1CB-1304-495D-BA6A-C6D411736745@me.com>
+ <B88F7557-30B3-4F53-B456-A33660B2D4C3@hogrelius.nu>
+NNTP-Posting-Host: blaine.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+X-Trace: blaine.gmane.org 1530911686 28566 195.159.176.226 (6 Jul 2018 21:14:46 GMT)
+X-Complaints-To: usenet@blaine.gmane.org
+NNTP-Posting-Date: Fri, 6 Jul 2018 21:14:46 +0000 (UTC)
+Cc: "port-alpha@netbsd.org" <port-alpha@netbsd.org>
+Original-X-From: bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org Fri Jul 06 23:14:42 2018
+Return-path: <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>
+Envelope-to: netbsd-port-alpha@m.gmane.org
+Original-Received: from mail.netbsd.org ([199.233.217.200])
+	by blaine.gmane.org with esmtp (Exim 4.84_2)
+	(envelope-from <bounces-port-alpha-owner-netbsd-port-alpha=m.gmane.org@NetBSD.org>)
+	id 1fbY3r-0007Go-9O
+	for netbsd-port-alpha@m.gmane.org; Fri, 06 Jul 2018 23:14:39 +0200
+Original-Received: by mail.netbsd.org (Postfix, from userid 605)
+	id AA315850B3; Fri,  6 Jul 2018 21:16:47 +0000 (UTC)
+Delivered-To: port-alpha@netbsd.org
+Original-Received: from localhost (localhost [127.0.0.1])
+	by mail.netbsd.org (Postfix) with ESMTP id D9DA085068
+	for <port-alpha@netbsd.org>; Fri,  6 Jul 2018 21:16:43 +0000 (UTC)
+X-Virus-Scanned: amavisd-new at netbsd.org
+Original-Received: from mail.netbsd.org ([IPv6:::1])
+	by localhost (mail.netbsd.org [IPv6:::1]) (amavisd-new, port 10025)
+	with ESMTP id 6DR39Pf25cGT for <port-alpha@netbsd.org>;
+	Fri,  6 Jul 2018 21:16:43 +0000 (UTC)
+Original-Received: from hlin.zia.io (hlin.zia.io [82.221.135.73])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mail.netbsd.org (Postfix) with ESMTPS id B002184E5D
+	for <port-alpha@netbsd.org>; Fri,  6 Jul 2018 21:16:42 +0000 (UTC)
+Original-Received: from hlin.zia.io (localhost [127.0.0.1])
+	by hlin.zia.io (8.15.2/8.15.2) with ESMTPS id w66LGdlP028150
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT)
+	for <port-alpha@netbsd.org>; Fri, 6 Jul 2018 21:16:40 GMT
+Original-Received: from localhost (john@localhost)
+	by hlin.zia.io (8.15.2/8.15.2/Submit) with ESMTP id w66LGd9G015296
+	for <port-alpha@netbsd.org>; Fri, 6 Jul 2018 21:16:39 GMT
+X-Authentication-Warning: hlin.zia.io: john owned process doing -bs
+X-X-Sender: john@hlin.zia.io
+In-Reply-To: <B88F7557-30B3-4F53-B456-A33660B2D4C3@hogrelius.nu>
+X-Greylist: Sender IP whitelisted, not delayed by milter-greylist-4.4.3 (hlin.zia.io [127.0.0.1]); Fri, 06 Jul 2018 21:16:40 +0000 (UTC)
+Original-Sender: port-alpha-owner@NetBSD.org
+List-Id: port-alpha.NetBSD.org
+Precedence: bulk
+List-Unsubscribe: <mailto:majordomo@NetBSD.org?subject=Unsubscribe%20port-alpha&body=unsubscribe%20port-alpha>
+Xref: news.gmane.org gmane.os.netbsd.ports.alpha:5045
+Archived-At: <http://permalink.gmane.org/gmane.os.netbsd.ports.alpha/5045>
+
+I've tried and retried installboot / disklabel many times. Even if I 
+netboot my Alpha system and use native tools to first disklabel, then 
+installboot, I end up with a system that boots the kernel, then can't find 
+the root filesystem.
+
+Separately, to complicate things, I went through several iterations where 
+the default kernel couldn't read the disk (which is a Samsung SSD on a 
+SATA-IDE adapter on the IDE bus) with DMA enabled. I retested everything 
+from scratch with a kernel configured with "flags 0x0002" for aceride:
+
+aceride0 at pci0 dev 16 function 0: Acer Labs M5229 UDMA IDE Controller (rev. 0xc2)
+aceride0: bus-master DMA support present, but unused (forced off by config file)
+
+The kernel with no IDE DMA consistently gives the correct disklabel when 
+installboot is not used, and consistently can't find the disklabel when 
+installboot is used. If I reinstall the disklabel, the filesystems can be 
+seen, but the disk is then no longer bootable.
+
+To be clear, this is all netbsd-8 compiled from sources from the last week.
+
+For now, I'll just netboot the kernel. Perhaps in the future I'll boot the 
+kernel from an IDE - CF card adapter, and have to root filesystem on the 
+SSD.
+
+At least I can get started with a bulk package build ;)
+
+Thanks,
+John
+
+
