@@ -1,0 +1,538 @@
+From 2339404703891188840
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,c46afb30605da544,start
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: fc7fa,c46afb30605da544,start
+X-Google-Attributes: gidfc7fa,public
+From: skerr@herma.ucsd.edu (Dr. Stephen S. Kerr)
+Subject: How to get RCS 5.6 on VMS 6.2?
+Date: 1998/08/14
+Message-ID: <6r03a9$fig$1@news1.ucsd.edu>#1/1
+X-Deja-AN: 380944309
+Summary: Problems installing RCS 5.6 on VMS 6.2 system
+Organization: University of California, San Diego
+Keywords: RCS, VMS
+Newsgroups: comp.sys.vms,comp.os.vms
+
+
+I am trying, without much luck, to install RCS version 5.6 on VMS 6.2.
+I have read some recent posts on dejanews that discuss some problems
+that are similar to mine, and although this has helped, I still can't
+create working versions of the executables.  I'd be grateful for any
+help!
+
+Here are the details of the tools I'm using:
+
+C compiler:    DEC C V5.2-003 on OpenVMS Alpha V6.2
+make:          GNU Make version 3.74vms
+diff, diff3:   GNU diffutils version 2.7
+
+The make executable was from www.openvms.digital.com/cd/RCS/.
+The diff executables were from www.openvms.digital.com/cd/CVS_VMS/.
+
+My first attempt to compile RCS in the source directory yielded
+many error messages similar to the following:
+
+   $ make -f makefile.vms
+   cc  /debug/noopt /nowarn   /obj=ci.obj ci.c
+
+   typedef unsigned long u_long;
+   ......................^
+   %CC-E-NOLINKAGE, In this declaration, "u_long" has no linkage and has
+   a prior declaration in this scope at line number 306 in file
+   SYS$COMMON:[SYSLIB]DECC$RTLDEF.TLB;1.
+   at line number 22 in file UD1:[KERR.LOCAL.RCS.RCS-5-6.SRC]VMSDIR.H;1
+
+   [...remaining messages deleted...]
+
+These messages resembled those reported by Dave Boyd on 1998/6/29.
+Klaus Kaempf's reply suggested removing the redundant typedefs from
+conf.h.  I did this, and also removed the offending typedefs from
+vmsdir.h.  I tried to make again, and things went fine until make
+tried to compile the rcsutil.c file:
+
+   cc  /debug/noopt /nowarn   /obj=rcsutil.obj rcsutil.c
+
+                       signal(sig[i], SIG_IGN) != catchsig
+   ....................^
+   %CC-E-NOEQUALITY, In this statement, "signal(...)" and "catchsig"
+   may not be compared for equality or inequality.
+   at line number 497 in file UD1:[KERR.LOCAL.RCS.RCS-5-6.SRC]RCSUTIL.C;1
+   make-3_74-19951218.axp_exe;4: *** [rcsutil.obj] Error 0x10b91262
+
+I wasn't sure what to do about this.  In desperation I cast both
+of these values to (signal_type), just to get rcsutil.c to compile.
+Again, make proceeded without trouble until until it tried to compile
+vmsfunctions.c:
+
+   cc  /debug/noopt /nowarn   /obj=vmsfunctions.obj vmsfunctions.c
+
+           u_long  d_fileno;                       /* file number of entry */
+   ........^
+   %CC-E-MISSINGTYPE, Missing type specifier or type qualifier.
+   at line number 27 in file UD1:[KERR.LOCAL.RCS.RCS-5-6.SRC]VMSDIR.H;2
+
+   [...and a couple of similar error messages...]
+
+So it appeared vmsfunctions.c needed the typedefs in vmsdir.h after all.
+I restored the old vmsdir.h and tried again.  vmsfunctions.c compiled,
+but the first link failed:
+
+   link  ci.obj,rcslex.obj,rcssyn.obj,rcsgen.obj,rcsedit.obj,rcskeys.obj,
+   rcsmap.obj,rcsrev.obj,rcsutil.obj,rcsfnms.obj,partime.obj,maketime.obj,
+   rcskeep.obj,rcsfcmp.obj,vmsfunctions.obj ,com:c/opt /exe=ci.exe
+   %LINK-F-OPENIN, error opening COM:[KERR.LOCAL.RCS.RCS-5-6.SRC]C.OPT; as
+      input
+   -RMS-F-DEV, error in device name or inappropriate device type for operation
+   make-3_74-19951218.axp_exe;4: *** [ci.exe] Error 0x1064109c
+
+At this point, I gave up.
+
+Can anybody tell me what I need to do to get RCS 5.6 to compile and link
+on my system?
+
+Regards,
+Stephen Kerr
+
+
+
+From 2390055937367416998
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,c46afb30605da544
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: fc7fa,c46afb30605da544
+X-Google-Attributes: gidfc7fa,public
+From: "Arne Vajh�j" <avajhoej@gtech.com>
+Subject: Re: How to get RCS 5.6 on VMS 6.2?
+Date: 1998/08/14
+Message-ID: <35D43324.3F937D21@gtech.com>#1/1
+X-Deja-AN: 381086572
+Content-Transfer-Encoding: 7bit
+References: <6r03a9$fig$1@news1.ucsd.edu>
+To: "Dr. Stephen S. Kerr" <skerr@herma.ucsd.edu>
+Content-Type: text/plain; charset=us-ascii
+Organization: GTECH Corporation, West Greenwich, RI
+Mime-Version: 1.0
+Newsgroups: comp.sys.vms,comp.os.vms
+
+Dr. Stephen S. Kerr wrote:
+> I am trying, without much luck, to install RCS version 5.6 on VMS 6.2.
+> I have read some recent posts on dejanews that discuss some problems
+> that are similar to mine, and although this has helped, I still can't
+> create working versions of the executables.
+
+> Here are the details of the tools I'm using:
+> 
+> C compiler:    DEC C V5.2-003 on OpenVMS Alpha V6.2
+> make:          GNU Make version 3.74vms
+> diff, diff3:   GNU diffutils version 2.7
+
+> Can anybody tell me what I need to do to get RCS 5.6 to compile and link
+> on my system?
+
+I posted what is attached below back in march. It may be of interest for
+you (if you hav eor can install the backport library).
+
+                                                                 Arne
+
+==========================================================================
+
+I tried getting out-of-the-box RCS 5.7, DIFFUTILS 2.7 and
+PATCH 2.5 to work with the new 7.x C RTL with a minimum
+of changes.
+
+And it actually did.
+
+All the changes I made are available at:
+  ftp://ftp.hhs.dk/pub/vms/tmp/rcskit.zip
+
+Note:
+  - it is only tested with VMS Alpha 7.1 and DEC C 5.6
+  - I expect it to work with 7.1 both VAX and Alpha and
+    6.2 VAX and Alpha with the backport library installed
+    and any DEC C version supporting the new C RTL, but I have
+    not tested it
+  - there are undobtetly features that does not work (see below)
+
+I have tested:
+  rcs -i
+  rcs -i -m
+  rlog
+  ci
+  ci -r
+  co
+  co -l
+  co -r
+  (diff as used by RCS)
+  diff -c (single file)
+  patch -i
+
+But all the rest I have not tested. In particulat I have added
+some dummy functions VMS.C, so I am certain that something does
+not work.
+
+There is no guarantee for anything, but here it is. I hope
+that someone will find use for it. If you correct some bugs
+(f.ex. replace the dummy functions with actual functions), then
+feel free to drop me an email.
+
+The best would ofcourse be if this and some of the stuff from
+the complete ports of older versions actually got merged into
+the out-of-the-box kits from GNU.
+
+                                                   Arne
+
+
+
+From -3199971928364578194
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,64f198c56196ef17,start
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: 1022db,64f198c56196ef17,start
+X-Google-Attributes: gid1022db,public
+X-Google-Thread: fc7fa,64f198c56196ef17,start
+X-Google-Attributes: gidfc7fa,public
+X-Google-Thread: 10ac7e,64f198c56196ef17,start
+X-Google-Attributes: gid10ac7e,public
+From: Join The Team <join_the_team@transtech.net>
+Subject: US:FL:MIAMI-VMS System Developer/Engineer
+Date: 1998/08/19
+Message-ID: <35DA5619.584DC089@transtech.net>#1/1
+X-Deja-AN: 382533223
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Organization: TransTech Systems Inc.
+MIME-Version: 1.0
+NNTP-Posting-Date: Wed, 19 Aug 1998 00:37:40 EST
+Newsgroups: comp.os.vms,comp.sys.vms,vmsnet.networks.management,vmsnet.networks.management.misc
+
+Immediate opportunity in Miami for DEC VMS systems person experienced
+with Alpha server and workstation configuration, implementation, and
+software development and management. 
+
+Real time control of dedicated wireless communications system in a large
+network environment. 
+
+Contract or full time growth position with high profile technology
+leader.  Very competitive salary, benefits and perks.
+
+Contact: 	Daniel Deveson
+		TransTech Systems Inc.
+		http://www.transtech.net
+
+Phone:		(305) 213-6138
+Fax:		(305) 220-1935
+E-Mail:		join_the_team@transtech.net
+
+
+
+From 1487708490093939604
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7e3a,34f90037db6b6dd6,start
+X-Google-Attributes: gidf7e3a,public
+X-Google-Thread: fc7fa,34f90037db6b6dd6,start
+X-Google-Attributes: gidfc7fa,public
+From: "Christian J. Bauer" <christian.bauer@passau.netsurf.de>
+Subject: VMS Backup
+Date: 1998/08/20
+Message-ID: <6rgmgd$6m1$1@einstein.pnm.net>#1/1
+X-Deja-AN: 382929911
+Organization: http://www.pnm.net
+X-MimeOLE: Produced By Microsoft MimeOLE V4.72.3110.3
+Newsgroups: comp.sys.vms,linux.redhat.axp
+
+Hi!
+
+Has anybody ported "vmsbackup" from the Redhat i386 distribution to Redhat
+Alpha 5.1?
+
+Thx
+Chris
+
+
+
+
+
+
+From -2553386119124689536
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,e821cafab80111c4,start
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: fc7fa,e821cafab80111c4,start
+X-Google-Attributes: gidfc7fa,public
+From: Gozer the Gozerian <G`zer@slavesex.dyn.ml.org>
+Subject: HELP needed with an old DEC/MicroVAX II
+Date: 1998/08/31
+Message-ID: <35EAC05F.F1289D47@slavesex.dyn.ml.org>#1/1
+X-Deja-AN: 386454239
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+X-Complaints-To: abuse@videotron.net
+X-Trace: wagner.videotron.net 904577113 207.253.145.4 (Mon, 31 Aug 1998 11:25:13 EDT)
+Organization: news.interlinx.qc.ca
+MIME-Version: 1.0
+NNTP-Posting-Date: Mon, 31 Aug 1998 11:25:13 EDT
+Newsgroups: comp.os.vms,comp.sys.vms
+
+I have this old MicroVAX lying in a corner, it's problem is both simple
+and frustrating.
+It's HD is blank and it only has a tk50 drive.  I have 2 blank tk50
+cartdriges also.
+
+BUT NO OS !
+
+I know there is some freely avaliable OS avaliable that will support this machine, I
+
+just have no way to put the OS on a disk whatsoever. If there is anybody willing
+
+to help me out, please do so.  I am willing to send even my only 2 cartdrige to
+
+someone who could copy an OS on them and mail them back to me COD.
+
+Plese respond by e-mail, as I might miss the answer if it's posted here.
+
+I would be so happy to have that machine stop being a door stop and start doing
+
+some real work again.
+
+--
+This is from gozer@ectoplasm.dyndns.com
+
+
+
+
+
+
+From -5093774969900658670
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,e821cafab80111c4
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: fc7fa,e821cafab80111c4
+X-Google-Attributes: gidfc7fa,public
+From: hoffman@xdelta.enet.dec.nospam (Hoff Hoffman)
+Subject: Re: HELP needed with an old DEC/MicroVAX II
+Date: 1998/08/31
+Message-ID: <6sepsl$odo@usenet.pa.dec.com>#1/1
+X-Deja-AN: 386508097
+Distribution: world
+References: <35EAC05F.F1289D47@slavesex.dyn.ml.org>
+Organization: Compaq Computer Corporation
+Reply-To: hoffman@xdelta.zko.dec.nospam
+Newsgroups: comp.os.vms,comp.sys.vms
+
+
+In article <35EAC05F.F1289D47@slavesex.dyn.ml.org>, Gozer the Gozerian <G`zer@slavesex.dyn.ml.org> writes:
+:I have this old MicroVAX lying in a corner, it's problem is both simple
+:and frustrating.
+:It's HD is blank and it only has a tk50 drive.  I have 2 blank tk50
+:cartdriges also.
+:
+:BUT NO OS !
+:
+:I know there is some freely avaliable OS avaliable that will support this machine, I
+:just have no way to put the OS on a disk whatsoever...
+
+  The Hobbyist OpenVMS VAX license and distribution is available...
+  For further information, please see the OpenVMS Frequently Asked
+  Questions (FAQ), available at: 
+
+    http://ftp.digital.com/pub/Digital/dec-faq/vms
+
+  Please see FAQ section "VMS9.  How do I obtain or transfer a VMS
+  license?" for details on the hobbyist license.
+
+:Plese respond by e-mail, as I might miss the answer if it's posted here.
+
+  Ask here, get an answer here.
+
+ -------------------------- pure personal opinion ---------------------------
+ Hoff (Stephen) Hoffman   OpenVMS Engineering   hoffman@xdelta.ZZenet.dec.com
+  note to those folks not contributing spam -- there is no ZZ in my address
+
+
+
+
+From -7630626183959872566
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,3fc64f1214fae22a,start
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: fc7fa,3fc64f1214fae22a,start
+X-Google-Attributes: gidfc7fa,public
+From: Dave Carpentiere <davec@mail.plymouth.edu>
+Subject: Login Location Restrictions?
+Date: 1998/08/04
+Message-ID: <35C71ABA.88A901D@mail.plymouth.edu>#1/1
+X-Deja-AN: 377828509
+Content-Transfer-Encoding: 7bit
+X-Accept-Language: en
+Content-Type: text/plain; charset=us-ascii
+Organization: Plymouth State College
+MIME-Version: 1.0
+Newsgroups: comp.os.vms,comp.sys.vms
+
+Can somebody offer me some advice....or point me in the right direction? 
+Thanks in advance:
+
+I need some way to limit where a paticular user account can log in.  I need
+to set up this account so if the user logs in at an unauthorized location
+they get kicked right out.  If they log in at an acceptable location a
+program executes based on where they are.....
+
+This is part of a custom point-of-sale "debit" system and I only want the
+account logging in at the foodservice locations (for obvious reasons).
+
+I had this witking under LAT where I used statements such as the
+following.....
+
+$ !
+$ if f$getdvi("tt:","tt_accpornam") .eqs. "THUB05/PORT_12" then goto flex_m
+$ if f$getdvi("tt:","tt_accpornam") .eqs. "THUB05/PORT_14" then goto flex_s
+$ if f$getdvi("tt:","tt_accpornam") .eqs. "THUB05/PORT_15" then goto flex_d
+$ goto no_good
+
+Well, our IT area is discontinuing the LAT protocol so I need to somehow do
+this through TELNET - TCP/IP.  When I use the f$getdvi function with the
+new protocol all I am able to get is the terminal server address (such as
+thub05.sample.edu).....what I need is some way to identify the port number
+that I am connected to (i.e. :4020.....we've already set it so it does not
+change, thus we can validate against it).  I'm also open to a totally
+different approach for limiting this access!
+
+Any thoughts?  Suggestions? Alternatives?
+
+Thank you,
+
+Dave Carpentiere
+Plymouth State College
+
+
+
+From 4831600375288679167
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: 10f8a1,1a7ff4666c73eec0,start
+X-Google-Attributes: gid10f8a1,public
+X-Google-Thread: 1164f8,1a7ff4666c73eec0,start
+X-Google-Attributes: gid1164f8,public
+X-Google-Thread: fc7fa,1a7ff4666c73eec0,start
+X-Google-Attributes: gidfc7fa,public
+From: Chris <cgladish@cctr.umkc.edu>
+Subject: JDK Beta for OVMS assistance requested
+Date: 1998/08/04
+Message-ID: <35C71901.905B2E89@cctr.umkc.edu>#1/1
+X-Deja-AN: 377838099
+Content-Transfer-Encoding: 7bit
+Organization: University of Missouri - Kansas City
+Content-Type: text/plain; charset=us-ascii
+Mime-Version: 1.0
+Newsgroups: comp.sys.vms,comp.sys.dec,vmsnet.alpha
+
+If anyone out there has had any luck with the latest beta of the java
+Developer's Kit for OVMS, then perhaps you could lend a hand.  The
+specifics:  I just installed it on a DEC3000 complete with all the
+necessary patches and what not in order to try and get this machine to
+run a java chat server by Volano.  In short, no matter what I do, the
+machine can't seem to find the file vchat.class.  I've set it to show
+file mapping as it does so, and ends up looking for "./vchat.class" and,
+
+of course, failing.  I've tried the full directory listing using both
+VMS and UNIX file format settings, making sure that the file is in the
+directory described by the logical CLASSPATH, to allow java programs to
+specify hidden dirs a la UNIX by removing the preceding ".", and a
+multitude of others.  Now, has anyone out there been through anything
+remotely similar, and would like to help me solve this?  I've finally
+run out of ideas for now....
+
+CLASSPATH points to "/sys$common/java/lib/jdk116_classes.zip"i've gone
+and
+tried a multitude of commands, but the one that seems to be closest to
+correct is:
+
+$ java "vchat200"
+
+I've set it to show me the mapping it goes through, and the lines that
+seem
+to be the source of the problem go:
+
+open_Jacket: Mapped: ./vchat200.class  To: ./vchat200.class
+can't find class vchat200
+
+And according to all the installation instructions, the class file's
+name
+should be given in all lowercase, though i've tried a myriad of other
+combinations just to be on the safe side.
+
+
+Thank you all in advance....
+
+-Chris
+
+
+
+
+
+From -7786620031870486295
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,3fc64f1214fae22a
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: fc7fa,3fc64f1214fae22a
+X-Google-Attributes: gidfc7fa,public
+From: Steve Spires <sspires1@fordNO.SPAMcom>
+Subject: Re: Login Location Restrictions?
+Date: 1998/08/04
+Message-ID: <35C71528.6EAC6540@fordNO.SPAMcom>#1/1
+X-Deja-AN: 377844888
+Content-Transfer-Encoding: 7bit
+References: <35C71ABA.88A901D@mail.plymouth.edu>
+To: davec@mail.plymouth.edu
+Content-Type: text/plain; charset=us-ascii
+Organization: Jaguar Cars
+Mime-Version: 1.0
+Reply-To: stevespires@compuserve.com
+Newsgroups: comp.os.vms,comp.sys.vms
+
+Are your users connecting through a Decserver or similar? Why not try using the
+TELNET CREATE_SESSION command to create specific TNAnn: terminal/devices mapped
+to ports on the server, then do your checks against that? You could even then
+use SYSMAN ALF to specify only certain users can log on from that terminal/port.
+
+Steve Spires
+
+Dave Carpentiere wrote:
+> 
+> Can somebody offer me some advice....or point me in the right direction?
+> Thanks in advance:
+> 
+> I need some way to limit where a paticular user account can log in.  I need
+> to set up this account so if the user logs in at an unauthorized location
+> they get kicked right out.  If they log in at an acceptable location a
+> program executes based on where they are.....
+> 
+> This is part of a custom point-of-sale "debit" system and I only want the
+> account logging in at the foodservice locations (for obvious reasons).
+> 
+> I had this witking under LAT where I used statements such as the
+> following.....
+> 
+> $ !
+> $ if f$getdvi("tt:","tt_accpornam") .eqs. "THUB05/PORT_12" then goto flex_m
+> $ if f$getdvi("tt:","tt_accpornam") .eqs. "THUB05/PORT_14" then goto flex_s
+> $ if f$getdvi("tt:","tt_accpornam") .eqs. "THUB05/PORT_15" then goto flex_d
+> $ goto no_good
+> 
+> Well, our IT area is discontinuing the LAT protocol so I need to somehow do
+> this through TELNET - TCP/IP.  When I use the f$getdvi function with the
+> new protocol all I am able to get is the terminal server address (such as
+> thub05.sample.edu).....what I need is some way to identify the port number
+> that I am connected to (i.e. :4020.....we've already set it so it does not
+> change, thus we can validate against it).  I'm also open to a totally
+> different approach for limiting this access!
+> 
+> Any thoughts?  Suggestions? Alternatives?
+> 
+> Thank you,
+> 
+> Dave Carpentiere
+> Plymouth State College
+
+
+

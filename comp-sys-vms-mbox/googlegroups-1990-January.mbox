@@ -1,0 +1,120 @@
+From -2883125289881305883
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fc7fa,9377419bb498ecc7,start
+X-Google-Attributes: gidfc7fa,public
+X-Google-Thread: f9325,b2a5b94b1f6c6e7e
+X-Google-Attributes: gidf9325,public
+X-Google-ArrivalTime: 1990-01-03 09:53:47 PST
+Path: utzoo!utgpu!jarvis.csri.toronto.edu!mailrus!shadooby!samsung!brutus.cs.uiuc.edu!apple!ginger.acc.com!salt.acc.com!lars
+From: lars@salt.acc.com (Lars J Poulsen)
+Newsgroups: comp.protocols.tcp-ip,comp.sys.vms
+Subject: Screen dumps from VMS terminals
+Summary: Three hard ways to do it
+Keywords: screen dumps VMS terminal servers
+Message-ID: <1990Jan3.175347.27884@ginger.acc.com>
+Date: 3 Jan 90 17:53:47 GMT
+References: <9001021654.AA04352@salt.acc.com>
+Sender: news@ginger.acc.com (USENET news)
+Reply-To: lars@salt.acc.com (Lars J Poulsen)
+Organization: Advanced Computer Communications, Santa Barbara, California
+Lines: 97
+
+In article <9001021654.AA04352@salt.acc.com>
+   chris@SALT.ACC.COM (Chris VandenBerg) writes:
+>I'm in the process of working on a distributed
+>print application using WIN/TCP to distribute some print capabilities out
+>to 3COM/Bridge terminal servers. I'm having a bit of trouble with the VMS side
+>of things and was hoping someone io the world has done something similar.
+>here's the proposed scene:
+>	A user logged onto the VAX through a 3COM term server connects to the
+>the Wollongong TELNET server, then connecting to some application running
+>under VMS. There is a "network" printer on a slave port on the 3COM that is
+>used by the VAX. This is connected via use of TWG's 3COM print symbiont that
+>looks like a logical VMS printer(I guess). The problem is how can I get the
+>system to recognize when the Terminal user hits a "print screen" key and 
+>redirect the output to the network printer? I would think that some DCL could
+>be written to tell the terminal driver that a special key had been hit,
+>throw the screen buffer into a file, and then send it to the print symbiont,
+>but has anyone actually DONE something like this? (Re-inventing the wheel
+>has never been one of my goals in life (:*) ).
+
+Chris,
+
+      What you are trying to do is probably not practically feasible
+(it is months and months of system programming). It is not a networking
+problem, but a VMS problem, because the desired capability is not
+available to local VMS users either.
+
+      The only multiuser system I have seen that allowed terminal users
+to send screen dumps to the system spool was the WANG VS system. It was
+a wonderful feature, and we used it a lot when writing proposals: We
+would work up the screen layouts in an interactive form definition
+utility, and then print them out. The printed screen dumps had a frame
+with counting marks for lines and columns. The WANG VS system used
+proprietary intelligent terminals similar to those used in the WANG WP
+and OIS system: In today's terms we would call it a diskless PC, but the
+only programs ever run on it were 3270-emulation-like screen formatters
+provided with the operating system. In that system, the feature was
+implemented by the terminal and the "session manager" together. When the
+user hit the "interrupt" function key, the session manager would ask the
+terminal to upload the current screen image (so it could be restored on
+a "continue" command). The dump function then worked off that screen
+dump. Any system with 3270-like terminals could easily do this, but I
+don't know of any others that do. Neither TSO nor VM have such features
+in their session managers.
+
+      To do this in any operating system that uses character-at-a-time
+ASCII terminals and prides itself on device independence is not
+feasible. In both UNIX and VMS, the operating system has no idea of what
+is on the screen. There is no standard way to upload a screen dump to
+the host, so the driver would have to monitor the data flow and maintain
+a duplicate of the screen by interpreting escape sequences. Given the
+variety of terminals in the world, that is impossible.
+
+      It might be more feasible to do this for a single terminal type,
+but the command sets of terminals like the VT100 are fairly large and
+complex (each of the about 15 model variations of VT100 has different
+twists to the command set; most lookalikes are not VT100's at all, but
+VT102 !!!), and you can imagine how upset people would be if the screen
+dump was not really like the terminal.
+
+      Implementing the screen capture feature, can be done in several
+different ways:
+
+(1) In the terminal. Many terminals actually have a port on the ack for
+    attaching a printer. VT101 had a printer port and a "print screen" key.
+    I suspect that you don't really like this version.
+(2) In the terminal server. IBM-3270 cluster controllers have a printer
+    port that supports a "print screen" key on the terminal. In your
+    case, that would probably be the best solution. Such a feature could
+    be coupled with a session manager and preserve your screen as you
+    switched between multiple sessions (possibly to different hosts).
+(3) In the VMS terminal driver, with some help from a user-written
+    system service attached to DCL. This would be VERY hard to do, would
+    not necessarily work with all terminal ports (DECnet "SET HOST" uses
+    a separate non-standard terminal driver), it would depend on
+    unpublished internal hooks in the terminal driver, (requiring a lot
+    of reading of the microfiche) and would have to be re-done with each
+    new version of VMS. Some people have this kind of thing to build
+    "big-brother-looks-over-your-shoulder" access for MIS user support,
+    but it is ugly, expensive, and crash-prone.
+(4) In a gateway program on the VMS VAX: Your login session runs this
+    program which then opens a new connection back to the same host,
+    (using either the RTA (set host), RTB (cterm) or TELNET protocols
+    or a PTY driver) you log in again, and the program can now monitor
+    the data flow and provide log files and screen dumps on request.
+    This could be implemented without access to system sources; it could
+    be done entirely in user mode. Come to think of it, I think such
+    features may actually exist in commercially available PHOTO-like
+    utilities with names like SPY etc.
+
+I have added comp.sys.vms to the distribution in the hope that someone
+has seen this kind of thing somewhere.
+
+/ Lars Poulsen	- Disclaimer: The disclaimer below does not apply today.
+--
+/ Lars Poulsen <lars@salt.acc.com>   (800) 222-7308  or (805) 963-9431 ext 358
+  ACC Customer Service              Affiliation stated for identification only
+                My employer probably would not agree if he knew what I said !!
+
+

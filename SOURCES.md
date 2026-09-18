@@ -253,6 +253,40 @@ pre-2002 archive found anywhere. Headers in the Gmane messages contain
 — it was a **private** Mailman list. Pre-2002 content is almost certainly
 gone unless someone retained personal copies.
 
+## Usenet groups (comp.os.linux.alpha, comp.sys.dec, comp.sys.vms, comp.unix.tru64)
+
+Real Usenet, not mailing lists. Gmane does not carry these (it mirrors
+mailing lists via NNTP, not the comp.* hierarchy). Eternal September has
+live/recent feed only (0-93 articles per group, no comp.sys.vms at all) —
+useless for archival purposes.
+
+**Source:** Internet Archive `usenet-comp` collection
+(`https://archive.org/download/usenet-comp/<group>.mbox.zip`), a Google
+Groups/Deja News mbox dump.  
+**Script:** `fetch-usenet-archive-mbox.py <group> <out-dir>`  
+**Output:** `<out-dir>/googlegroups-YYYY-Month.mbox`
+
+**Quality:** Good, with caveats.
+- These dumps use `From <deja-id>` separator lines (a bare, possibly
+  negative integer) instead of a real sender+date. Plain body text lines
+  starting with "From " are common and are NOT escaped in the source
+  dump — splitting naively on any `^From ` line corrupts messages. The
+  script requires the numeric-ID pattern to recognize a real separator.
+- No reliable sender/date in the separator line, so messages are bucketed
+  by the `Date:` header, which is present but highly irregular (RFC822
+  variants, bare `YYYY/MM/DD` for comp.sys.vms, occasional prose dates).
+  Unparseable dates go to `googlegroups-undated.mbox` for manual triage.
+- Message-ID present on most but not all messages (~1% missing in
+  comp.sys.dec).
+
+**Coverage and undated fraction:**
+| Group | Months | Messages | Undated |
+|-------|--------|----------|---------|
+| comp.os.linux.alpha | 1997-Aug – 2013-May | 29,127 | 0 |
+| comp.sys.dec | 1990-Apr – 2013-May | 108,195 | 2,274 (~2%) |
+| comp.sys.vms | 1990-Jan – 2004-Sep | 876 | 7 |
+| comp.unix.tru64 | 2000-Apr – 2013-Mar | 14,500 | 0 |
+
 ## Coverage summary
 
 | Period | List | Source | Quality |
@@ -277,3 +311,7 @@ gone unless someone retained personal copies.
 | 1996-Jan – 2002-Feb | port-alpha (NetBSD) | mail-index.netbsd.org | Reconstructed |
 | 2002-Jan – 2026-Aug | port-alpha (NetBSD) | Gmane NNTP | Good (full headers) |
 | 2001-Sep – 2026-Feb | openbsd-alpha | marc.info | Reconstructed |
+| 1997-Aug – 2013-May | comp.os.linux.alpha | archive.org usenet-comp | Good |
+| 1990-Apr – 2013-May | comp.sys.dec | archive.org usenet-comp | Good (~2% undated) |
+| 1990-Jan – 2004-Sep | comp.sys.vms | archive.org usenet-comp | Good |
+| 2000-Apr – 2013-Mar | comp.unix.tru64 | archive.org usenet-comp | Good |

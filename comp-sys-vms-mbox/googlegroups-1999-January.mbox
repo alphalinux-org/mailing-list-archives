@@ -1,0 +1,174 @@
+From 5630034829035690973
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,fd9b26df8c979591,start
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: fc7fa,fd9b26df8c979591,start
+X-Google-Attributes: gidfc7fa,public
+X-Google-Thread: 1094ba,fd9b26df8c979591,start
+X-Google-Attributes: gid1094ba,public
+From: Dani Steinmetz <danis@cyberdude.com>
+Subject: Read on Indexed files in Fortran
+Date: 1999/01/05
+Message-ID: <36923F50.F8DED069@cyberdude.com>#1/1
+X-Deja-AN: 429059994
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+MIME-Version: 1.0
+Reply-To: dani@transtech.net
+NNTP-Posting-Date: Tue, 05 Jan 1999 11:35:31 EST
+Newsgroups: comp.os.vms,comp.sys.vms,comp.lang.fortran
+
+Is there a way to do a read on multiple index keys ?  ex. multiple keys
+on an index file one for date, one for user name primary key is an
+incident number, can I do a read on user name = XXX, date = 12/21/98 and
+return the first record to match that criteria ?
+
+Thank for all your help
+
+Dani.
+
+dani@transtech.net
+
+
+
+
+From -1524820248975385972
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,fd9b26df8c979591
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: 1094ba,fd9b26df8c979591
+X-Google-Attributes: gid1094ba,public
+X-Google-Thread: fc7fa,fd9b26df8c979591
+X-Google-Attributes: gidfc7fa,public
+From: vaxs09@alpha.tst.tracor.com (John Briggs)
+Subject: Re: Read on Indexed files in Fortran
+Date: 1999/01/05
+Message-ID: <76tkkj$e24$1@news.tst.tracor.com>#1/1
+X-Deja-AN: 429092430
+References: <36923F50.F8DED069@cyberdude.com>
+Organization: Tracor Systems Technologies
+Reply-To: vaxs09@alpha.tst.tracor.com
+Newsgroups: comp.os.vms,comp.sys.vms,comp.lang.fortran
+
+In article <36923F50.F8DED069@cyberdude.com>, Dani Steinmetz <danis@cyberdude.com> writes:
+>Is there a way to do a read on multiple index keys ?  ex. multiple keys
+>on an index file one for date, one for user name primary key is an
+>incident number, can I do a read on user name = XXX, date = 12/21/98 and
+>return the first record to match that criteria ?
+
+If the file already exists and has keys that include just the individual
+fields mentioned (primary is incident number only, secondary is user
+name only, secondary is date only) then you can't do it as a simple
+RMS call.
+
+You can present _one_ key field and select _one_ key of reference for
+an RMS indexed lookup (which is what Fortran is giving you an interface
+to).  You cannot present a combination of more than one key value
+for more than one key of reference.
+
+If your data types and/or record offsets are chosen carefully, you may be
+able to make a key that selects from more than data field.  For instance,
+you could have an 8 character incident number in columns 1-8, a 20
+character user name in 9-28 and an 8 character date in 29-36.  Then
+if you had a 36 character RMS key you could look up
+
+	...KEYID=0, KEY='0000000005VAXS09              01/05/99'...
+
+You can also lookup leading substrings.  e.g.
+
+	...KEYID=0, KEY='0000000005VAXS09              '...
+
+For character keys, you can do non-contiguous keys that pick from
+a field here and a field there.
+
+Incompabitle data types could get in the way of this.  But if you
+don't care about the collating sequence, you could just tell RMS
+that it's one big character string anyway.
+
+If you do care about collating sequence, you could leave your existing
+keys alone and add a big segmented, character string key consisting
+of all of your individual key fields.
+
+If you cannot change the existing key layout then your next best option
+is to do an indexed read selecting the most specific field comparison
+available (date, username, incident number or whatever), compare the
+other fields to decide whether you have a hit or a miss, and keep
+reading sequentially and comparing until the value in the key field
+changes.
+
+You want to key into most specific field so that you check the fewest
+possible candidate records.  If possible, you want to key by primary
+index because sequential reads by primary key are faster than sequential
+reads by alternate key.
+
+Obligatory warning for first-time indexed file users:
+
+	Record insertion into indexed files is slow.  The system has to
+	update all the indexes.  And that's a lot of disk writes that
+	may not be cached effectively.  Not a big deal for interactive
+	access but for batch updates...
+
+	If you're doing batch inserts that constitute a substantial
+	fraction of the file (say 10 percent on up) you can get big
+	performance wins by converting to a sequential file, adding
+	the records there and then using $ CONVERT to create or
+	re-create the indexed file.
+
+	We're talking factors of 20 to 1 here.  And you get a nice
+	clean file when you're done.
+
+    John Briggs			vaxs09@alpha.tst.tracor.com
+
+
+
+From -7838886774245409936
+X-Google-Language: ENGLISH,ASCII
+X-Google-Thread: f7344,fd9b26df8c979591
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: fc7fa,fd9b26df8c979591
+X-Google-Attributes: gidfc7fa,public
+X-Google-Thread: 1094ba,fd9b26df8c979591
+X-Google-Attributes: gid1094ba,public
+From: "Michel A. Herrscher" <herrscher@catu.com>
+Subject: Re: Read on Indexed files in Fortran
+Date: 1999/01/06
+Message-ID: <36934524.0@news.iprolink.ch>#1/1
+X-Deja-AN: 429365644
+References: <36923F50.F8DED069@cyberdude.com>
+X-MimeOLE: Produced By Microsoft MimeOLE V4.72.3155.0
+Organization: Internet Prolink SA Customer
+Newsgroups: comp.os.vms,comp.sys.vms,comp.lang.fortran
+
+The simplest (the best ? ) is to create another index with all the fields
+you require. and start the search using this index.
+
+good points :
+It allows all scan operations (total or partial) , insert, delete etc..
+
+Bad point :
+More disc space need,
+Unload and reload the file
+Longer update time.
+
+HTH
+       Michel Herrscher
+"Do now what you want,
+ Tomorrow you may not be able to do it"
+
+Dani Steinmetz a �crit dans le message <36923F50.F8DED069@cyberdude.com>...
+>Is there a way to do a read on multiple index keys ?  ex. multiple keys
+>on an index file one for date, one for user name primary key is an
+>incident number, can I do a read on user name = XXX, date = 12/21/98 and
+>return the first record to match that criteria ?
+>
+>Thank for all your help
+>
+>Dani.
+>
+>dani@transtech.net
+>
+
+
+
+
+

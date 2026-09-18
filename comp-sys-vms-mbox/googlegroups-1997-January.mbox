@@ -1,0 +1,702 @@
+From -3358569795674085850
+X-Google-Language: ENGLISH,ASCII
+X-Google-Thread: f7344,9780caba03262537
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: fc7fa,9780caba03262537
+X-Google-Attributes: gidfc7fa,public
+From: lennartb@front.se (Lennart B�rjeson)
+Subject: Re: X25 interface to VMS - Help!
+Date: 1997/01/27
+Message-ID: <1997Jan27.182118.5331@front>#1/1
+X-Deja-AN: 212591937
+distribution: world
+references: <32EB84E6.3852@karmak.com>
+organization: Front Capital Systems AB, Sweden
+newsgroups: comp.os.vms,comp.sys.vms
+
+
+In article <32EB84E6.3852@karmak.com>, Patrick Cunningham <patc@karmak.com> writes:
+> I'm working on a project right now to Interface our OpenVMS-based
+> business system to some remote applications over a satellite link.
+> The link uses General Motor's PULSAT network and their specs say
+> that the asynch connection to their DIU uses X.25.  (we are a
+> Digital VAR that sells business systems to the Heavy Truck
+> industry here in the US)
+> 
+> I'm afraid I don't know much if anything about X25 and I need some
+> direction on where to begin.  The applications i'm hooking to are
+> basically just ASCII terminal emulation where I send a login sequence,
+> wait for replys and then upload ASCII data in predetermined formats.
+> It's all conversation-based - wait for a string and send a response
+> or data stream.  Nothing fancy.
+> 
+> Can anyone point me to a resource for this?  Is this funtionallity built
+> into DECnet-Plus?  Is there some software we can use to do the protocol
+> conversion (if any) right on our VMS box?
+> 
+> This will be running on both VAX and Alpha systems.
+> 
+
+
+You need the PSI ACCESS software. This is the client side of the X25 software
+for VMS, the server side normally runs in a dedicated WAN router box. (There
+used to be a server for Vax called PSI HOST, but I think it has been
+discontinued.)
+
+The PSI ACCESS software for VMS contains a programming interface which you can
+you in your own applications to access the X.25 connection.
+
+NOTE: You mention that you're supposed to hook into a terminal emulation. This
+makes me believe that what the remote application really offers is NOT X.25 but
+rather X.29. PSI ACCESS does NOT give you a programming interface to X.29. It
+has an interactive facility (command: SET HOST/X29) which you can use to
+interactively connect to the X.29 host.
+
+That said, let me explain: X.29 is a protocol layer built upon X.25. X.25 just
+sends a data packet over a point-to-point connection. X.29 deals with all kinds
+of terminal-releated parameters, and specifies a lot of different packets
+(control packets, data packets, etc) which are to be exchanged between the
+terminal and the host side of the X.25 connection. So, X.29 implies X.25, but
+if your application tries to connect using X.25 and is not "speaking X.29", the
+host will disconnect when it can't establish the X.29 protocol connection.
+
+Check if the remote application is X.25 or X.29. Perhaps they offer both, on
+different addresses.
+
+If it really is X.25 and nothing else, fine, you can use PSI ACCESS exactly as
+documented in the manual. (Many fine examples included.)
+
+If it really is X.29, you have two options: Either interface your code via a
+pseudoterminal to the SET HOST/X29 command, or else implement X.29 yourself.
+I've done both, they are both messy. It is possible to get by with a subset
+X.29 implementation. Wouldn't trust it in all cases, though.
+
+I think I might have some code fragments somewhere.
+Mail me if you're interested, and I'll look harder...
+
+-- 
+!++
+! Lennart B�rjeson
+! Front Capital Systems AB
+! World Trade Centre, Kungsbron 1, box 70351
+! S-107 24 Stockholm
+! tel: +46-8-454 00 00, fax: +46-8-454 00 10
+! email: lennartb@front.se
+! PSImail: PSI%24037104026::LENNARTB
+!--
+
+
+
+From -6244584788369734580
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,9780caba03262537
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: fc7fa,9780caba03262537
+X-Google-Attributes: gidfc7fa,public
+From: Ian.Miller@softel.co.uk (Ian Miller)
+Subject: Re: X25 interface to VMS - Help!
+Date: 1997/01/29
+Message-ID: <slrn5eubor.ke21j7.Ian.Miller@dylan.softel.co.uk>#1/1
+X-Deja-AN: 212974097
+x-nntp-posting-host: softel.demon.co.uk
+references: <32EB84E6.3852@karmak.com> <1997Jan27.182118.5331@front>
+organization: Softel Ltd.
+reply-to: Ian.Miller@softel.co.uk
+newsgroups: comp.os.vms,comp.sys.vms
+
+
+>In article <32EB84E6.3852@karmak.com>, Patrick Cunningham <patc@karmak.com> writes:
+>> I'm working on a project right now to Interface our OpenVMS-based
+>> business system to some remote applications over a satellite link.
+>> The link uses General Motor's PULSAT network and their specs say
+>> that the asynch connection to their DIU uses X.25.  (we are a
+>> Digital VAR that sells business systems to the Heavy Truck
+>> industry here in the US)
+>> 
+>> I'm afraid I don't know much if anything about X25 and I need some
+>> direction on where to begin.  The applications i'm hooking to are
+>> basically just ASCII terminal emulation where I send a login sequence,
+>> wait for replys and then upload ASCII data in predetermined formats.
+>> It's all conversation-based - wait for a string and send a response
+>> or data stream.  Nothing fancy.
+>> 
+>> Can anyone point me to a resource for this?  Is this funtionallity built
+>> into DECnet-Plus?  Is there some software we can use to do the protocol
+>> conversion (if any) right on our VMS box?
+>> 
+>> This will be running on both VAX and Alpha systems.
+>> 
+PSI Access  is included with DECnet/OSI. There is a QIO interface to the X.29
+stuff. The problem you have is finding the gateway box that the PSI Access
+talks to. PSI Access talks Gateway Access Protocol over your LAN to this box
+(we use X25 Router 2000 on DEMSB - unsupported for a long time but works).
+The problem currently is buying a supported box that will act as a X.25 
+gateway for PSI Access. Last time I looked the only one was an expensive
+DECnis configuration. You can use a VAX as the gateway box if it has the
+right sync comms cards (using DECnet/OSI + WANDD - I think you need a 
+DVNETEXT licence for this). This may work on an Alpha too.
+
+-- 
+****************************************************************************
+Ian Miller			    "The time has come",the walrus said 
+Teletext Dept.,Softel 		    "to speak of many things".
+Tel: +44 118 9842151 		     from "Through the looking glass" 
+Ian.Miller@softel.co.uk		     by Lewis Carrol.
+PSImail: 243273400398::IAN		
+Disclaimer - I said this stuff myself. My employer had nothing to do with it.
+*****************************************************************************
+
+
+
+From -32160398411483271
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,466b7b5b1871cfd5
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: 10f8a1,466b7b5b1871cfd5
+X-Google-Attributes: gid10f8a1,public
+X-Google-Thread: fc7fa,466b7b5b1871cfd5
+X-Google-Attributes: gidfc7fa,public
+From: cooper@utsph.sph.uth.tmc.edu
+Subject: Re: odbc drive for RMS
+Date: 1997/01/29
+Message-ID: <5cnkg0$50c$1@oac2.hsc.uth.tmc.edu>#1/1
+X-Deja-AN: 212986778
+references: <01bc0732$2ef1f7a0$2a6da7cc@mikef> <32E4EFB1.1E8@e-mail.com>,<32ef43e6.2605955@news.alt.net>
+content-type: text/plain;charset=US-ASCII
+organization: U.T. School of Public Health, Houston, Texas.
+mime-version: 1.0
+reply-to: cooper@utsph.sph.uth.tmc.edu
+newsgroups: comp.os.vms,comp.sys.vms,vmsnet.alpha
+
+
+In article <32ef43e6.2605955@news.alt.net>, mhald@tiac.net (Mark Hald) writes:
+>My company uses Easysoft.  We used to use ConnX.  Easysoft sales and
+>support are extremely helpful, which is more than half the reason we
+>switched.
+>
+>Easysoft will set you up with an evaluation license (30 days I
+>believe) and I also believe you can download the software via FTP.
+>
+I too am interested in this area...and also access of data from vms 
+stored on other sql database such as NT.  Besides the to companies above,
+I have found one other ISG International Software Group that offers
+such a product...unfortunately for us, it is rather expensive..but 
+again I have found it to cost about the same as the ConnX product.
+
+They can be reached at (617) 221-1450 or http://isg.isg.co.il
+ 
+Charles Cooper
+UT School of Public Health
+
+
+
+
+From 8410975255547169524
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,466b7b5b1871cfd5
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: 10f8a1,466b7b5b1871cfd5
+X-Google-Attributes: gid10f8a1,public
+X-Google-Thread: fc7fa,466b7b5b1871cfd5
+X-Google-Attributes: gidfc7fa,public
+From: mhald@tiac.net (Mark Hald)
+Subject: Re: odbc drive for RMS
+Date: 1997/01/30
+Message-ID: <32f0cb23.422904141@news.alt.net>#1/1
+X-Deja-AN: 213250023
+references: <01bc0732$2ef1f7a0$2a6da7cc@mikef> <32E4EFB1.1E8@e-mail.com>,<32ef43e6.2605955@news.alt.net> <5cnkg0$50c$1@oac2.hsc.uth.tmc.edu>
+content-type: text/plain; charset=us-ascii
+organization: URLs Anonymous
+mime-version: 1.0
+reply-to: mhald@tiac.net
+newsgroups: comp.os.vms,comp.sys.vms,vmsnet.alpha
+
+
+On 29 Jan 1997 13:48:48 GMT, cooper@utsph.sph.uth.tmc.edu wrote:
+
+>In article <32ef43e6.2605955@news.alt.net>, mhald@tiac.net (Mark Hald) writes:
+>>My company uses Easysoft.  We used to use ConnX.  Easysoft sales and
+>>support are extremely helpful, which is more than half the reason we
+>>switched.
+>>
+>>Easysoft will set you up with an evaluation license (30 days I
+>>believe) and I also believe you can download the software via FTP.
+>>
+>I too am interested in this area...and also access of data from vms 
+>stored on other sql database such as NT.  Besides the to companies above,
+
+I cannot answer whether Easysoft can pull data from NT to VMS, but
+perhaps their web page http://www.easysoft.com can or dialing them
+directly.  011-44-113-222-0400 from the U.S.  I think they are 5 hours
+ahead of EST.
+
+-Mark
+
+
+
+From 4716030471425924335
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,54f734c15b2b02b5
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: 1164f8,54f734c15b2b02b5
+X-Google-Attributes: gid1164f8,public
+X-Google-Thread: fc7fa,54f734c15b2b02b5
+X-Google-Attributes: gidfc7fa,public
+From: martin@RADIOGAGA.HARZ.DE (Martin Vorlaender)
+Subject: Re: Netscape web server for OpenVMS?
+Date: 1997/01/03
+Message-ID: <32cd0479.524144494f47414741@radiogaga.harz.de>#1/1
+X-Deja-AN: 207643779
+distribution: inet
+x-posting-software: UUPC/extended 1.12j inews (25May94 07:51)
+references: <32B96224.424D@thymenagain.com> <59ovdu$aqp@usenet.pa.dec.com>
+followup-to: comp.os.vms,comp.sys.dec,comp.sys.vms
+reply-to: MARTIN@RADIOGAGA.HARZ.DE
+newsgroups: comp.os.vms,comp.sys.dec,comp.sys.vms
+
+
+Stephen Hoff Hoffman (hoffman@xdelta.enet.dec.com.no-spam) wrote:
+: Commercial webservers are available for
+: OpenVMS (VAX and Alpha) from Netscape, Purveyor, and various other
+: vendors.
+
+Just a small annotation:
+
+Purveyor is the name of the product, the company's name is Process Software.
+
+cu,
+  Martin
+--
+                              |  Martin Vorlaender | VMS programmer
+  "UNIX is user friendly.     |  work: mv@pdv-systeme.de
+   It's just selective about  |  home: martin@radiogaga.harz.de
+   who its friends are."      |        http://www.harz.de/~martin/
+
+
+
+From -68791366367542308
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,bcec56ae6d30e54b,start
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: 10f8a1,bcec56ae6d30e54b,start
+X-Google-Attributes: gid10f8a1,public
+X-Google-Thread: 1164f8,136b9fa1a96b9f3
+X-Google-Attributes: gid1164f8,public
+X-Google-Thread: fc7fa,bcec56ae6d30e54b,start
+X-Google-Attributes: gidfc7fa,public
+From: "A. Suleiman" <asuleiman@ambac.com>
+Subject: UNTITLED
+Date: 1997/01/07
+Message-ID: <01bbfcb7$dda1be00$6f6384a9@remot1.test.ambac.com>#1/1
+X-Deja-AN: 208310579
+references: <59p0du$o8n@lehi.kuentos.guam.net> <59rlhk$rlp@camel4.mindspring.com> <59t2sa$g90@lehi.kuentos.guam.net> <5a3gl8$nts@camel5.mindspring.com> <5a4nmt$oie@lehi.kuentos.guam.net> <5a66c0$umh@camel1.mindspring.com> <5a8o1h$d4i@lehi.kuentos.guam.ne<32d015a9.187519@news.sydney.apana.org.au> <1996Dec31.104311.1@eisner> <5aecmi$qo7@herald.concentric.net>
+organization: AMBAC Indemnity
+newsgroups: comp.os.vms,comp.sys.dec,comp.sys.vms,vmsnet.alpha
+
+
+
+
+It seems all the IS people out there betting the house on NT don't have the
+same background and qualifications as all IS people who continue to be very
+happy and satisfied with OpenVMS.  I bet that most OpenVMS shops employ IS
+people with formal computer science degrees, and an understanding of
+operating systems, basic networking, some programming and the boolean
+framework that glues all of the above.  Whereas I see NT techheads
+(self-proclaimed engineers) who "know NT very well" badmouthing OpenVMS
+because they don't have the aptitude to understand its features enough to
+differentiate between it and NT.
+
+My observation is based on the lack of depth in the arguments I hear from
+NT-oriented techies.  People discount the value of formal knowledge of
+Computer Science principles needed to evaluate and deploy complex systems,
+in favor of hands-on self-acquired and fun training that has made the PC so
+popular.  
+
+DIGITAL  has continuously marketed to the well-read well-educated IS
+professional, whereas MS  targets the less-qualified of the lot.  Part of
+the success of NT is due to the ease at which information is published
+(Internet, CD, cableTV)  and the familiarity of THE PROGRAM MANAGER
+interface of WIN3.1.  Part of DIGITAL's  failure to grow its installed
+market share is the lack of understanding of the value of the above.
+
+BUT  how long can this wave of mis-information go on before the CIO's and
+CEO's of the world realize that productivity is NOT up due to WINxxxx? And
+that total reliability of their systems is NOT up due to the latest and the
+greatest in operating systems?  (Remember the Apple commercial with the two
+techies fiddling with a WINTEL pc and there manager claiming that "if you
+improve productivity any more we would be out of business"?.  
+
+How long can ignorance dominate in this field of science?  Not until IS
+realize that someone wants them to upgrade their production systems every 6
+months or they're on there own,  because the 1000 known bugs are resolved
+in version X+1.0.  Also independent software developers will hurt when they
+have to be on every version of the OS every 6 months.  When CEOs realize
+that their hardware is getting obsolete before it's depreciated due to the
+fatty OS and apps, they'll start to question the soundness of IS decisions.
+
+I'd say in 1997-1998 IS will awake and realize, as the ancient saying goes,
+that "kids cannot rule the world no matter how smart they are."  One cannot
+label Physics, Chemistry, Mathematics, and Engineering prociples as archane
+ideas and as hinderance to progress.  They are the basic elements for
+progress.  
+
+Let's not forget that. 
+
+A. Suleiman
+
+
+
+From -6504798263568941479
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,bcec56ae6d30e54b
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: 10f8a1,bcec56ae6d30e54b
+X-Google-Attributes: gid10f8a1,public
+X-Google-Thread: 1164f8,136b9fa1a96b9f3
+X-Google-Attributes: gid1164f8,public
+X-Google-Thread: fc7fa,bcec56ae6d30e54b
+X-Google-Attributes: gidfc7fa,public
+From: Tom I Helbekkmo <tih@see.headers.for.real.domain>
+Subject: Re: UNTITLED
+Date: 1997/01/07
+Message-ID: <863ewds6yh.fsf@barsoom.Hamartun.Priv.NO>#1/1
+X-Deja-AN: 208343646
+x-nntp-posting-host: barsoom.hamartun.priv.no
+sender: tih@barsoom.Hamartun.Priv.NO
+references: <59p0du$o8n@lehi.kuentos.guam.net>
+organization: T&T
+newsgroups: comp.os.vms,comp.sys.dec,comp.sys.vms,vmsnet.alpha
+
+
+[A. Suleiman]
+
+> How long can ignorance dominate in this field of science?
+
+Ignorance dominates the market, not the science.  That's a huge
+difference.  Of course VMS (or UNIX, or MVS) is a lot better than any
+Microsoft product will ever be, but MS sells better.  If you want to
+be a winner, you have to give up any ideas of producing real quality,
+and realize that what you need is marketing, marketing, marketing.
+
+If there are any genuinely good programmers working for Microsoft,
+they must hate their jobs.
+
+-tih
+-- 
+If I had it all to do over again, I'd probably make /var a lot bigger.
+
+
+
+From 899455836487592425
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,bcec56ae6d30e54b
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: 10f8a1,bcec56ae6d30e54b
+X-Google-Attributes: gid10f8a1,public
+X-Google-Thread: 1164f8,136b9fa1a96b9f3
+X-Google-Attributes: gid1164f8,public
+X-Google-Thread: fc7fa,bcec56ae6d30e54b
+X-Google-Attributes: gidfc7fa,public
+From: jefe@netcom.com (Pablo)
+Subject: Re: UNTITLED
+Date: 1997/01/13
+Message-ID: <jefeE3xnzJ.J42@netcom.com>
+X-Deja-AN: 209474712
+sender: jefe@netcom21.netcom.com
+references: <59p0du$o8n@lehi.kuentos.guam.net> <01bbfcb7$dda1be00$6f6384a9@remot1.test.ambac.com>
+followup-to: comp.os.vms,comp.sys.dec,comp.sys.vms,vmsnet.alpha
+organization: NETCOM On-line Communication Services (408 261-4700 guest)
+newsgroups: comp.os.vms,comp.sys.dec,comp.sys.vms,vmsnet.alpha
+
+
+A. Suleiman (asuleiman@ambac.com) wrote:
+: It seems all the IS people out there betting the house on NT don't have the
+: same background and qualifications as all IS people who continue to be very
+: happy and satisfied with OpenVMS.  I bet that most OpenVMS shops employ IS
+: people with formal computer science degrees, and an understanding of
+: operating systems, basic networking, some programming and the boolean
+: framework that glues all of the above.  Whereas I see NT techheads
+: (self-proclaimed engineers) who "know NT very well" badmouthing OpenVMS
+: because they don't have the aptitude to understand its features enough to
+
+	Let me say this about that.  I think the problem with your basic 
+(but on first observance, probably true) statement is it's HIGHLY 
+unscientific.  I think the question would be, what is the RATIO of NT 
+users to knowledgable NT engineers as opposed to the OpenVMS users to 
+knowledgable OVMS engineers?  I think the problem that you have run into is 
+that there are a WHOLE bunch of NT users 'on the street' which means that 
+what that market ends up with is a LOT of in-betweenies, 'know enough to 
+be dangerous', weekend fiddler types, self proclaimed experts et al.  One 
+could make the VERY same complaint about WIN NT vs WIN 95 'engineers'.  
+There are MILLIONS of people who use 95 on their home computers, so 
+everyone who is at all 'in' to computers becomes an 'expert'.  Example:  
+I'm a programmer by profession, so I meet and know a lot of other 
+computer professionals.  I know a lot of people who use windows 95 who 
+don't know what the hell they're doing, and I know considerably fewer who 
+use nt who know MORE than the people who use win95, so by a knee jerk 
+conclusion, I could then determine that NT people are 'smarter' than win 
+95 people.  Remember, a correlation does not a scientific fact make.  The 
+reason it's the way it is is because nt is not an os that sits on many 
+peoples desks, so the people who have experience with NT know more than 
+the average user knows.  I don't know ANYONE who uses OpenVMS on their 
+desktop at home (Please don't send me mail on all of the anecdotal cases 
+of people who do) which means the ONLY people I know who work with 
+OpenVMS are going to be big network pros.  However, I know a slew of 
+people who have NT on their desktop at home- I think you know where I'm 
+going.  The real litmus test would be to take the most knowledgable NT 
+pros and pit them 'against' the most knowledgable VMS pros and then 
+assess their abilities, instead of taking all the people who know VMS and 
+all the people who know NT and then draw a correlation.
+
+: My observation is based on the lack of depth in the arguments I hear from
+: NT-oriented techies.  People discount the value of formal knowledge of
+: Computer Science principles needed to evaluate and deploy complex systems,
+
+	I tend to agree with you wholeheartedly here.  I work for a 
+company and I've seen the transition between the time where only the 
+technical people (programmers, hardware guys) owned computers now all of 
+the non-tech people own computers too (receptionists, sales people- god 
+help us, etc) and there seems to be a new attitude formed in the company 
+that suggests that "this 'puter stuff ain't so hard, how come they get 
+paid so much".  If I had to lable it, I would say that the actual 
+attitude is one that suggests that all of the knowledge that we (tech 
+people) have that they (non tech people) have is sort of icing on the 
+cake...not really important for the day to day use of computers.
+
+: DIGITAL  has continuously marketed to the well-read well-educated IS
+: professional, whereas MS  targets the less-qualified of the lot.  Part of
+
+	True/untrue.  Digital markets to the well-read well educated is 
+pro because that's all they're ever gonna sell their 
+computers/software/hardware to.  MS is actually the 'smarter' company 
+because theyre not going to get locked into being a niche OS.  Trust me, 
+I've been through all of these arguments before and I understand your 
+frustration, because I've used some great operating systems that are 
+rarer than blue roses.  Unfortunately, when you get locked into a niche 
+from a marketing standpoint, if that niche ever becomes a non-niche, 
+you're in trouble.
+
+: the success of NT is due to the ease at which information is published
+: (Internet, CD, cableTV)  and the familiarity of THE PROGRAM MANAGER
+: interface of WIN3.1.  Part of DIGITAL's  failure to grow its installed
+: market share is the lack of understanding of the value of the above.
+
+	This is why MS is the 'smarter' company.  They make their high 
+end OS as similar as they can to their desktop low end OS, and therefore 
+they don't scare off their intended market.
+
+: BUT  how long can this wave of mis-information go on before the CIO's and
+: CEO's of the world realize that productivity is NOT up due to WINxxxx? And
+
+	As soon as everyone stops writing apps and building hw/sw around 
+WINxxxx.  I mean, look at it philosophically, are consumers and 
+corporations going to risk MILLIONS or even BILLIONS (collectively) on a 
+technically superior operating system that say, deals with threads better 
+than another one simply for that matter alone, or are they going to look 
+at the whole picture and ask questions like:  Can I buy software off the 
+shelf, can I sell it or resell it and support it without having to look 
+through the haystack for the proverbial needle when I need answers?
+
+: that total reliability of their systems is NOT up due to the latest and the
+: greatest in operating systems?  (Remember the Apple commercial with the two
+: techies fiddling with a WINTEL pc and there manager claiming that "if you
+: improve productivity any more we would be out of business"?.  
+
+
+	Again, I agree with you philoshpically, but there are too many 
+subtle factors than simply being a good, solid, easy to use operating 
+system.  If good, solid, easy to use o/s's were all the factors, I can 
+gaurantee you which OS's WOULDN'T even exist.
+
+: How long can ignorance dominate in this field of science?  Not until IS
+
+	This argument again has been hashed a thousand times in many other
+technical fields.  It's been hashed in HAM radio, it's been hashed when 8
+bits were sitting on our desktops, it's been hashed about the quality of
+usenet, it's been beaten to death everywhere.  When the 'masses' get into
+something there's always a core 'original' group that grimmaces when a 
+bunch of overly aggressive, not very knowledgable whipper-snappers start 
+dominating the field and crowd out the old pros with 'new-fangled' 
+thinking and 'freaky long haired' ideas.
+
+-- 
+******************************************************************************
+ Thoughts by:  Pablo (tm)   
+                            
+  Free Bob Kelly...        
+******************************************************************************
+
+...but Kennedy went.
+			.mw
+
+
+
+From 9176741919511488618
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,769f1f2b849ced21,start
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: 10f8a1,769f1f2b849ced21,start
+X-Google-Attributes: gid10f8a1,public
+X-Google-Thread: fc7fa,769f1f2b849ced21,start
+X-Google-Attributes: gidfc7fa,public
+From: Shael Richmond <ksrich@magibox.net>
+Subject: Re: odbc drive for RMS
+Date: 1997/01/20
+Message-ID: <32E44330.4B3B@magibox.net>#1/1
+X-Deja-AN: 211176901
+references: <01bc0732$2ef1f7a0$2a6da7cc@mikef>
+content-type: text/plain; charset=us-ascii
+mime-version: 1.0
+newsgroups: comp.os.vms,comp.sys.vms,vmsnet.alpha
+x-mailer: Mozilla 3.01 (Win95; I)
+
+
+Mike Farrar wrote:
+> 
+> I am porting an application written in Basic Plus-2 on the PDP-11 over to
+> the Alpha using DEC BASIC and RMS.
+> 
+> I am looking for any information about ODBC driver for RMS.  If anyone has
+> had any experience or any information it would greatly be appreciated.
+
+We use a product called ConnX by Solutions IQ.  Seems to work pretty
+good
+and is faster than the DEC products.
+
+Shael
+
+
+
+From -2585274006316456667
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,466b7b5b1871cfd5,start
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: 10f8a1,466b7b5b1871cfd5,start
+X-Google-Attributes: gid10f8a1,public
+X-Google-Thread: fc7fa,466b7b5b1871cfd5,start
+X-Google-Attributes: gidfc7fa,public
+From: "Mike Farrar" <mf@shore.net>
+Subject: odbc drive for RMS
+Date: 1997/01/21
+Message-ID: <01bc0732$2ef1f7a0$2a6da7cc@mikef>#1/1
+X-Deja-AN: 211131911
+organization: Lightbridge
+newsgroups: comp.os.vms,comp.sys.vms,vmsnet.alpha
+
+
+
+I am porting an application written in Basic Plus-2 on the PDP-11 over to
+the Alpha using DEC BASIC and RMS.  
+
+I am looking for any information about ODBC driver for RMS.  If anyone has
+had any experience or any information it would greatly be appreciated.
+
+Thanks In Advance,
+
+mf@shore.net
+
+
+
+
+From 8705230449555253170
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,466b7b5b1871cfd5
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: 10f8a1,466b7b5b1871cfd5
+X-Google-Attributes: gid10f8a1,public
+X-Google-Thread: fc7fa,466b7b5b1871cfd5
+X-Google-Attributes: gidfc7fa,public
+From: Bernard Rushton <brushton@e-mail.com>
+Subject: Re: odbc drive for RMS
+Date: 1997/01/21
+Message-ID: <32E4EFB1.1E8@e-mail.com>#1/1
+X-Deja-AN: 211226673
+references: <01bc0732$2ef1f7a0$2a6da7cc@mikef>
+content-type: text/plain; charset=us-ascii
+organization: Timekeeping Systems, Ford Motor Company
+mime-version: 1.0
+reply-to: brushton@e-mail.com
+newsgroups: comp.os.vms,comp.sys.vms,vmsnet.alpha
+x-mailer: Mozilla 3.0 (Win16; I)
+
+
+Mike Farrar wrote:
+> 
+> I am porting an application written in Basic Plus-2 on the PDP-11 over to
+> the Alpha using DEC BASIC and RMS.
+> 
+> I am looking for any information about ODBC driver for RMS.  If anyone has
+> had any experience or any information it would greatly be appreciated.
+> 
+> Thanks In Advance,
+> 
+> mf@shore.net
+
+I believe there are a few products that provide this capability. The
+only 2 that I know of though are Easysoft ODBC, by a company called
+Easysoft (UK tel: +44-113-222-0400), and Connx by IQ Solutions. I have
+no practical experience of either, but the sales staff at Easysoft are
+much more helpful. I didn't even get a call back from the Connx
+salespeople :( - perhaps they don't want to sell it! IIRC Evaluation
+(single-user) licenses for Easysoft ODBC are available in the UK for
+around GBP800, don't know about elsewhere.
+
+Usual stuff: No connections with either company, but planning to give
+Easysoft ODBC a go - anyone got 800 quid spare?! ;-)
+-- 
+Bernard Rushton                                email:
+Timekeeping Systems, Ford Motor Co, GB-1/115   (Work)
+brushton@e-mail.com
+Brentwood, Essex, UK    Tel: +44-1277-253739   (Home)
+brushton@bcs.org.uk
+     [FMC don't speak for me, so don't expect me to speak for them]
+
+
+
+From 5774739481414185873
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f7344,9780caba03262537,start
+X-Google-Attributes: gidf7344,public
+X-Google-Thread: fc7fa,9780caba03262537,start
+X-Google-Attributes: gidfc7fa,public
+From: Patrick Cunningham <patc@karmak.com>
+Subject: X25 interface to VMS - Help!
+Date: 1997/01/26
+Message-ID: <32EB84E6.3852@karmak.com>#1/1
+X-Deja-AN: 212354833
+organization: Karmak, Inc
+content-type: text/plain; charset=us-ascii
+mime-version: 1.0
+newsgroups: comp.os.vms,comp.sys.vms
+x-mailer: Mozilla 3.01Gold (Win95; I)
+
+
+I'm working on a project right now to Interface our OpenVMS-based
+business system to some remote applications over a satellite link.
+The link uses General Motor's PULSAT network and their specs say
+that the asynch connection to their DIU uses X.25.  (we are a
+Digital VAR that sells business systems to the Heavy Truck
+industry here in the US)
+
+I'm afraid I don't know much if anything about X25 and I need some
+direction on where to begin.  The applications i'm hooking to are
+basically just ASCII terminal emulation where I send a login sequence,
+wait for replys and then upload ASCII data in predetermined formats.
+It's all conversation-based - wait for a string and send a response
+or data stream.  Nothing fancy.
+
+Can anyone point me to a resource for this?  Is this funtionallity built
+into DECnet-Plus?  Is there some software we can use to do the protocol
+conversion (if any) right on our VMS box?
+
+This will be running on both VAX and Alpha systems.
+
+Thank you *very* much,
+
+-- 
+Patrick Cunningham - Software Specialist
+Karmak, Inc.       http://www.karmak.com
+Carlinville, IL
+
+
+
