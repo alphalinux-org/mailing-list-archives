@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Fetch a Usenet group from the Internet Archive's usenet-comp collection
-(a Google Groups/Deja News mbox dump) and split it into per-month mbox files.
+"""Fetch a Usenet group from the Internet Archive's usenet-<hierarchy>
+collections (Google Groups/Deja News mbox dumps) and split it into per-month
+mbox files.
 
-Source: https://archive.org/download/usenet-comp/<group>.mbox.zip
+Source: https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip
+where <hierarchy> is the group's first component (comp, biz, ...).
 
 These dumps use "From <deja-id>" separator lines rather than a real
 sender+date, so the Date: header is used for bucketing instead. Date formats
@@ -19,7 +21,7 @@ import sys
 import urllib.request
 import zipfile
 
-ARCHIVE_URL = "https://archive.org/download/usenet-comp/{group}.mbox.zip"
+ARCHIVE_URL = "https://archive.org/download/usenet-{hierarchy}/{group}.mbox.zip"
 
 MIN_YEAR = 1990
 MAX_YEAR = datetime.date.today().year + 1
@@ -71,7 +73,7 @@ def message_date(chunk):
 
 
 def download(group, dest):
-    url = ARCHIVE_URL.format(group=group)
+    url = ARCHIVE_URL.format(hierarchy=group.split(".")[0], group=group)
     print(f"downloading {url}")
     urllib.request.urlretrieve(url, dest)
 

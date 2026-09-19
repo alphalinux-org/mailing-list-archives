@@ -253,16 +253,18 @@ pre-2002 archive found anywhere. Headers in the Gmane messages contain
 — it was a **private** Mailman list. Pre-2002 content is almost certainly
 gone unless someone retained personal copies.
 
-## Usenet groups (comp.os.linux.alpha, comp.sys.dec, comp.sys.vms, comp.unix.tru64, comp.os.linux.announce)
+## Usenet groups (comp.os.linux.alpha, comp.sys.dec, comp.sys.vms, comp.unix.tru64, comp.os.linux.announce, biz.digital.announce, biz.digital.articles)
 
 Real Usenet, not mailing lists. Gmane does not carry these (it mirrors
 mailing lists via NNTP, not the comp.* hierarchy). Eternal September has
 live/recent feed only (0-93 articles per group, no comp.sys.vms at all) —
 useless for archival purposes.
 
-**Source:** Internet Archive `usenet-comp` collection
-(`https://archive.org/download/usenet-comp/<group>.mbox.zip`), a Google
-Groups/Deja News mbox dump.  
+**Source:** Internet Archive `usenet-<hierarchy>` collections
+(`https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip`), Google
+Groups/Deja News mbox dumps. The hierarchy is the group's first component,
+so comp.* groups come from `usenet-comp` and the biz.digital.* groups from
+`usenet-biz`.  
 **Script:** `fetch-usenet-archive-mbox.py <group> <out-dir>`  
 **Output:** `<out-dir>/googlegroups-YYYY-Month.mbox`
 
@@ -287,6 +289,8 @@ Groups/Deja News mbox dump.
 | comp.sys.vms | 1990-Jan – 2004-Sep | 876 | 7 |
 | comp.unix.tru64 | 2000-Apr – 2013-Mar | 14,500 | 0 |
 | comp.os.linux.announce | 1993-Apr – 2013-May | 13,052 | 0 |
+| biz.digital.announce | 1994-May – 2005-May | 750 | 0 |
+| biz.digital.articles | 1994-Apr – 2004-Apr | 771 | 0 |
 
 ## Coverage summary
 
@@ -317,3 +321,5 @@ Groups/Deja News mbox dump.
 | 1990-Jan – 2004-Sep | comp.sys.vms | archive.org usenet-comp | Good |
 | 2000-Apr – 2013-Mar | comp.unix.tru64 | archive.org usenet-comp | Good |
 | 1993-Apr – 2013-May | comp.os.linux.announce | archive.org usenet-comp | Good |
+| 1994-May – 2005-May | biz.digital.announce | archive.org usenet-biz | Good |
+| 1994-Apr – 2004-Apr | biz.digital.articles | archive.org usenet-biz | Good |
