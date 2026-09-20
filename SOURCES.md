@@ -253,6 +253,66 @@ pre-2002 archive found anywhere. Headers in the Gmane messages contain
 — it was a **private** Mailman list. Pre-2002 content is almost certainly
 gone unless someone retained personal copies.
 
+## alphant (AlphaNT mail list)
+
+`alphant@`, the Windows NT on Alpha mail list, started September 1995 by
+Aaron "Alphaman" Sakovich. Not a Linux list, but the same hardware community.
+It moved hosts repeatedly: garply.com, then Allen-Bradley/Rockwell
+(`alphant@listserv.mfg.mke.ab.com`), then Lizon Corporation
+(`alphant@alphant.com`), then a Sunbelt Software Lyris server (~2002).
+Every host is gone; the Wayback Machine is the only surviving archive.
+
+### 1995-September – 1996-July (11 months, 1,949 messages)
+**Source:** Wayback Machine, Hypermail archive at
+`dutlbcz.lr.tudelft.nl/alphant/maillist/archives/{1995Q4,1996Q1,1996Q2,current}/NNNN.html`
+(a TU Delft mirror of the original archive)
+**Script:** `fetch-alphant-wayback.py`, then `html-to-mbox-alphant.py`
+**Output:** `alphant-mbox/YYYY-Month.mbox`
+**Quality:** Good bodies and headers, but see the Message-ID caveat below.
+The quarter index pages list 2,084 messages (1995Q4 514, 1996Q1 672,
+1996Q2 790, current 108); 1,949 of them (93.5%) were crawled. The 135
+missing were never captured and are gone.
+
+**Message-ID caveat:** this Hypermail installation smeared IDs. 262 IDs are
+claimed by more than one message (up to 11 distinct messages, different
+sender, subject and date, sharing one ID). `html-to-mbox-alphant.py` gives
+every member of such a group a synthetic ID
+(`<quarter-NNNN.alphant@archive.invalid>`) and records the archive's claim in
+`X-Archive-Original-Message-ID`; 705 messages are affected. Without this,
+public-inbox would deduplicate real messages away. Six genuine duplicates
+(same sender, subject and date under two file names) keep their shared ID.
+
+### 1998-October – 2000-April (12 months, 276 messages)
+**Source:** Wayback Machine, MHonArc archive at
+`www.alphant.com/archives/alphant/YYYY-MM[-W]/msgNNNNN.html` (the Lizon era)
+**Script:** same two scripts
+**Quality:** Good — full headers including Message-ID, In-Reply-To and
+References, parsed from the `<!--X-Head-of-Message-->` block.
+**Almost entirely lost.** The site's own directory structure shows 83
+month/week directories running October 1998 through November 2000, but
+Wayback holds message bodies for only 15 of them, and 150 of the 276
+surviving messages are from October 1998 alone. The crawler mostly reached
+the site after it had already been destroyed (the site's own account: "the
+demise at the hands of script kiddies"), so most captures are 404 pages.
+
+### Gaps
+- **1996-August – 1998-September**: the Rockwell era. The Delft page said the
+  Hypermail archive was being rebuilt on NT and "we'll not be able to capture
+  any mail to the archive" during the move. `listserv.mfg.mke.ab.com` has zero
+  Wayback captures. Probably never archived.
+- **2000-December – 2002+**: the Lyris era at
+  `lyris.sunbelt-software.com/scripts/lyris.pl?enter=alphant`. Dynamic CGI
+  URLs, zero captures of any alphant page.
+
+### Sources investigated, not used
+- **zx.net.nz mirror** (`www.zx.net.nz/mirror/www.alphant.com/`): mirrors the
+  site's pages and, promisingly, all 83 `archives/alphant/YYYY-MM[-W]/`
+  directory names. Every file inside is a mirrored 404 page — the mirror was
+  taken after the archive was already dead. Useful only as evidence of what
+  the directory layout was.
+- **marc.info**: "No such list".
+- **Gmane, mail-archive.com, archive.org items**: nothing for this list.
+
 ## Usenet groups (comp.os.linux.alpha, comp.sys.dec, comp.sys.vms, comp.unix.tru64, comp.os.linux.announce, biz.digital.announce, biz.digital.articles)
 
 Real Usenet, not mailing lists. Gmane does not carry these (it mirrors
@@ -316,6 +376,8 @@ so comp.* groups come from `usenet-comp` and the biz.digital.* groups from
 | 1996-Jan – 2002-Feb | port-alpha (NetBSD) | mail-index.netbsd.org | Reconstructed |
 | 2002-Jan – 2026-Aug | port-alpha (NetBSD) | Gmane NNTP | Good (full headers) |
 | 2001-Sep – 2026-Feb | openbsd-alpha | marc.info | Reconstructed |
+| 1995-Sep – 1996-Jul | alphant | Wayback (Hypermail) | Good (bogus dup IDs fixed) |
+| 1998-Oct – 2000-Apr | alphant | Wayback (MHonArc) | Good (fragmentary) |
 | 1997-Aug – 2013-May | comp.os.linux.alpha | archive.org usenet-comp | Good |
 | 1990-Apr – 2013-May | comp.sys.dec | archive.org usenet-comp | Good (~2% undated) |
 | 1990-Jan – 2004-Sep | comp.sys.vms | archive.org usenet-comp | Good |
