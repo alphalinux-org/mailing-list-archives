@@ -1,0 +1,4371 @@
+From -3195051556970726676
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,5f506e80358e6cd8,start
+X-Google-Attributes: gidf678f,public
+From: wolfanger@wolfcrews.com (Jeffrey Sick)
+Subject: Adding passwords from script
+Date: 1998/04/17
+Message-ID: <353a79c0.81359488@news3.buffnet.net>#1/1
+X-Deja-AN: 345060614
+Content-Transfer-Encoding: 7bit
+Sender: jsick@136.183.3.106
+Content-Type: text/plain; charset=us-ascii
+Organization: WolfCrews
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.misc
+
+
+I figured out a way to add hundreds of users at a time to a DEC UNIX
+4.0D / C2 server at a time using a script but I can't find a way of
+the password being added as well. Does anyone know of a method of
+doing this?
+
+Thanks,
+Jeff
+
+wolfanger@wolfcrews.com
+http://www.wolfcrews.com
+
+
+
+
+Jeffrey James Wolfanger Sick
+VROC #207
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Buffalo State College
+Systems Programmer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+http://www.wolfcrews.com
+Home of The Wonderland Tarot 
+
+
+
+From -7025732204168280766
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,24148b0a3cec9d8f
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,24148b0a3cec9d8f
+X-Google-Attributes: gidfee84,public
+From: Mark Sornson <sornson@zk3.dec.com>
+Subject: Re: Problem with Printing
+Date: 1998/04/17
+Message-ID: <3537493B.1296B931@zk3.dec.com>#1/1
+X-Deja-AN: 345076764
+Content-Transfer-Encoding: 7bit
+References: <01bd5cb3$dd123020$010a0080@enterprise> <6fuh72$o47@everest.vol.it>
+Content-Type: text/plain; charset=us-ascii
+Organization: UBPG
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+> Jeff Tulley ha scritto nel messaggio
+> <01bd5cb3$dd123020$010a0080@enterprise>...
+> >
+> >We have a customer that uses OSF/1 and they have just reported a printing
+> >problem.
+> >
+> >When a file is printed useing the lpr -P{printer} {filename}
+> >
+> >they get the message....
+> >
+> >lpr:connect:no such file or directory
+> >jobs queued, but cannot start daemon
+> >
+> >
+> >
+> >Does anyone have any ideas ?
+> >
+> >jeff@matrix-pubs.co.uk
+
+
+The message actually means that the parent lpd daemon
+is not running on the host.  lpr is trying to connect to
+it via a local socket to /dev/printer (which gets created
+when the parent lpd is run), to tell it that it just put a
+job in the queue, but fails because the device file doesn't 
+exist (when lpd isn't running).  However, the job data was
+put in the queue.
+
+I'm guessing that someone figured out how to restart
+the daemon, but for the record, as root do this:
+
+	# /sbin/init.d/lpd start
+
+The parent lpd puts its process-id in /usr/spool/lpd.lock,
+so use
+
+	# ps aux | grep /usr/lbin/lpd
+
+to see if it is really running.  Note that if the parent
+dies or is killed, it's possible to have a child lpd
+running (or hung), which exists to process jobs in a
+particular queue.
+
+-mark.
+
+
+
+From -8371483259956026576
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,5f506e80358e6cd8
+X-Google-Attributes: gidf678f,public
+From: pmod@american.edu (Peter M. O'Donnell)
+Subject: Re: Adding passwords from script
+Date: 1998/04/17
+Message-ID: <6h8buo$o3p$1@usenet56.supernews.com>
+X-Deja-AN: 345139403
+References: <353a79c0.81359488@news3.buffnet.net>
+Organization: All USENET -- http://www.Supernews.com
+Newsgroups: comp.unix.osf.misc
+
+
+Jeffrey Sick (wolfanger@wolfcrews.com) wrote:
+: I figured out a way to add hundreds of users at a time to a DEC UNIX
+: 4.0D / C2 server at a time using a script but I can't find a way of
+: the password being added as well. Does anyone know of a method of
+: doing this?
+
+	i use a c program that i found somewhere, probably on usenet
+somewhere. i didn't write it, don't know who did, but it works great.
+
+-----
+setpwd.c
+-----
+
+/*
+ * Set's a users password from the command line
+ *
+ * To compile, run
+ *
+ * $ cc -o setpwd setpwd.c -ls
+ *
+ *
+ * History
+ *
+ *   6 Oct 93      Overwrite the argv[] entries for passwords to stop
+ *                  'ps' snoopers
+ *   7 Oct 93      Add call to set the seed
+ */
+#include <stdio.h>
+#include <userpw.h>
+#include <usersec.h>
+#include <errno.h>
+#include <pwd.h>
+#include <string.h>
+#include <stdlib.h>
+
+/*
+ * Variables required by getopt
+ */
+extern int optind;
+/*extern char optopt;*/
+extern int opterr;
+extern char *optarg;
+/*
+int    getopt(int argc, char **argv, char *option);
+*/
+/*
+ * Encryption algorithm declarations
+ */
+extern char *crypt(char *,char *);
+
+/*
+ * Possible characters for the salt 
+ */
+#define SALT "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXRZ0123456789"
+#define SALT_LENGTH (2)
+
+/*
+ * ETC_PASSWD_FILE is the actual password database
+ */
+#define ETC_PASSWD_FILE      "/etc/passwd"
+
+/*
+ * Choose a random character from a string
+ */
+static char random_char(char *ch_list)
+{
+  int no_of_chars;
+  int index;
+  no_of_chars = strlen(ch_list);
+  index = rand()%no_of_chars;
+  return ch_list[index];
+}
+
+/*
+ * Generate a salt of SALT_LENGTH characters returned as a null terminated
+ * string.  The return code is overwritten on each call so save if required
+ */
+char *generate_salt()
+{
+  int loop;
+  static char salt[SALT_LENGTH+1];
+  for (loop = 0 ; loop < SALT_LENGTH ; loop++)
+  {
+    salt[loop] = random_char(SALT);
+  }
+  salt[SALT_LENGTH]='\0';
+  return salt;
+}
+
+/*
+ * Initialise the random number generated based on the current time as
+ * a seed
+ */
+void initialise_generate_password()
+{
+  time_t ltime;
+  time(&ltime);
+  srand(ltime);
+}
+
+/*
+ * Encrypt a password using the salt.
+ */
+char *encrypt_password(password, salt)
+char *password;
+char *salt;
+{
+  char *pwd;
+
+  pwd=crypt(password,salt);
+  return pwd;
+}
+
+/*
+ * Print a usage message and exit
+ */
+void usage()
+{
+  fprintf(stderr,"setpwd: Usage setpwd -u userid -p password [-a][-e]\n");
+  fprintf(stderr,"                     -a     User not prompted for new password on first login\n");
+  fprintf(stderr,"                            If password is -, password read from stdin\n");
+  fprintf(stderr,"                     -e     Password already encypted\n");
+  exit(1);
+}
+
+/*
+ * Set the users password 
+ */
+int main(int argc, char **argv)
+{
+  int arg;
+  char *user=NULL;
+  char *password=NULL;
+  struct userpw newpw;
+  struct userpw *oldpw;
+  char   *salt;
+  char   *pwd;
+  struct passwd *etcpasswd;
+  FILE   *passwdfp;
+  char   buffer[BUFSIZ];
+  int    noadmchg=FALSE;	/* Force user to change when logs in */
+  int    pwdencrypt=TRUE;
+  char  *etc_passwd_entry="!";
+
+  initialise_generate_password(); /* Set the seed */
+
+  while (arg!=EOF)
+  {
+    arg=getopt(argc, argv, "u:p:ae");
+    switch(arg)
+    {
+    default:
+    case '?':
+      usage();
+      break;
+    case 'u':
+      user=strdup(optarg);	/* Set the user */
+      memset(argv[optind-1],'\0',strlen(argv[optind-1]));
+      break;
+    case 'p':
+      password=optarg;		/* Set the password text */
+      if (strcmp(password,"-")==0) /* Password from stdin ? */
+      {
+	fgets(buffer,sizeof(buffer)-1,stdin);
+	if (strlen(buffer)!=0)
+	  buffer[strlen(buffer)-1]='\0';
+	password=buffer;
+      }
+      else
+      {
+	password=strdup(password);
+	memset(argv[optind-1],'\0',strlen(argv[optind-1]));
+      }
+      break;
+    case 'a':
+      noadmchg=TRUE;
+      break;
+    case 'e':
+      pwdencrypt=FALSE;
+      break;
+    case EOF:
+      break;
+    }
+  }
+
+  if (user==NULL && password==NULL)
+    usage();
+
+  /*
+   * Check that both a user and a password are supplied
+   */
+  if (user==NULL)
+  {
+    fprintf(stderr,"setpwd: you must supply a user id using the -u parameter\n");
+    exit(2);
+  }
+  if (password==NULL)
+  {
+    fprintf(stderr,"setpwd: you must supply a password using the -p parameter\n");
+    exit(3);
+  }
+
+  /*
+   * Now create the entry to update the password.  An empty password
+   * encrypts to the empty string.
+   */
+  if (!pwdencrypt)
+  {
+    etc_passwd_entry=pwd=password;
+  }
+  else if (*password!='\0')
+  {
+    salt=generate_salt();
+    pwd=encrypt_password(password,salt); /* Encrypted password */
+  }
+  else
+  {
+    pwd="";
+  }
+  strcpy(newpw.upw_name,user);
+  newpw.upw_passwd=pwd;
+  time(&newpw.upw_lastupdate);	/* Update time */
+  if (noadmchg)
+    newpw.upw_flags=0;
+  else
+    newpw.upw_flags=PW_ADMCHG;	/* Force user to change when next login */
+  if (putuserpw(&newpw)!=0)	/* Enter the password */
+  {
+    perror("putuserpw");
+    fprintf(stderr,"setpwd: cannot set password information for %s\n", user);
+    exit(errno);
+  }
+
+  /*
+   * For a new user, the password entry in /etc/passwd is set to '*'
+   * This means password not set.  This must be changed to a '!' to
+   * mean 'look in /etc/security/passwd'
+   */
+  if (setuserdb (S_WRITE))
+  {
+    perror("setuserdb");
+    fprintf(stderr,"setpwd: cannot open password database for writing\n");
+    exit(errno);
+  }
+
+  if (putuserattr (newpw.upw_name, S_PWD, etc_passwd_entry, SEC_CHAR))
+  {
+    perror("putuserattr");
+    fprintf(stderr,"setpwd: cannot change password entry to %s\n",etc_passwd_entry);
+    exit(errno);
+  }
+  
+  if (putuserattr (newpw.upw_name, NULL, NULL, SEC_COMMIT))
+  {
+    perror("putuserattr");
+    fprintf(stderr,"setpwd: cannot commit changed to password database\n");
+    exit(errno);
+  }
+
+  if (enduserdb())
+  {
+    perror("enduserdb");
+    fprintf(stderr,"setpwd: cannot close password database\n");
+    exit(errno);
+  }
+  return 0;			/* All o.k. */
+}
+
+---------------------------8<--------------->8---------------------------
+
+  
+
+--
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Peter M. O'Donnell    }    pmod@american.edu    { "Cynicism was my whiskey
+Unix Systems Administrator{-------------------------}   and I had a few..."
+   "Clickity-Clickity"    }      202-885-3806       {      -Bruce McCulloch
+******************************************************************************
+*********************** http://www.abs.net/~pmod/mydad/ **********************
+
+
+
+
+From 4931150404252049767
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,24148b0a3cec9d8f
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,24148b0a3cec9d8f
+X-Google-Attributes: gidfee84,public
+From: ranger5@u.washington.edu (M. Kokaly)
+Subject: Re: Problem with Printing
+Date: 1998/04/20
+Message-ID: <6hfvbl$1jv6$1@nntp6.u.washington.edu>#1/1
+X-Deja-AN: 346019579
+References: <01bd5cb3$dd123020$010a0080@enterprise> <6fuh72$o47@everest.vol.it> <3537493B.1296B931@zk3.dec.com>
+X-Complaints-To: help@cac.washington.edu
+X-Trace: nntp6.u.washington.edu 893092021 53222 (None) 140.142.64.7
+Organization: University of Washington
+NNTP-Posting-User: ranger5
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+>> Jeff Tulley ha scritto nel messaggio
+>> <01bd5cb3$dd123020$010a0080@enterprise>...
+>> >
+>> >We have a customer that uses OSF/1 and they have just reported a printing
+>> >problem.
+>> >
+>> >When a file is printed useing the lpr -P{printer} {filename}
+>> >
+>> >they get the message....
+>> >
+>> >lpr:connect:no such file or directory
+>> >jobs queued, but cannot start daemon
+>> >
+>> >
+>> >
+>> >Does anyone have any ideas ?
+>> >
+>> >jeff@matrix-pubs.co.uk
+
+Are they printing to a remote printer?
+
+I had the exact same message when I was trying to print to a remote printer without
+adding my machines name to the etc/hosts.lpd or the etc/hosts.equiv file of the host
+machine.  This info is in the lpd man pages as well I believe.
+
+Then again, it could be something else especially if it isn't a remote printer.
+
+Matthew T kokaly
+
+
+
+
+From 9024806589370226619
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,5f506e80358e6cd8
+X-Google-Attributes: gidf678f,public
+From: wolfanger@wolfcrews.com (Jeffrey Sick)
+Subject: Re: Adding passwords from script
+Date: 1998/04/20
+Message-ID: <353c8323.255008873@news3.buffnet.net>#1/1
+X-Deja-AN: 346019580
+Content-Transfer-Encoding: 7bit
+Sender: jsick@136.183.3.106
+References: <353a79c0.81359488@news3.buffnet.net> <6h8buo$o3p$1@usenet56.supernews.com>
+Content-Type: text/plain; charset=us-ascii
+Organization: WolfCrews
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.misc
+
+
+Thanks, it looked like just what I needed but the <usersec.h> is no
+where to be found on any of my systems so it won't compile. On my test
+machine I know I installed "everything" so it must just be one of
+those system incompatabilities. I don't know if I'd want to try
+getting a copy of that file from a different system (I don't know if
+it would work, break something, leave a hole etc ect), I'm using DEC
+and I took a look on my FreeBSD box and that file isn't there either.
+
+Thanks,
+Jeff
+
+
+On 17 Apr 1998 19:52:56 GMT, pmod@american.edu (Peter M. O'Donnell)
+wrote:
+
+>>Jeffrey Sick (wolfanger@wolfcrews.com) wrote:
+>>: I figured out a way to add hundreds of users at a time to a DEC UNIX
+>>: 4.0D / C2 server at a time using a script but I can't find a way of
+>>: the password being added as well. Does anyone know of a method of
+>>: doing this?
+>>
+>>	i use a c program that i found somewhere, probably on usenet
+>>somewhere. i didn't write it, don't know who did, but it works great.
+>>
+>>-----
+
+>>#include <stdio.h>
+>>#include <userpw.h>
+>>#include <usersec.h>
+>>#include <errno.h>
+>>#include <pwd.h>
+>>#include <string.h>
+>>#include <stdlib.h>
+
+
+
+Jeffrey James Wolfanger Sick
+VROC #207
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Buffalo State College
+Systems Programmer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+http://www.wolfcrews.com
+Home of The Wonderland Tarot 
+
+
+
+From -7053427906294191773
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,a33869fdfafb73ec,start
+X-Google-Attributes: gidf678f,public
+From: casradford@cix.compulink.co.uk ("Cas Radford")
+Subject: AHA1742A - HELP
+Date: 1998/04/20
+Message-ID: <ErqJ0s.IBG@cix.compulink.co.uk>#1/1
+X-Deja-AN: 346120529
+Organization: Compulink Information eXchange
+Newsgroups: comp.unix.osf.misc
+
+
+I am in need of an Adaptec AHA1742A SCSI controller for a DEC Alpha 
+2000axp/300.  These cards are discontinued and it appears that every 
+supplier I contact is also discontinued !!  This is the only card DEC will 
+support in the afore mentioned system.  Can anyone help.
+
+Cas
+
+
+
+From 2295799463004859208
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fc10e,dfa46571059484a7
+X-Google-Attributes: gidfc10e,public
+X-Google-Thread: fc89c,dfa46571059484a7
+X-Google-Attributes: gidfc89c,public
+X-Google-Thread: f72b0,dfa46571059484a7
+X-Google-Attributes: gidf72b0,public
+X-Google-Thread: f678f,dfa46571059484a7
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: 10f7da,dfa46571059484a7
+X-Google-Attributes: gid10f7da,public
+X-Google-Thread: 10650a,dfa46571059484a7
+X-Google-Attributes: gid10650a,public
+X-Google-Thread: fee84,dfa46571059484a7
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: fb0d8,dfa46571059484a7
+X-Google-Attributes: gidfb0d8,public
+From: coonec@rpi.edu (Christopher Michael Cooney)
+Subject: Re: retarded
+Date: 1998/04/21
+Message-ID: <6hhbgk$e0p@newsfeeds.rpi.edu>#1/1
+X-Deja-AN: 346209057
+References: <19049800.2521@nowhere33.yet> <353BD50A.268C@state.mn.us>
+Followup-To: comp.unix.internals,comp.unix.large,comp.unix.machten,comp.unix.misc,comp.unix.osf.misc,comp.unix.osf.osf1,comp.unix.pc-clone.16bit,comp.unix.programmer,comp.unix.programmers
+Organization: Rensselaer Polytechnic Institute, Troy NY, USA
+Newsgroups: comp.unix.internals,comp.unix.large,comp.unix.machten,comp.unix.misc,comp.unix.osf.misc,comp.unix.osf.osf1,comp.unix.pc-clone.16bit,comp.unix.programmer,comp.unix.programmers
+
+
+Vicki Burnett (vicki.burnett@state.mn.us) wrote:
+: Some people can be so retarded
+
+care to elaborate? Go to alt.flame & rant to your heart's content
+
+-- 
+coonec@rpi.edu		Comp. Science, Blah Blah Sparc MIPS Blah
+Walking through the basement of Fuller Labs wearing futuristic body 
+armor and pushing a variable-geometry motorcycle raises eyebrows.  
+Telling students that this is the true power of UNIX doesn't help. -UF
+
+
+
+From -6912070801609322188
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fee84,e5bc516878eabadb,start
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,e5bc516878eabadb,start
+X-Google-Attributes: gidf678f,public
+From: Nikola Milutinovic <milutinn@EUnet.yu>
+Subject: AdvFS daemon problem
+Date: 1998/04/21
+Message-ID: <353CB59D.280DED87@EUnet.yu>#1/1
+X-Deja-AN: 346323954
+Content-Transfer-Encoding: 7bit
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Organization: Me organized? Not here!
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+Hi everybody.
+
+Recently, I've been playing with DNS, mail and other things that are
+affected by DNS. Today I became aware of another one.
+
+When I tried to start dtadvfs (or dxadvfs) I was placed in a "Choose
+host" dialog box. When I tried to cennect to my machine (Quark), I was
+rejected. My machine is a DNS server for the domain. I ran into similar
+behavior when I tried to connect from another machine (duled) to it's
+local advfsd. Also I couldn't connect from duled to Qaurk's advfsd.
+
+I have placed both hosts in /usr/opt/advfsd/.../hosts.allow file and
+restarted advfsd. No change in behavior.
+
+I have successfully connected from duled (DNS client) to advfsd on miraz
+(no DNS).
+
+Facts/impressions:
+------------------
+
+1. Hosts: Quark - DNS server
+          duled - DNS client
+          miraz - no DNS
+
+2. DNS works like it should, for Quark and duled.
+
+3. Mail works like it should, for DNS machines.
+
+4. dxhosts (host access for X windows) works.
+
+5. DTAdvFS starts, but cannot connect to advfsd on local host
+   or on other host with DNS.
+
+6. The same program connects to advfsd on a machine with no DNS.
+
+7. /usr/opt/advfs/log/... shows: "AUDIT CHECK FAILED ..." 
+   for every attempt I made to connect to advfsd with DNS.
+
+----------------------------------------------------------------
+
+What am I missing here?
+I'll keep playing with the problem, but would appreciate any insight on
+the problem.
+
+TYIA,
+Nix.
+
+
+
+
+
+From 1967497065871768146
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f8c9b,102694a5befbd0ae,start
+X-Google-Attributes: gidf8c9b,public
+X-Google-Thread: fee84,102694a5befbd0ae,start
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: 10650a,102694a5befbd0ae,start
+X-Google-Attributes: gid10650a,public
+X-Google-Thread: f678f,102694a5befbd0ae,start
+X-Google-Attributes: gidf678f,public
+From: joan codina <100555.2741@CompuServe.COM>
+Subject: Accessing directly to printer port 
+Date: 1998/04/21
+Message-ID: <#T5Sc6Ob9GA.325@nih2naac.prod2.compuserve.com>#1/1
+X-Deja-AN: 346413283
+Organization: Sainco trafico
+Newsgroups: comp.unix.internals,comp.unix.osf.misc,comp.unix.osf.osf1,comp.unix.questions
+
+
+
+I wnat to use a parallel printer on an alpha server. I need  
+the printer as a system logger and must be printing all events
+happening in our system. I have two ways of performing it: 
+Generating a new file for each line and sending it to the spooler.
+ Or opening directly the file /dev/lp0 wich seems to run, with 
+some problems:
+When there is too much trhoughput for the printer, or the printer
+is off-line (out of paper for example) then the write function
+blocks my program ( which is undesirable, I prefer to loose data)
+There is no way to know the status of the printer? or if the 
+file buffer is becoming full?. 
+I have tried the ioctl function but it gives me the error that
+ the device is not available (even that it is open an printing)
+I have also tried de aio_write function, but after some writes
+(about 350) the call gives an "operation would block" error
+after this error the printer is not able to print any more, even
+if I close the file and re-open it
+
+
+		If you could help me ...
+		Thanks
+		Joan Codina
+
+Please send answers to the news or to this e-mail Jcodina@eum.es
+
+
+
+From 7847747578888631233
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,d1076b803770ae0f,start
+X-Google-Attributes: gidf678f,public
+From: bussierd@tvsfrank (Dirksen E. Bussiere [42T])
+Subject: alpha to unix(sgi) binary conversion
+Date: 1998/04/21
+Message-ID: <6hikvj$mda10@fizban.pprd.abbott.com>#1/1
+X-Deja-AN: 346681306
+Organization: Abbott Labs
+Newsgroups: comp.unix.osf.misc
+
+
+I need to convert a binary file on an alpha to a binary file on an sgi for
+use in a program.  The files are being written by by a fortran program and
+have the following header:
+
+6 Real*4 values, 9 Integer*4 values
+
+and then a grid of Real*4 values.
+
+This is written on an alpha and then needs to be read by an sgi.  Is there
+any relatively easy way to convert this file from the Alpha binary format
+to the Sgi binary format?
+
+Thanks so much.
+
+-Dirk
+
+
+--
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+Dirk Bussiere                 bussierd@tvsfrank.pprd.abbott.com 
+Abbott Laboratories             Office: (847)935-0916
+Department 42T                  FAX:    (847)937-2625
+Scientific Information, Analysis, and Management/
+Dept. of Structural Biology
+100 Abbott Park Rd.
+Abbott Park, IL   60064-3500
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+
+
+From 5504562742643059234
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,35e4cfd4dcf0f7dc,start
+X-Google-Attributes: gidf678f,public
+From: sstiasni@irb.hr (Sasa Stiasni)
+Subject: symlinks?
+Date: 1998/04/22
+Message-ID: <slrn6jrjop.qtq.sstiasni@rudjer.irb.hr>#1/1
+X-Deja-AN: 346608036
+Organization: IRB,Zagreb,Croatia
+Reply-To: sstiasni@irb.hr
+Newsgroups: comp.unix.osf.misc
+
+
+
+Hi!
+
+Does anyone know if there's any patch for DU 4.0B that solves a problem with
+following symbolic links when, for exapmple dumping core?
+
+Sasa
+-- 
+mailto: sstiasni@irb.hr
+
+
+
+
+From -2469279117618547320
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,e65fe583856926c8,start
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,e65fe583856926c8,start
+X-Google-Attributes: gidfee84,public
+From: Nikola Milutinovic <milutinn@EUnet.yu>
+Subject: DNS - domain mail addressing
+Date: 1998/04/22
+Message-ID: <353DFF60.B783C156@EUnet.yu>#1/1
+X-Deja-AN: 346663697
+Content-Transfer-Encoding: 7bit
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Organization: Me organized? Not here!
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+Hi folks.
+
+I have setup DNS for testing. I have two machines, a DNS server and a
+DNS client. I would like to setup mail so I can address on my domen.
+
+Configuration:
+--------------
+
+Domain:		ev
+DNS Server:	Quark.ev = 192.168.5.204
+DNS Client:	DuleD.ev = 192.168.63.16
+
+Mail-Hub:	Quark.ev
+
+DNS is working properly.
+Furthermore, when I start "nslookup", set qtype=MX and type "ev", I get
+Quark.ev (just as it should).
+
+I have an alias on Quark.ev: "Nikola.Milutinovic: nikola".
+
+This all works:
+	mail nikola@Quark.ev
+	mail Nikola>milutinovic@Quark.ev
+and delivers mail to nikola@Quark.ev
+
+I have setup both machines via "mailsetup" utility, the way it seamed
+appropriate.
+
+Problem:
+--------
+
+When I try either of these:
+	mail nikola@ev
+	mail Nikola.Milutinovic@ev
+I get bounced from my (client at DuleD) machine. The transcript of the
+session is something like this:
+
+421 Deferred ev.ev ... Not owner
+550 nikola@ev no such host (authoritative answer from name server): Not
+owner.
+
+Now, I'm stuck. I wouldn't wan't to start digging in sendmail.cf if I
+don't have to.
+
+Any help would be appreciated.
+
+Nix.
+
+
+
+
+From -859754038599577552
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: 1164f8,504bf48669c91c47,start
+X-Google-Attributes: gid1164f8,public
+X-Google-Thread: f678f,504bf48669c91c47,start
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,504bf48669c91c47,start
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: 10d532,504bf48669c91c47,start
+X-Google-Attributes: gid10d532,public
+From: dkirkpatrick@NOSPAM.hotmail.com (Dan)
+Subject: .HELP! NIS + DEC enhanced/base security mix + Linux???
+Date: 1998/04/23
+Message-ID: <353f3629.229100305@news.supernews.com>#1/1
+X-Deja-AN: 346958136
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+X-Complaints-To: newsabuse@supernews.com
+X-Trace: 893335242 FOTMFPWTD484F80E6 usenet43.supernews.com
+Organization: All USENET -- http://www.Supernews.com
+Mime-Version: 1.0
+Newsgroups: comp.sys.dec,comp.unix.osf,comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+What's your setup?  You may not be able to give answers, but at least
+tell me if you have any of the following working!
+
+We're running Dec Unix 4.0b (OSF/1) with a mix of enhanced security
+and base security.  We want to implement NIS but cant figure out how
+to get it to create the prpasswd nis map.  Any clues?
+
+Also, is it possible to run with the NIS master being enhanced
+security and some clients being base security, or must all be running
+enhanced?
+
+Also... it is possible to run with the NIS master being enhanced
+security and using Red Hat Linux 5.0 clients????
+
+Anyone have exposure with NIS / enhanced security / and Samba????
+
+Thanks!  I appreciate any help or advice.
+
+dkirkpatrick@NOSPAM.hotmail.com
+(remove NOSPAM in header to reply)
+
+
+
+From 9124972505983096835
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: 1164f8,e0343dd9daec1d57,start
+X-Google-Attributes: gid1164f8,public
+X-Google-Thread: fee84,e0343dd9daec1d57,start
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: 10d532,e0343dd9daec1d57,start
+X-Google-Attributes: gid10d532,public
+X-Google-Thread: f678f,e0343dd9daec1d57,start
+X-Google-Attributes: gidf678f,public
+From: dkirkpatrick@NOSPAM.hotmail.com (Dan)
+Subject: _HELP! NIS + DEC enhanced/base security mix + Linux???
+Date: 1998/04/23
+Message-ID: <35423863.229670857@news.supernews.com>#1/1
+X-Deja-AN: 346958137
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+X-Complaints-To: newsabuse@supernews.com
+X-Trace: 893335778 FOTMFPWTD484F80E6 usenet41.supernews.com
+Organization: All USENET -- http://www.Supernews.com
+Mime-Version: 1.0
+Newsgroups: comp.sys.dec,comp.unix.osf,comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+What's your setup?  You may not be able to give answers, but at least
+tell me if you have any of the following working!
+
+We're running Dec Unix 4.0b (OSF/1) with a mix of enhanced security
+and base security.  We want to implement NIS but cant figure out how
+to get it to create the prpasswd nis map.  Any clues?
+
+Also, is it possible to run with the NIS master being enhanced
+security and some clients being base security, or must all be running
+enhanced?
+
+Also... it is possible to run with the NIS master being enhanced
+security and using Red Hat Linux 5.0 clients????
+
+Anyone have exposure with NIS / enhanced security / and Samba????
+
+Thanks!  I appreciate any help or advice.
+
+dkirkpatrick@NOSPAM.hotmail.com
+(remove NOSPAM in header to reply)
+
+
+
+From 1902920760557009040
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,e333b324ac14d6ab,start
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: 1164f8,e333b324ac14d6ab,start
+X-Google-Attributes: gid1164f8,public
+X-Google-Thread: 10d532,e333b324ac14d6ab,start
+X-Google-Attributes: gid10d532,public
+X-Google-Thread: fee84,e333b324ac14d6ab,start
+X-Google-Attributes: gidfee84,public
+From: dkirkpatrick@NOSPAM.hotmail.com (Dan)
+Subject: HELP! NIS + DEC enhanced/base security mix + Linux???
+Date: 1998/04/23
+Message-ID: <35443877.229691007@news.supernews.com>#1/1
+X-Deja-AN: 346958138
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+X-Complaints-To: newsabuse@supernews.com
+X-Trace: 893335807 FOTMFPWTD484F80E6 usenet41.supernews.com
+Organization: All USENET -- http://www.Supernews.com
+Mime-Version: 1.0
+Newsgroups: comp.sys.dec,comp.unix.osf,comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+What's your setup?  You may not be able to give answers, but at least
+tell me if you have any of the following working!
+
+We're running Dec Unix 4.0b (OSF/1) with a mix of enhanced security
+and base security.  We want to implement NIS but cant figure out how
+to get it to create the prpasswd nis map.  Any clues?
+
+Also, is it possible to run with the NIS master being enhanced
+security and some clients being base security, or must all be running
+enhanced?
+
+Also... it is possible to run with the NIS master being enhanced
+security and using Red Hat Linux 5.0 clients????
+
+Anyone have exposure with NIS / enhanced security / and Samba????
+
+Thanks!  I appreciate any help or advice.
+
+dkirkpatrick@NOSPAM.hotmail.com
+(remove NOSPAM in header to reply)
+
+
+
+From 6298403670284001572
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,e0343dd9daec1d57
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,e0343dd9daec1d57
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: 10d532,e0343dd9daec1d57
+X-Google-Attributes: gid10d532,public
+X-Google-Thread: 1164f8,e0343dd9daec1d57
+X-Google-Attributes: gid1164f8,public
+From: dkirkpatrick@NOSPAM.hotmail.com (Dan)
+Subject: _HELP! NIS + DEC enhanced/base security mix + Linux???
+Date: 1998/04/23
+Message-ID: <35433871.229684652@news.supernews.com>#1/1
+X-Deja-AN: 346958139
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+X-Complaints-To: newsabuse@supernews.com
+X-Trace: 893335787 FOTMFPWTD484F80E6 usenet41.supernews.com
+Organization: All USENET -- http://www.Supernews.com
+Mime-Version: 1.0
+Newsgroups: comp.sys.dec,comp.unix.osf,comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+What's your setup?  You may not be able to give answers, but at least
+tell me if you have any of the following working!
+
+We're running Dec Unix 4.0b (OSF/1) with a mix of enhanced security
+and base security.  We want to implement NIS but cant figure out how
+to get it to create the prpasswd nis map.  Any clues?
+
+Also, is it possible to run with the NIS master being enhanced
+security and some clients being base security, or must all be running
+enhanced?
+
+Also... it is possible to run with the NIS master being enhanced
+security and using Red Hat Linux 5.0 clients????
+
+Anyone have exposure with NIS / enhanced security / and Samba????
+
+Thanks!  I appreciate any help or advice.
+
+dkirkpatrick@NOSPAM.hotmail.com
+(remove NOSPAM in header to reply)
+
+
+
+From 456352342409347932
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fee84,1027fc5b9d052abb,start
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,1027fc5b9d052abb,start
+X-Google-Attributes: gidf678f,public
+From: Rene Akeret <akeret@ch.ibm.com>
+Subject: No permission to do a su to root
+Date: 1998/04/24
+Message-ID: <35404A56.50C573D7@ch.ibm.com>#1/1
+X-Deja-AN: 347239188
+Content-Transfer-Encoding: 7bit
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Organization: IBM switzerland
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+Hello
+
+Im not able to do a su to root from any users. A normal login as root is
+possible.
+There is always an error like this : You have no permission to do su.
+
+Ive looked in so many configurtion files, but without success.
+I other Unix it's possible to change the user-setting.
+Does anybody know, how its possible to change this settings ?
+
+Sorry about this easy question, but normally, Im working with AIX.
+
+Thanks a lot for your answer and have anice day.
+
+With regards
+Rene
+
+e-mail: akeret@ch.ibm.com
+
+
+
+
+
+From 6489306092510475567
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+From: kjell@ulrik.uio.no (Kjell Andresen)
+Subject: Re: No permission to do a su to root
+Date: 1998/04/24
+Message-ID: <6hpph5$gsg$1@ratatosk.uio.no>#1/1
+X-Deja-AN: 347258764
+Sender: kjell@halfdan.uio.no
+References: <35404A56.50C573D7@ch.ibm.com>
+Followup-To: comp.unix.osf.osf1
+Organization: University of Oslo, Norway
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+
+   Im not able to do a su to root from any users. A normal login as root is
+   possible.
+   There is always an error like this : You have no permission to do su.
+
+usernames have to reside in /etc/group in this manner to be permitted:
+system:*:0:root,user1,user2
+
+Kjell
+
+
+
+From -3020816174861464760
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+From: Korbinian Grote <grote@gsf.de>
+Subject: Re: No permission to do a su to root
+Date: 1998/04/24
+Message-ID: <354069D6.41C6@gsf.de>#1/1
+X-Deja-AN: 347266126
+Content-Transfer-Encoding: 7bit
+References: <35404A56.50C573D7@ch.ibm.com>
+To: Rene Akeret <akeret@ch.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Organization: GSF - National Research Center for Environment and Health GmbH, AG BIODV
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+Rene Akeret wrote:
+> 
+> Hello
+> 
+> Im not able to do a su to root from any users. A normal login as root is
+> possible.
+> There is always an error like this : You have no permission to do su.
+
+IIRC you have to be a member of the 'system' group to be able to su
+root.
+It needn't be the primary group a user belongs to, but must be in the
+secondary groups at least.
+
+Hope this helps,
+
+Korbinian 
+-- 
+Korbinian Grote     | GSF Forschungszentrum fuer Umwelt & Gesundheit
+AG BIODV            | Ingolstaedter Landstr. 1
+Email: grote@gsf.de | D 85764 Neuherberg / Muenchen (Germany)
+info: http://www.gsf.de/BIODV
+
+
+
+From 5587364160498782830
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+From: Joerg-Uwe Tessmer <jut@agnld.uni-potsdam.de>
+Subject: Re: No permission to do a su to root
+Date: 1998/04/24
+Message-ID: <3540773A.9FB66F6E@agnld.uni-potsdam.de>#1/1
+X-Deja-AN: 347269401
+Content-Transfer-Encoding: 7bit
+References: <35404A56.50C573D7@ch.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Organization: University of Potsdam
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+Rene Akeret wrote:
+
+> Hello
+>
+> Im not able to do a su to root from any users. A normal login as root is
+> possible.
+> There is always an error like this : You have no permission to do su.
+>
+> Ive looked in so many configurtion files, but without success.
+> I other Unix it's possible to change the user-setting.
+> Does anybody know, how its possible to change this settings ?
+>
+> Sorry about this easy question, but normally, Im working with AIX.
+>
+> Thanks a lot for your answer and have anice day.
+>
+> With regards
+> Rene
+>
+> e-mail: akeret@ch.ibm.com
+
+Hello,
+only you are  a member of the group 0 (/etc/group), then you have
+permissions to su to root.
+
+Joerg-Uwe
+
+
+--
+http://www.agnld.uni-potsdam.de/~joerg/joerg.html
+Joerg-Uwe Tessmer
+Universitaet Potsdam
+email: jut@agnld.Uni-Potsdam.de
+
+
+
+
+
+
+From -7288078831515171267
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+From: nmm1@cus.cam.ac.uk (Nick Maclaren)
+Subject: Re: No permission to do a su to root
+Date: 1998/04/25
+Message-ID: <6hsbl6$ebo$1@lyra.csx.cam.ac.uk>#1/1
+X-Deja-AN: 347543005
+References: <35404A56.50C573D7@ch.ibm.com> <3540773A.9FB66F6E@agnld.uni-potsdam.de>
+Organization: University of Cambridge, England
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+In article <3540773A.9FB66F6E@agnld.uni-potsdam.de>,
+Joerg-Uwe Tessmer  <jut@agnld.uni-potsdam.de> wrote:
+>Rene Akeret wrote:
+>
+>> Im not able to do a su to root from any users. A normal login as root is
+>> possible.
+>> There is always an error like this : You have no permission to do su.
+>
+>only you are  a member of the group 0 (/etc/group), then you have
+>permissions to su to root.
+
+Which is one of the most idiotic security features that I have ever met.
+A typical Unix system may have half-a-dozen documented ways to become
+root, and this restriction affects none of the others.  For example:
+
+login (sometimes, but with some constraints)
+rlogin `hostname` -l root
+telnet `hostname`
+xdm
+
+I have fairly often been caught by a major upgrade overwriting /etc/group,
+so su doesn't work, and have never had any difficulty in bypassing the
+check.
+
+
+Nick Maclaren,
+University of Cambridge Computing Service,
+New Museums Site, Pembroke Street, Cambridge CB2 3QG, England.
+Email:  nmm1@cam.ac.uk
+Tel.:  +44 1223 334761    Fax:  +44 1223 334679
+
+
+
+From 238478806576559364
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+From: sthaug@nethelp.no (Steinar Haug)
+Subject: Re: No permission to do a su to root
+Date: 1998/04/25
+Message-ID: <6hse83$dk2$1@verdi.nethelp.no>#1/1
+X-Deja-AN: 347546949
+References: <35404A56.50C573D7@ch.ibm.com> <3540773A.9FB66F6E@agnld.uni-potsdam.de> <6hsbl6$ebo$1@lyra.csx.cam.ac.uk>
+X-Complaints-To: news-abuse@uninett.no
+X-Trace: snipp.uninett.no 893500564 1743 195.1.171.130 (25 Apr 1998 10:36:04 GMT)
+Organization: Nethelp Consulting, Trondheim, Norway
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+[Nick Maclaren]
+
+|   >only you are  a member of the group 0 (/etc/group), then you have
+|   >permissions to su to root.
+|   
+|   Which is one of the most idiotic security features that I have ever met.
+
+On the other hand, some of us find it quite useful.
+
+|   A typical Unix system may have half-a-dozen documented ways to become
+|   root, and this restriction affects none of the others.  For example:
+|   
+|   login (sometimes, but with some constraints)
+|   rlogin `hostname` -l root
+|   telnet `hostname`
+|   xdm
+
+On the system where I'm typing this, you can only login directly to root
+on the physical console. None of the methods you mentioned here work, for
+good reasons.
+
+|   I have fairly often been caught by a major upgrade overwriting /etc/group,
+|   so su doesn't work, and have never had any difficulty in bypassing the
+|   check.
+
+This may apply to *your* system. Please don't assume it applies to all
+other systems.
+
+Having limitations on who can su to root is not a panacea. But in some
+situations it *does* give you some extra protection which is worth having.
+
+Steinar Haug, Nethelp consulting, sthaug@nethelp.no
+
+
+
+From -4346661625023992652
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+From: nmm1@cus.cam.ac.uk (Nick Maclaren)
+Subject: Re: No permission to do a su to root
+Date: 1998/04/25
+Message-ID: <6hsp3k$knh$1@lyra.csx.cam.ac.uk>#1/1
+X-Deja-AN: 347571979
+References: <35404A56.50C573D7@ch.ibm.com> <3540773A.9FB66F6E@agnld.uni-potsdam.de> <6hsbl6$ebo$1@lyra.csx.cam.ac.uk> <6hse83$dk2$1@verdi.nethelp.no>
+Organization: University of Cambridge, England
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+In article <6hse83$dk2$1@verdi.nethelp.no>,
+Steinar Haug <sthaug@nethelp.no> wrote:
+>
+>On the system where I'm typing this, you can only login directly to root
+>on the physical console. None of the methods you mentioned here work, for
+>good reasons.
+
+If you can lock out all the other methods then, yes, I agree that it
+could be useful.  I should be interested (seriously) to know which
+version of OSF/1 has enough control to do that.  I did actually try to
+restrict root login, and gave up when I found that I couldn't block
+most of the cases that were likely to be used by a hacker, but could
+make life more difficult for myself :-(
+
+Yes, I know that you can do it if you lock out rlogin, telnet, rexec
+and xdm entirely, but that makes a system pretty hard to use in most
+environments.  Similarly, replacing all of those with customised
+versions make a system rather unlike OSF/1.  Login itself can be
+controlled by the privileged terminal facility, but most systems nowadays
+don't run getty to anything EXCEPT the console!
+
+
+Nick Maclaren,
+University of Cambridge Computing Service,
+New Museums Site, Pembroke Street, Cambridge CB2 3QG, England.
+Email:  nmm1@cam.ac.uk
+Tel.:  +44 1223 334761    Fax:  +44 1223 334679
+
+
+
+From -4454455327351119346
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+From: sthaug@nethelp.no (Steinar Haug)
+Subject: Re: No permission to do a su to root
+Date: 1998/04/25
+Message-ID: <6hsr1a$epm$1@verdi.nethelp.no>#1/1
+X-Deja-AN: 347579051
+References: <35404A56.50C573D7@ch.ibm.com> <3540773A.9FB66F6E@agnld.uni-potsdam.de> <6hsbl6$ebo$1@lyra.csx.cam.ac.uk> <6hse83$dk2$1@verdi.nethelp.no> <6hsp3k$knh$1@lyra.csx.cam.ac.uk>
+X-Complaints-To: news-abuse@uninett.no
+X-Trace: snipp.uninett.no 893514097 3358 195.1.171.130 (25 Apr 1998 14:21:37 GMT)
+Organization: Nethelp Consulting, Trondheim, Norway
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+[Nick Maclaren]
+
+|   >On the system where I'm typing this, you can only login directly to root
+|   >on the physical console. None of the methods you mentioned here work, for
+|   >good reasons.
+|   
+|   If you can lock out all the other methods then, yes, I agree that it
+|   could be useful.  I should be interested (seriously) to know which
+|   version of OSF/1 has enough control to do that.
+
+Um, I never said I was using Digital Unix, did I? The same restriction
+exists in other BSD based systems, for instance FreeBSD (which is what I
+run). I can see how you could draw that conclusion, since the posting 
+was in a Digital Unix group...
+
+|   Yes, I know that you can do it if you lock out rlogin, telnet, rexec
+
+I'm happily running a system with none of those services, using SSH only
+for remote login.
+
+|   and xdm entirely, but that makes a system pretty hard to use in most
+|   environments.
+
+. and I can do just fine without xdm too.
+
+Steinar Haug, Nethelp consulting, sthaug@nethelp.no
+
+
+
+From 7527735971603519655
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+From: Charles M Richmond <cmr@iisc.com>
+Subject: Re: No permission to do a su to root
+Date: 1998/04/25
+Message-ID: <35420AA2.13886983@iisc.com>#1/1
+X-Deja-AN: 347601505
+Content-Transfer-Encoding: 7bit
+References: <35404A56.50C573D7@ch.ibm.com> <3540773A.9FB66F6E@agnld.uni-potsdam.de> <6hsbl6$ebo$1@lyra.csx.cam.ac.uk>
+Content-Type: text/plain; charset=iso-2022-jp
+Organization: Integrated International Systems Corp.
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+Nick Maclaren wrote:
+> 
+> In article <3540773A.9FB66F6E@agnld.uni-potsdam.de>,
+> Joerg-Uwe Tessmer  <jut@agnld.uni-potsdam.de> wrote:
+> >Rene Akeret wrote:
+> >
+> >> Im not able to do a su to root from any users. A normal login as root is
+> >> possible.
+> >> There is always an error like this : You have no permission to do su.
+> >
+> >only you are  a member of the group 0 (/etc/group), then you have
+> >permissions to su to root.
+> 
+> Which is one of the most idiotic security features that I have ever met.
+> A typical Unix system may have half-a-dozen documented ways to become
+> root, and this restriction affects none of the others.  For example:
+> 
+> login (sometimes, but with some constraints)
+> rlogin `hostname` -l root
+> telnet `hostname`
+> xdm
+> 
+> I have fairly often been caught by a major upgrade overwriting /etc/group,
+> so su doesn't work, and have never had any difficulty in bypassing the
+> check.
+> 
+
+Nick it sounds like your system has already been hacked. My DUnix 4.0b
+system reacts as follows:
+
+koibito> rlogin koibito -l root
+Password:
+root login refused on this terminal.
+************************************************
+
+koibito> xdm
+Only root wants to run xdm
+************************************************
+
+koibito> telnet koibito
+Trying 198.5.5.5...
+Connected to koibito.iisc.com.
+Escape character is '^]'.
+
+
+Digital UNIX (koibito.iisc.com) (ttyq2)
+
+login: root
+Password:
+root login refused on this terminal.
+************************************************
+koibito> login
+login: root
+Password:
+root login refused on this terminal.
+************************************************
+
+
+All of your suppositions are incorrect from the start.
+
+-- 
+***********************************************************************
+*  Charles Richmond    Integrated International Systems Corporation   *
+*  cmr@iisc.com        cmr@koibito.iisc.com  cmr@shore.net            *
+*  UNIX Internals, I18N, L10N, X, Realtime Imaging, and  Custom S/W   *
+*  One Longfellow Place Suite 3309 , Boston , Ma. USA 02114-2431      *
+*  (617) 723 7695    (617) 367 3151        FAX (617) 723 6861         *
+***********************************************************************
+
+
+
+From -5219110956368893354
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+From: dsr@mail.lns.cornell.edu (Daniel S. Riley)
+Subject: Re: No permission to do a su to root
+Date: 1998/04/26
+Message-ID: <sh67jwg2bn.fsf@lns100.lns.cornell.edu>#1/1
+X-Deja-AN: 347806074
+References: <35404A56.50C573D7@ch.ibm.com> <3540773A.9FB66F6E@agnld.uni-potsdam.de> <6hsbl6$ebo$1@lyra.csx.cam.ac.uk> <6hse83$dk2$1@verdi.nethelp.no> <6hsp3k$knh$1@lyra.csx.cam.ac.uk>
+Organization: LNS, Cornell U., Ithaca, NY  14853
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+nmm1@cus.cam.ac.uk (Nick Maclaren) writes:
+> If you can lock out all the other methods then, yes, I agree that it
+> could be useful.  I should be interested (seriously) to know which
+> version of OSF/1 has enough control to do that.  I did actually try to
+> restrict root login, and gave up when I found that I couldn't block
+> most of the cases that were likely to be used by a hacker, but could
+> make life more difficult for myself :-(
+
+/etc/securettys covers most of the root login cases.  As far as I can
+tell, it's been part of OSF1 "forever" (ours has a 1990 OSF copyright),
+and the default on Digital Unix (checked on 3.2g and 4.0b) seems to be 
+
+/dev/console
+local:0
+:0
+
+If you can rlogin or telnet to a Digital Unix system and login as root,
+then someone must have added a "ptys" entry to securettys (unless you
+have "enhanced security" enabled, in which case some completely different
+database applies).
+-- 
+Dan Riley                                         dsr@mail.lns.cornell.edu
+Wilson Lab, Cornell University      <URL:http://www.lns.cornell.edu/~dsr/>
+    "History teaches us that days like this are best spent in bed"
+
+
+
+From 3859994848389705706
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+From: Nikola Milutinovic <milutinn@EUnet.yu>
+Subject: Re: No permission to do a su to root
+Date: 1998/04/26
+Message-ID: <35434657.A5FDC779@EUnet.yu>#1/1
+X-Deja-AN: 347823353
+Content-Transfer-Encoding: 7bit
+References: <35404A56.50C573D7@ch.ibm.com> <3540773A.9FB66F6E@agnld.uni-potsdam.de> <6hsbl6$ebo$1@lyra.csx.cam.ac.uk> <6hse83$dk2$1@verdi.nethelp.no> <6hsp3k$knh$1@lyra.csx.cam.ac.uk> <sh67jwg2bn.fsf@lns100.lns.cornell.edu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Organization: Me organized? Not here!
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+Daniel S. Riley wrote:
+> /etc/securettys covers most of the root login cases.  As far as I can
+> tell, it's been part of OSF1 "forever" (ours has a 1990 OSF copyright),
+> and the default on Digital Unix (checked on 3.2g and 4.0b) seems to be
+> 
+> /dev/console
+> local:0
+> :0
+> 
+> If you can rlogin or telnet to a Digital Unix system and login as root,
+> then someone must have added a "ptys" entry to securettys (unless you
+> have "enhanced security" enabled, in which case some completely different
+> database applies).
+
+Different? Which one? I use C2 sec and that's the database in both BASE
+and ENHANCED sec level.
+
+Nix
+
+
+
+
+From 7474166828844345048
+X-Google-Language: ENGLISH,ASCII
+X-Google-Thread: f678f,b87a93683326745a,start
+X-Google-Attributes: gidf678f,public
+From: danegeld@ultrix6.cs.csubak.edu (Dane Geld)
+Subject: Re: Work At Home Free Business
+Date: 1998/04/26
+Message-ID: <6i03mu$1ld$1@hades.csu.net>#1/1
+X-Deja-AN: 347885696
+References: <3540a38e.0@www.an.cc.mn.us>
+Keywords: spam, sleaze
+Organization: Cal. State Univ. Bakersfield
+Newsgroups: comp.unix.osf.misc
+
+
+
+
+
+Hello,
+
+	I too am annoyed by these spamming idiots. Unfortunately
+spamming is even easier through newsgroups than through e-mail.
+Regarding the "FreedomStarr" ad with fake "@jmx.com" source (which
+also appeared in all the comp.unix.* newsgroups), it is certainly true 
+that a lot of recent spam has had "{fake acct}@jmx.com" in the return 
+address. However, a "whois -h rs.internic.net F jmx.com") shows:
+
+-------------------------------------------------------------------
+jmx.com:
+-------------------------------------------------------------------
+
+JMX (JMX-DOM)
+   c/o Murphy & Durieu
+   120 Broadway  17th floor
+   New York, NY 10271
+
+   Domain Name: JMX.NET
+
+   Administrative Contact:
+      Gutmann, Peter  (PG102)  PETERG@MURPHY.COM
+      (212) 618-0973
+   Technical Contact, Zone Contact:
+      Novellano, Douglas  (DN51)  doug@JMX.NET
+      (212) 618-0999
+
+   Record last updated on 09-Jan-98.
+   Record created on 17-Nov-94.
+   Database last updated on 25-Apr-98 04:08:18 EDT.
+
+   Domain servers in listed order:
+
+   NS.JMX.NET			192.48.113.7
+   NS.MURPHY.COM		192.48.113.17
+
+-------------------------------------------------------------------
+
+The date of 17-Nov-94, suggests that they have legitimate clients. 
+Their web site also suggests a legitimate financial provider 
+in NYC (they even have a link to the "GNU TeXinfo manuals!).
+
+On the other hand the web page of freedomstarr.com seems to have 
+"sleaze" written all over it ("I retired at 36 and so can you!").
+In addition, the "Administrative Contact" below (Michael Starr
+Reed) is actually the President of FreedomStarr. This is somewhat
+surprising for a firm which claims to utilize "the USA's 5th largest
+fiber optic network."
+
+-------------------------------------------------------------------
+freedomstarr.com: newsgroup spammers?
+-------------------------------------------------------------------
+
+Freedomstarr Communications Inc. (FREEDOMSTARR-DOM)
+   657 N. Broadway #1
+   Escondido, CA 92025
+   US
+
+   Domain Name: FREEDOMSTARR.COM
+
+   Administrative Contact:
+      Reed, Michael  (MR1344)  michael@FREEDOMSTARR.COM
+      (619) 781-5515
+   Technical Contact, Zone Contact:
+      Page, April  (AP2179)  noc@INTERREG.NET
+      (619) 781-5515
+
+   Record last updated on 31-Dec-96.
+   Record created on 23-May-96.
+   Database last updated on 25-Apr-98 04:08:18 EDT.
+
+   Domain servers in listed order:
+
+   ENTERPRISE.SLCTNET.COM	207.137.0.2
+   EXCELCIOR.SELECT.NET		207.137.0.3
+
+-------------------------------------------------------------------
+
+The Escondildo [sic - but appropos] address shows up again in
+the very recent (30th March 1998):
+
+-------------------------------------------------------------------
+More Michael Starr Reed Enterprises?
+-------------------------------------------------------------------
+
+FCI (MIKEREED-DOM)
+   123 Main
+   Escondildo, CA 92025
+   US
+
+   Domain Name: MIKEREED.COM
+
+   Administrative Contact, Technical Contact, Zone Contact, Billing Contact:
+      DNS Administrator  (DA4745-ORG)  root@TRAFFICBOOST.COM
+      619-492-8870
+Fax- �vxt
+
+   Record last updated on 30-Mar-98.
+   Record created on 30-Mar-98.
+   Database last updated on 25-Apr-98 04:08:18 EDT.
+
+   Domain servers in listed order:
+
+   NS1.USA-MERCHANT.COM		208.228.106.5
+   NS2.USA-MERCHANT.COM		208.228.106.6
+
+-------------------------------------------------------------------
+
+It seems there is no valid e-mail address where Mr. Reed or
+a representative at FreedomStarr.com can be reached. Too Bad --
+I have a few Mbytes of useless textfiles to send him.
+
+					Dane Geld
+
+
+
+From -8129245996971209726
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+From: nmm1@cus.cam.ac.uk (Nick Maclaren)
+Subject: Re: No permission to do a su to root
+Date: 1998/04/26
+Message-ID: <6i0767$d0j$1@lyra.csx.cam.ac.uk>#1/1
+X-Deja-AN: 347900951
+References: <35404A56.50C573D7@ch.ibm.com> <6hse83$dk2$1@verdi.nethelp.no> <6hsp3k$knh$1@lyra.csx.cam.ac.uk> <6hsr1a$epm$1@verdi.nethelp.no>
+Organization: University of Cambridge, England
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+In article <6hsr1a$epm$1@verdi.nethelp.no>,
+Steinar Haug <sthaug@nethelp.no> wrote:
+>[Nick Maclaren]
+>
+>|   >On the system where I'm typing this, you can only login directly to root
+>|   >on the physical console. None of the methods you mentioned here work, for
+>|   >good reasons.
+>|   
+>|   If you can lock out all the other methods then, yes, I agree that it
+>|   could be useful.  I should be interested (seriously) to know which
+>|   version of OSF/1 has enough control to do that.
+>
+>Um, I never said I was using Digital Unix, did I? The same restriction
+>exists in other BSD based systems, for instance FreeBSD (which is what I
+>run). I can see how you could draw that conclusion, since the posting 
+>was in a Digital Unix group...
+
+Well, none of the groups that I posted to is a Digital Unix group!
+The newsgroup line as I see it is comp.unix.osf.osf1,comp.unix.osf.misc.
+What newsgroup line did YOU see?
+
+Since you (and others) point out that Digital Unix traps these cases,
+I will take another look and see if the latest upgrades have closed
+the loopholes in my OSF/1 systems.
+
+However, there is still a problem, which is how to get a clean root
+session from a remote connexion.  Yes, I am very happy to have the same
+restrictions as 'su', but there are circumstances when even 'su -'
+doesn't get a clean enough environment.  What I really need is a 'su --',
+which does the checks and then goes through login.
+
+[ Incidentally, to the other person who posted - that is most useful,
+but the xdm check is invalid as that is not how you use xdm. ]
+
+
+Nick Maclaren,
+University of Cambridge Computing Service,
+New Museums Site, Pembroke Street, Cambridge CB2 3QG, England.
+Email:  nmm1@cam.ac.uk
+Tel.:  +44 1223 334761    Fax:  +44 1223 334679
+
+
+
+From -4323367250655823256
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+From: sstiasni@irb.hr (Sasa Stiasni)
+Subject: Re: No permission to do a su to root
+Date: 1998/04/26
+Message-ID: <slrn6k7eqf.g8.sstiasni@rudjer.irb.hr>#1/1
+X-Deja-AN: 347926375
+References: <35404A56.50C573D7@ch.ibm.com> <3540773A.9FB66F6E@agnld.uni-potsdam.de> <6hsbl6$ebo$1@lyra.csx.cam.ac.uk> <6hse83$dk2$1@verdi.nethelp.no> <6hsp3k$knh$1@lyra.csx.cam.ac.uk> <sh67jwg2bn.fsf@lns100.lns.cornell.edu> <35434657.A5FDC779@EUnet.yu>
+Organization: IRB,Zagreb,Croatia
+Reply-To: sstiasni@irb.hr
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+On Sun, 26 Apr 1998 16:36:07 +0200, Nikola Milutinovic <milutinn@EUnet.yu> 
+wrote:
+>Daniel S. Riley wrote:
+>> /etc/securettys covers most of the root login cases.  As far as I can
+>> tell, it's been part of OSF1 "forever" (ours has a 1990 OSF copyright),
+>> and the default on Digital Unix (checked on 3.2g and 4.0b) seems to be
+>> 
+>> /dev/console
+>> local:0
+>> :0
+>> 
+>> If you can rlogin or telnet to a Digital Unix system and login as root,
+>> then someone must have added a "ptys" entry to securettys (unless you
+>> have "enhanced security" enabled, in which case some completely different
+>> database applies).
+>
+>Different? Which one? I use C2 sec and that's the database in both BASE
+>and ENHANCED sec level.
+>
+
+Nope it's not.
+Try:
+du% man 4 authcap    or 
+du% man 4 devassign
+
+Sasa
+-- 
+mailto: sstiasni@irb.hr
+
+
+
+
+From 4787517376594224422
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+From: sstiasni@irb.hr (Sasa Stiasni)
+Subject: Re: No permission to do a su to root
+Date: 1998/04/26
+Message-ID: <slrn6k5rpa.fq2.sstiasni@rudjer.irb.hr>#1/1
+X-Deja-AN: 347947370
+References: <35404A56.50C573D7@ch.ibm.com> <3540773A.9FB66F6E@agnld.uni-potsdam.de> <6hsbl6$ebo$1@lyra.csx.cam.ac.uk> <35420AA2.13886983@iisc.com>
+Reply-To: sstiasni@irb.hr
+Organization: IRB,Zagreb,Croatia
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+On Sat, 25 Apr 1998 12:09:06 -0400, Charles M Richmond <cmr@iisc.com> wrote:
+>Nick Maclaren wrote:
+>> 
+>> In article <3540773A.9FB66F6E@agnld.uni-potsdam.de>,
+>> Joerg-Uwe Tessmer  <jut@agnld.uni-potsdam.de> wrote:
+>> >Rene Akeret wrote:
+>> >
+>> >> Im not able to do a su to root from any users. A normal login as root is
+>> >> possible.
+>> >> There is always an error like this : You have no permission to do su.
+>> >
+>> >only you are  a member of the group 0 (/etc/group), then you have
+>> >permissions to su to root.
+>> 
+>> Which is one of the most idiotic security features that I have ever met.
+>> A typical Unix system may have half-a-dozen documented ways to become
+>> root, and this restriction affects none of the others.  For example:
+>> 
+>> login (sometimes, but with some constraints)
+>> rlogin `hostname` -l root
+>> telnet `hostname`
+>> xdm
+>> 
+>> I have fairly often been caught by a major upgrade overwriting /etc/group,
+>> so su doesn't work, and have never had any difficulty in bypassing the
+>> check.
+>> 
+>
+>Nick it sounds like your system has already been hacked. My DUnix 4.0b
+>system reacts as follows:
+>
+>koibito> rlogin koibito -l root
+>Password:
+>root login refused on this terminal.
+>************************************************
+>
+>koibito> xdm
+>Only root wants to run xdm
+>************************************************
+>
+>koibito> telnet koibito
+>Trying 198.5.5.5...
+>Connected to koibito.iisc.com.
+>Escape character is '^]'.
+>
+>
+>Digital UNIX (koibito.iisc.com) (ttyq2)
+>
+>login: root
+>Password:
+>root login refused on this terminal.
+>************************************************
+>koibito> login
+>login: root
+>Password:
+>root login refused on this terminal.
+>************************************************
+>
+>
+>All of your suppositions are incorrect from the start.
+
+But, I think, the main point here was that you can hack root if you have an
+account an DU, and 'su' restrictions doesn't help there.. :-)
+I find this restriction OK for dumb users but there are few advanced on my
+machine, and I'm waiting for the day when they find out about general DU hole,
+that any user can get root access (overwrite any file on system..).
+I'm searching for the patch, there's none yet, and noone seems to work on it..
+
+Sasa
+-- 
+mailto: sstiasni@irb.hr
+
+
+
+
+From 8819342366870784915
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+From: dsr@mail.lns.cornell.edu (Daniel S. Riley)
+Subject: Re: No permission to do a su to root
+Date: 1998/04/27
+Message-ID: <shu37fkoqf.fsf@lns100.lns.cornell.edu>#1/1
+X-Deja-AN: 348188257
+References: <35404A56.50C573D7@ch.ibm.com> <3540773A.9FB66F6E@agnld.uni-potsdam.de> <6hsbl6$ebo$1@lyra.csx.cam.ac.uk> <6hse83$dk2$1@verdi.nethelp.no> <6hsp3k$knh$1@lyra.csx.cam.ac.uk> <sh67jwg2bn.fsf@lns100.lns.cornell.edu> <35434657.A5FDC779@EUnet.yu>
+Organization: LNS, Cornell U., Ithaca, NY  14853
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+Nikola Milutinovic <milutinn@EUnet.yu> writes:
+> Daniel S. Riley wrote:
+> > then someone must have added a "ptys" entry to securettys (unless you
+> > have "enhanced security" enabled, in which case some completely different
+> > database applies).
+
+> Different? Which one? I use C2 sec and that's the database in both BASE
+> and ENHANCED sec level.
+
+I must confess, we don't run C2 security here (except for auditing), so I
+was blindly believing the securettys man page where it says:
+
+                                 Security Note
+       The terminal database file used on a trusted system is /etc/auth/sys-
+       tem/ttys and is documented in the ttys(4) reference page.
+
+I started trying to trace down what other database this would be (since it
+doesn't appear to actually be in ttys(4)), but decided I had better things
+to do than try to decipher the twisty maze of C2 man pages, all subtly
+different.
+-- 
+Dan Riley                                         dsr@mail.lns.cornell.edu
+Wilson Lab, Cornell University      <URL:http://www.lns.cornell.edu/~dsr/>
+    "History teaches us that days like this are best spent in bed"
+
+
+
+From -6749903388588040336
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,1027fc5b9d052abb
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,1027fc5b9d052abb
+X-Google-Attributes: gidfee84,public
+From: Nikola Milutinovic <milutinn@EUnet.yu>
+Subject: Re: No permission to do a su to root
+Date: 1998/04/28
+Message-ID: <3545F3AE.57984743@EUnet.yu>#1/1
+X-Deja-AN: 348467556
+Content-Transfer-Encoding: 7bit
+References: <35404A56.50C573D7@ch.ibm.com> <3540773A.9FB66F6E@agnld.uni-potsdam.de> <6hsbl6$ebo$1@lyra.csx.cam.ac.uk> <6hse83$dk2$1@verdi.nethelp.no> <6hsp3k$knh$1@lyra.csx.cam.ac.uk> <sh67jwg2bn.fsf@lns100.lns.cornell.edu> <35434657.A5FDC779@EUnet.yu> <shu37fkoqf.fsf@lns100.lns.cornell.edu>
+Content-Type: text/plain; charset=us-ascii
+Organization: Me organized? Not here!
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+OK, here's what I've figured out so far:
+
+/etc/securettys:		list of login devices for root login.
+
+/etc/auth/system/ttys:		C2 sec. file describing login devices.
+				This includes max_tries, unsuc_login.
+
+/etc/auth/system/devassign:	Describes devices??? What is this for?
+
+Nix.
+
+
+
+
+From -1565224790841621940
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,f956ae3dec45d7ec,start
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,f956ae3dec45d7ec,start
+X-Google-Attributes: gidfee84,public
+From: wli@cincom.com
+Subject: Application take so long to start up
+Date: 1998/04/28
+Message-ID: <6i6082$ade$1@nnrp1.dejanews.com>#1/1
+X-Deja-AN: 348552979
+X-Http-User-Agent: Mozilla/4.0 (compatible; MSIE 4.01; Windows 95)
+Organization: Deja News - The Leader in Internet Discussion
+X-Article-Creation-Date: Wed Apr 29 01:37:06 1998 GMT
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+Hi,
+
+I wonder if someone can have a quick answer to my question. I have an new DEC
+Alpha server with DEC Unix 4.0B and the system runs prefectly ok now. The
+only problem is whenever I tried to start an application that uses Oracle, it
+would take 2 to 3 minutes for the application to come up. Once the
+application came up, it worked prefectly. I have checked the CUP usage and
+Swap status, CPU is 98% idle and Swap space is 99% available.
+
+I have increased the mfldsiz, maxdsiz, dflssiz and maxssiz parameters and
+rebuilt vmunix, but still it's not helping at all. What else should I try?
+
+Would appreciate if anyone can help on this.
+
+Thanks in advanced for any help and info.
+
+-----== Posted via Deja News, The Leader in Internet Discussion ==-----
+http://www.dejanews.com/   Now offering spam-free web-based newsreading
+
+
+
+From 2093946252466293545
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,ef617d5a3a92be1c,start
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,ef617d5a3a92be1c,start
+X-Google-Attributes: gidfee84,public
+From: Marc Kessler <Marc_Kessler@unc.edu>
+Subject: please help with memory quotas
+Date: 1998/04/29
+Message-ID: <354783FE.55D22CB9@unc.edu>#1/1
+X-Deja-AN: 348853790
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------118F779DD71AFC5BE3376275"
+Organization: UNC
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+
+
+This is a multi-part message in MIME format.
+--------------118F779DD71AFC5BE3376275
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+   My executables compiled with f77 under DU 4.0B die with a
+/sbin/loader:  Fatal Error: set_program_attributes failed to set heap
+start
+
+if they try to use more than about 120 MB of memory.  I have well over
+300 MB free according to vmstat (this workstation has 512 MB physical
+memory)
+Is there any way I can get the RTL  to give me more memory?  I'd really
+appreciate any help.
+-Marc
+
+
+--------------118F779DD71AFC5BE3376275
+Content-Type: text/x-vcard; charset=us-ascii; name="vcard.vcf"
+Content-Transfer-Encoding: 7bit
+Content-Description: Card for Marc Kessler
+Content-Disposition: attachment; filename="vcard.vcf"
+
+begin:          vcard
+fn:             Marc Kessler
+n:              Kessler;Marc
+org:            UNC
+adr:            Rosenau Hall rm. 119;;CB #7400,  Dept. Envr. Sci. & Eng.;Chapel Hill;NC;27599-7400;USA
+email;internet: Marc_Kessler@unc.edu
+title:          Post Doctoral Fellow
+tel;work:       (919)966-1372
+tel;fax:        (919)966-7911
+tel;home:       (919)942-3573
+x-mozilla-cpt:  ;0
+x-mozilla-html: FALSE
+version:        2.1
+end:            vcard
+
+
+--------------118F779DD71AFC5BE3376275--
+
+
+
+
+From -8446386565774594701
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,a90576c5505a2c35,start
+X-Google-Attributes: gidf678f,public
+From: "Danno" <dan.tripp@health.wa.gov.au>
+Subject: kernel files in /
+Date: 1998/04/01
+Message-ID: <6fsaqs$6cu$1@marri.bs.wa.gov.au>#1/1
+X-Deja-AN: 339723378
+X-MimeOLE: Produced By Microsoft MimeOLE V4.72.2106.4
+Organization: Bureau Services
+Newsgroups: comp.unix.osf.misc
+
+
+Digital UNIX 4.0b
+
+can I delete (or move)  /genvmunix ???
+
+its' about 8 megs and I could use the space
+
+(assuming vmunix is my boot kernel image)
+
+
+
+
+
+From -2380738636461035611
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,c62c0bd1b1c8110a,start
+X-Google-Attributes: gidf678f,public
+From: "Danno" <dan.tripp@health.wa.gov.au>
+Subject: Kernel files in / on DU 4.0B
+Date: 1998/04/01
+Message-ID: <6fsauu$6gg$1@marri.bs.wa.gov.au>#1/1
+X-Deja-AN: 339723379
+X-MimeOLE: Produced By Microsoft MimeOLE V4.72.2106.4
+Organization: Bureau Services
+Newsgroups: comp.unix.osf.misc
+
+
+Digital UNIX 4.0b
+
+can I delete (or move)  /genvmunix ???
+
+its' about 8 megs and I could use the space
+
+(assuming vmunix is my boot kernel image)...
+
+Oh yeah forgot to mention last time - please respond to
+me via email address - don't visit here very often...
+
+
+
+
+
+From -248240767298710426
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,c62c0bd1b1c8110a
+X-Google-Attributes: gidf678f,public
+From: "Gerald A. Feldman" <"gafNoSPAM"@mediaone.net (Remove NoSpam)>
+Subject: Re: Kernel files in / on DU 4.0B
+Date: 1998/04/01
+Message-ID: <6ftqip$vf$1@ndnws01.ne.highway1.com>#1/1
+X-Deja-AN: 339877676
+Content-Transfer-Encoding: 7bit
+References: <6fsauu$6gg$1@marri.bs.wa.gov.au>
+To: Danno <dan.tripp@health.wa.gov.au>
+Content-Type: text/plain; charset=us-ascii
+Organization: Boston Computer Solutions and Consulting
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.misc
+
+
+Danno wrote:
+> 
+> Digital UNIX 4.0b
+> 
+> can I delete (or move)  /genvmunix ???
+> 
+> its' about 8 megs and I could use the space
+> 
+> (assuming vmunix is my boot kernel image)...
+Certainly. genvmunix is intended to be the backup kernel. Deleting it is
+kind of like painting yourself into the corner. It is a good practice to
+have a known good kernel in your root file system as a backup in the
+event something happens to your boot kernel. If you do blow it away,
+make sure that you have a way to boot in the event your boot kernel gets
+blown. While it is a pain, you could always boot from another hard disk,
+CDROM, or RIS, and restore the genvmunix in a pinch. 
+-- 
+ Jerry Feldman <gaf@mediaone.net>
+ Boston Computer Solutions and Consulting
+ http://gaf.ne.mediaone.net/
+
+
+
+From 6360944297096943053
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,a90576c5505a2c35
+X-Google-Attributes: gidf678f,public
+From: Eric.Vandermeer@net.HCC.nl (Eric v/d Meer)
+Subject: Re: kernel files in /
+Date: 1998/04/01
+Message-ID: <Eric.Vandermeer-0104982033440001@news.leiden.nl.net>#1/1
+X-Deja-AN: 339907535
+References: <6fsaqs$6cu$1@marri.bs.wa.gov.au>
+Organization: NLnet
+Newsgroups: comp.unix.osf.misc
+
+
+In article <6fsaqs$6cu$1@marri.bs.wa.gov.au>, "Danno"
+<dan.tripp@health.wa.gov.au> wrote:
+
+> Digital UNIX 4.0b
+> 
+> can I delete (or move)  /genvmunix ???
+> 
+> its' about 8 megs and I could use the space
+> 
+> (assuming vmunix is my boot kernel image)
+
+You can delete it if you want to live dangerously :-) It's the generic
+kernel, containing every feature known to DEC, that can be used as a last
+resort in case vmunix somehow gets inoperable.
+HTH
+
+Eric
+
+
+
+From -4459058290899518021
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,24148b0a3cec9d8f
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,24148b0a3cec9d8f
+X-Google-Attributes: gidfee84,public
+From: Sue Gleeson <gleeson@zk3.dec.com>
+Subject: Re: Problem with Printing
+Date: 1998/04/01
+Message-ID: <35226D94.41C6@zk3.dec.com>#1/1
+X-Deja-AN: 339949961
+Content-Transfer-Encoding: 7bit
+References: <01bd5cb3$dd123020$010a0080@enterprise>
+To: Jeff Tulley <jeff@matrix-pubs.co.uk>
+Content-Type: text/plain; charset=us-ascii
+Organization: Digital Equipment Corporation
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+Jeff,
+
+Looks like the spool directory is not writeable.  Check the printcap
+entry for this printer and verify that everything is accessible by
+daemon.
+
+Sue
+
+
+Jeff Tulley wrote:
+> 
+> lpr:connect:no such file or directory
+> jobs queued, but cannot start daemon
+>
+
+
+
+From 3842268433478227962
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,ddda4889681cf24a,start
+X-Google-Attributes: gidf678f,public
+From: sstiasni@irb.hr (Sasa Stiasni)
+Subject: login access?
+Date: 1998/04/01
+Message-ID: <slrn6i5i4d.nr8.sstiasni@rudjer.irb.hr>#1/1
+X-Deja-AN: 339995027
+Reply-To: sstiasni@irb.hr
+Organization: IRB,Zagreb,Croatia
+Newsgroups: comp.unix.osf.misc
+
+
+
+Is there something like login.access from logdaemon for Digital UNIX (4.0B)
+In fact, what I would like is to prevent a specified user to log on to the
+system from specified host.
+The other possibility is to restrict that user to telnet to somehost.
+Is there anything like that for DU?
+Please help.
+
+Sasha
+-- 
+mailto: sstiasni@irb.hr
+
+
+
+
+From -4196349180819726997
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fee84,24148b0a3cec9d8f
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,24148b0a3cec9d8f
+X-Google-Attributes: gidf678f,public
+From: "Paccapeli Marco" <paccapeli@nps.it>
+Subject: Re: Problem with Printing
+Date: 1998/04/02
+Message-ID: <6fuh72$o47@everest.vol.it>#1/1
+X-Deja-AN: 339995028
+References: <01bd5cb3$dd123020$010a0080@enterprise>
+X-MimeOLE: Produced By Microsoft MimeOLE V4.71.1712.3
+Organization: Telecom Italia Net
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+
+Jeff Tulley ha scritto nel messaggio
+<01bd5cb3$dd123020$010a0080@enterprise>...
+>
+>We have a customer that uses OSF/1 and they have just reported a printing
+>problem.
+>
+>When a file is printed useing the lpr -P{printer} {filename}
+>
+>they get the message....
+>
+>lpr:connect:no such file or directory
+>jobs queued, but cannot start daemon
+>
+>
+>
+>Does anyone have any ideas ?
+>
+>jeff@matrix-pubs.co.uk
+
+
+Hi ,
+
+can you post here the file located in /etc called printcap and can you
+describe where printer is connected ( terminal server , direct to a serial
+line or print server ) ?
+
+If I can i help you.
+
+bye Marco
+
+
+
+
+
+
+
+
+
+From 8062367385327577445
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,9e89f32b7bef188a,start
+X-Google-Attributes: gidf678f,public
+From: robertsn@sanbar.eng.pko.dec.com (Paul Robertson)
+Subject: Memory Accounting
+Date: 1998/04/02
+Message-ID: <6g0ogl$vl1$1@nntpd.lkg.dec.com>#1/1
+X-Deja-AN: 340276064
+Organization: Digital Equipment Corporation
+Newsgroups: comp.unix.osf.misc
+
+
+I would like to better understand how to better account for 
+the memory usage on my Digital UNIX 4.0B host. The vmstat program
+reports on "act, free, and wire" memory. From the manual page, I
+would assume that the sum total of these three should remain
+relatively constant. However, this is clearly not the case. Where
+does the memory go? How can I get a better idea of what is sucking
+up RAM?
+
+Also, when using the standard 'ps aux' command, we see a process
+called [kernel idle], whose RSS is 19M, and the VSZ is 512M (!). 
+What is this process? and why is the VSZ so large? Is it true that
+if I add up all the VSZ process entries, the sum total should be
+approximately equal to the usage reported by vmstat's "act" column?
+
+TIA
+
+Paul
+
+-----------------
+Paul Robertson Phone:   (978) 493-4728   FAX 493-1368
+E-Mail:  paul.robertson@digital.com
+Opinions are my own and not necessarily those of my employer.
+
+
+
+From -504745363375297404
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f72b0,aff1177f70ab6797,start
+X-Google-Attributes: gidf72b0,public
+X-Google-Thread: 10663e,aff1177f70ab6797,start
+X-Google-Attributes: gid10663e,public
+X-Google-Thread: 102233,aff1177f70ab6797,start
+X-Google-Attributes: gid102233,public
+X-Google-Thread: f678f,aff1177f70ab6797,start
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: 10c665,aff1177f70ab6797,start
+X-Google-Attributes: gid10c665,public
+From: "luis" <l.d.diaz@usa.net>
+Subject: Clock time stop while turn off (HPUX); help
+Date: 1998/04/02
+Message-ID: <6g0nb6$ctv$1@diana.bcn.ibernet.es>#1/1
+X-Deja-AN: 340293518
+X-MimeOLE: Produced By Microsoft MimeOLE V4.72.2106.4
+Organization: Unisource Espana NEWS SERVER
+Newsgroups: comp.unix.misc,comp.unix.osf.misc,comp.unix.sys5.misc,comp.unix.sys5.r4,comp.unix.unixware.misc
+
+
+Hello!
+I'm not an unix expert, but I work usually in gis programs under unix.
+I have a standaolne machine. The weird problem with date and time I have is:
+each time I start the computer date and time are those of last time I
+shutdown it!
+
+I have to log as root in order to change date each time I start, and I would
+like to solve it...
+
+Any help is appreciated.
+
+L. Diaz
+l.d.diaz@usa.net
+
+
+
+
+
+From -2898030555278067198
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: 10c665,aff1177f70ab6797
+X-Google-Attributes: gid10c665,public
+X-Google-Thread: 10663e,aff1177f70ab6797
+X-Google-Attributes: gid10663e,public
+X-Google-Thread: f678f,aff1177f70ab6797
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: 102233,aff1177f70ab6797
+X-Google-Attributes: gid102233,public
+X-Google-Thread: f72b0,aff1177f70ab6797
+X-Google-Attributes: gidf72b0,public
+From: richk@panix.com (Rich Kus)
+Subject: Re: Clock time stop while turn off (HPUX); help
+Date: 1998/04/02
+Message-ID: <6g165h$g34@panix2.panix.com>#1/1
+X-Deja-AN: 340342418
+References: <6g0nb6$ctv$1@diana.bcn.ibernet.es>
+X-Newsposter: trn 4.0-test55 (26 Feb 97)
+Organization: Panix
+Newsgroups: comp.unix.misc,comp.unix.osf.misc,comp.unix.sys5.misc,comp.unix.sys5.r4,comp.unix.unixware.misc
+
+
+In article <6g0nb6$ctv$1@diana.bcn.ibernet.es>, luis <l.d.diaz@usa.net> wrote:
+>Hello!
+>I'm not an unix expert, but I work usually in gis programs under unix.
+>I have a standaolne machine. The weird problem with date and time I have is:
+>each time I start the computer date and time are those of last time I
+>shutdown it!
+>
+>I have to log as root in order to change date each time I start, and I would
+>like to solve it...
+>
+>Any help is appreciated.
+>
+>L. Diaz
+>l.d.diaz@usa.net
+>
+>
+
+  Sounds like hardware problem. You didn't mention what the machine is?
+  It could be that your system clock does not battery backup or the
+  battery is dead. This also assumes that power cycles are short interval.
+
+  richk
+
+
+
+
+
+From -8556387585914700375
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,ddda4889681cf24a
+X-Google-Attributes: gidf678f,public
+From: Emmanuel Choquet <ics@cica.fr>
+Subject: Re: login access?
+Date: 1998/04/03
+Message-ID: <352483C6.6AB2B312@cica.fr>#1/1
+X-Deja-AN: 340439960
+Content-Transfer-Encoding: 7bit
+References: <slrn6i5i4d.nr8.sstiasni@rudjer.irb.hr>
+Mime-Version: 1.0
+Reply-To: ics@cica.fr
+To: sstiasni@irb.hr
+Content-Type: text/plain; charset=us-ascii
+Organization: IC/S&C
+Newsgroups: comp.unix.osf.misc
+
+
+write a function in  /etc/profile which is a script that everybody executes,
+and that you can't bypass (sh and ksh)
+use 'w' command to know where does tha guy comes from
+use $USER variable to know who's loging in.
+
+Sasa Stiasni wrote:
+
+> Is there something like login.access from logdaemon for Digital UNIX (4.0B)
+> In fact, what I would like is to prevent a specified user to log on to the
+> system from specified host.
+> The other possibility is to restrict that user to telnet to somehost.
+> Is there anything like that for DU?
+> Please help.
+>
+> Sasha
+> --
+> mailto: sstiasni@irb.hr
+
+
+
+--
+Emmanuel Choquet
+Informatique Client/Serveur
+& Communication
+                _/
+                            _/
+              _/   _/_/_/  _/   _/_/_/
+             _/   _/      _/   _/
+            _/   _/      _/   _/_/_/
+           _/   _/      _/       _/
+          _/   _/_/_/  _/   _/_/_/
+
+ics@cica.fr
+c/o Cica      Tel: (33) 4 92.94.23.50
+2229, route des cretes  fax: (33) 4 92.94.23.54
+06560 Sophia-Antipolis
+
+
+
+
+
+From 8346406879629118647
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,ddda4889681cf24a
+X-Google-Attributes: gidf678f,public
+From: sstiasni@irb.hr (Sasa Stiasni)
+Subject: Re: login access?
+Date: 1998/04/03
+Message-ID: <slrn6i977j.i8c.sstiasni@rudjer.irb.hr>#1/1
+X-Deja-AN: 340458078
+References: <slrn6i5i4d.nr8.sstiasni@rudjer.irb.hr> <352483C6.6AB2B312@cica.fr>
+Organization: IRB,Zagreb,Croatia
+Reply-To: sstiasni@irb.hr
+Newsgroups: comp.unix.osf.misc
+
+
+On Fri, 03 Apr 1998 07:37:58 +0100, Emmanuel Choquet <ics@cica.fr> wrote:
+>write a function in  /etc/profile which is a script that everybody executes,
+>and that you can't bypass (sh and ksh)
+>use 'w' command to know where does tha guy comes from
+>use $USER variable to know who's loging in.
+
+Well, this is the last thing I thought someone will answer :-)
+But if it's the only way ...
+Thanks anyway.
+
+Sasha
+-- 
+mailto: sstiasni@irb.hr
+
+
+
+
+From 1607507522680350051
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,ddda4889681cf24a
+X-Google-Attributes: gidf678f,public
+From: N Madden <n.madden@ucc.ie>
+Subject: Re: login access?
+Date: 1998/04/03
+Message-ID: <3524B7E9.167E@ucc.ie>#1/1
+X-Deja-AN: 340475441
+Content-Transfer-Encoding: 7bit
+References: <slrn6i5i4d.nr8.sstiasni@rudjer.irb.hr> <352483C6.6AB2B312@cica.fr>
+Mime-Version: 1.0
+To: ics@cica.fr, sstiasni@irb.hr
+Content-Type: text/plain; charset=us-ascii
+Organization: Mathematics, UCC.
+Newsgroups: comp.unix.osf.misc
+
+
+Emmanuel Choquet wrote:
+> 
+> > Is there something like login.access from logdaemon for Digital UNIX (4.0B)
+> > In fact, what I would like is to prevent a specified user to log on to the
+> > system from specified host.
+> > The other possibility is to restrict that user to telnet to somehost.
+> > Is there anything like that for DU?
+> write a function in  /etc/profile which is a script that everybody executes,
+> and that you can't bypass (sh and ksh)
+> use 'w' command to know where does tha guy comes from
+> use $USER variable to know who's loging in.
+Sasha,
+
+	Is the "specificed" user on the remote or local machine - I.e., do you
+want to
+1) stop bob@remote from loging onto the local machine or
+2) stop anyone @remote loging on as bob@local ?
+If (1), the the above won't work. In that case, you'll have to use a TCP
+wrapper
+to check the ident daemon on the remote machine. However, it may not
+have one running.
+
+If (2), then Emmanuel's suggestion should work but perhaps you could
+just change the login shell for the given user - i.e., in /etc/profile
+change their default shell to a script which you write to check where
+they are coming from before either kicking them out or running a real
+shell.
+
+Again, you might be able to configure TCP wrapper's "hosts.allow" and
+"hosts.deny" to do this, but I'm not sure exactly how.
+
+
+Regards,
+Niall.
+
+
+-- 
+Mathematics Dept.,
+University College, Cork.
+http://ogham.ucc.ie/~niall
+
+
+
+From 5251826396591137989
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f8c9b,ec38193e5602c6dd
+X-Google-Attributes: gidf8c9b,public
+X-Google-Thread: 115614,ec38193e5602c6dd
+X-Google-Attributes: gid115614,public
+X-Google-Thread: f678f,ec38193e5602c6dd
+X-Google-Attributes: gidf678f,public
+From: kra1@technodat.co.at (Christian Krackowizer)
+Subject: Re: 4mm Tape Compatibility
+Date: 1998/04/03
+Message-ID: <891607120.138447@hpwp1.technodat.co.at>#1/1
+X-Deja-AN: 340494392
+Cache-Post-Path: hpwp1.technodat.co.at!unknown@pc01.technodat.co.at
+References: <351fded3.89411725@news.virgin.net>
+Content-Type: Text/Plain; charset=US-ASCII
+Organization: Technodat CAD/CAM - Systeme fuer Moebel
+X-Cache: nntpcache 2.3.2.1 (see http://www.nntpcache.org/)
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.misc,comp.unix.aix,comp.unix.questions
+
+
+In article <351fded3.89411725@news.virgin.net>, m.elliott@virgin.net says...
+>
+>Can anyone help me with this problem ??
+>
+>I am attempting to copy data from an IBM Rs/6000 (AIX 3.2.5) to a DEC
+>Alpha (DEC UX 4.0d) using the cpio command. All seems okay on
+>small amounts of data but for large amount (seems to be about 75Mb)
+>the tape drive on the DEC just totally loses the plot. It sits their
+>for about 10mins flashing one of it's lights like made. Then it starts
+>churning vast amounts of error messages saying cpio illegal offset. If
+>you break out of it, you can't access the drive unless you reboot the
+>machine.
+>
+>Anyone got a any suggestions ??
+>
+
+Never used cpio. use tar or dd instead. The only problem remaining could be a 
+different blocksize, which is tricky in AIX.
+Best is a tar-file which is dd'd to tape with the bs-option (try bs=512 or 
+1024) ... 
+
+regards
+
+>Thankx in Advance
+>
+>Mark Elliott
+
+
+
+
+From -4818016504447108373
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,33a3525b0a935379,start
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,33a3525b0a935379,start
+X-Google-Attributes: gidfee84,public
+From: Yon Han CHONG <Y.H.Chong@cranfield.ac.uk>
+Subject: CPU and clock speed
+Date: 1998/04/03
+Message-ID: <3524DD0E.7D02B23@cranfield.ac.uk>#1/1
+X-Deja-AN: 340508735
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=EUC-KR
+Organization: Cranfield University
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+Is there any way to find out what CPU and clock speed an AlpahStation
+has?
+-- 
+----------------------------------------------------------------------
+Yon Han Chong                     |
+Flow Control and Prediction Group | Tel: + 44 1234 750 111 ext. 5420
+Cranfield College of Aeronautics  | E-mail: Y.H.Chong@cranfield.ac.uk
+Cranfield University              | Fax: + 44 1234 752 149
+United Kingdom                    | Mobile: + 44 958 381 395
+----------------------------------------------------------------------
+
+
+
+From -6213937486955712660
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fee84,db4e099470e28210,start
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: 10d532,db4e099470e28210,start
+X-Google-Attributes: gid10d532,public
+X-Google-Thread: f678f,db4e099470e28210,start
+X-Google-Attributes: gidf678f,public
+From: elson.nospm@student.dei.uc.pt
+Subject: Threads on OSF
+Date: 1998/04/03
+Message-ID: <MPG.f8f06f0dd4c7aa8989680@news.dei.uc.pt>#1/1
+X-Deja-AN: 340521083
+Organization: Dependable Systems Group- DEI- UC
+Newsgroups: comp.unix.osf,comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+Atention: remove .nos.pm when replying
+
+
+Can anyone tell me how the threads are implemented on OSF?
+Are they part of the system or are like pthreads?
+
+TIA
+
+ Elson
+
+-- 
+=======================================================================
+Fernando Elson Mourao                    elson.nos.pm@student.dei.uc.pt
+(remove .nos.pm when replying)
+-----------------------------------------------------------------------
+Departamento de Engenharia Informatica |  Tels:     +351 (0)39 790.000
+Universidade de Coimbra                |  (direct)  +351 (0)39 790.082
+Vila Franca- Polo II                   |  Fax:      +351 (0)39 701.266
+3030 COIMBRA                           |
+PORTUGAL                               |
+                                       | 
+=======================================================================
+
+
+
+From 2700490545966340071
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,33a3525b0a935379
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,33a3525b0a935379
+X-Google-Attributes: gidfee84,public
+From: Emmanuel Choquet <ics@cica.fr>
+Subject: Re: CPU and clock speed
+Date: 1998/04/03
+Message-ID: <352507C1.476BF00E@cica.fr>#1/1
+X-Deja-AN: 340541655
+Content-Transfer-Encoding: 7bit
+References: <3524DD0E.7D02B23@cranfield.ac.uk>
+To: Yon Han CHONG <Y.H.Chong@cranfield.ac.uk>
+Content-Type: text/plain; charset=us-ascii
+Organization: IC/S&C
+Mime-Version: 1.0
+Reply-To: ics@cica.fr
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+Totally unelegant, being root :
+
+ crashdc | grep _system_string
+
+from the beginning of /usr/bin/crashdc, still unlegant, but I like it :
+
+echo     '  print "_system_string: ", (char *)rpb + rpb->rpb_dsr_off +
+((struct rpb_dsr *) ((char *)rpb + rpb->rpb_dsr_off))->rpb_sysname_off +
+sizeof(long) ' | dbk -k /vmunix /dev/mem 2>&1 | grep system_string
+
+            :-)
+
+Yon Han CHONG wrote:
+
+> Is there any way to find out what CPU and clock speed an AlpahStation
+> has?
+> --
+> ----------------------------------------------------------------------
+> Yon Han Chong                     |
+> Flow Control and Prediction Group | Tel: + 44 1234 750 111 ext. 5420
+> Cranfield College of Aeronautics  | E-mail: Y.H.Chong@cranfield.ac.uk
+> Cranfield University              | Fax: + 44 1234 752 149
+> United Kingdom                    | Mobile: + 44 958 381 395
+> ----------------------------------------------------------------------
+
+
+
+--
+Emmanuel Choquet
+Informatique Client/Serveur
+& Communication
+                _/
+                            _/
+              _/   _/_/_/  _/   _/_/_/
+             _/   _/      _/   _/
+            _/   _/      _/   _/_/_/
+           _/   _/      _/       _/
+          _/   _/_/_/  _/   _/_/_/
+
+ics@cica.fr
+c/o Cica      Tel: (33) 4 92.94.23.50
+2229, route des cretes  fax: (33) 4 92.94.23.54
+06560 Sophia-Antipolis
+
+
+
+
+
+From -2060263125241856258
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,333c2b950025608a,start
+X-Google-Attributes: gidf678f,public
+From: Zachariah Amela <zamela@internetdbi.com>
+Subject: (PC)Windows App----->(UNIX)X-Windows
+Date: 1998/04/03
+Message-ID: <352539F8.65027542@internetdbi.com>#1/1
+X-Deja-AN: 340602391
+Content-Transfer-Encoding: 7bit
+X-Priority: 3 (Normal)
+Content-Type: text/plain; charset=us-ascii
+MIME-Version: 1.0
+Newsgroups: comp.unix.osf.misc
+
+
+I  have a app developed in Visual Basic v4.0 (16-bit) for use with
+Windows based systems (16 and 32-bit platforms).  The backend is an
+Access 2.0 database and it also outputs to text (standard CR/LN type
+thing) and takes the file and uploads it to a remote system (PC).  I was
+curios, what would be the best way of creating an X-Windows version of
+the app?  Are there converters?  Or should I contract an X-Windows
+developer?  What would be the X-Windows equivalent of VBv4?  Any books
+that would give some insight (I'm not going to dev. it myself, 'cause
+I'm not a Unix guy), on development.
+
+Thanks in advance!!!
+
+
+
+
+From -7735246635865108242
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fee84,33a3525b0a935379
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,33a3525b0a935379
+X-Google-Attributes: gidf678f,public
+From: sstiasni@irb.hr (Sasa Stiasni)
+Subject: Re: CPU and clock speed
+Date: 1998/04/03
+Message-ID: <slrn6iafpr.5vh.sstiasni@rudjer.irb.hr>#1/1
+X-Deja-AN: 340606569
+References: <3524DD0E.7D02B23@cranfield.ac.uk>
+Organization: IRB,Zagreb,Croatia
+Reply-To: sstiasni@irb.hr
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+On Fri, 03 Apr 1998 13:58:54 +0100, Yon Han CHONG <Y.H.Chong@cranfield.ac.uk> 
+wrote:
+>Is there any way to find out what CPU and clock speed an AlpahStation
+>has?
+
+Yup!
+
+alpha$ psrinfo -v
+
+Sasa
+-- 
+mailto: sstiasni@irb.hr
+
+
+
+
+From -999361699062096313
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,33a3525b0a935379
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,33a3525b0a935379
+X-Google-Attributes: gidfee84,public
+From: Nikola Milutinovic <milutinn@EUnet.yu>
+Subject: Re: CPU and clock speed
+Date: 1998/04/04
+Message-ID: <35264082.36C473A1@EUnet.yu>#1/1
+X-Deja-AN: 340826419
+Content-Transfer-Encoding: 7bit
+References: <3524DD0E.7D02B23@cranfield.ac.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Organization: Me organized? Not here!
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+Yon Han CHONG wrote:
+> 
+> Is there any way to find out what CPU and clock speed an AlpahStation
+> has?
+> --
+>From firmware console (HALT state):
+
+>>> show cpu
+
+or
+
+>>> show config
+
+Nix.
+
+
+
+
+From -3706554277617587990
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f8c9b,e4c142233b2df804,start
+X-Google-Attributes: gidf8c9b,public
+X-Google-Thread: f72b0,e4c142233b2df804,start
+X-Google-Attributes: gidf72b0,public
+X-Google-Thread: f678f,e4c142233b2df804,start
+X-Google-Attributes: gidf678f,public
+From: Lev Rechnik <lev@tochna.technion.ac.il>
+Subject: netscape/java problem :(
+Date: 1998/04/04
+Message-ID: <3526845E.41C6@tochna.technion.ac.il>#1/1
+X-Deja-AN: 340880966
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Organization: Technion, Israel Institute of Technology
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.misc,comp.unix.questions,comp.unix.misc
+
+
+Hi,
+	maybe somebody knows what's the hell
+
+	I have Digital Unix 4.0c and Alfa stations;
+	some of them works with NIS and others no.
+
+	The problem:
+	Netscape runs as perfectly as it can on NIS stations
+	and under no conditions likes to run Java on none-NIS stations
+	(all other functions work finely).
+	This happens both with NS3 and NS4.04, so, I think the 
+	problem isn't in the NS itself. Both NIS and non-NIS stations
+	have identically mounted filesystems, they load Netscape
+	from the same disk, etc - the only difference is in NIS
+	(but I cannot see any reason that NIS can have an influence 	
+	here).
+	Under Digital Unix 3 NS run normally (or, at least, we didn't
+	see any difference with it)
+
+	If you have an idea - please, help...
+
+    Thanks in advance.	
+
+Bye :)
+
+
+
+From 2418103698478448593
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: 10d532,db4e099470e28210
+X-Google-Attributes: gid10d532,public
+X-Google-Thread: fee84,db4e099470e28210
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,db4e099470e28210
+X-Google-Attributes: gidf678f,public
+From: "Gerald A. Feldman" <"gafNoSPAM"@mediaone.net (Remove NoSpam)>
+Subject: Re: Threads on OSF
+Date: 1998/04/04
+Message-ID: <6g6c2e$e3b$1@ndnws01.ne.highway1.com>#1/1
+X-Deja-AN: 340922393
+Content-Transfer-Encoding: 7bit
+References: <MPG.f8f06f0dd4c7aa8989680@news.dei.uc.pt>
+To: elson.nospm@student.dei.uc.pt, elson@student.dei.uc.pt
+Content-Type: text/plain; charset=us-ascii
+Organization: Boston Computer Solutions and Consulting
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf,comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+elson.nospm@student.dei.uc.pt wrote:
+> 
+> Atention: remove .nos.pm when replying
+> 
+> Can anyone tell me how the threads are implemented on OSF?
+> Are they part of the system or are like pthreads?
+Both. On DU 4.0 and above, the API interface to threads is via pthreads.
+The threads package implements both kernel and user threads. There has
+been considerable discussion on threads in this conference. Also, there
+has been considerable work done on the threads package between the 4.0A,
+4.0B and 4.0D. Also note that the DU C run time library is thread safe. 
+-- 
+ Jerry Feldman <gaf@mediaone.net>
+ Boston Computer Solutions and Consulting
+ http://gaf.ne.mediaone.net/
+
+
+
+From -6558974482093827176
+X-Google-Language: ENGLISH,ASCII
+X-Google-Thread: f678f,b8e172f88fdbb4db
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,b8e172f88fdbb4db
+X-Google-Attributes: gidfee84,public
+From: clc@b1.hkstar.com (Clarence Chu)
+Subject: Re: Jaz drive on DECunix continued
+Date: 1998/04/05
+Message-ID: <6g8ptl$rve2@lyra.hkstar.com>#1/1
+X-Deja-AN: 341153576
+References: <hal-3003981112250001@buffy.usu.edu> <6g3rb6$otf@eliot.oit.umass.edu>
+Followup-To: comp.unix.osf.misc,comp.unix.osf.osf1
+Organization: Data Expert Limited
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+Peter deFriesse (peter@dev.null) ����:
+: Somewhere off the top of my screen in article <hal-3003981112250001@buffy.usu.edu>,
+:   the esteemed hal@sticky.usu.edu said:
+: }Well the saga continues.  About two weeks ago I posted a request
+: }for info about how to make a Jaz drive work with DEC Unix 4.0.
+: }I didn't receive any responses. BTW the Jaz drive works just fine
+: }on my FreeBSD system, but I digress.
+
+I have made a JAZ drive as the booting drive for DU4.0 by
+  i) use a 1GB drive as initial installation
+ ii) 'dd' the 1GB drive image to JAZ
+iii) use 'disklabel' on any BSD system to alter the label,
+     in particular the rpm = 3600 for JAZ
+
+Still, i would love to know how a JAZ drive may be labeled to be
+a mountable device for expanding storage/backup purpose.
+
+
+Best wishes,              /
+                  ___/   /    ___/                Clarence Chu
+                 /      /    /                   clc@hkstar.com
+               ____/ ____/ ____/           http://www.hkstar.com/~clc
+
+
+
+From -52612254567158798
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,4900bb256210dfe4,start
+X-Google-Attributes: gidf678f,public
+From: "Stephen J. Gaudet" <sjg@dcginc.com>
+Subject: 4Sale New 600Mhz Digital UINX workstations for $5995.00
+Date: 1998/04/06
+Message-ID: <01bd60f2$a51f83a0$a10f77ce@sjg.tiac.net>#1/1
+X-Deja-AN: 341197500
+Organization: The Internet Access Company, Inc.
+Newsgroups: comp.unix.osf.misc
+
+
+Hello 
+
+We have the following 600Mhz Digital Alpha systems available 
+for a limited time while supplies last.
+
+DCG LX Series PC164-21164a-600MHz Alpha system
+2MB 3rd Level Cache, 9ns
+Axxion DL-17 Midtower Case 300w p.s., 50/60hz
+1.44mb Sony floppy
+64mb ram (2x32mb SDRAMS, 10ns)
+4.5Gb Quantum Atlas II UltraWide SCSI 7200rpm Disk
+ITI 4140U-U UltraWide SCSI PCI controller w/ 10/100MBit Ethernet
+32x Toshiba SCSI-2 CD-Rom drive
+PowerStorm 3D10 PCI video w/ 2mb dram 
+101 Keyboard and Logitech 3 button mouse
+Digital Unix 2 user base license 
+Preloaded with Digital UNIX 4.0d
+
+		SPECint95	SPECfp95
+$5,995.00	17.9		19.9
+                 
+Three year warranty on motherboard with two year return-to-factory 
+warranty on remaining components. 
+
+Compare pricing on this system with Digital's Personal Workstation
+the 600Mhz au series SN-B3EAU-SB	  $14,858.00
+		     MSC01-AB, 2mb cache      750.00
+					  ==========
+		     TOTAL	          $15,608.00 (without graphics)
+		     DCG LX               - 5,995.00 (with graphics!!)
+					  ==========
+		     YOU SAVE>>>>>>>>>>>> $ 9,613.00 !!!!
+
+Digital Unix 4.0d Media CD-Rom version Price:$395.00
+
+Options:
+
+Larger cases, Rackmount cases call or e-mail for pricing
+Larger disks, RAID options
+Faster Video cards 4D20T, 4D30T, 4D40T, and 4D50T, call or e-mail  
+
+Memory Upgrades (SDRAMS, 10ns) to:
+
+128mb up to 1Gb! call or e-mail for pricing
+
+We ship international!
+
+Thank you,
+
+Steve
+ +1-603-421-1800	http://www.dcginc.com
+ ______________________________________________________________
+| Stephen Gaudet        |  ** Digital Authorized reseller **   |
+| DCG Computers Inc.    | Alpha, Intel Pentium Pro systems and |
+| 4 Sanborn Rd, Suite 2 | motherbds running NT, Linux, & UNIX  |
+| Londonderry, NH 03053 |--------------------------------------|
+| ph:603-421-1800 x 10 fax:603-421-0911 e-mail:sjg@dcginc.com  |
+ --------------------------------------------------------------
+
+
+
+
+
+
+
+
+From 6352327989850685668
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,58679733729a0afd,start
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,58679733729a0afd,start
+X-Google-Attributes: gidfee84,public
+From: Mark Turpin <mturpin@mail1.i1.net>
+Subject: Help with perl5.00401, C backend
+Date: 1998/04/06
+Message-ID: <Pine.BSI.3.95.980406014146.4317A-100000@mail1.i1.net>#1/1
+X-Deja-AN: 341302845
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Organization: Internet 1st, Inc
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+While trying to build the C backend for perl5, I run into the following
+errors after using "perl Makefile.PL" in the compiler-a3 distribution.
+The box is dunix 4.0d sx164, with gcc 2.7-97r1 and cc is version 2.6-96q1
+(alpha-dec-osf4.0), using BFD version 2.6-96q1.
+
+At any rate, here is my paste of the errors.. can anyone help shed some
+light.  I believe its being caused by the u32 being called instead of u64.
+=============================================
+[mark@alpha ~mark/Compiler-a3]# make
+gcc -c  -D_INTRINSICS -I/usr/local/include -D__LANGUAGE_C__ -O4
+-DVERSION=\"a2\"  -DXS_VERSION=\"a2\"
+-I/usr/local/lib/perl5/alpha-dec_osf/5.00401/CORE  B.c
+In file included from
+/usr/local/lib/perl5/alpha-dec_osf/5.00401/CORE/perl.h:1010,
+                 from B.xs:11:
+/usr/local/lib/perl5/alpha-dec_osf/5.00401/CORE/scope.h:91: syntax error
+before `sigjmp_buf'
+B.xs: In function `XS_B__IV_packiv':
+B.xs:663: warning: right shift count >= width of type
+*** Exit 1
+Stop.
+==============================================
+here is the following snipit of the code:
+==============================================
+        if (sizeof(IV) == 8) {
+            U32 wp[2];
+            IV iv = SvIVX(sv);
+            /*
+             * The following way of spelling 32 is to stop compilers on
+             * 32-bit architectures from moaning about the shift count
+             * being >= the width of the type. Such architectures don't
+             * reach this code anyway (unless sizeof(IV) > 8 but then
+             * everything else breaks too so I'm not fussed at the
+	     * moment).
+             */
+->(663)     wp[0] = htonl(((U32)iv) >> (sizeof(IV)*4));
+            wp[1] = htonl(iv & 0xffffffff);
+            ST(0) = sv_2mortal(newSVpv((char *)wp, 8));
+        } else {
+            U32 w = htonl((U32)SvIVX(sv));
+            ST(0) = sv_2mortal(newSVpv((char *)&w, 4));
+        }
+
+===============================================
+So I'm guessing that I have a bad config, or I'm not doing _something_
+right... 
+
+Can anyone shed some light on this?
+
+Thanks,
+-Mark
+
+
+
+
+From -5255029325232988188
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f8c9b,f048e8ebac1341dd,start
+X-Google-Attributes: gidf8c9b,public
+X-Google-Thread: 1020c6,f048e8ebac1341dd,start
+X-Google-Attributes: gid1020c6,public
+X-Google-Thread: fee84,f048e8ebac1341dd,start
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,f048e8ebac1341dd,start
+X-Google-Attributes: gidf678f,public
+From: bob.findlay@bbsrc.ac.uk
+Subject: filtering jobs sent to a remote machine
+Date: 1998/04/06
+Message-ID: <3528F993.8DB6579C@bbsrc.ac.uk>#1/1
+X-Deja-AN: 341386371
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Organization: bbsrc
+Mime-Version: 1.0
+Newsgroups: comp.unix.admin,comp.unix.osf.misc,comp.unix.osf.osf1,comp.unix.questions
+
+
+Hello,
+I want to be able to filter a printer's jobs.  The problem is, that I
+want to filter on machine A (OSF), but the queue is actually on machine
+B (NT).  Does anyone know how I can fool printcap into filtering the job
+and then passing it on to the NT machine?  I'm using lpr
+
+thanks (in hope)
+Bob Findlay
+
+
+
+
+From 8578683898609992391
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fee84,b8e172f88fdbb4db
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,b8e172f88fdbb4db
+X-Google-Attributes: gidf678f,public
+From: Tyler Hall <hall@alf.dec.com>
+Subject: Re: Jaz drive on DECunix continued
+Date: 1998/04/06
+Message-ID: <35292B36.2A4@alf.dec.com>#1/1
+X-Deja-AN: 341457109
+Content-Transfer-Encoding: 7bit
+References: <hal-3003981112250001@buffy.usu.edu> <6g3rb6$otf@eliot.oit.umass.edu>
+Content-Type: text/plain; charset=us-ascii
+Organization: Digital Equipment Corporation, Alpharetta, GA, USA
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+I must have missed your first post..
+Here is a program written to make jaz drives work with Digital Unix...
+
+ftp://xfer-alf.service.digital.com/to_customer/jaz.tar
+
+I also have one for zip drives as well..
+
+Tyler
+
+Peter deFriesse wrote:
+> 
+> Somewhere off the top of my screen in article <hal-3003981112250001@buffy.usu.edu>,
+>   the esteemed hal@sticky.usu.edu said:
+> 
+> }Well the saga continues.  About two weeks ago I posted a request
+> }for info about how to make a Jaz drive work with DEC Unix 4.0.
+> }I didn't receive any responses. BTW the Jaz drive works just fine
+> }on my FreeBSD system, but I digress.
+> }
+> }I decided to try the jaz drive on my Ultrix system.  No worky.
+> }Then I received a bit of inspiration.  I checked the Iomega
+> }web site and they had a disktab entry for Solaris.  With that
+> }info I made a disktab entry for Ultrix and presto the jaz drive
+> }worked.
+> }
+>   Ultrix' disklabel (chpt) command works as expected.  Digital
+> chose to remove a certain functionality (that *defines* Digital)
+> from the command (disklabel) on DUX 4.0*
+> 
+>   Contact me off line for a workaround.  Corretc address is in
+> the .sig.  Sorry about the spam-stopper in the header.
+> 
+> }Thinking I might be onto a good thing I made a jaz entry in my
+> }DECunix disktab but still no worky.
+> }
+>   See "remove" above.
+> 
+> --
+>     Peter deFriesse                            Email: peter(at)oit.umass.edu
+>             If you can't browse it with lynx, it ain't worth a damn.
+> 
+>     UNIX Systems Administration            [All standard disclaimers apply:]
+
+
+
+From 4624239449871435965
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,b8e172f88fdbb4db
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,b8e172f88fdbb4db
+X-Google-Attributes: gidfee84,public
+From: Tyler Hall <hall@alf.dec.com>
+Subject: Re: Jaz drive on DECunix continued
+Date: 1998/04/06
+Message-ID: <35292BCA.2DB5@alf.dec.com>#1/1
+X-Deja-AN: 341457110
+Content-Transfer-Encoding: 7bit
+References: <hal-3003981112250001@buffy.usu.edu> <6g3rb6$otf@eliot.oit.umass.edu> <35292B36.2A4@alf.dec.com>
+Content-Type: text/plain; charset=us-ascii
+Organization: Digital Equipment Corporation, Alpharetta, GA, USA
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+I forgot to mention that the above utility is /completely/
+unsupported...use as you wish.
+
+
+Tyler
+
+
+
+From 8612749223982250178
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f8c9b,f048e8ebac1341dd
+X-Google-Attributes: gidf8c9b,public
+X-Google-Thread: f678f,f048e8ebac1341dd
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,f048e8ebac1341dd
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: 1020c6,f048e8ebac1341dd
+X-Google-Attributes: gid1020c6,public
+From: James Hebert <hebert@cs.fsu.edu>
+Subject: Re: filtering jobs sent to a remote machine
+Date: 1998/04/06
+Message-ID: <oglg1jqk636.fsf@cs1.cs.fsu.edu>#1/1
+X-Deja-AN: 341476460
+References: <3528F993.8DB6579C@bbsrc.ac.uk>
+Organization: FSU Computer Science Department
+Newsgroups: comp.unix.admin,comp.unix.osf.misc,comp.unix.osf.osf1,comp.unix.questions
+
+
+bob.findlay@bbsrc.ac.uk writes:
+
+> Hello,
+> I want to be able to filter a printer's jobs.  The problem is, that I
+> want to filter on machine A (OSF), but the queue is actually on machine
+> B (NT).  Does anyone know how I can fool printcap into filtering the job
+> and then passing it on to the NT machine?  I'm using lpr
+
+LprNG, IIRC, has a very easy solution to this, called a bounce queue
+or something like that. 
+
+My RedHat box at home, come to think of it, somehow accomplishes this
+without that. Without looking, I'll bet it sets up a null printer 
+(device is /dev/null, say) and writes an "accounting filter" which
+really printfilter's the job and then sends it on to NT. But that's
+just a WAG.
+
+HTH
+
+jim
+
+
+
+From -3510444595675067419
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,33a3525b0a935379
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,33a3525b0a935379
+X-Google-Attributes: gidfee84,public
+From: Jeff Donsbach <Jeff.Donsbach@digital.com>
+Subject: Re: CPU and clock speed
+Date: 1998/04/06
+Message-ID: <35293A47.48029932@digital.com>#1/1
+X-Deja-AN: 341585032
+Content-Transfer-Encoding: 7bit
+References: <3524DD0E.7D02B23@cranfield.ac.uk> <35264082.36C473A1@EUnet.yu>
+Mime-Version: 1.0
+Reply-To: Jeff.Donsbach@digital.com
+Content-Type: text/plain; charset=us-ascii
+Organization: Digital Equipment Corp., Software Partners Engineering
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+Programatically, use "getsysinfo()" with various arguments. See "man
+getsysinfo" for details.
+
+-Jeff D
+
+--
+=========================
+Jeff Donsbach   Digital Equipment Corporation, Software Partners
+Engineering
+                200 Forest St., MRO1-3/F26, Marlborough, MA 01752-3011
+ Email: Jeff.Donsbach@digital.com    "10 bucks is 10 bucks" - Geddy Lee
+
+
+
+
+
+From 9195175588801504960
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f8c9b,f048e8ebac1341dd
+X-Google-Attributes: gidf8c9b,public
+X-Google-Thread: 1020c6,f048e8ebac1341dd
+X-Google-Attributes: gid1020c6,public
+X-Google-Thread: f678f,f048e8ebac1341dd
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,f048e8ebac1341dd
+X-Google-Attributes: gidfee84,public
+From: Jacob Langford <langford@uiuc.edu>
+Subject: Re: filtering jobs sent to a remote machine
+Date: 1998/04/07
+Message-ID: <352A5024.833E7FE7@uiuc.edu>#1/1
+X-Deja-AN: 341735070
+Content-Transfer-Encoding: 7bit
+References: <3528F993.8DB6579C@bbsrc.ac.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Organization: University of Illinois, Urbana-Champaign
+Newsgroups: comp.unix.admin,comp.unix.osf.misc,comp.unix.osf.osf1,comp.unix.questions
+
+
+bob.findlay@bbsrc.ac.uk wrote:
+
+> Hello,
+> I want to be able to filter a printer's jobs.  The problem is, that I
+> want to filter on machine A (OSF), but the queue is actually on machine
+> B (NT).  Does anyone know how I can fool printcap into filtering the job
+> and then passing it on to the NT machine?  I'm using lpr
+>
+> thanks (in hope)
+> Bob Findlay
+
+Why not just add something like
+
+ :if=/full/path/to/filter:
+
+to machine A's printcap file?
+
+Jacob (langford@uiuc.edu)
+
+
+
+
+From 5140881374992134763
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f8c9b,f048e8ebac1341dd
+X-Google-Attributes: gidf8c9b,public
+X-Google-Thread: 1020c6,f048e8ebac1341dd
+X-Google-Attributes: gid1020c6,public
+X-Google-Thread: f678f,f048e8ebac1341dd
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,f048e8ebac1341dd
+X-Google-Attributes: gidfee84,public
+From: Emmanuel Choquet <ics@cica.fr>
+Subject: Re: filtering jobs sent to a remote machine
+Date: 1998/04/08
+Message-ID: <352B1EED.5C8BA250@cica.fr>#1/1
+X-Deja-AN: 341979902
+Content-Transfer-Encoding: 7bit
+References: <3528F993.8DB6579C@bbsrc.ac.uk>
+To: bob.findlay@bbsrc.ac.uk
+Content-Type: text/plain; charset=us-ascii
+Organization: IC/S&C
+Mime-Version: 1.0
+Reply-To: ics@cica.fr
+Newsgroups: comp.unix.admin,comp.unix.osf.misc,comp.unix.osf.osf1,comp.unix.questions
+
+
+
+
+bob.findlay@bbsrc.ac.uk wrote:
+
+> Hello,
+> I want to be able to filter a printer's jobs.  The problem is, that I
+> want to filter on machine A (OSF), but the queue is actually on machine
+> B (NT).  Does anyone know how I can fool printcap into filtering the job
+> and then passing it on to the NT machine?  I'm using lpr
+>
+> thanks (in hope)
+> Bob Findlay
+
+Not from me ,but got it some time ago in this news group, works well, I did
+it several times. :
+
+ From: schroedj@ub.uni-marburg.de (Juergen Schroeder)
+
+The lack of filtering by printing remote is usual in most unix (lpd) types.
+This can't be elegant overided by a old but not well known trick:
+
+make a printqueue which print raw to the remote printer
+
+make multiple printqueues for the features you want have
+eg one called landscape
+
+this should have this entries in the printcap:
+        :if=/usr/local/daemon/filter/input_filter_landscape:\
+        :lp=/dev/null:\
+
+make the filter input_filter_landscape
+
+(echo "here the esc-sequences for initialising the printer & landscape mode"
+
+ cat - ) | lpr -Praw
+
+thats all
+you can make this queues if you want on only one machine and print remote
+to this machine.
+
+No fiddeling with lpd source code.
+
+
+--
+Emmanuel Choquet
+Informatique Client/Serveur
+& Communication
+                _/
+                            _/
+              _/   _/_/_/  _/   _/_/_/
+             _/   _/      _/   _/
+            _/   _/      _/   _/_/_/
+           _/   _/      _/       _/
+          _/   _/_/_/  _/   _/_/_/
+
+ics@cica.fr
+c/o Cica      Tel: (33) 4 92.94.23.50
+2229, route des cretes  fax: (33) 4 92.94.23.54
+06560 Sophia-Antipolis
+
+
+
+
+
+From -1999815641601161804
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,abf7ba2b4e478cd8,start
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,abf7ba2b4e478cd8,start
+X-Google-Attributes: gidfee84,public
+From: wli@cincom.com
+Subject: Creating a new root disk
+Date: 1998/04/08
+Message-ID: <6ghcjc$pbv$1@nnrp1.dejanews.com>#1/1
+X-Deja-AN: 342298910
+X-Http-User-Agent: Mozilla/4.0 (compatible; MSIE 4.01; Windows 95)
+Organization: Deja News - The Leader in Internet Discussion
+X-Article-Creation-Date: Thu Apr 09 02:42:51 1998 GMT
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+Hi,
+
+I wonder if there is a quick and easy to solve my problem. I have a DEC Alpha
+Unix box running with 4.0D. For some reason, I installed DEC UNIX 4.0B system
+on another disk on the SAME box.
+
+After the installation, I can boot up the 4.0B system and, of cause, I won't
+have any of the accounts and file systems that were defined on the 4.0D
+system.
+
+Question:
+
+1) is there a quick and easy way to duplicate the accounts and file systems
+setting (we have two AdvFS on the 4.0D environment) on the 4.0B system? How
+can I mount the "existing" AdvFS file systems on this 4.0B system?
+
+2) is there some way to mount the file systems (e.g. / and /usr) on the 4.0D
+disk in the 4.0B environment?
+
+3) if I have to setup the AdvFS systems again on the new 4.0B system, can I
+preserve the existing files/data on the file systems
+
+Thanks in advanced for any information.
+William
+
+-----== Posted via Deja News, The Leader in Internet Discussion ==-----
+http://www.dejanews.com/   Now offering spam-free web-based newsreading
+
+
+
+From -9055384350450368646
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,74bd32950267ab2,start
+X-Google-Attributes: gidf678f,public
+From: raptor@mailhub.com (Eric Gatenby)
+Subject: NAT/IP Masq equivalents in DU 4?
+Date: 1998/04/09
+Message-ID: <slrn6io7o1.b11.raptor@unix3.netaxs.com>#1/1
+X-Deja-AN: 342258454
+Organization: newsread.com ISP News Reading Service
+Newsgroups: comp.unix.osf.misc
+
+
+
+Hi.
+
+I was wondering if there are any software packages available for 
+Digital UNIX 4.0 that perform address translation/IP masquarading
+functions. I apologize if they are built-in to DU, but this is
+my first experience with it and have no manuals, so I wouldn't even
+know about it.. Any help or pointers would be appreciated.
+
+TIA
+
+--Eric
+ 
+--
+Eric Gatenby  -=-  raptor@mailhub.com  -=-  egatenby@mailhub.com
+http://www.netaxs.com/~raptor/
+
+PGP Keys: Web page or keyserver - 0x0B9761F5 (Default) and 0x9EA39CC7
+
+
+
+
+From 5775581151195696908
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f8c9b,f048e8ebac1341dd
+X-Google-Attributes: gidf8c9b,public
+X-Google-Thread: 1020c6,f048e8ebac1341dd
+X-Google-Attributes: gid1020c6,public
+X-Google-Thread: f678f,f048e8ebac1341dd
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,f048e8ebac1341dd
+X-Google-Attributes: gidfee84,public
+From: Ernest LaBonte <labonte!@!zk3.dec.com>
+Subject: Re: filtering jobs sent to a remote machine
+Date: 1998/04/09
+Message-ID: <6giga1$u3$1@lead.zk3.dec.com>#1/1
+X-Deja-AN: 342400232
+References: <3528F993.8DB6579C@bbsrc.ac.uk>
+Mime-Version: 1.0
+To: bob.findlay@bbsrc.ac.uk
+Content-Type: multipart/mixed; boundary="------------2781446B794B"
+Organization: UBPG
+Newsgroups: comp.unix.admin,comp.unix.osf.misc,comp.unix.osf.osf1,comp.unix.questions
+
+
+This is a multi-part message in MIME format.
+
+--------------2781446B794B
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+bob.findlay@bbsrc.ac.uk wrote:
+> 
+> Hello,
+> I want to be able to filter a printer's jobs.  The problem is, that I
+> want to filter on machine A (OSF), but the queue is actually on machine
+> B (NT).  Does anyone know how I can fool printcap into filtering the job
+> and then passing it on to the NT machine?  I'm using lpr
+> 
+> thanks (in hope)
+> Bob Findlay
+
+--------------2781446B794B
+Content-Type: text/plain; charset=us-ascii; name="t.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline; filename="t.txt"
+
+Bob,
+
+You stated the printer is on an NT machine but I will mention this anyway.
+If the printer has a network card and you are running V4.0a or later
+I suggest using tcp/ip printing and print to the printer directly. That
+way you get to use print filters with no special modifications.
+
+Ok, now for remote printing filtering.
+
+There are a few ways to do this but non straight forward. The easiest way
+is to preprocess the file before submitting it to the queue.  For example,
+people who want to convert text to postscript would enter:
+
+   cat file.txt | /usr/lbin/ln03rof | lpr -Premotequeue
+
+or to get postscript landscape (2 examples depending on the version)
+
+   cat file.txt | /usr/lbin/ln03rof -Ow132 | lpr -Premotequeue
+   cat file.txt | /usr/lbin/ln03rof -Olandscape | lpr -Premotequeue
+
+This method doesn't work well for multiple files. The script below will
+help in this area. The script defaults to /usr/lbin/ln03rof. You can
+specify an alternate filter at the command line, or edit the script to
+default to another filter.
+
+Hope this helps,
+Ernest
+---------------
+#!/bin/ksh
+
+# lprcat 19-May-1996
+#
+# General purpose script to preprocess a file prior to printing. Useful when
+# printing to a remote queue or to a network printer using lpd remote 
+# communication.
+#
+# The default is to convert text to postscript using the /usr/lbin/ln03rof
+# filter but any filter can be specified/utilized.
+#
+# Usage: script [-ffilter] [options] file file ...
+#
+# 	[filter]  - use an alternate filter located in /usr/lbin. 
+#	[options] - options that would be specified in a lpr command line.
+#	file      - the file or files to print
+#
+# 	eg: script -Pxxx -w50 -Olandscape file file
+#	    script -flpf -Pxxx -x -h file file
+#
+
+# Function: 	fcat
+#
+# Description:	Cat one or more files through a print filter
+#
+# Arguments:	$1 	- filter to use
+#		$2 	- optional filter arguments
+#		$3-$*	- additional filenames
+#
+
+function fcat {
+
+	filter=$1		# Save the filter name
+	shift
+
+	cmd=$1			# Optional filter arguments
+	shift
+
+	while [[ -n $1 ]]	# Cat each filename provided through the filter
+	do
+		eval /bin/cat $1 | $filter $cmd
+		shift
+	done
+}
+
+
+# Function: 	fverify
+#
+# Description:	Verify all the files exist. 
+#
+# Arguments:	$*	- List of filenames to list
+#
+
+function fverify {
+
+	while [[ -n $1 ]]
+	do
+		if [[ ! -f $1 ]]
+		then
+			print "ERROR: Unable to print file $1."
+			exit 1
+		fi
+		shift
+	done
+}
+
+# Initialize variables
+
+filter="/usr/lbin/ln03rof"
+cmd=""
+queue=""
+xf=""
+sh=""
+
+#
+#			Code starts here
+#
+
+# Parse out filter options and lpr options
+# Of course it's up to the filter to decide if the option will be used.
+
+while getopts :f:P:z:w:i:O:K:I:o:l:xhs opt
+do
+	case $opt in
+	P)	queue="-P$OPTARG "	# Queue name
+		;;
+	h)	sh="-h "		# Suppress banner page
+		;;
+	x)	xf="-x "		# Use xf filter
+		;;
+	f)	filter="/usr/lbin/$OPTARG" # Specify alternate filter
+		;;
+	i)	cmd="$cmd -i$OPTARG"	# Indent
+		;;
+	l)	cmd="$cmd -l$OPTARG"	# Page length. Filter option.
+		;;
+	o)	cmd="$cmd -o$OPTARG"	# Output tray
+		;;
+	s)	print "ERROR: Symbolic link option -s not allowed!"
+		exit 1
+		;;
+	w)	cmd="$cmd -w$OPTARG"	# Page width
+		;;
+	z)	cmd="$cmd -l$OPTARG"	# Page length if lpr did support it.
+		;;
+	I)	cmd="$cmd -I$OPTARG"	# Input tray
+		;;
+	O)	cmd="$cmd -O$OPTARG"	# Orientation
+		;;
+	\?)	print "ERROR: Unknown option $OPTARG."
+		exit 1
+		;;
+	:)	print "ERROR: Option $OPTARG requires a parameter."
+		exit 1
+	esac
+done
+
+# Now remove all the options and (hopefully) leave only file names
+shift $OPTIND-1
+
+# Check to see if the print filter exists 
+[[ ! -a $filter ]] && print "ERROR: Print filter $filter not found!" && exit 1
+
+# If no filenames print a message and get out
+[[ -z $* ]] && print "ERROR: Missing filename argument!" && exit 1
+
+# Check to see if all the files specified exist
+fverify $*
+
+# The way the command option string is created the first two characters are
+# <space>- so if a command string exists remove the leading space
+[[ -n $cmd ]] && cmd=$(print "$cmd" | /bin/cut -c2- )
+
+# Now run each file through the filter and pipe the results to lpr
+fcat "$filter" "$cmd" $*  | /bin/lpr $queue$sh$x
+
+--------------2781446B794B--
+
+
+
+
+From 7349135576828615169
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,abf7ba2b4e478cd8
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,abf7ba2b4e478cd8
+X-Google-Attributes: gidfee84,public
+From: "Gerald A. Feldman" <"gafNoSPAM"@mediaone.net (Remove NoSpam)>
+Subject: Re: Creating a new root disk
+Date: 1998/04/09
+Message-ID: <6gjter$kj9$1@ndnws01.ne.highway1.com>#1/1
+X-Deja-AN: 342605185
+Content-Transfer-Encoding: 7bit
+References: <6ghcjc$pbv$1@nnrp1.dejanews.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Organization: Boston Computer Solutions and Consulting
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+wli@cincom.com wrote:
+> Question:
+> 
+> 1) is there a quick and easy way to duplicate the accounts and file systems
+> setting (we have two AdvFS on the 4.0D environment) on the 4.0B system? How
+> can I mount the "existing" AdvFS file systems on this 4.0B system?
+> 
+> 2) is there some way to mount the file systems (e.g. / and /usr) on the 4.0D
+> disk in the 4.0B environment?
+> 
+> 3) if I have to setup the AdvFS systems again on the new 4.0B system, can I
+> preserve the existing files/data on the file systems
+You certainly can mount the root and usr file systems from the 4.0D on
+the 4.0B system. I used to do that all the time with different base
+levels of 5.0. (for testing Kernels and libc). You cannot simply mount
+the 4.0D root as your 4.0B root. However, there are some changes on 4.0D
+which may render some 4.0D binaries unusable on 4.0B. Digital goes to
+great lengths to preserve binary compatibility so all of your 4.0B
+binaries should run on 4.0D. 
+-- 
+ Jerry Feldman <gaf@mediaone.net>
+ Boston Computer Solutions and Consulting
+ http://gaf.ne.mediaone.net/
+
+
+
+From 4897715404148073284
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,74bd32950267ab2
+X-Google-Attributes: gidf678f,public
+From: Chris King <chris@csking.demon.co.uk>
+Subject: Re: NAT/IP Masq equivalents in DU 4?
+Date: 1998/04/10
+Message-ID: <T1nEPZA+LfL1EwkC@csking.demon.co.uk>#1/1
+X-Deja-AN: 342703939
+References: <slrn6io7o1.b11.raptor@unix3.netaxs.com>
+MIME-Version: 1.0
+X-NNTP-Posting-Host: csking.demon.co.uk:194.222.53.110
+X-Complaints-To: abuse@demon.net
+X-Trace: news.demon.co.uk 892203912 nnrp-05:9057 NO-IDENT csking.demon.co.uk:194.222.53.110
+Organization: Brain For Hire
+Newsgroups: comp.unix.osf.misc
+
+
+In article <slrn6io7o1.b11.raptor@unix3.netaxs.com>, Eric Gatenby
+<raptor@mailhub.com> writes
+>
+>Hi.
+>
+>I was wondering if there are any software packages available for 
+>Digital UNIX 4.0 that perform address translation/IP masquarading
+>functions. I apologize if they are built-in to DU, but this is
+>my first experience with it and have no manuals, so I wouldn't even
+>know about it.. Any help or pointers would be appreciated.
+
+Eric
+
+As far as I know, DU 4.0 doesn't contain these functions.
+
+Your DU 4.0 media kit (assuming you have one !) should contain four
+CD's, one of which will contain on-line versions of the manuals.
+
+If you're looking for those sort of security features on DU, DEC will no
+doubt point you at the Digital/AltaVista Firewall for DU. It's an
+expensive solution though (up to $15,000 for an unlimited licence !),
+and you need to dedicate a machine to the task - running anything else
+on the machine could compromise the firewall's integrity.
+
+However, if you're looking at NAT/Masquerading merely to conserve IP
+addresses, it's overkill.
+
+Chris
+-- 
+Chris King
+chris@csking.demon.co.uk
+http://www.csking.demon.co.uk
+
+
+
+From -2224762117454940530
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,149b255f99b2f323,start
+X-Google-Attributes: gidf678f,public
+From: Bill Pompeii <bill.pompeii@lmco.com>
+Subject: Configuring new floppy drive
+Date: 1998/04/10
+Message-ID: <352E1C3E.41C6@lmco.com>#1/1
+X-Deja-AN: 342741939
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Organization: Lockheed Martin Federal Systems - Owego
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.misc
+
+
+Hi,
+
+What are the procedures for configuring a new floppy drive in a DEC
+Alphastation?  From what little I've found in various documents, I think
+it involves using the makedev or mknod commands, but exactly how is
+never made clear....
+
+Can anyone give me a clue???
+
+Thanks,
+Bill
+bill.pompeii@lmco.com
+
+
+
+From 1822110953422426969
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,abf7ba2b4e478cd8
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,abf7ba2b4e478cd8
+X-Google-Attributes: gidfee84,public
+From: alan@nabeth.cxo.dec.com (Alan Rollow - Dr. File System's Home for Wayward Inodes.)
+Subject: Re: Creating a new root disk
+Date: 1998/04/10
+Message-ID: <6glmf4$pc3$1@nntpd2.cxo.dec.com>#1/1
+X-Deja-AN: 342825972
+Distribution: world
+References: <6ghcjc$pbv$1@nnrp1.dejanews.com>
+Organization: Digital Equipment Corporation
+Reply-To: alan@nabeth.cxo.dec.com (Alan Rollow - Dr. File System's Home for Wayward Inodes.)
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+
+In article <6ghcjc$pbv$1@nnrp1.dejanews.com>, wli@cincom.com writes:
+
+>I wonder if there is a quick and easy to solve my problem. I have a DEC Alpha
+>Unix box running with 4.0D. For some reason, I installed DEC UNIX 4.0B system
+>on another disk on the SAME box.
+>
+>1) is there a quick and easy way to duplicate the accounts and file systems
+>setting (we have two AdvFS on the 4.0D environment) on the 4.0B system? How
+>can I mount the "existing" AdvFS file systems on this 4.0B system?
+
+Check the manual page for advscan(8).  I think it does what you want.
+Of the domains were touched by the later installation, getting them
+back is little more than creating a directory for each domain and
+creating the links to the devices.
+
+>2) is there some way to mount the file systems (e.g. / and /usr) on the 4.0D
+>disk in the 4.0B environment?
+
+It depends precisely on what you're trying to do.  If you want them
+for references to copy files over or to merge semi-customized files,
+just mount the file system somewhere.  I do this a lot since I have
+system disks for most previous versions I keep for testing.
+
+You want to use them directly, then no, you can't.  A large part of
+what a version V4.0D or V4.0B is the statically linked applications
+and the run-time libraries.  Mixing V4.0D applications and a V4.0B
+kernel is not wise.
+
+>3) if I have to setup the AdvFS systems again on the new 4.0B system, can I
+>preserve the existing files/data on the file systems
+
+Again, see advscan.  If you let it find the old domains and filesets
+you'll be ok.  Don't run mkfdmn or mkfset to create the domains and
+file sets, since that will overwrite the disks.
+
+
+>William
+>
+
+--
+Alan Rollow				alan@nabeth.cxo.dec.com
+
+
+
+
+From -1864852914300979549
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,f165e4f0dccffe00,start
+X-Google-Attributes: gidf678f,public
+From: Peter Smith <psmith01@mindspring.com>
+Subject: Configuring tape drive??
+Date: 1998/04/13
+Message-ID: <353287C0.E36FC728@mindspring.com>#1/1
+X-Deja-AN: 343717123
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Organization: PSINet
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.misc
+
+
+Are there any pointers I can get regarding  the configuration of a tape
+drive in my alpha 433 DU  4.0 D workstation??  It's a (SN-TLZ09-LK)
+Internal 4MM DAT 4/8GB drive that is already in my system - but from
+what I can tell - that's about it.  I looked for 'tz' and 'ta' stuff in
+the /dev directory but didn't find anything.  I also have 2 hard drives,
+a floppy, and a cdrom drive - all of which I was able to find 'some'
+kind of 'device' file for in the /dev directory.
+
+So do I begin with Makedev?  Is is simpler thru the GUI??
+
+Thanks for any/all pointers...
+
+--Peter--
+psmith01-at-mindspring.com
+
+
+
+
+
+
+From -4150671628676780636
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,f165e4f0dccffe00
+X-Google-Attributes: gidf678f,public
+From: Nikola Milutinovic <milutinn@EUnet.yu>
+Subject: Re: Configuring tape drive??
+Date: 1998/04/14
+Message-ID: <35337B67.750FD92B@EUnet.yu>#1/1
+X-Deja-AN: 343965254
+Content-Transfer-Encoding: 7bit
+References: <353287C0.E36FC728@mindspring.com>
+Content-Type: text/plain; charset=us-ascii
+Organization: Me organized? Not here!
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.misc
+
+
+Peter Smith wrote:
+> 
+> Are there any pointers I can get regarding  the configuration of a tape
+> drive in my alpha 433 DU  4.0 D workstation??  It's a (SN-TLZ09-LK)
+> Internal 4MM DAT 4/8GB drive that is already in my system - but from
+> what I can tell - that's about it.  I looked for 'tz' and 'ta' stuff in
+> the /dev directory but didn't find anything.  I also have 2 hard drives,
+> a floppy, and a cdrom drive - all of which I was able to find 'some'
+> kind of 'device' file for in the /dev directory.
+
+First of all, find out if your machine can see the tape (a standard
+tape, BTW, I have it on several machines). From firmware console (halted
+state) type:
+
+>>> sh dev
+Polling NCR
+......................................
+mka6.0.0.1.0	MKa600		TLZ09
+......................................
+
+You should see the tape (something like that above).
+
+Then make sure your kernel has been informed of it (built when the tape
+was in the machine), see file /sys/conf/<HOST_NAME_IN_CAPS>, I think (it
+was on 3.2G).
+
+Then you can do:
+
+# cd /dev
+# ./MAKEDEV tz6
+
+> So do I begin with Makedev?  Is is simpler thru the GUI??
+
+You can do that from GUI? Man, I gotta instal that 4.0D tomorrow.
+
+Nix.
+
+
+
+
+From 6945352454055727915
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f72b0,aff1177f70ab6797
+X-Google-Attributes: gidf72b0,public
+X-Google-Thread: f678f,aff1177f70ab6797
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: 102233,aff1177f70ab6797
+X-Google-Attributes: gid102233,public
+X-Google-Thread: 10663e,aff1177f70ab6797
+X-Google-Attributes: gid10663e,public
+X-Google-Thread: 10c665,aff1177f70ab6797
+X-Google-Attributes: gid10c665,public
+From: "Bob Bakh" <rbakh@mailsrv1.trw.com>
+Subject: Re: Clock time stop while turn off (HPUX); help
+Date: 1998/04/14
+Message-ID: <6h0jdf$k25$1@cronkite.sp.trw.com>#1/1
+X-Deja-AN: 344076728
+References: <6g0nb6$ctv$1@diana.bcn.ibernet.es>
+Reply-To: "Bob Bakh" <bob_o_bean@hotmail.com>
+X-MimeOLE: Produced By Microsoft MimeOLE V4.72.2106.4
+Organization: TRW, Inc.
+Newsgroups: comp.unix.misc,comp.unix.osf.misc,comp.unix.sys5.misc,comp.unix.sys5.r4,comp.unix.unixware.misc
+
+
+
+Don't shut it down.....
+
+
+
+
+
+From 8974691834425377718
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,c109f088f1b393aa,start
+X-Google-Attributes: gidf678f,public
+From: sstiasni@irb.hr (Sasa Stiasni)
+Subject: Re: Hire FreeBSD admin in Ohio
+Date: 1998/04/15
+Message-ID: <slrn6j8qdk.2uo.sstiasni@rudjer.irb.hr>#1/1
+X-Deja-AN: 344230516
+References: <6h1td9$gsn@ns1.qatar.net.qa>
+Organization: IRB,Zagreb,Croatia
+Reply-To: sstiasni@irb.hr
+Newsgroups: comp.unix.osf.misc
+
+
+On Wed, 15 Apr 1998 06:08:39 +0300, Abdullah <explorer@qatar.net.qa> wrote:
+>Hi all
+>
+>I need an Admin to Install FreeBSD 2.2.6. and BIND on my machine on Ohio.
+>
+>
+>Best Regards,
+>
+
+I would do it if I could get a visa for US :-)
+
+Sasa
+-- 
+mailto: sstiasni@irb.hr
+
+
+
+
+From -3109113360327913849
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: ffc1e,45235eca44f36e69,start
+X-Google-Attributes: gidffc1e,public
+X-Google-Thread: f678f,45235eca44f36e69,start
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,45235eca44f36e69,start
+X-Google-Attributes: gidfee84,public
+From: eh@adv.sbc.sony.co.jp (Eamon Hughes)
+Subject: Pthread context switch hook.
+Date: 1998/04/15
+Message-ID: <35350250.103246680@43.194.188.101>#1/1
+X-Deja-AN: 344416071
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Organization: Sony Pro Audio
+MIME-Version: 1.0
+Reply-To: eh@adv.sbc.sony.co.jp
+Newsgroups: comp.programming.threads,comp.unix.osf.misc,comp.unix.osf.osf1
+
+
+
+Is there any way of adding a hook that is called whenever a thread is
+context switched in or out.
+
+This is on DEC (Compaq) Digital Unix 4.0(b or d).
+
+Thanks.
+
+
+Eamon.
+
+--------
+Eamon.
+Work: eh@adv.sbc.sony.co.jp
+Home: eamon@finnmcol.demon.co.uk
+www: http://www.finnmcol.demon.co.uk
+
+#include <standard_disclaimer.h>
+
+Nothing takes the taste out of peanut butter quite like unrequited
+love.
+		-- Charlie Brown
+
+X-Prepost-Revision: 1.12
+X-Moon-Position: The Moon is Waning Gibbous (87.31% of Full).
+X-Mayan-Long-Count-Date: 12.19.5.1.14
+X-Mayan-Round-Count-Date: tzolkin = 7 Ix; haab = 7 Pop
+X-Julian-Day-Number: 2450919
+X-Julian-Date: Apr  2 19:53:01 1998
+
+!!!!!That's all folks!!!!!
+
+
+
+
+From 3930538063006339630
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,f165e4f0dccffe00
+X-Google-Attributes: gidf678f,public
+From: syl@alcor.concordia.ca (Sylvain Robitaille)
+Subject: Re: Configuring tape drive??
+Date: 1998/04/16
+Message-ID: <6h60dk$9gb$1@newsflash.concordia.ca>#1/1
+X-Deja-AN: 344824244
+References: <353287C0.E36FC728@mindspring.com>
+Organization: Concordia University, Montreal, Canada
+NNTP-Posting-User: syl
+Newsgroups: comp.unix.osf.misc
+
+
+On Mon, 13 Apr 1998 17:46:40 -0400, Peter Smith <psmith01@mindspring.com>
+wrote:
+
+> Are there any pointers I can get regarding  the configuration of a tape
+> drive in my alpha 433 DU  4.0 D workstation??  It's a (SN-TLZ09-LK)
+> Internal 4MM DAT 4/8GB drive that is already in my system - but from
+> what I can tell - that's about it.  I looked for 'tz' and 'ta' stuff in
+> the /dev directory but didn't find anything.  I also have 2 hard drives,
+> a floppy, and a cdrom drive - all of which I was able to find 'some'
+> kind of 'device' file for in the /dev directory.
+> 
+> So do I begin with Makedev?  Is is simpler thru the GUI??
+
+When I added a tape drive to one of our systems, first I needed to
+reconfigure the kernel to find the new drive (which involved having the
+kernel probe a new controller). You may not need to do that, but don't
+be surprised if you do.
+
+You can check to see if the kernel is finding the tape drive in
+question, by looking in the binary.errlog file. See the uerf(8) man
+page if you need help with reading that file.
+
+Look in the entry for a (recent) system restart for a line indicating
+that your tape drive has been found, ie:
+
+                                  tz21 at scsi2 target 5 lun 0 (LID=6) 
+                                  _(DEC     TLZ09     (C)DEC 0173) 
+
+Then in the /dev directory, as root, type './MAKEDEV tzXX' where 'XX' is
+the number that came up for the device in question. That will make the
+necessary device files to communicate with the tape drive.
+
+Upon re-reading your message, it occurs to me that you may be just
+looking for the wrong file names...
+
+look for /dev/rmt?[ahlm] and /dev/nrmt?[ahlm]
+
+The nrmt devices are non-rewinding. Actually, you can get a more
+detailed explanation than I can give you in the tz(7) man page.
+
+I hope that helps...
+
+-- 
+----------------------------------------------------------------------
+Sylvain Robitaille                              syl@alcor.concordia.ca
+
+Systems Manager                                   Concordia University
+Instructional & Information Technology        Montreal, Quebec, Canada
+----------------------------------------------------------------------
+
+
+
+From 3381754169246981496
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,50d12a25e2e4063f,start
+X-Google-Attributes: gidf678f,public
+From: "���Ͽ�" <H8905665@hanwha.co.kr>
+Subject: Q] Y2K problem of OSF/1 3.2F
+Date: 1998/04/17
+Message-ID: <6h6qsm$263$3@news.kornet.nm.kr>#1/1
+X-Deja-AN: 344920975
+X-MimeOLE: Produced By Microsoft MimeOLE V4.71.1712.3
+Organization: Korea Telecom
+Newsgroups: comp.unix.osf.misc
+
+
+Good Morning!
+
+We are using the Alpha, AXP 2100 5/300.
+I heard my friend that Alpha(OSF/1 3.2F) has Y2K problem.
+Now we don't upgrade the Operating System, because The running
+Program does not run in OSF/1 4.x.
+
+Please tell me the solution or prinion.
+
+Thank you.
+----------------------------------
+E-Mail : H8905665@hanwha.co.kr
+            IL YOUNG , CHUNG
+
+
+
+
+
+From 1849077672957357421
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,114dc1483728bd07,start
+X-Google-Attributes: gidf678f,public
+From: wolfanger@wolfcrews.com (Jeffrey Sick)
+Subject: purging retired users
+Date: 1998/04/17
+Message-ID: <35387964.81267957@news3.buffnet.net>#1/1
+X-Deja-AN: 345060613
+Content-Transfer-Encoding: 7bit
+Sender: jsick@136.183.3.106
+Content-Type: text/plain; charset=us-ascii
+Organization: WolfCrews
+Mime-Version: 1.0
+Newsgroups: comp.unix.osf.misc
+
+
+Is there a way to purge retired users without turning off the C2 
+(DEC UNIX 4.0D)?
+
+I run a script (sorta) that adds hundreds of users at a time, then
+later a similar one that deletes them all. The problem is that
+sometimes there will be some added a second time around that existed
+and were retired before and it won't add them a second time. If I turn
+off C2 before the mass retiring they go a way completely, I was hoping
+that I can do the same thing without turning odd C2 first.
+
+Thanks,
+Jeff
+
+wolfanger@wolfcrews.com
+http://www.wolfcrews.com
+
+
+Jeffrey James Wolfanger Sick
+VROC #207
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Buffalo State College
+Systems Programmer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+http://www.wolfcrews.com
+Home of The Wonderland Tarot 
+
+
+

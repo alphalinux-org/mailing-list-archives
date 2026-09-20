@@ -351,7 +351,7 @@ demise at the hands of script kiddies"), so most captures are 404 pages.
 - **marc.info**: "No such list".
 - **Gmane, mail-archive.com, archive.org items**: nothing for this list.
 
-## Usenet groups (comp.os.linux.alpha, comp.sys.dec, comp.sys.vms, comp.unix.tru64, comp.os.linux.announce, biz.digital.announce, biz.digital.articles)
+## Usenet groups (comp.os.linux.alpha, comp.sys.dec, comp.sys.vms, comp.unix.tru64, comp.os.linux.announce, comp.unix.osf.osf1, comp.unix.osf.misc, biz.digital.announce, biz.digital.articles)
 
 Real Usenet, not mailing lists. Gmane does not carry these (it mirrors
 mailing lists via NNTP, not the comp.* hierarchy). Eternal September has
@@ -387,8 +387,73 @@ so comp.* groups come from `usenet-comp` and the biz.digital.* groups from
 | comp.sys.vms | 1990-Jan – 2004-Sep | 876 | 7 |
 | comp.unix.tru64 | 2000-Apr – 2013-Mar | 14,500 | 0 |
 | comp.os.linux.announce | 1993-Apr – 2013-May | 13,052 | 0 |
+| comp.unix.osf.osf1 | 1992-Dec – 2004-Sep | 31,641 | 0 |
+| comp.unix.osf.misc | 1992-Oct – 2004-Jul | 6,090 | 0 |
 | biz.digital.announce | 1994-May – 2005-May | 750 | 0 |
 | biz.digital.articles | 1994-Apr – 2004-Apr | 771 | 0 |
+
+## tru64-unix-managers (formerly alpha-osf-managers)
+
+DEC OSF/1 Alpha system-administration list run from ORNL by Dave Sill.  It
+started as `alpha-osf-managers@ornl.gov` and was **renamed** to
+`tru64-unix-managers@ornl.gov` on 1999-03-16; it is one continuous list, not
+two, so everything lives in `tru64-unix-managers-mbox/`.
+
+The rename is documented by the list owner himself, in the daily reminder
+that the retired `alpha-osf-managers` address posted through the second half
+of 1999 ("On March 16, 1999, the alpha-osf-managers list was renamed to
+tru64-unix-managers ... I set up a \"dummy\" list that would tell people about
+the change").
+
+### 1994-April – 2002-April (marc.info)
+**Source:** marc.info list `tru64-unix-managers` (marc holds the whole list
+under its post-rename name, back to 1994-04)
+**Script:** `fetch-marc-list.py tru64-unix-managers tru64-unix-managers-mbox 199404 200204`
+**Output:** `tru64-unix-managers-mbox/YYYY-Month.mbox`
+**Quality:** Reconstructed. marc.info rebuilds headers: no Message-ID, no
+In-Reply-To, addresses obfuscated (`user () host ! com`). This is the only
+source for the pre-2002 years, which are also the list's busiest
+(~4,800–7,500 messages/year 1995–2001).
+**Note:** because marc messages carry no Message-ID, public-inbox cannot
+deduplicate them against the Gmane messages.  marc is therefore fetched only
+for the months Gmane does not cover, even though marc's own index shows more
+messages than Gmane for the overlapping years (56,347 total across
+1994-04 – 2012-09 versus Gmane's 9,450).
+
+### 2002-May – 2012-September (Gmane, 120 months, 9,450 messages)
+**Source:** Gmane (news.gmane.io), group `gmane.os.tru64.managers`
+**Script:** `fetch-gmane-nntp.py gmane.os.tru64.managers tru64-unix-managers-mbox`
+**Output:** `tru64-unix-managers-mbox/gmane-YYYY-Month.mbox`
+**Quality:** Good: full headers, Message-ID on every message (0 missing).
+The list goes quiet after 2004 and the last message is 2012-09-28.
+
+### Sources investigated, not used
+- **mail-archive.com `alpha-osf-managers@sws1.ctd.ornl.gov`**: dead today
+  (404); Wayback holds 117 of its message pages, and every one of them is the
+  same daily "the list was renamed" reminder, 1999-08-23 through 1999-12-18.
+  No list content whatsoever, so not converted. It is still what proves the
+  rename date.
+- **marc.info `alpha-osf-managers` / `osf-managers` / `tru64-unix`**: "No such
+  list"; marc files everything under `tru64-unix-managers`.
+- **Wayback for ornl.gov**: no mailing-list archive pages captured under any
+  ornl.gov host.
+
+## osf-faq
+
+`osf-faq@crl.dec.com` and `osf-faq@lcs.mit.edu` are **not** list addresses.
+They are the Message-ID domains of the periodic DEC OSF/1 FAQ postings, whose
+IDs look like `<osf-faq_739048052@lcs.mit.edu>` and
+`<osf-faq_766112432@crl.dec.com>` (the number is the posting's Unix
+timestamp). The FAQs themselves were Usenet periodic postings carrying
+`Archive-name: dec-faq/osf1` and `Archive-name: dec-faq/common`, posted to
+comp.unix.osf.osf1 and comp.unix.osf.misc.
+
+No mailing list by that name is indexed anywhere (marc.info, Gmane,
+mail-archive.com: nothing), and the string `osf-faq@` never appears outside
+those Message-IDs in 37,731 archived comp.unix.osf.* messages.  The content
+is therefore preserved through the Usenet groups above: 24 `dec-faq/osf1` and
+26 `dec-faq/common` postings, including 11 carrying the `osf-faq_*`
+Message-ID.
 
 ## Coverage summary
 
@@ -424,5 +489,9 @@ so comp.* groups come from `usenet-comp` and the biz.digital.* groups from
 | 1990-Jan – 2004-Sep | comp.sys.vms | archive.org usenet-comp | Good |
 | 2000-Apr – 2013-Mar | comp.unix.tru64 | archive.org usenet-comp | Good |
 | 1993-Apr – 2013-May | comp.os.linux.announce | archive.org usenet-comp | Good |
+| 1992-Dec – 2004-Sep | comp.unix.osf.osf1 | archive.org usenet-comp | Good |
+| 1992-Oct – 2004-Jul | comp.unix.osf.misc | archive.org usenet-comp | Good |
+| 1994-Apr – 2002-Apr | tru64-unix-managers (as alpha-osf-managers to 1999-Mar) | marc.info | Reconstructed |
+| 2002-May – 2012-Sep | tru64-unix-managers | Gmane NNTP | Good (full headers) |
 | 1994-May – 2005-May | biz.digital.announce | archive.org usenet-biz | Good |
 | 1994-Apr – 2004-Apr | biz.digital.articles | archive.org usenet-biz | Good |

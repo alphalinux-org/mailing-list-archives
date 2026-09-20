@@ -1,0 +1,179 @@
+From tru64-unix-managers  Fri Nov 11 12:44:32 1994
+From: John Peden <pdxjfp () evol ! gene ! nottingham ! ac ! uk>
+Date: Fri, 11 Nov 1994 12:44:32 +0000
+To: tru64-unix-managers
+Subject: Summary: RX26 Floppy drive
+X-MARC-Message: https://marc.info/?l=tru64-unix-managers&m=96075316706432
+
+
+
+Thanks to all those who replied, there were three main
+threads to the suggestions. 
+
+a) use newfs /dev/rfd0c rx26   before mounting 
+the disk ( this however produced a disk full error )
+
+It was suggested to look at the disklabel using
+disklabel -rw /dev/[r]fd0c RX26 ( not character device error)
+
+b) use scu -f /dev/rfd0c 
+(this produced a -- not a character type device error )
+
+c) get mtools version 2.0.7 and apply a alpha OSF patch,
+which I include in this posting. This was the most
+successful option.
+
+Option C worked, I can now read and write files
+to the RX26 in a MSDOS compatable manner. I still
+however can't treat this drive as a ordinary OSF/UFS
+device ( still unable to mount it as a file system )
+but mtools answers almoat all of my problems.
+
+
+Many thanks to 
+jrosenfe@darwin.cc.nd.edu ( joseph rosenfeld )
+stellr@smyrna.cc.vt.edu   ( Ray Stell )
+8810057q@fizix.levels.unisa.edu.au (Angela Nolan )
+anthony.baxter@aaii.oz.au (Anthony Baxter)
+sanjay@gough.ce.berkeley.edu
+im@uvo.dec.com (  nagroM W sirdI  )
+steve@eiscat.ag.rl.ac.uk  ( Steve Crothers )
+Georges.Dubus@univ-lille1.fr ( Georges Dubus ) 
+kobig@neora.iso.dec.com (  Kobi Gover )
+jjd@uamc12.fmc.uam.es   (Jose Jesus Dorado Montero)
+
+
+john peden
+
+
+
+/////////////////////////////cut here//////////////////////////////////
+
+diff -cr mtools-2.0.7/Makefile mtools-2.0.7.alpha/Makefile
+*** mtools-2.0.7/Makefile	Thu Sep 10 16:10:46 1992
+--- mtools-2.0.7.alpha/Makefile	Thu Oct 06 08:52:59 1994
+***************
+*** 13,20 ****
+  # for Xenix
+  #CFLAGS = -O -M2e -DINT16 -DXENIX -DLOCKF
+  #LDFLAGS = -s -M2e -i -f 5000
+  
+! CFLAGS	= -O -DSPARC -DBSD
+  LDFLAGS	= -s
+  LD	= $(CC)
+  LINT	= lint
+--- 13,26 ----
+  # for Xenix
+  #CFLAGS = -O -M2e -DINT16 -DXENIX -DLOCKF
+  #LDFLAGS = -s -M2e -i -f 5000
++ # for Alpha/OSF
++ #CFLAGS = -O -DBSD -DFLOCK
+  
+! # For Alpha/OSF use installbsd
+! INSTALL=installbsd
+! #INSTALL=install
+! 
+! CFLAGS	= -O -DBSD -DFLOCK
+  LDFLAGS	= -s
+  LD	= $(CC)
+  LINT	= lint
+***************
+*** 107,128 ****
+  
+  install: all
+  	-mkdir $(BINDIR)
+! 	for prog in $(PROGS); do install $$prog $(BINDIR)/$$prog; gln -sf ../mtools/$$prog ${DETDIR}/usr/local/bin; done
+! 	install -c -m 644 Mattrib.1 $(MANDIR)/mattrib.$(MANEXT)
+! 	install -c -m 644 Mcd.1 $(MANDIR)/mcd.$(MANEXT)
+! 	install -c -m 644 Mcopy.1 $(MANDIR)/mcopy.$(MANEXT)
+! 	install -c -m 644 Mdel.1 $(MANDIR)/mdel.$(MANEXT)
+! 	install -c -m 644 Mdir.1 $(MANDIR)/mdir.$(MANEXT)
+! 	install -c -m 644 Mformat.1 $(MANDIR)/mformat.$(MANEXT)
+! 	install -c -m 644 Mlabel.1 $(MANDIR)/mlabel.$(MANEXT)
+! 	install -c -m 644 Mmd.1 $(MANDIR)/mmd.$(MANEXT)
+! 	install -c -m 644 Mrd.1 $(MANDIR)/mrd.$(MANEXT)
+! 	install -c -m 644 Mread.1 $(MANDIR)/mread.$(MANEXT)
+! 	install -c -m 644 Mren.1 $(MANDIR)/mren.$(MANEXT)
+! 	install -c -m 644 Mtools.1 $(MANDIR)/mtools.$(MANEXT)
+! 	install -c -m 644 Mtype.1 $(MANDIR)/mtype.$(MANEXT)
+! 	install -c -m 644 Mwrite.1 $(MANDIR)/mwrite.$(MANEXT)
+! 	install -c -m 644 Mkmanifest.1 $(MANDIR)/mkmanifest.$(MANEXT)
+  
+  clean:
+  	rm $(PROGS) *.o core a.out tags TAGS
+--- 113,134 ----
+  
+  install: all
+  	-mkdir $(BINDIR)
+! 	for prog in $(PROGS); do $(INSTALL) $$prog $(BINDIR)/$$prog; done
+! 	$(INSTALL) -c -m 644 Mattrib.1 $(MANDIR)/mattrib.$(MANEXT)
+! 	$(INSTALL) -c -m 644 Mcd.1 $(MANDIR)/mcd.$(MANEXT)
+! 	$(INSTALL) -c -m 644 Mcopy.1 $(MANDIR)/mcopy.$(MANEXT)
+! 	$(INSTALL) -c -m 644 Mdel.1 $(MANDIR)/mdel.$(MANEXT)
+! 	$(INSTALL) -c -m 644 Mdir.1 $(MANDIR)/mdir.$(MANEXT)
+! 	$(INSTALL) -c -m 644 Mformat.1 $(MANDIR)/mformat.$(MANEXT)
+! 	$(INSTALL) -c -m 644 Mlabel.1 $(MANDIR)/mlabel.$(MANEXT)
+! 	$(INSTALL) -c -m 644 Mmd.1 $(MANDIR)/mmd.$(MANEXT)
+! 	$(INSTALL) -c -m 644 Mrd.1 $(MANDIR)/mrd.$(MANEXT)
+! 	$(INSTALL) -c -m 644 Mread.1 $(MANDIR)/mread.$(MANEXT)
+! 	$(INSTALL) -c -m 644 Mren.1 $(MANDIR)/mren.$(MANEXT)
+! 	$(INSTALL) -c -m 644 Mtools.1 $(MANDIR)/mtools.$(MANEXT)
+! 	$(INSTALL) -c -m 644 Mtype.1 $(MANDIR)/mtype.$(MANEXT)
+! 	$(INSTALL) -c -m 644 Mwrite.1 $(MANDIR)/mwrite.$(MANEXT)
+! 	$(INSTALL) -c -m 644 Mkmanifest.1 $(MANDIR)/mkmanifest.$(MANEXT)
+  
+  clean:
+  	rm $(PROGS) *.o core a.out tags TAGS
+diff -cr mtools-2.0.7/devices.c mtools-2.0.7.alpha/devices.c
+*** mtools-2.0.7/devices.c	Thu Sep 10 16:11:17 1992
+--- mtools-2.0.7.alpha/devices.c	Wed Feb 09 08:54:18 1994
+***************
+*** 103,108 ****
+--- 103,115 ----
+  };
+  #endif /* SUN386 */
+  
++ #ifdef __alpha
++ struct device devices[] = {
++ 	{'A', "/dev/rfd0c", 0L, 12, 0, (int (*) ()) 0, 80, 2, 18},
++ 	{'A', "/dev/rfd0c", 0L, 12, 0, (int (*) ()) 0, 80, 2, 9},
++ 	{'\0', (char *) NULL, 0L, 0, 0, (int (*) ()) 0, 0, 0, 0}
++ };
++ #endif /* __alpha */
+    
+  #ifdef SPARC_ODD
+  #include <sys/types.h>
+
+From tru64-unix-managers  Thu Nov 10 16:51:32 1994
+From: John Peden <pdxjfp () evol ! gene ! nottingham ! ac ! uk>
+Date: Thu, 10 Nov 1994 16:51:32 +0000
+To: tru64-unix-managers
+Subject: RX26 Floppy drive
+X-MARC-Message: https://marc.info/?l=tru64-unix-managers&m=96075316706409
+
+
+Hi all
+
+How do you get a RX26 floppy drive to work ??
+
+I have found the fddisk -fmt command so I can format a floppy and I
+can do the following
+
+
+cat testfile  > dev/fd0a ; more /dev/fd0a 
+
+but how do I acess it as a normal filesystem
+when I try to mount it, I get a no valid filesystem 
+error. 
+
+I am trying to use 3M-HD floppy disks.
+
+No documentation came with the RX26.
+
+
+
+john peden
+Dept. of Genetics
+Nottingham
+England
+

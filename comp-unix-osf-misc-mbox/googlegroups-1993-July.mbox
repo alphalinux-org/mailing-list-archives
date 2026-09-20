@@ -1,0 +1,1506 @@
+From -6656225679361719659
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,f259aa9c293823f3,start
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-07 23:49:55 PST
+Path: gmd.de!xlink.net!howland.reston.ans.net!darwin.sura.net!haven.umd.edu!uunet!munnari.oz.au!metro!grivel!godel.une.edu.au!norm
+From: norm@godel.une.edu.au (Norman Gaywood)
+Newsgroups: comp.unix.osf.misc
+Subject: Exporting /usr with DEC OSF/1
+Keywords: usr export DEC OSF
+Message-ID: <1277@grivel.une.edu.au>
+Date: 8 Jul 93 06:46:18 GMT
+Sender: usenet@grivel.une.edu.au
+Lines: 73
+Nntp-Posting-Host: godel.une.edu.au
+
+
+DEC do not supply DMS with OSF so I thought I would do some mutilations
+to (mostly) the startup scripts to allow /usr to be mounted across the
+net.  Before you start, you need to have all machines up and running
+with their own local /usr. Designate one the server machine and the
+others client machines.  Here are the steps I then took:
+
+On all machines.
+
+ 1. /var needs to be its own file system, independent of /usr, on each
+    machine. In this setup /var will be mounted before /usr. Currently
+    OSF has /var pointing to /usr/var. We need to do it the other way
+    round. So /usr/var should be pointing to ../var
+
+    # ls -ld /usr/var /var
+    lrwxr-xr-x   1 root     bin            6 Jul 08 11:51 /usr/var -> ../var
+    drwxr-xr-x  14 root     system       512 Feb 06 01:38 /var
+
+On the server machine:
+
+ 2. edit /etc/exports to contain the line:
+
+    /usr -root=0 client [client ....]
+
+On the client machine(s):
+
+ 3. Edit /etc/fstab to contain the line:
+
+    /usr@server     /usr    nfs rw,bg 0 0
+
+ 4. Edit /sbin/rc2 and /sbin/rc3 and comment out, near the start, the
+    lines:
+
+    # Just exit if /usr not mounted.
+    if [ ! -d "/usr/sbin" ]
+    then
+           exit
+    fi
+ 
+ 5. Move /sbin/rc3.d/S20nfsmount to /sbin/rc3.d/S02nfsmount. This will
+    mount the /usr partition just after the network initialization and
+    before other rc3 scripts require /usr files.
+
+Now reboot your client machines. The old /usr partition on the client
+can be used for something else.
+
+Problems you may encounter are:
+
+ 1. This will only work for a simple network. If your nfs mounts
+    require routed (or gated) to find the server, you can't do this. You
+    somehow need to start routed before you mount /usr. Problem is that
+    routed is in /usr/sbin and requires shared libs. So just copying
+    routed to /sbin is not useful. 
+
+ 2. When it comes to upgrade time, the situation becomes a little
+    complicated. The way I would go about it is to first upgrade the
+    server. Then either connect a scratch disk to the clients, do an
+    install with /usr on the scratch disk and then follow the above
+    steps. Or you could just copy the new files over from the server to
+    the client local areas and rebuild a kernel for the clients. I have
+    not tested these methods.
+
+ 3. DEC probably won't talk to you if you have a problem with all
+    this.
+
+Hope someone finds this useful.
+
+BTW, how can I get a statically linked routed?
+
+--
+Norman Gaywood. Department of Mathematics, Statistics and Computing Science.
+University of New England, Armidale, NSW 2351, Australia.
+Internet: norm@godel.une.edu.au, phone: +61 67 732412, fax: +61 67 733312
+
+
+From 656241802379882839
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,2183877c1cad7a62
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-08 09:46:15 PST
+Path: gmd.de!xlink.net!sol.ctr.columbia.edu!howland.reston.ans.net!noc.near.net!transfer.stratus.com!sw.stratus.com!giroti
+From: giroti@sw.stratus.com (Sudhir Giroti)
+Newsgroups: comp.unix.osf.misc
+Subject: Re: DCE Question
+Date: 8 Jul 1993 16:35:50 GMT
+Organization: Stratus Computer, Inc.
+Lines: 42
+Distribution: usa
+Message-ID: <21hid6$74m@transfer.stratus.com>
+References: <C9Hyrw.C3K@da_vinci.it.uswc.uswest.com>
+NNTP-Posting-Host: katie.sw.stratus.com
+
+-------
+
+> Is anyone aware of work being done (besides DME -- whatever it becomes and 
+> whenever it shows up) on DCE administration tools that help present a more
+> unified view of multiple cells ?  Right now, via rgy_edit, cdscp, ... you
+> administer each cell's CDS, security registry and any other administration
+> tasks separately.  Is anyone aware of whether  OSF, any vendors and/or any
+> users are working on administration applications that can help in this problem
+> domain ???
+
+That's right the DME development is going slower than anticipated and 
+the spec shipment is pushed form Dec to 1st Qtr next year as reported 
+among others by Comm Week Apr 5. OSF however has no revised schedules.
+
+In addition to the DME there is a somewhat relevent product. I don't
+have any experience what-so-ever with the product but this is just 
+from some published literature I guess the Info-world (May/June) /
+Comm Week. And I don't know if its even close to what DME offers but
+I guess there are probably some overlaps in functionality.
+
+Atrium Technologies recently announced the Distributed Common System 
+Services (DCSS) kit which is a set of appl. services that appl devlopers
+can incrporate in their distributed client/svr appls. This is based on
+the DCE. It has 3 components: 
+- Distributed Access Control Mgr which is used for central administation 
+and access priv checking.   
+- Notification Service for msg based comm
+- and the API to send and receive event msgs.
+
+
+> A second question -- I don't think a single machine can be a member of more
+> than one cell (either as a client or server), is this correct ?  But I thought
+> someone at one time posted that a human could physically log into multiple
+> cells, for instance opening up a couple of windows on your workstation and
+> dce_login`ing into two different cells -- can this be done ?
+
+I don't think so in 101 or 102; but please post if otherwise.
+
+-- 
+Sudhir Giroti
+giroti@katie.sw.stratus.com 
+***************************************************************************
+
+
+From -3023140650779462704
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,b611b5b2e5b80bba
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-08 10:04:36 PST
+Path: gmd.de!xlink.net!howland.reston.ans.net!noc.near.net!transfer.stratus.com!sw.stratus.com!giroti
+From: giroti@sw.stratus.com (Sudhir Giroti)
+Newsgroups: comp.unix.osf.misc
+Subject: Re: DCE Platforms
+Date: 8 Jul 1993 16:58:08 GMT
+Organization: Stratus Computer, Inc.
+Lines: 31
+Distribution: world
+Message-ID: <21hjn0$74m@transfer.stratus.com>
+References: <21cihtINNge6@darkstar.UCSC.EDU>
+NNTP-Posting-Host: katie.sw.stratus.com
+
+---
+
+> I am writing a technical note on DCE, and was wondering
+> what platforms DCE now exists for, besides ULTRIX.
+
+1. On DEC's OSF/1 out in May though a Starter's kit was available
+   for both OSF/1 and Ultrix systems during the last year.* 
+2. On DEC's OpenVMS debuting end of this year.*
+3. DEC also thinking of porting it on Window's NT.*
+   [NT currently incorporates RPC of DCE]. 
+4. DCE incorporated into IBM AIX. **
+5. IBM will ship DCE-compliant OS/2 ver 2.0, 2.1 and Window3.1 
+   this summer. **
+6. Hewlett-Packard's HP_UX.** 
+   They have also announced Encina/9000.
+7. Apple is "considering" to incorporate it on Macs. **
+8. Tandem has also committed to supporting DCE on NonStop and 
+Integrity platforms though no availability dates are being 
+attached to this committment. Schedule will be announced soon.+
+
+You probably know that ~9 companies participated in the OSF's
+Interoperability Festival past April followed by the Challenge`93.
+
+* According to Network World May-17
+** According to Comm week Apr-26
++ According to FT Systems April 1993 issue.
+
+-- 
+Sudhir Giroti
+giroti@katie.sw.stratus.com 
+***************************************************************************
+
+
+From -385490850617572363
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,b611b5b2e5b80bba
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-08 13:39:03 PST
+Newsgroups: comp.unix.osf.misc
+Path: gmd.de!xlink.net!howland.reston.ans.net!noc.near.net!das-news.harvard.edu!cantaloupe.srv.cs.cmu.edu!abh
+From: Andrew Hastings <abh+@transarc.com>
+Subject: Re: DCE Platforms
+Message-ID: <C9v41G.nt.2@cs.cmu.edu>
+Originator: abh@M.GP.CS.CMU.EDU
+Sender: news@cs.cmu.edu (Usenet News System)
+Nntp-Posting-Host: m.gp.cs.cmu.edu
+Organization: Transarc Corp., Pittsburgh
+References: <21cihtINNge6@darkstar.UCSC.EDU> <21hjn0$74m@transfer.stratus.com>
+Date: Thu, 8 Jul 1993 20:10:28 GMT
+Lines: 5
+
+In article <21cihtINNge6@darkstar.UCSC.EDU> scooper@fir.ucsc.edu (Scott Cooper) writes:
+>I am writing a technical note on DCE, and was wondering
+>what platforms DCE now exists for, besides ULTRIX.
+
+DCE is also available for SunOS 4.1 and Solaris 2 from Transarc.
+
+
+From -7768758157716435845
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,b611b5b2e5b80bba
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-09 09:03:51 PST
+Path: gmd.de!xlink.net!howland.reston.ans.net!noc.near.net!transfer.stratus.com!sw.stratus.com!giroti
+From: giroti@sw.stratus.com (Sudhir Giroti)
+Newsgroups: comp.unix.osf.misc
+Subject: Re: DCE Platforms
+Date: 9 Jul 1993 15:51:43 GMT
+Organization: Stratus Computer, Inc.
+Lines: 13
+Distribution: world
+Message-ID: <21k46f$cas@transfer.stratus.com>
+References: <21cihtINNge6@darkstar.UCSC.EDU>
+NNTP-Posting-Host: katie.sw.stratus.com
+
+-----
+> I am writing a technical note on DCE, and was wondering
+> what platforms DCE now exists for, besides ULTRIX.
+
+DCE functions, I have read, will also be added by IBM to OS/2 LAN 
+server system.  
+
+---
+Standard disclaimers. All these are my views.
+---
+Sudhir Giroti
+giroti@katie.sw.stratus.com 
+***************************************************************************
+
+
+From 711771979089627106
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,e852e6be505a8e7a
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-11 12:54:53 PST
+Newsgroups: comp.unix.osf.misc
+Path: gmd.de!Germany.EU.net!mcsun!uunet!europa.eng.gtefsd.com!howland.reston.ans.net!math.ohio-state.edu!magnus.acs.ohio-state.edu!csn!col.hp.com!news.dtc.hp.com!hpscit.sc.hp.com!hpuerca.atl.hp.com!sailer
+From: sailer@atl.hp.com (Lee Sailer)
+Subject: Re: DCE and Oracle 7
+Sender: news@hpuerca.atl.hp.com ( News admin)
+Message-ID: <CA0M2o.CAM@hpuerca.atl.hp.com>
+Date: Sun, 11 Jul 1993 19:27:59 GMT
+References: <C9p0zp.D8x@hpwin052.uksr.hp.com>
+Organization: HP Atlanta Educational Services Organization
+X-Newsreader: TIN [version 1.2 PL0.8]
+Lines: 26
+
+Eric LUTHERER (eric@cimosa.grenoble.hp.com) wrote:
+
+> We are planning to use Oracle 7 database in conjunction with the DCE product
+> from OSF on HP platforms. We wonder at which level Oracle 7 and DCE can
+> interoperate together, especially when using DCE multi-threading capabilities.
+
+> Which kind of precautionary measures do we need to take when using Oracle 7 
+> access in different threads of the same UNIX process ?
+
+   I think you are going to have to make some interesting *design* decisions.
+For example, Oracle (or any toher RDBMS for that matter) offers its own
+security and naming services, and of course so does DCE.  So you are
+going to be constantly choosing between two distinct ways of accomplishing
+the same type of thing.
+
+
+    Also, I am curious about how you plan to implement two- or three-
+tiered systems using Oracle 7.  
+
+    From what I can see (I haven't tried any of this, but I have thought
+about it a little) you can (1) use all of Oracle's many capabilities,
+and then have a hard time fitting it and DCE together, or (2) you can
+use Oracle as a sort of dumb database backend, and lose may of Oracle's
+useful capabilities.
+
+    Tough choice.
+
+
+From -8697308668334388099
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,b611b5b2e5b80bba
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-11 12:54:53 PST
+Newsgroups: comp.unix.osf.misc
+Path: gmd.de!Germany.EU.net!mcsun!uunet!europa.eng.gtefsd.com!howland.reston.ans.net!math.ohio-state.edu!magnus.acs.ohio-state.edu!csn!col.hp.com!news.dtc.hp.com!hpscit.sc.hp.com!hpuerca.atl.hp.com!sailer
+From: sailer@atl.hp.com (Lee Sailer)
+Subject: Re: DCE Platforms
+Sender: news@hpuerca.atl.hp.com ( News admin)
+Message-ID: <CA0MCs.CCG@hpuerca.atl.hp.com>
+Date: Sun, 11 Jul 1993 19:34:04 GMT
+References: <21cihtINNge6@darkstar.UCSC.EDU> <21hjn0$74m@transfer.stratus.com>
+Organization: HP Atlanta Educational Services Organization
+X-Newsreader: TIN [version 1.2 PL0.8]
+Lines: 42
+
+Sudhir Giroti (giroti@sw.stratus.com) wrote:
+> ---
+
+> > I am writing a technical note on DCE, and was wondering
+> > what platforms DCE now exists for, besides ULTRIX.
+
+> 1. On DEC's OSF/1 out in May though a Starter's kit was available
+>    for both OSF/1 and Ultrix systems during the last year.* 
+> 2. On DEC's OpenVMS debuting end of this year.*
+> 3. DEC also thinking of porting it on Window's NT.*
+>    [NT currently incorporates RPC of DCE]. 
+
+   From what I've seen, Microsoft has rewritten DCE with a functionally
+equivalent but syntactically different API (that is, they changed all the
+function names 8-( ).  Micrsoft doesn't have security ready to go yet,
+either, I think.
+
+> 4. DCE incorporated into IBM AIX. **
+> 5. IBM will ship DCE-compliant OS/2 ver 2.0, 2.1 and Window3.1 
+>    this summer. **
+> 6. Hewlett-Packard's HP_UX.** 
+>    They have also announced Encina/9000.
+
+   HP has shipped thousands of copies of DCE since it was released in
+April.  There are also a number of HP customers who have been using
+DCE in a serious way for about a year.
+
+   (OK.  A **little** commercial.  Sorry 8-)
+
+The part numbers on my CD-ROMs
+
+   Series 700:	B2920-13601
+   Series 800:	B3190-13601
+
+These are the April release.  I don't know if the newer release has newer
+numbers or not.
+
+> 7. Apple is "considering" to incorporate it on Macs. **
+> 8. Tandem has also committed to supporting DCE on NonStop and 
+> Integrity platforms though no availability dates are being 
+> attached to this committment. Schedule will be announced soon.+
+
+
+
+From 6378294874019199575
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,701cc1afe1995c75,start
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,701cc1afe1995c75,start
+X-Google-Attributes: gidfee84,public
+X-Google-ArrivalTime: 1993-07-12 12:57:30 PST
+Xref: gmd.de comp.unix.osf.osf1:611 comp.unix.osf.misc:331
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+Path: gmd.de!newsserver.jvnc.net!howland.reston.ans.net!ux1.cso.uiuc.edu!usenet.ucs.indiana.edu!browneyes.ucs.indiana.edu!levanon
+From: levanon@browneyes.ucs.indiana.edu (Jacob Levanon)
+Subject: NNTP port to Alpha/OSF1 - has it been done?
+Message-ID: <CA2Hox.Ao3@usenet.ucs.indiana.edu>
+Keywords: NNTP, Alpah, OSF/1
+Lines: 11
+Sender: news@usenet.ucs.indiana.edu (USENET News System)
+Nntp-Posting-Host: browneyes.ucs.indiana.edu
+Reply-To: levanon@browneyes.ucs.indiana.edu (Jacob Levanon)
+Organization: University Computing Services/Indiana University
+Date: Mon, 12 Jul 1993 19:48:33 GMT
+
+
+--
+I am looking for a port of nntp to Alpha/OSF1 - has any one done it?
+
+Thanks.
+ ___________________________________________________________________
+{ Jacob Levanon                    /\    Network Applications Group }
+{ University Computing Services    ||           levanon@indiana.edu }
+{ Indiana University               \/                (812) 855-2598 }
+ -------------------------------------------------------------------
+
+
+
+From 6891200092680256318
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,b611b5b2e5b80bba
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-13 03:05:01 PST
+Path: gmd.de!newsserver.jvnc.net!howland.reston.ans.net!usc!sdd.hp.com!ncr-sd!npg-sd!jessani
+From: jessani@npg-sd.SanDiegoCA.NCR.COM (Vinod Jessani)
+Newsgroups: comp.unix.osf.misc
+Subject: Re: DCE Platforms
+Message-ID: <6297@npg-sd.SanDiegoCA.NCR.COM>
+Date: 12 Jul 93 17:04:36 GMT
+References: <21cihtINNge6@darkstar.UCSC.EDU> <21hjn0$74m@transfer.stratus.com> <CA0MCs.CCG@hpuerca.atl.hp.com>
+Organization: NCR Corp., Network Products - San Diego
+Lines: 16
+
+In <CA0MCs.CCG@hpuerca.atl.hp.com> sailer@atl.hp.com (Lee Sailer) writes:
+
+>Sudhir Giroti (giroti@sw.stratus.com) wrote:
+>> ---
+
+>> > I am writing a technical note on DCE, and was wondering
+>> > what platforms DCE now exists for, besides ULTRIX.
+
+
+NCR successfully demonstrated DCE, at both IFEST and CHALLENGE.
+
+Cheers,
+Vinod
+
+-- 
+Vinod Jessani
+
+
+From -7118737734030105138
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: 10d023,f41e536812de53d7,start
+X-Google-Attributes: gid10d023,public
+X-Google-Thread: 1385d5,f41e536812de53d7,start
+X-Google-Attributes: gid1385d5,public
+X-Google-Thread: f6653,f41e536812de53d7,start
+X-Google-Attributes: gidf6653,public
+X-Google-Thread: 114b0c,f41e536812de53d7,start
+X-Google-Attributes: gid114b0c,public
+X-Google-Thread: f678f,f41e536812de53d7,start
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-13 14:32:04 PST
+Xref: gmd.de comp.unix.osf.misc:333 comp.sys.sun.wanted:3004 comp.sys.sun.misc:9220 comp.sys.hp:20746
+Newsgroups: comp.unix.osf.misc,comp.sys.sun.wanted,comp.sys.sun.misc,comp.sys.hp,comp.protcols.tcp-ip.domains
+Path: gmd.de!xlink.net!sol.ctr.columbia.edu!math.ohio-state.edu!cs.utexas.edu!swrinde!elroy.jpl.nasa.gov!decwrl!amdcad!dvorak.amd.com!altmann
+From: altmann@amd.com (Bruce Altmann)
+Subject: NameSpace Desgin
+Message-ID: <1993Jul13.195739.1910@dvorak.amd.com>
+Followup-To: bruce.altmann@amd.com
+Sender: usenet@dvorak.amd.com (Usenet News)
+Organization: Advanced Micro Devices
+Distribution: usa
+Date: Tue, 13 Jul 93 19:57:39 GMT
+Lines: 34
+
+
+I have been tasked with the project of researching and recommending
+a namespace (uid, gid, file sharing, security) design for all
+of AMD.
+
+We currently use NIS and DNS. We are looking at DCE & NIS+.
+
+My questions are: 
+
+Are there any other environments for namespace admin?
+
+What is the plan for SUN and DCE (tranarc omitted)?
+
+Any other pointers?
+
+(can you say white paper :-))
+
+
+Thanks,
+
+________________________________________________________________________
+Bruce Altmann         Network & System Engineer
+ _______
+ \____  |Advanced     Work Group Systems
+ /|   | |Micro        5204 E. Ben White M/S 552
+| |___| |Devices      Austin, Texas 78741
+|____/ \|
+---------bruce.altmann@AMD.COM VOICE:512.462.5744 FAX:512.462.5719-------
+
+-- 
+________________________________________________________________________
+Bruce Altmann         Network & System Engineer
+ _______
+ \____  |Advanced     Work Group Systems
+
+
+From -1120800812246162211
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,6ad0bde5cf9317c4,start
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,6ad0bde5cf9317c4,start
+X-Google-Attributes: gidfee84,public
+X-Google-ArrivalTime: 1993-07-14 15:31:10 PST
+Xref: gmd.de comp.unix.osf.osf1:620 comp.unix.osf.misc:334
+Path: gmd.de!xlink.net!scsing.switch.ch!news.univie.ac.at!paladin.american.edu!howland.reston.ans.net!ux1.cso.uiuc.edu!uwm.edu!rutgers!walter!porthos!iscp.bellcore.com!wws
+From: wws@iscp.bellcore.com (Wayne Scott)
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+Subject: ioctl() & printers on DEC Alpha/OSF1
+Keywords: I'm not getting what I thought I would
+Message-ID: <1993Jul14.203133.10966@porthos.cc.bellcore.com>
+Date: 14 Jul 93 20:31:33 GMT
+Sender: netnews@porthos.cc.bellcore.com (USENET System Software)
+Distribution: usa
+Organization: Bellcore
+Lines: 13
+
+Hi Folks:
+
+	I'm trying to use the ioctl() function to query the status of the
+LA75 line printer attached to a DEC Alpha workstation running OSF1.
+The trouble is, no matter what state the printer is in - power off, paper out,
+etc. - ioctl() returns 0.  I'm doing the same thing I did on an RS/6000
+last year.  On the RS/6000 I could find out everything I wanted to.
+
+	Is there a bug in ioctl(), or is the printer device driver not
+responding appropriately?
+
+Thanks,
+Wayne Scott
+
+
+From 3438230136962651525
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,b611b5b2e5b80bba
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-14 23:25:33 PST
+Newsgroups: comp.unix.osf.misc
+Path: gmd.de!Germany.EU.net!mcsun!ub4b!snibru!autolix.cb.sni.be!Patrick.Vrancken
+From: Patrick.Vrancken@sni.be (Patrick Vrancken)
+Subject: Re: DCE Platforms
+Organization: Siemens Nixdorf Information Systems - Belgium
+Date: Thu, 15 Jul 1993 07:45:07
+Message-ID: <Patrick.Vrancken.7.0007C0BD@sni.be>
+Lines: 60
+X-Newsreader: Trumpet for Windows [Version 1.0 Rev Final Beta #7]
+References: <21cihtINNge6@darkstar.UCSC.EDU> <21hjn0$74m@transfer.stratus.com> <CA0MCs.CCG@hpuerca.atl.hp.com> <6297@npg-sd.SanDiegoCA.NCR.COM>
+Keywords: DCE, SNI
+Sender: From: Patrick.Vrancken@sni.be (Patrick Vrancken)
+
+In article <6297@npg-sd.SanDiegoCA.NCR.COM> jessani@npg-sd.SanDiegoCA.NCR.COM (Vinod Jessani) writes:
+>Path: snibru!ub4b!mcsun!uunet!news.cnri.reston.va.us!newsserver.jvnc.net!howland.reston.ans.net!usc!sdd.hp.com!ncr-sd!npg-sd!jessani
+>From: jessani@npg-sd.SanDiegoCA.NCR.COM (Vinod Jessani)
+>Newsgroups: comp.unix.osf.misc
+>Subject: Re: DCE Platforms
+>Message-ID: <6297@npg-sd.SanDiegoCA.NCR.COM>
+>Date: 12 Jul 93 17:04:36 GMT
+>References: <21cihtINNge6@darkstar.UCSC.EDU> <21hjn0$74m@transfer.stratus.com> <CA0MCs.CCG@hpuerca.atl.hp.com>
+>Organization: NCR Corp., Network Products - San Diego
+>Lines: 16
+
+
+>In <CA0MCs.CCG@hpuerca.atl.hp.com> sailer@atl.hp.com (Lee Sailer) writes:
+
+>>Sudhir Giroti (giroti@sw.stratus.com) wrote:
+>>> ---
+
+>>> > I am writing a technical note on DCE, and was wondering
+>>> > what platforms DCE now exists for, besides ULTRIX.
+
+
+SNI (Siemens Nixdorf Information System, Europe based) has also proved that 
+its DCE implementation was interoperable with the other implementations 
+(during IFEST, I guess. I don't know precisely what we showed at Challenge 
+'93). 
+
+I have played with the implementation od DCE V1.00 for months an am now busy 
+with the imple. of DCE V1.01 running on Intel, MIPS based UNIX (Sinix) systems 
+and on MS-Windows PCs.
+
+Also, looking at all the answers already posted, I did not see any mention of
+the OSF version of DCE implemented by the the vendors .... (1.00; 1.01, ..? ?)
+ 
+SNI has also made the reference port on SVR4 for USL, so I guess for 
+instance that Olivetti has also an implementation of DCE (no details about 
+this).
+
+BTW, I think BULL is also busy with DCE.
+
+
+This were the European DCE News ... {:o)
+
+
+Enjoy,
+
+patrick.
+SNI D9 Consulting, Brussels, Belgium
+
+
+
+----------------------------------------------------------------------
+Disclaimer:   Those are my opinions and maybe not those of my Company.
+              My boss does not even know I can post news ........ {:o)
+----------------------------------------------------------------------
+Patrick Vrancken	Siemens Nixdorf Information Systems - Brussels
+D9, Consulting UNIX	Patrick.Vrancken@sni.be
+----------------------------------------------------------------------
+
+
+
+
+
+From 7059490905852129834
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,b611b5b2e5b80bba
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-15 09:16:08 PST
+Newsgroups: comp.unix.osf.misc
+Path: gmd.de!xlink.net!howland.reston.ans.net!usc!elroy.jpl.nasa.gov!swrinde!cs.utexas.edu!geraldo.cc.utexas.edu!portal.austin.ibm.com!awdprime.austin.ibm.com!jwade
+From: jwade@austin.ibm.com ()
+Subject: Re: DCE Platforms
+Sender: news@austin.ibm.com (News id)
+Message-ID: <CA7ovz.33JM@austin.ibm.com>
+Date: Thu, 15 Jul 1993 15:11:58 GMT
+References: <21cihtINNge6@darkstar.UCSC.EDU>
+Organization: IBM Austin
+X-Newsreader: TIN [version 1.1 PL6]
+Lines: 21
+
+IBM has been shipping AIX DCE 1.1 based on OSF DCE 1.0.1 since December 1992.
+We just announced AIX DCE 1.2 which is based on OSF DCE 1.0.2 in July.
+We have had DCE for OS/2 in Beta since January 1993.  This is also based
+on OSF DCE 1.0.1.
+
+Scott Cooper (scooper@fir.ucsc.edu) wrote:
+: I am writing a technical note on DCE, and was wondering
+: what platforms DCE now exists for, besides ULTRIX.
+: 
+: thanks.
+: ---
+: Scott Cooper				scooper@cse.ucsc.edu
+: 
+
+--
+
+-------------------------------------------------------------------------------
+| Jim Wade, DCE Consulting Services  | Token-ring = jwade@rebel.austin.ibm.com|
+| T/L 678-3723, Austin, TX           | VNET       = JWADE@AUSTIN              |
+| 512-838-3723                       | Internet   = jwade@austin.ibm.com      |
+-------------------------------------------------------------------------------
+
+
+From 4151175159663379914
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,fb7d30cdbe7debec,start
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,92f31bafc1256763
+X-Google-Attributes: gidfee84,public
+X-Google-ArrivalTime: 1993-07-15 18:47:15 PST
+Xref: gmd.de comp.unix.osf.osf1:627 comp.unix.osf.misc:337
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+Path: gmd.de!newsserver.jvnc.net!howland.reston.ans.net!noc.near.net!uunet!boulder!news!grunwald
+From: grunwald@frob.cs.colorado.edu (Dirk Grunwald)
+Subject: Re: DCE/Posix threads 
+In-Reply-To: grunwald@foobar.cs.Colorado.EDU's message of Fri, 16 Jul 1993 01:02:27 GMT
+Message-ID: <GRUNWALD.93Jul15191130@frob.cs.colorado.edu>
+Sender: news@colorado.edu (The Daily Planet)
+Nntp-Posting-Host: frob.cs.colorado.edu
+Reply-To: grunwald@foobar.cs.colorado.edu
+Organization: University of Colorado at Boulder
+References: <1993Jul16.010227.13204@colorado.edu>
+Date: 16 Jul 1993 01:11:30 GMT
+Lines: 2
+
+
+(sorry about the multiple post, we have a cheesy news server)
+
+
+From -8500663415523104404
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,fb7d30cdbe7debec
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,92f31bafc1256763
+X-Google-Attributes: gidfee84,public
+X-Google-ArrivalTime: 1993-07-15 23:13:27 PST
+Xref: gmd.de comp.unix.osf.osf1:628 comp.unix.osf.misc:338
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+Path: gmd.de!xlink.net!howland.reston.ans.net!usc!sdd.hp.com!col.hp.com!csn!boulder!news!grunwald
+From: grunwald@frob.cs.colorado.edu (Dirk Grunwald)
+Subject: DCE/Posix threads
+Message-ID: <GRUNWALD.93Jul15185916@frob.cs.colorado.edu>
+Sender: news@colorado.edu (The Daily Planet)
+Nntp-Posting-Host: frob.cs.colorado.edu
+Reply-To: grunwald@foobar.cs.colorado.edu
+Organization: University of Colorado at Boulder
+Distribution: na
+Date: 16 Jul 1993 00:59:16 GMT
+Lines: 13
+
+
+
+I need to know how DCE/Posix threads access per-pthread information.
+On our KSR-1, there is a compiler directive '__private' that lets me
+indicate a copy of that variable should be allocated for each pthread
+that is created. There is no such directive on our DEC AXP 3000/400.
+
+In the DCE environment, I'm beginning to suspect that you must depend
+on the intial argument value passed into the thread. Is this the case?
+Any examples would be helpful.
+
+Thanks,
+Dirk Grunwald                          Asst. Prof, Univ. of Colorado at Boulder
+
+
+From 8944796536204763176
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,fb7d30cdbe7debec
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,92f31bafc1256763
+X-Google-Attributes: gidfee84,public
+X-Google-ArrivalTime: 1993-07-15 23:20:10 PST
+Xref: gmd.de comp.unix.osf.osf1:629 comp.unix.osf.misc:339
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+Path: gmd.de!xlink.net!howland.reston.ans.net!noc.near.net!uunet!boulder!news!grunwald
+From: grunwald@frob.cs.colorado.edu (Dirk Grunwald)
+Subject: DCE/Posix threads
+Message-ID: <GRUNWALD.93Jul15185451@frob.cs.colorado.edu>
+Sender: news@colorado.edu (The Daily Planet)
+Nntp-Posting-Host: frob.cs.colorado.edu
+Reply-To: grunwald@foobar.cs.colorado.edu
+Organization: University of Colorado at Boulder
+Distribution: na
+Date: 16 Jul 1993 00:54:51 GMT
+Lines: 13
+
+
+
+I need to know how DCE/Posix threads access per-pthread information.
+On our KSR-1, there is a compiler directive '__private' that lets me
+indicate a copy of that variable should be allocated for each pthread
+that is created. There is no such directive on our DEC AXP 3000/400.
+
+In the DCE environment, I'm beginning to suspect that you must depend
+on the intial argument value passed into the thread. Is this the case?
+Any examples would be helpful.
+
+Thanks,
+Dirk Grunwald                          Asst. Prof, Univ. of Colorado at Boulder
+
+
+From 3313583602299668373
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fee84,92f31bafc1256763
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,fb7d30cdbe7debec
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-16 05:19:41 PST
+Xref: gmd.de comp.unix.osf.osf1:633 comp.unix.osf.misc:340
+Path: gmd.de!xlink.net!howland.reston.ans.net!usc!cs.utexas.edu!uunet!pipex!uknet!zaphod.axion.bt.co.uk!nwinton
+From: nwinton@axion.bt.co.uk (Neil Winton)
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+Subject: Re: DCE/Posix threads
+Date: 16 Jul 1993 12:17:52 GMT
+Organization: BT Laboratories
+Lines: 33
+Distribution: na
+Message-ID: <22669g$4oq@zaphod.axion.bt.co.uk>
+References: <GRUNWALD.93Jul15185451@frob.cs.colorado.edu>
+NNTP-Posting-Host: newton.axion.bt.co.uk
+
+In article <GRUNWALD.93Jul15185451@frob.cs.colorado.edu>, grunwald@frob.cs.colorado.edu (Dirk Grunwald) writes:
+|> 
+|> 
+|> I need to know how DCE/Posix threads access per-pthread information.
+|> On our KSR-1, there is a compiler directive '__private' that lets me
+|> indicate a copy of that variable should be allocated for each pthread
+|> that is created. There is no such directive on our DEC AXP 3000/400.
+|> 
+|> In the DCE environment, I'm beginning to suspect that you must depend
+|> on the intial argument value passed into the thread. Is this the case?
+|> Any examples would be helpful.
+
+Sorry I don't have an example to hand, but you should look at the routines
+pthread_keycreate(), pthread_setspecific and pthread_getspecific(). These
+routines allow "per thread global" information to be stored and retrieved. 
+Basically you create a key (which is shared by all threads) and then associate
+specific data with it on a per-thread basis.  So you effectively have a key which
+"means the same thing" to each thread, but which has a different value for each
+thread.  This seems pretty much the semantics of __private you describe above.
+
+|> Thanks,
+|> Dirk Grunwald                          Asst. Prof, Univ. of Colorado at Boulder
+
+I haven't used this, so it is just my understanding of the documentation, but I
+hope it helps.
+
+	Neil
+
+*   Neil Winton			G306a, SSTF Building	This sentence       *
+*   N.Winton@axion.bt.co.uk	BT Laboratories		has two missing,    *
+*   Tel +44 473 646079		Martlesham Heath	but you can still   *
+*   Fax +44 473 643019		IPSWICH IP5 7RE, UK	sense of it.        *
+
+
+
+From -5888472992707686538
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fee84,92f31bafc1256763
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,fb7d30cdbe7debec
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-16 19:39:51 PST
+Xref: gmd.de comp.unix.osf.osf1:637 comp.unix.osf.misc:341
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+Path: gmd.de!xlink.net!howland.reston.ans.net!agate!ames!elroy.jpl.nasa.gov!swrinde!cs.utexas.edu!uunet!psinntp!ibism!gjb
+From: gjb@fig.citib.com (Greg Brail)
+Subject: Re: DCE/Posix threads
+Message-ID: <CAA554.1pA@fig.citib.com>
+Sender: news@fig.citib.com
+Organization: Citibank IBISM
+References: <GRUNWALD.93Jul15185451@frob.cs.colorado.edu>
+Distribution: na
+Date: Fri, 16 Jul 1993 22:58:16 GMT
+Lines: 23
+
+In article <GRUNWALD.93Jul15185451@frob.cs.colorado.edu> grunwald@foobar.cs.colorado.edu writes:
+>
+>I need to know how DCE/Posix threads access per-pthread information.
+>On our KSR-1, there is a compiler directive '__private' that lets me
+>indicate a copy of that variable should be allocated for each pthread
+>that is created. There is no such directive on our DEC AXP 3000/400.
+
+Of course, every thread has its own stack, although I don't think
+that's what you mean. 
+
+There's also the pthread_setspecific function, which associates some
+arbitrary data (i.e. a pointer) with a key on a thread-specific basis.
+This, eash thread can access some private data via that key.
+
+So if I define a "private" global variable on the KSR-1, will the
+system automatically give each thread a private copy of that variable?
+Pretty cool.
+
+				greg
+
+
+-- 
+Greg Brail ------------------ Citibank -------------------- gjb@fig.citib.com
+
+
+From -3176037555590528138
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fee84,92f31bafc1256763
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,fb7d30cdbe7debec
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-19 12:00:34 PST
+Xref: gmd.de comp.unix.osf.osf1:638 comp.unix.osf.misc:342
+Path: gmd.de!xlink.net!howland.reston.ans.net!spool.mu.edu!think.com!paperboy.osf.org!osf.org!sp
+From: sp@osf.org (Simon Patience)
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+Subject: Re: DCE/Posix threads
+Date: 16 Jul 1993 08:45:10 GMT
+Organization: Open Software Foundation
+Lines: 35
+Distribution: na
+Message-ID: <225pqm$2ha@paperboy.osf.org>
+References: <GRUNWALD.93Jul15185451@frob.cs.colorado.edu>
+NNTP-Posting-Host: mirabeau.gr.osf.org
+
+In article <GRUNWALD.93Jul15185451@frob.cs.colorado.edu>, grunwald@frob.cs.colorado.edu (Dirk Grunwald) writes:
+> I need to know how DCE/Posix threads access per-pthread information.
+
+DCE threads are 1003.4a Draft 4 based I believe.
+There are three calls to manage thread specific data.
+	pthread_keycreate(pthread_key_t *key,
+			  void (*destructor)(void *));
+	pthread_get_specific(pthread_key_t *key,
+			     void **value);
+	pthread_set_specific(pthread_key_t *key,
+			     void *value);
+
+The key can be set up at any time and is usable by any thread. Threads
+then associate any value they wish to the key, which will be stored in per
+thread way by the threads library. You can create a number of these keys.
+
+The pthread_get_specific() interface has changed slightly in later drafts
+to return the value rather than storing it the location indicated by the
+parameter, but this will not be implemented yet.
+
+> On our KSR-1, there is a compiler directive '__private' that lets me
+> indicate a copy of that variable should be allocated for each pthread
+> that is created. There is no such directive on our DEC AXP 3000/400.
+
+While the __private key may seem very useful, you will have noticed that it
+doesn't lead to portable code.
+
+Simon.
+
+-- 
+  Simon Patience
+  Open Software Foundation			Phone: +33-76-63-48-72
+  Research Institute				FAX:   +33-76-51-05-32
+  2 Avenue De Vignate				Email: sp@gr.osf.org
+  38610 Gieres, France				       uunet!gr.osf.org!sp
+
+
+From -1795758244416682517
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,10625971af478785,start
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-22 04:21:17 PST
+Newsgroups: comp.unix.osf.misc
+Path: gmd.de!xlink.net!sol.ctr.columbia.edu!howland.reston.ans.net!noc.near.net!mv!synergy.Synergytics.Com!marc
+From: marc@synergy.Synergytics.Com (Marc Evans)
+Subject: Re: Dialing a modem from OSF/1 on DEC Alpha systems.
+Nntp-Posting-Host: synergy.synergytics.com
+Keywords: how do I do it?
+References:  <1993Jul21.195908.9922@porthos.cc.bellcore.com>
+Sender: usenet@mv.mv.com (Usenet News)
+Organization: Synergytics
+Date: Thu, 22 Jul 1993 11:04:30 GMT
+Message-ID: <CAKC3J.Eyu@mv.mv.com>
+Reply-To: Marc@Synergytics.Com
+Distribution: usa
+Lines: 26
+
+In article <1993Jul21.195908.9922@porthos.cc.bellcore.com>, wws@iscp.bellcore.com (Wayne Scott) writes:
+|> Hi Folks:
+|> 
+|> 	When I worked on AIX, I could use the "slattach" command to attach
+|> a serial line to a network and dial the modem.  However, slattach doesn't work
+|> the same on OSF/1.  It doesn't allow for a dialstring.  My question is, how do
+|> I dial from OSF/1 on a DEC Alpha system.  If the answer is to RTFM, then how
+|> do I find the answer quickly?
+
+The quickest thing is to use tip(1). Alternatively, you could
+grab the tipx(1) sources from ftp.uu.net which supports chat
+scripts (though porting it is less then trivial, but doable). The
+solution I like best though is to use taylor UUCP with a custom
+chat mechanism (because I like being connected 24 hours and this
+solution provides a simple way to reconnect quickly if the
+connection is severed).
+
+- Marc
+
+-- 
+===========================================================================
+Marc Evans - Marc@Synergytics.COM           | Synergytics     (603)635-8876
+WB1GRH     - WB1GRH@WA1YTW.NH.USA           | 21 Hinds Ln, Pelham, NH 03076
+---------------------------------------------------------------------------
+                      Unix and X11 Software Consultant 
+===========================================================================
+
+
+From 346325351733593311
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,9708325951035096,start
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-22 04:29:40 PST
+Path: gmd.de!newsserver.jvnc.net!howland.reston.ans.net!ux1.cso.uiuc.edu!vixen.cso.uiuc.edu!uwm.edu!caen!batcomputer!ghost.dsi.unimi.it!univ-lyon1.fr!scsing.switch.ch!sun.rediris.es!goofy.fi.upm.es!cipres.datsi.fi.upm.es!mliebana
+Newsgroups: comp.unix.osf.misc
+Subject: Debugging OSF/1 BSD server.
+Message-ID: <1993Jul22.125319.62@goofy.fi.upm.es>
+From: mliebana@cipres.datsi.fi.upm.es (Miguel Angel Liebana Presa)
+Date: 22 Jul 93 12:53:18 +0200
+Distribution: world
+Organization: Dpto. Arquitectura. Universidad Politecnica de Madrid
+Nntp-Posting-Host: cipres.datsi.fi.upm.es
+Lines: 32
+
+
+	We are actually modifiying OSF/1 Release 1.0.4 MK 4.1 in
+order to provide Posix 1003.4 services and we  are looking for a clean way of 
+debugging our new systems calls.
+
+	In the instalation guide provided with our copy of OSF/1 exists an 
+appendix with some hints about the kernel debugger(ddb). This appendix also 
+cites the man pages of the kernel debugger, but it has been imposible to find
+them.
+
+    Does anyone knows how to get information about the kernel debugger?
+
+	As we are modifiying the server/emulator built of OSF/1 we also need 
+to debug the server. The usual way of doing this is by means of a second 
+BSD server and 'gdb', but again the information we have isn't enough to make 
+it work. 
+
+
+-----------------------------------------------------------------------------
+Name: Miguel Angel Liebana Presa
+E-mail: mliebana@datsi.fi.upm.es (138.100.9.1)
+Department: Computer Architecture Department.
+Center: Facultad de Informatica. ( Computer Science )
+University: Universidad Politecnica de Madrid. 
+Country: Spain.
+-----------------------------------------------------------------------------
+
+
+
+
+    
+
+
+
+From -1503750094896222614
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,10625971af478785
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fee84,fdb0b64a2a3cc343,start
+X-Google-Attributes: gidfee84,public
+X-Google-ArrivalTime: 1993-07-22 06:43:18 PST
+Xref: gmd.de comp.unix.osf.osf1:667 comp.unix.osf.misc:345
+Newsgroups: comp.unix.osf.osf1,comp.unix.osf.misc
+Path: gmd.de!xlink.net!news.dfn.de!scsing.switch.ch!news.univie.ac.at!paladin.american.edu!howland.reston.ans.net!math.ohio-state.edu!cs.utexas.edu!uunet!walter!porthos!iscp.bellcore.com!wws
+From: wws@iscp.bellcore.com (Wayne Scott)
+Subject: Dialing a modem from OSF/1 on DEC Alpha systems.
+Organization: Bellcore
+Distribution: usa
+Date: Wed, 21 Jul 93 19:59:08 GMT
+Message-ID: <1993Jul21.195908.9922@porthos.cc.bellcore.com>
+Followup-To: wws@cc.bellcore.com
+Keywords: how do I do it?
+Sender: netnews@porthos.cc.bellcore.com (USENET System Software)
+Lines: 11
+
+Hi Folks:
+
+	When I worked on AIX, I could use the "slattach" command to attach
+a serial line to a network and dial the modem.  However, slattach doesn't work
+the same on OSF/1.  It doesn't allow for a dialstring.  My question is, how do
+I dial from OSF/1 on a DEC Alpha system.  If the answer is to RTFM, then how
+do I find the answer quickly?
+
+Thanks,
+Wayne Scott
+
+
+
+From -879447762601117392
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: fee84,5d2a9af1743fddbe
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,9708325951035096
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-22 15:48:18 PST
+Xref: gmd.de comp.unix.osf.misc:346 comp.unix.osf.osf1:672
+Path: gmd.de!newsserver.jvnc.net!yale.edu!think.com!paperboy.osf.org!osf.org!sp
+From: sp@osf.org (Simon Patience)
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1
+Subject: Re: Debugging OSF/1 BSD server.
+Date: 22 Jul 1993 13:01:43 GMT
+Organization: Open Software Foundation
+Lines: 25
+Distribution: world
+Message-ID: <22m33n$g61@paperboy.osf.org>
+References: <1993Jul22.125319.62@goofy.fi.upm.es>
+NNTP-Posting-Host: mirabeau.gr.osf.org
+
+In article <1993Jul22.125319.62@goofy.fi.upm.es>, mliebana@cipres.datsi.fi.upm.es (Miguel Angel Liebana Presa) writes:
+> 	In the instalation guide provided with our copy of OSF/1 exists an 
+> appendix with some hints about the kernel debugger(ddb). This appendix also 
+> cites the man pages of the kernel debugger, but it has been imposible to find
+> them.
+> 
+>     Does anyone knows how to get information about the kernel debugger?
+
+You should find the man page in src/mach_kernel/man/ddb.man
+
+> 	As we are modifiying the server/emulator built of OSF/1 we also need 
+> to debug the server. The usual way of doing this is by means of a second 
+> BSD server and 'gdb', but again the information we have isn't enough to make 
+> it work. 
+
+What problems are you having?
+
+Simon.
+
+-- 
+  Simon Patience
+  Open Software Foundation			Phone: +33-76-63-48-72
+  Research Institute				FAX:   +33-76-51-05-32
+  2 Avenue De Vignate				Email: sp@osf.org
+  38610 Gieres, France				       uunet!osf.org!sp
+
+
+From 8449389003740512140
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: 106aa4,122824586e095ca3,start
+X-Google-Attributes: gid106aa4,public
+X-Google-Thread: f678f,122824586e095ca3,start
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-23 07:02:52 PST
+Xref: gmd.de comp.unix.osf.misc:347 comp.parallel:3949
+Newsgroups: comp.unix.osf.misc,comp.parallel
+Path: gmd.de!xlink.net!howland.reston.ans.net!gatech!hubcap!bounce-back
+From: thm@thi.informatik.uni-frankfurt.de (Uwe Thiemann)
+Subject: DCE Monitoring
+Message-ID: <1993Jul23.131430.13530@hubcap.clemson.edu>
+Followup-To: comp.unix.osf.misc
+Sender: news@informatik.uni-frankfurt.de
+Reply-To: thm@thi.informatik.uni-frankfurt.de
+Organization: Johann Wolfgang Goethe-Universitt
+Follow-Up: comp.parallel
+Date: 23 Jul 93 09:23:10 GMT
+Approved: parallel@hubcap.clemson.edu
+Lines: 12
+
+
+I am looking for any information about the topic
+"Monitoring in Distributed Systems", especially in
+DCE.
+
+Each hint or comment is welcome.
+
+Uwe Thiemann
+thm@thi.cs.uni-frankfurt.de
+
+
+
+
+
+From -6689582624304972577
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,92ab0a490240648f,start
+X-Google-Attributes: gidf678f,public
+X-Google-Thread: fa21f,92ab0a490240648f,start
+X-Google-Attributes: gidfa21f,public
+X-Google-Thread: f72b0,92ab0a490240648f,start
+X-Google-Attributes: gidf72b0,public
+X-Google-Thread: 10183f,92ab0a490240648f,start
+X-Google-Attributes: gid10183f,public
+X-Google-Thread: fbee8,92ab0a490240648f,start
+X-Google-Attributes: gidfbee8,public
+X-Google-Thread: f6cb1,92ab0a490240648f,start
+X-Google-Attributes: gidf6cb1,public
+X-Google-Thread: fee84,92ab0a490240648f,start
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: fb0d8,92ab0a490240648f,start
+X-Google-Attributes: gidfb0d8,public
+X-Google-ArrivalTime: 1993-07-25 22:03:00 PST
+Xref: gmd.de comp.unix.osf.misc:348 comp.unix.osf.osf1:683 comp.unix.large:505 comp.unix.misc:6388 comp.org.sug:524
+Path: gmd.de!Germany.EU.net!mcsun!uunet!caen!malgudi.oar.net!epenviron.eapi.com!epenviron.eapi.com!not-for-mail
+From: frankb@epenviron.eapi.com (Frank Brock)
+Newsgroups: comp.unix.osf.misc,comp.unix.osf.osf1,comp.unix.large,comp.unix.misc,ca.unix,aus.sun-works,cam.sug,can.sun-stroke,can.usrgroup,chile.comp.sun,comp.org.sug,cu.slug,la.slug
+Subject: proprietary system vs. open systems I say!
+Date: 25 Jul 1993 21:39:32 -0400
+Organization: Eagle-Picher Industries Inc.
+Lines: 24
+Distribution: comp
+Message-ID: <22vckk$hnn@epenviron.eapi.com>
+NNTP-Posting-Host: epenviron.eapi.com
+Summary: make an argument for opens systems /with a biz slant/
+Keywords: closed open business proprietary
+
+i must make a presentation to a group of financial/business/non-tech
+people on the merits of open systems and the evils of proprietary
+systems.  the talk must have financial/biz slant.  great technical
+arguments would fall on deaf/ignorant ears.  it must answer the 
+question of why it makes business $en$e to use an open system.  it
+also must leave behind the vague and superficial statements that
+i have read in the trade rags and jump into specific details!
+
+for example, these financial wizards are going to say "why shouldn't
+we buy an a/s400?"  i need to make a nice, linear, logical argument
+against this kind of question and for an open system.
+
+has anyone ever had to make this pitch before?  can you tell me about it?
+
+has anyone ever heard a good talk on this subject?  and know the author?
+
+do you know of a better group where i can make this appeal for input?
+
+
+thanks for the input.
+
+frank brock
+
+
+
+
+From 8720605169476263689
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,afdb2e5452a82b61,start
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-28 04:17:27 PST
+Newsgroups: comp.unix.osf.misc
+Path: gmd.de!xlink.net!math.fu-berlin.de!informatik.tu-muenchen.de!NewsServ!segner
+From: segner@Informatik.TU-Muenchen.DE (Peter Segner)
+Subject: DCE already ported to HP ?
+Sender: news@Informatik.TU-Muenchen.DE (USENET Newssystem)
+Organization: Technische Universitaet Muenchen, Germany
+Date: Wed, 28 Jul 1993 11:07:55 GMT
+Message-ID: <segner.743857675@NewsServ>
+Lines: 15
+
+Hallo,
+
+the subject says all. We dont like to invent the wheel another time, 
+exist there any portings to the HP ?
+
+Thanks in advance.
+
+
+         _  _ _  _ _  _             Peter Segner 
+         |\/| |\ | |\/|             Department of Computer Science
+         |  | | \| |  |             Technical University Munich
+      ======= TEAM =======          Arcisstrasse 21
+                                    D-80333 Munich, Germany
+ Munich Network Management Team     Phone: +49-89-2105-2039, Fax: -8116    
+ Muenchner Netz-Management Team     E-Mail: segner@informatik.tu-muenchen.de
+
+
+From 4068599901745769702
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,afdb2e5452a82b61
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-28 04:32:43 PST
+Newsgroups: comp.unix.osf.misc
+Path: gmd.de!xlink.net!howland.reston.ans.net!vixen.cso.uiuc.edu!sdd.hp.com!hpscit.sc.hp.com!hplextra!hplb!hpwin052!mikec
+From: mikec@hplona90.uksr.hp.com (Mike Croom)
+Subject: Re: DCE already ported to HP ?
+Sender: news@hpwin052.uksr.hp.com (News Administrator)
+Message-ID: <CAvGvJ.JFJ@hpwin052.uksr.hp.com>
+Date: Wed, 28 Jul 1993 11:21:18 GMT
+Reply-To: mikec@hplona90.uksr.hp.com
+References: <segner.743857675@NewsServ>
+Nntp-Posting-Host: hplona90.uksr.hp.com
+Organization: HP PSO , Central London
+X-Newsreader: TIN [version 1.2 PL0.8]
+Lines: 9
+
+Yes, for some time now. We have now started shipping Encina on top of DCE
+We add some goodies like tracing and a snapshot utility. 
+
+----------------------------------------------------------------------------
+| Mike Croom                       mikec@hplona90.uksr.hp.com              -
+| Financial Services PSO                                                   -
+| London UK                        -----------------------------------------
+| +44-71-936-8772  TELNET-31 57772            Eschew obfuscation           -
+| VoiceMail +44-344-367538         ----------------------------------------- 
+
+
+From -7960435438766032962
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,55892b4c1697d67b,start
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-28 10:06:07 PST
+Path: gmd.de!xlink.net!howland.reston.ans.net!paladin.american.edu!news.univie.ac.at!fuw.edu.pl!cyfronet!galaxy.uci.agh.edu.pl!galaxy.uci.agh.edu.pl!not-for-mail
+From: cinek@galaxy.uci.agh.edu.pl (Marcin Klimowski z PK)
+Newsgroups: comp.unix.osf.misc
+Subject: NT vs OSF/1  - your choice  ??
+Date: 28 Jul 1993 18:25:27 +0200
+Organization: University of Mining & Metallurgy
+Lines: 10
+Message-ID: <23699nINN3di@galaxy.uci.agh.edu.pl>
+NNTP-Posting-Host: galaxy.uci.agh.edu.pl
+X-Newsreader: TIN [version 1.1 PL8]
+
+My school is going to buy some ALPHA DECstation.
+What would you advice to run on it MS Windows NT , or OSF/1 with Motif ??
+I have never used any of them , so i can not choose.
+If you can give me some good pros and cons of both , please followup or send it to me by email.
+ 
+
+-- 
+YOUR bus ALWAYS ARRIVES LATER :(
+			Marcin Klimowski 
+e-mail: cinek@galaxy.uci.agh.edu.pl
+
+
+From -6270239774340907722
+X-Google-Language: ENGLISH,ASCII
+X-Google-Thread: 10b612,7a8e62c178b2074b
+X-Google-Attributes: gid10b612,public
+X-Google-Thread: fee84,7a8e62c178b2074b
+X-Google-Attributes: gidfee84,public
+X-Google-Thread: f678f,7a8e62c178b2074b
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-01 14:44:26 PST
+Xref: gmd.de comp.unix.ultrix:9888 comp.unix.osf.misc:318 comp.unix.osf.osf1:583
+Path: gmd.de!newsserver.jvnc.net!howland.reston.ans.net!usc!cs.utexas.edu!utnut!torn!nott!bnrgate!bnr.co.uk!uknet!warwick!zaphod.crihan.fr!vishnu.jussieu.fr!argos!vibert
+From: vibert@argos.b3e.jussieu.fr (Jean-Francois Vibert)
+Newsgroups: comp.unix.ultrix,comp.unix.osf.misc,comp.unix.osf.osf1
+Subject: Re: Is there a newsgroup/e-mail for DEC's Alpha OSF machines ?
+Date: 1 Jul 93 21:43:03 GMT
+Organization: Universites Paris VI/Paris VII - France
+Lines: 23
+Distribution: world
+Message-ID: <vibert.741562983@argos>
+References: <1993Jun30.122132.26950@aplcen.apl.jhu.edu>
+NNTP-Posting-Host: argos.b3e.jussieu.fr
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Keywords: alpha,DEC,osf,OSF
+
+jbp@ddsdx2.jhuapl.edu (John Phelps) writes:
+
+
+
+I have an Alpha machine (DEC 3000/500) and I shoul be VERY interested by
+such a newsgroup.
+
+Jean-Francois VIBERT
+B3E
+Universit� Paris VI
+Paris France
+
+vibert@b3e.jussieu.fr
+
+>Does anyone have any idea what the `best' newsgroup is for discussing
+>DEC's Alpha machines running OSF/1 ? Also, could someone please respond
+>to this with an, "I got it" so I can test our newsfeed distribution ? I'm
+>beginning to suspect our outgoing feed.
+
+>Thanks
+
+>--
+>John Phelps, jbp@ddsdx2.jhuapl.edu OR jbp@raven.jhuapl.edu
+
+
+From -4586254953415806550
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,2183877c1cad7a62,start
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-01 17:36:16 PST
+Newsgroups: comp.unix.osf.misc
+Path: gmd.de!rrz.uni-koeln.de!unidui!math.fu-berlin.de!news.dfn.de!scsing.switch.ch!news.univie.ac.at!paladin.american.edu!howland.reston.ans.net!math.ohio-state.edu!magnus.acs.ohio-state.edu!csn!cherokee!da_vinci!jld
+From: Jeffrey L. DeMent <jld@advtech.uswest.com>
+Subject: DCE Question
+Message-ID: <C9Hyrw.C3K@da_vinci.it.uswc.uswest.com>
+Originator: jld@dropzone
+Sender: news@da_vinci.it.uswc.uswest.com (IT Netnews)
+Nntp-Posting-Host: dropzone
+Reply-To: Jeffrey L. DeMent <jld@advtech.uswest.com>
+Organization: U S WEST Advanced Technologies
+Distribution: usa
+Date: Thu, 1 Jul 1993 17:47:56 GMT
+Lines: 31
+
+DCE Community,
+
+Is anyone aware of work being done (besides DME -- whatever it becomes and 
+whenever it shows up) on DCE administration tools that help present a more
+unified view of multiple cells ?  Right now, via rgy_edit, cdscp, ... you
+administer each cell's CDS, security registry and any other administration
+tasks separately.  Is anyone aware of whether  OSF, any vendors and/or any
+users are working on administration applications that can help in this problem
+domain ???
+
+A second question -- I don't think a single machine can be a member of more
+than one cell (either as a client or server), is this correct ?  But I thought
+someone at one time posted that a human could physically log into multiple
+cells, for instance opening up a couple of windows on your workstation and
+dce_login`ing into two different cells -- can this be done ?
+
+Thanks.
+
+Jeff
+_____________________________________________________________________
+
+ Jeffrey L. DeMent                                  _._._._._._._
+ U S WEST Advanced Technologies                    (_|_|_|_|_|_|_)
+ 1475 Lawrence Street, Suite 400                    ` \` | | '/ '
+ Denver, Colorado  80202                             ` \`| |'/ '
+                                                      ` \| |/ '
+ Phone: (303) 595-0519                                 ` \0/ '
+ FAX:   (303) 592-6532                                  `~#~'
+                                                          ^
+ Internet: jld@advtech.uswest.com
+_____________________________________________________________________
+
+
+From -6098842029857807858
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,e852e6be505a8e7a,start
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-05 06:45:33 PST
+Newsgroups: comp.unix.osf.misc
+Path: gmd.de!newsserver.jvnc.net!howland.reston.ans.net!wupost!sdd.hp.com!apollo.hp.com!hpwin052!eric
+From: eric@cimosa.grenoble.hp.com (Eric LUTHERER)
+Subject: DCE and Oracle 7
+Sender: news@hpwin052.uksr.hp.com (News Administrator)
+Message-ID: <C9p0zp.D8x@hpwin052.uksr.hp.com>
+Date: Mon, 5 Jul 1993 13:19:01 GMT
+Reply-To: Eric_LUTHERER@grenoble.hp.com
+Nntp-Posting-Host: cimosa.grenoble.hp.com
+Organization: HEWLETT-PACKARD L'Isle d'Abeau
+X-Newsreader: TIN [version 1.1 PL9.1]
+Keywords: DCE, ORACLE 7
+Lines: 12
+
+
+We are planning to use Oracle 7 database in conjunction with the DCE product
+from OSF on HP platforms. We wonder at which level Oracle 7 and DCE can
+interoperate together, especially when using DCE multi-threading capabilities.
+
+Which kind of precautionary measures do we need to take when using Oracle 7 
+access in different threads of the same UNIX process ?
+
+Regards,
+
+--
+Eric LUTHERER
+
+
+From 7667692094794909369
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,678d635435b9a3c3,start
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-05 21:46:31 PST
+Newsgroups: comp.unix.osf.misc
+Path: gmd.de!xlink.net!howland.reston.ans.net!newsserver.jvnc.net!newsserver.technet.sg!ntuix!cttan
+From: cttan@ntuix.ntu.ac.sg (Tan Chin Thong)
+Subject: OSF membership
+Message-ID: <1993Jul6.041149.4383@ntuix.ntu.ac.sg>
+Organization: Nanyang Technological University - Singapore
+X-Newsreader: TIN [version 1.2 PL0]
+Date: Tue, 6 Jul 1993 04:11:49 GMT
+Lines: 13
+
+Hi,
+	Pardon me if this is FAQ.
+	Could someone kindly tell me the privileges of being an OSF
+	member and the procedure as well?  Any pointer is most appreciated.
+
+--
+Greetings;
+
+ o...o  Email add:    cttan@ntuix.ntu.ac.sg
+ .o.o.  Name:         Tan Chin Thong
+ ..o..  Organisation: Nanyang Technological University, Singapore
+ .o.o.  Disclaimer: Any opinion expressed here are mine and mine alone.
+ o...o  {/* Chaos != Espirit de Corps */}
+
+
+From -5960423621148345819
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,e852e6be505a8e7a
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-06 02:26:41 PST
+Path: gmd.de!dearn!frmop11.cnusc.fr!univ-lyon1.fr!scsing.switch.ch!xlink.net!
+ howland.reston.ans.net!spool.mu.edu!uunet!pipex!uknet!mcsun!Germany.EU.net!thoth.mchp.sni.de!horus.ap.mchp.sni.de!geissler
+From: norbert.geissler@ap.mchp.sni.de (Norbert Geissler)
+Newsgroups: comp.unix.osf.misc
+Subject: Re: DCE and Oracle 7
+Date: 6 Jul 1993 07:15:30 GMT
+Organization: Siemens Nixdorf Informationssysteme AG
+Lines: 24
+Distribution: world
+Message-ID: <1993Jul6.092005@ap.mchp.sni.de>
+References: <C9p0zp.D8x@hpwin052.uksr.hp.com>
+Reply-To: norbert.geissler@ap.mchp.sni.de (Norbert Geissler)
+NNTP-Posting-Host: angelika.ap.mchp.sni.de
+Keywords: DCE, ORACLE 7
+
+In article <C9p0zp.D8x@hpwin052.uksr.hp.com>, eric@cimosa.grenoble.hp.com (Eric LUTHERER) writes:
+>
+> We are planning to use Oracle 7 database in conjunction with the DCE product
+> from OSF on HP platforms. We wonder at which level Oracle 7 and DCE can
+> interoperate together, especially when using DCE multi-threading capabilities.
+>
+> Which kind of precautionary measures do we need to take when using Oracle 7
+> access in different threads of the same UNIX process ?
+>
+That depends on the implementation of the DCE-port on HP platforms. There may
+be problems because if you have a connection with pipes out of threads to
+ORACLE this may not work !
+DCE-Pipe I/O is normally implemented NON-BLOCKING. If you don't have a
+ORACLE engine prepared for DCE, you'll get an error message because ORACLE
+relies on BLOCKING pipe-I/O.
+
+So my advice is:  Try a prototype somewhere first, because it may not work !!
+
+Norbert
+--
+Norbert Geissler, SNI BU BA BP 23, Otto-Hahn-Ring 6, D-81730 Muenchen, Germany
+EMAIL: norbert.geissler@ap.mchp.sni.de     VOICE: +49 (89) 636-48132
+...for chess, that superb, cold, infinitely satisfying anodyne to life, I feel
+the ardour of a lover, the humility of a disciple.  (Herbert Russel Wakefield)
+
+
+From 3386686722866415576
+X-Google-Language: ENGLISH,ASCII-7-bit
+X-Google-Thread: f678f,b611b5b2e5b80bba,start
+X-Google-Attributes: gidf678f,public
+X-Google-ArrivalTime: 1993-07-06 12:15:37 PST
+Path: gmd.de!xlink.net!howland.reston.ans.net!usc!sdd.hp.com!decwrl!decwrl!hal.com!darkstar.UCSC.EDU!fir!scooper
+From: scooper@fir.ucsc.edu (Scott Cooper)
+Newsgroups: comp.unix.osf.misc
+Subject: DCE Platforms
+Date: 6 Jul 1993 19:07:41 GMT
+Organization: UC Santa Cruz CIS/CE
+Lines: 7
+Sender: scooper@fir (Scott Cooper)
+Distribution: world
+Message-ID: <21cihtINNge6@darkstar.UCSC.EDU>
+NNTP-Posting-Host: fir.ucsc.edu
+
+I am writing a technical note on DCE, and was wondering
+what platforms DCE now exists for, besides ULTRIX.
+
+thanks.
+---
+Scott Cooper				scooper@cse.ucsc.edu
+
+
+
