@@ -222,6 +222,44 @@ deleted; only 2026-September, which marc.info lacks, comes from Gmane.
 The full Gmane fetch is reproducible from the script if the trade-off is
 ever revisited.
 
+## gentoo-alpha (Gentoo Alpha port mailing list)
+
+`gentoo-alpha@lists.gentoo.org`, still open but nearly silent since 2015.
+
+### 2002-December – 2003-March (4 months, 77 messages)
+**Source:** marc.info, list `gentoo-alpha`
+**Script:** `fetch-marc-list.py gentoo-alpha gentoo-alpha-mbox 200212 200303`
+**Output:** `gentoo-alpha-mbox/YYYY-Month.mbox`
+**Quality:** Reconstructed — no Message-ID, no In-Reply-To, obfuscated
+addresses. These four months predate both Message-ID-bearing sources, so
+nothing better covers them.
+
+### 2003-September – 2024-April (67 months, 654 messages)
+**Source:** archives.gentoo.org, which runs public-inbox; mirrored from the
+git archive at `http://public-inbox.gentoo.org/gentoo-alpha`
+**Script:** `fetch-public-inbox.py http://public-inbox.gentoo.org/gentoo-alpha gentoo-alpha-mbox`
+**Output:** `gentoo-alpha-mbox/YYYY-Month.mbox`
+**Quality:** Best available — complete original messages, including
+`Received:` chains and unobfuscated addresses; every message has a
+Message-ID. The inbox has a single epoch (0) of 654 commits.
+
+### 2003-April – 2024-April (81 months, 908 messages)
+**Source:** Gmane (news.gmane.io), group `gmane.linux.gentoo.alpha`
+**Script:** `fetch-gmane-nntp.py gmane.linux.gentoo.alpha gentoo-alpha-mbox`
+**Output:** `gentoo-alpha-mbox/gmane-YYYY-Month.mbox`
+**Quality:** Good — full headers. Kept alongside the public-inbox copy
+because it reaches back to 2003-04, five months further than public-inbox,
+and the two deduplicate cleanly by Message-ID.
+
+Deduplicated by Message-ID the public-inbox and Gmane copies overlap into
+929 distinct messages for 2003-April – 2024-April; with the four marc.info
+months the list totals 1,006 distinct messages over 85 months. marc.info
+carries 966 for the same span, so it is 40 short overall, but it is still
+1-3 messages ahead in four individual months (2003-04, 2005-06, 2005-07,
+2008-01, six messages in total). Those six were left unfilled rather than
+adding header-stripped marc.info copies that public-inbox cannot
+deduplicate against — the same rule applied to port-alpha and openbsd-alpha.
+
 ## Sources investigated, not used
 
 ### marc.info — axp-redhat list
@@ -376,6 +414,9 @@ so comp.* groups come from `usenet-comp` and the biz.digital.* groups from
 | 1996-Jan – 2002-Feb | port-alpha (NetBSD) | mail-index.netbsd.org | Reconstructed |
 | 2002-Jan – 2026-Aug | port-alpha (NetBSD) | Gmane NNTP | Good (full headers) |
 | 2001-Sep – 2026-Feb | openbsd-alpha | marc.info | Reconstructed |
+| 2002-Dec – 2003-Mar | gentoo-alpha | marc.info | Reconstructed |
+| 2003-Sep – 2024-Apr | gentoo-alpha | archives.gentoo.org (public-inbox) | Best (complete messages) |
+| 2003-Apr – 2024-Apr | gentoo-alpha | Gmane NNTP | Good (full headers) |
 | 1995-Sep – 1996-Jul | alphant | Wayback (Hypermail) | Good (bogus dup IDs fixed) |
 | 1998-Oct – 2000-Apr | alphant | Wayback (MHonArc) | Good (fragmentary) |
 | 1997-Aug – 2013-May | comp.os.linux.alpha | archive.org usenet-comp | Good |
