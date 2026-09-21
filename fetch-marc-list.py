@@ -13,6 +13,7 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.request
 
 BASE = "https://marc.info/"
@@ -33,7 +34,9 @@ def get(url, delay=1.5):
             time.sleep(delay)
             return data.decode("utf-8", errors="replace")
         except Exception as e:
-            if attempt == 4:
+            # 410 is marc.info's answer for a message it has withdrawn;
+            # retrying will not bring it back.
+            if attempt == 4 or getattr(e, "code", None) == 410:
                 raise
             wait = 5 * (2 ** attempt)
             print(f"    retry after {wait}s ({e})")
@@ -112,6 +115,12 @@ def main():
     # Threads are expanded per month, so a thread spanning a month boundary
     # would otherwise yield the same message twice.
     seen = set()
+    # Seed it from months already on disk, or a resumed run re-emits every
+    # message that an earlier month's thread expansion already wrote.
+    for name in os.listdir(OUT_DIR):
+        if name.endswith(".mbox"):
+            with open(os.path.join(OUT_DIR, name), encoding="utf-8", errors="replace") as f:
+                seen.update(re.findall(r"^X-MARC-Message: .*&m=(\d+)$", f.read(), re.M))
 
     for ym in months(first_ym, last_ym):
         stem = ym_to_stem(ym)
@@ -130,7 +139,13 @@ def main():
             for i, msg_id in enumerate(ids, 1):
                 if i % 50 == 0:
                     print(f"  {i}/{len(ids)}...")
-                msg = get_message_mbox(msg_id)
+                try:
+                    msg = get_message_mbox(msg_id)
+                except urllib.error.HTTPError as e:
+                    if e.code != 410:
+                        raise
+                    print(f"  skip {msg_id} (410 Gone)")
+                    continue
                 f.write(msg)
                 if not msg.endswith("\n\n"):
                     f.write("\n")

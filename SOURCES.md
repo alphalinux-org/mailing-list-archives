@@ -405,7 +405,7 @@ of 1999 ("On March 16, 1999, the alpha-osf-managers list was renamed to
 tru64-unix-managers ... I set up a \"dummy\" list that would tell people about
 the change").
 
-### 1994-April – 2002-April (marc.info)
+### 1994-April – 2002-April (marc.info, 91 months, 46,634 messages)
 **Source:** marc.info list `tru64-unix-managers` (marc holds the whole list
 under its post-rename name, back to 1994-04)
 **Script:** `fetch-marc-list.py tru64-unix-managers tru64-unix-managers-mbox 199404 200204`
@@ -419,6 +419,20 @@ deduplicate them against the Gmane messages.  marc is therefore fetched only
 for the months Gmane does not cover, even though marc's own index shows more
 messages than Gmane for the overlapping years (56,347 total across
 1994-04 – 2012-09 versus Gmane's 9,450).
+**Withdrawn messages:** marc answers `410 Gone` for four messages it lists
+(IDs 96321466914624 in 2000-07; 96708997214176 and 96711359015486 in
+2000-08; 98338378222938 in 2001-02). They are not recoverable from marc and
+were skipped.
+**Month buckets are marc's, not the Date header's.** The script expands
+threads, and a message lands in the first month whose thread listing
+reaches it. marc threads the list's monthly "Administrivia:
+Tru64-UNIX-Managers information and policy statement" posting from 1999-03
+through 2011 as one thread, so every copy was pulled into
+`1999-March.mbox`. The 155 copies dated 2002-05 or later (and 12 other
+late-dated messages pulled in the same way) were removed, because Gmane
+holds each of them with the same subject and timestamp and marc copies
+cannot be deduplicated. The pre-2002-05 copies stay in `1999-March.mbox`;
+public-inbox orders by Date, not by file.
 
 ### 2002-May – 2012-September (Gmane, 120 months, 9,450 messages)
 **Source:** Gmane (news.gmane.io), group `gmane.os.tru64.managers`
